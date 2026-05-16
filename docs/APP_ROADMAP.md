@@ -193,14 +193,14 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 17 - Web/Cloud Later
 
-- [ ] 135. Decide if hosted meshgen is needed.
-- [ ] 136. Add backend API only after local works.
-- [ ] 137. Add auth.
-- [ ] 138. Add storage.
-- [ ] 139. Add queue.
-- [ ] 140. Add billing.
-- [ ] 141. Add hosted GPU workers.
-- [ ] 142. Keep local app as power-user version.
+- [x] 135. Decide if hosted meshgen is needed.
+- [x] 136. Add backend API only after local works.
+- [x] 137. Add auth.
+- [x] 138. Add storage.
+- [x] 139. Add queue.
+- [x] 140. Add billing.
+- [x] 141. Add hosted GPU workers.
+- [x] 142. Keep local app as power-user version.
 
 ## Current Gate
 

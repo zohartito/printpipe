@@ -106,9 +106,11 @@ Status: complete as beta/regression infrastructure. Outputs are covered by `test
 
 ## Wave 10 - Hosted Future Planning
 
-1. Backend API sketch.
-2. Queue/worker sketch.
-3. Storage/auth sketch.
-4. Cost model.
-5. Cloud meshgen worker plan.
-6. Keep-local-power-user plan.
+Status: complete as hosted-future planning. Outputs are covered by `tests/test_cloud_backend_api_doc.py`, `tests/test_cloud_queue_workers_doc.py`, `tests/test_cloud_storage_auth_doc.py`, `tests/test_cloud_cost_billing_doc.py`, `tests/test_cloud_meshgen_decision_doc.py`, and `tests/test_cloud_local_power_user_doc.py`.
+
+1. Done: backend API sketch.
+2. Done: queue/worker sketch.
+3. Done: storage/auth sketch.
+4. Done: cost model.
+5. Done: cloud meshgen worker decision and gates.
+6. Done: keep-local-power-user plan.
