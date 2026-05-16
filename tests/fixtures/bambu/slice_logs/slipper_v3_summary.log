@@ -1,0 +1,13 @@
+EXPECT: slipper_v3_success
+SOURCE: /Users/zohartito/Desktop/slipper_3d/output/v3_cli_slice/slice_estimate.json
+SOURCE: /Users/zohartito/Desktop/slipper_3d/output/v3_cli_slice/result.json
+Bambu Studio CLI: 02.06.00.51
+return_code: 0
+error_string: Success.
+warning_message: ""
+; estimated printing time (normal mode) = 21h 30m 16s
+; model printing time = 21h 29m 56s
+; total filament weight [g] = 195.73
+; filament cost = 3.91
+; total layer number = 425
+GUI cross-check: 21h37 total / 195.6 g

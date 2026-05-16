@@ -32,11 +32,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 16. Inventory current slipper scripts.
 - [x] 17. Identify reusable parts.
 - [x] 18. Identify slipper-specific hardcoded assumptions.
-- [ ] 19. Move reusable mesh repair into app repo.
-- [ ] 20. Move Bambu `.3mf` bundling logic into app repo.
-- [ ] 21. Move settings-delta logic into app repo.
-- [ ] 22. Move slice-estimate parsing into app repo.
-- [ ] 23. Archive slipper-specific code as example pipeline.
+- [~] 19. Move reusable mesh repair into app repo.
+- [x] 20. Move Bambu `.3mf` bundling logic into app repo.
+- [x] 21. Move settings-delta logic into app repo.
+- [x] 22. Move slice-estimate parsing into app repo.
+- [x] 23. Archive slipper-specific code as example pipeline.
 
 ## Phase 3 - Run Folder and Receipts System
 
@@ -44,9 +44,9 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 25. Store original input.
 - [ ] 26. Store cleaned frames.
 - [x] 27. Store generated mesh.
-- [ ] 28. Store repaired mesh.
+- [~] 28. Store repaired mesh.
 - [ ] 29. Store oriented mesh.
-- [~] 30. Store profile JSONs.
+- [x] 30. Store profile JSONs.
 - [x] 31. Store `.3mf`.
 - [ ] 32. Store slice logs.
 - [~] 33. Store screenshots/previews.
@@ -80,8 +80,8 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 52. Detect non-manifold edges.
 - [x] 53. Detect boundary edges.
 - [~] 54. Detect inverted normals.
-- [ ] 55. Repair with local pipeline.
-- [ ] 56. Validate watertightness after repair.
+- [~] 55. Repair with local pipeline.
+- [~] 56. Validate watertightness after repair.
 - [x] 57. Export repair stats JSON.
 - [x] 58. Fail clearly if repair cannot pass.
 
@@ -109,7 +109,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 ## Phase 9 - Printer and Filament Engine
 
 - [x] 74. Load Bambu printer profiles.
-- [ ] 75. Load Bambu/Orca filament defaults.
+- [~] 75. Load Bambu/Orca filament defaults.
 - [ ] 76. Define material families: PLA, PETG, TPU, ABS/ASA, PC, PA.
 - [ ] 77. Create filament override rules.
 - [ ] 78. Create process override rules.
@@ -135,7 +135,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 92. Extract time, mass, layers, cost.
 - [x] 93. Fail or retry if non-manifold, off-bed, enum replacement, or floating cantilever.
 - [x] 94. Save gcode/slice logs.
-- [~] 95. Generate final slice report.
+- [x] 95. Generate final slice report.
 
 ## Phase 12 - Verification UX
 
@@ -149,12 +149,12 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 13 - Test Objects
 
-- [ ] 103. Slipper proof of concept.
+- [~] 103. Slipper proof of concept.
 - [ ] 104. Simple figurine.
 - [ ] 105. Cup/vase object.
 - [ ] 106. Flat bracket/wrench-like object.
 - [ ] 107. Decorative organic object.
-- [ ] 108. Existing STL import test.
+- [~] 108. Existing STL import test.
 - [ ] 109. TPU test.
 - [ ] 110. PLA test.
 - [ ] 111. PETG test.

@@ -1,0 +1,12 @@
+{
+  "name": "0.20mm Slipper TPU 90A @BBL P2S",
+  "type": "process",
+  "from": "User",
+  "version": "2.4.0.8",
+  "inherits": "0.20mm Standard @BBL P2S",
+  "layer_height": ["0.20"],
+  "support_style": ["snug"],
+  "support_type": ["normal(auto)"],
+  "brim_type": ["outer_only"],
+  "wall_loops": ["3"]
+}

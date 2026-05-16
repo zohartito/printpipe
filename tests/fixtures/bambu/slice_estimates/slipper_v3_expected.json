@@ -1,0 +1,29 @@
+{
+  "source_artifacts": [
+    "/Users/zohartito/Desktop/slipper_3d/output/v3_cli_slice/slice_estimate.json",
+    "/Users/zohartito/Desktop/slipper_3d/output/v3_cli_slice/result.json",
+    "/Users/zohartito/Desktop/slipper_3d/output/v3_cli_slice/slice_cli.log",
+    "/Users/zohartito/Desktop/slipper_3d/output/SLICE_ESTIMATE.md",
+    "/Users/zohartito/Desktop/slipper_3d/docs/real_world_results.md"
+  ],
+  "expected": {
+    "return_code": 0,
+    "success": true,
+    "time_seconds": 77416,
+    "time_hms": "21:30:16",
+    "model_printing_time": "21h 29m 56s",
+    "filament_g": 195.73,
+    "filament_cost_usd_at_20_per_kg": 3.91,
+    "layer_count": 425,
+    "warnings": [],
+    "errors": []
+  },
+  "gui_cross_check": {
+    "time": "21h37",
+    "filament_g": 195.6
+  },
+  "tolerances": {
+    "gui_time_delta_seconds": 600,
+    "gui_filament_g_delta": 0.5
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "Bambu Lab P2S 0.4 nozzle",
+  "type": "machine",
+  "from": "system",
+  "version": "2.4.0.8",
+  "printer_model": "C12",
+  "printer_variant": "0.4",
+  "nozzle_diameter": ["0.4"],
+  "printable_height": "256"
+}

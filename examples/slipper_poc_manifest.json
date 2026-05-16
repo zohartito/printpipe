@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "name": "slipper_poc_external_artifacts",
+  "external_repo": "/Users/zohartito/Desktop/slipper_3d",
+  "generated_on": "2026-05-16",
+  "selection_policy": "Reference the slipper proof-of-concept artifacts in place so PrintPipe can test and compare against them without copying large mesh, 3MF, GLB, or G-code files into this repo.",
+  "artifacts": [
+    {
+      "id": "source_mesh_v2c_multiview",
+      "kind": "mesh_source_glb",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/slipper_shape_v2c_multiview.glb",
+      "required": true,
+      "size_bytes": 2226744,
+      "sha256": "4fe4493831a0dbe1b3d60a13b25481fcda2701f4f6e175f97451fe30af80f34d",
+      "purpose": "Recommended Hunyuan3D multi-view source mesh that preserved the wavy sole detail better than higher-octree single-image variants."
+    },
+    {
+      "id": "source_mesh_repair_stats",
+      "kind": "repair_receipt_json",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/slipper_shape_v2c_repair_stats.json",
+      "required": true,
+      "size_bytes": 380,
+      "sha256": "6ee4c2b8e8aa8bdc2b7b6656e260409b2c176e14879752e02963c8c3d040782f",
+      "purpose": "Topology receipt showing the V2c source mesh repair from non-watertight with one non-manifold edge to watertight."
+    },
+    {
+      "id": "printable_textured_mesh",
+      "kind": "mesh_final_stl",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_repaired_textured.stl",
+      "required": true,
+      "size_bytes": 6070084,
+      "sha256": "37196e39fb03ab93abb6a7fa0ca0bd470dab018457f3dd250d7b7ea6301a0e8f",
+      "purpose": "Current printable size-11 slipper mesh after repair, scaling, sole displacement, second repair, and bed drop."
+    },
+    {
+      "id": "printable_textured_repair_stats",
+      "kind": "repair_receipt_json",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_repaired_textured_repair_stats.json",
+      "required": true,
+      "size_bytes": 390,
+      "sha256": "4e19c38fe819a045568ea210a5e77356fea8df84f6cc3d33ade38889523451bd",
+      "purpose": "Final topology receipt proving the displaced textured STL returned to watertight output with zero boundary and non-manifold edges."
+    },
+    {
+      "id": "gui_bambu_project_v3",
+      "kind": "bambu_project_3mf",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/Slipper_TPU90A_P2S_v3.3mf",
+      "required": true,
+      "size_bytes": 1846331,
+      "sha256": "b9a4a84001ac2f7e751522eafab075135f8054e16c19b96e16070ed5761ad17e",
+      "purpose": "Final GUI-facing Bambu-native project bundle with repaired mesh, bed-center transform, printer profile, filament profile, and process profile."
+    },
+    {
+      "id": "cli_bambu_project_v3",
+      "kind": "bambu_project_3mf",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/Slipper_TPU90A_P2S_v3_cli.3mf",
+      "required": true,
+      "size_bytes": 1846330,
+      "sha256": "98cb230423fcc0d45fcb74f103a6d3b02fd4297b5083b63ec1421119cbc0bd63",
+      "purpose": "CLI-only twin of the final Bambu-native bundle used for repeatable slice estimates without mutating the GUI artifact."
+    },
+    {
+      "id": "slice_result_v3",
+      "kind": "bambu_slice_result_json",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/v3_cli_slice/result.json",
+      "required": true,
+      "size_bytes": 2479,
+      "sha256": "e957d76cab10753af416625e1fca42edd7efb6c46da3db4cb74ff61acf38cf67",
+      "purpose": "Bambu Studio CLI result proving return_code zero, empty user-facing warning message, and 121400 sliced triangles."
+    },
+    {
+      "id": "slice_estimate_v3_json",
+      "kind": "slice_estimate_json",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/v3_cli_slice/slice_estimate.json",
+      "required": true,
+      "size_bytes": 5392,
+      "sha256": "0f6e1f2b4ed03405e8153542d2b553b760f8ae694f58b05974714989340f3164",
+      "purpose": "Parsed G-code estimate receipt with print time, filament mass, layer count, cost, and layer timing data."
+    },
+    {
+      "id": "slice_estimate_v3_markdown",
+      "kind": "slice_estimate_md",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/SLICE_ESTIMATE.md",
+      "required": true,
+      "size_bytes": 2103,
+      "sha256": "7e700f1d49104f4f6ffb8689d6c8b27a405ae6b815e2b0d63692eb71ebcf43f8",
+      "purpose": "Human-readable v3 slice estimate summary for the final TPU slipper bundle and CLI slicing recipe."
+    },
+    {
+      "id": "filament_profile_tpu90a",
+      "kind": "bambu_filament_profile_json",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/SUNLU TPU 90A Slipper @BBL P2S.json",
+      "required": true,
+      "size_bytes": 1457,
+      "sha256": "2c4a3ccc207a27b9c770702c7b143caf5e199e01fc9bdc98c6e8c5fb06b249f9",
+      "purpose": "Custom SUNLU TPU 90A filament profile embedded into the Bambu-native slipper project bundle."
+    },
+    {
+      "id": "process_profile_tpu_slipper",
+      "kind": "bambu_process_profile_json",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/0.20mm Slipper TPU 90A @BBL P2S.json",
+      "required": true,
+      "size_bytes": 3509,
+      "sha256": "0467bda153d12393c8a8b51ef6a2a64191ea991d34099843b77759074f75b21a",
+      "purpose": "Custom slipper TPU process profile with the v3 support, seam, brim, shell, and pressure advance fixes."
+    },
+    {
+      "id": "flex_coupon_project",
+      "kind": "bambu_project_3mf",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/Flex_Coupon_TPU90A_P2S.3mf",
+      "required": true,
+      "size_bytes": 10514,
+      "sha256": "757c302c62ac8d0e90c15d9c588e5da9fe9b4b7011493f1b0e2340a50c4c064f",
+      "purpose": "Small TPU coupon project intended as the physical smoke test before committing to the long slipper print."
+    },
+    {
+      "id": "v2_mesh_comparison_doc",
+      "kind": "research_markdown",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/V2_COMPARISON.md",
+      "required": true,
+      "size_bytes": 4364,
+      "sha256": "5ffac1a321b5bc3033d5410cc59c5959966f1405254f7f8ae21198dfcf325ee4",
+      "purpose": "Comparison note explaining why the multi-view V2c mesh replaced the single-image and high-octree candidates."
+    },
+    {
+      "id": "real_world_results_doc",
+      "kind": "research_markdown",
+      "path": "/Users/zohartito/Desktop/slipper_3d/docs/real_world_results.md",
+      "required": true,
+      "size_bytes": 18403,
+      "sha256": "f7326cbef4dfc80d5a1178568b2cb56b5271e6379070c33d55d0445a032b5d04",
+      "purpose": "Real-world session log capturing what worked in Bambu Studio, what failed, and what physical gates remain."
+    },
+    {
+      "id": "slice_gcode_v3",
+      "kind": "bambu_gcode",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/v3_cli_slice/plate_1.gcode",
+      "required": false,
+      "size_bytes": 33646040,
+      "sha256": "ef8f5336d52f1d9759c7d105a3c2eeaea3fa873909ad43c633b4c395213e2af7",
+      "purpose": "Large generated G-code from the v3 CLI slice, referenced externally as evidence but not required for PrintPipe unit tests."
+    }
+  ]
+}

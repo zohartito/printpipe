@@ -1,0 +1,12 @@
+{
+  "name": "SUNLU TPU 90A Slipper @BBL P2S",
+  "type": "filament",
+  "from": "User",
+  "version": "2.4.0.8",
+  "inherits": "Bambu TPU 90A @BBL P2S",
+  "filament_settings_id": ["SUNLU TPU 90A Slipper @BBL P2S"],
+  "compatible_printers": ["Bambu Lab P2S 0.4 nozzle"],
+  "filament_type": ["TPU"],
+  "filament_vendor": ["SUNLU"],
+  "nozzle_temperature": ["225"]
+}

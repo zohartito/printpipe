@@ -40,12 +40,14 @@ Status: complete. Outputs are covered by module tests in `tests/test_bambu_slice
 
 ## Wave 4 - Slipper POC Migration
 
-1. Import slipper input fixtures.
-2. Port current mesh repair stats.
-3. Port current Bambu profiles.
-4. Port current 3MF generation.
-5. Port current slice estimate parser.
-6. Compare output against known slipper artifacts.
+Status: complete. Outputs are covered by module tests in `tests/test_mesh_repair.py`, `tests/test_bambu_profile_sources.py`, `tests/test_bambu_threemf_mesh_adapter.py`, `tests/test_bambu_slicer_slipper_fixture.py`, `tests/test_pipeline_existing_mesh.py`, and `tests/test_slipper_manifest.py`.
+
+1. Done: optional real mesh repair API skeleton, with live tests skipped when `trimesh` is absent.
+2. Done: Bambu profile source discovery and copy helpers.
+3. Done: ASCII STL to Bambu-native 3MF adapter utilities.
+4. Done: compact slipper v3 slice estimate fixture and parser coverage.
+5. Done: existing-mesh pipeline orchestrator skeleton.
+6. Done: slipper POC manifest and migration comparison doc without copying large artifacts.
 
 ## Wave 5 - Generic Object Expansion
 

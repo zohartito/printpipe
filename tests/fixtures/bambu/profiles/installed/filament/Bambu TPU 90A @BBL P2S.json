@@ -1,0 +1,11 @@
+{
+  "name": "Bambu TPU 90A @BBL P2S",
+  "type": "filament",
+  "from": "system",
+  "version": "2.4.0.8",
+  "inherits": "Bambu TPU 90A @base",
+  "filament_settings_id": ["Bambu TPU 90A @BBL P2S"],
+  "compatible_printers": ["Bambu Lab P2S 0.4 nozzle"],
+  "filament_type": ["TPU"],
+  "filament_vendor": ["Bambu Lab"]
+}
