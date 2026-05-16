@@ -62,12 +62,14 @@ Status: complete. Outputs are covered by `tests/test_object_fixture_*.py`, `test
 
 ## Wave 6 - Filament Coverage
 
-1. PLA rules.
-2. PETG rules.
-3. TPU rules.
-4. ABS/ASA rules.
-5. PC/PA rules.
-6. Settings reason catalog.
+Status: complete as a software foundation. Outputs are covered by `tests/test_materials_core.py`, `tests/test_materials_pla.py`, `tests/test_materials_petg.py`, `tests/test_materials_tpu.py`, `tests/test_materials_abs_asa.py`, and `tests/test_materials_pc_pa.py`.
+
+1. Done: PLA and PLA+ foundation rules.
+2. Done: PETG foundation rules.
+3. Done: TPU 90A, TPU 95A, and SUNLU TPU 90A slipper-derived rules.
+4. Done: ABS/ASA foundation rules.
+5. Done: PC/PA/PA-CF foundation rules.
+6. Done: shared settings reason catalog and material delta helpers.
 
 ## Wave 7 - Local UX
 

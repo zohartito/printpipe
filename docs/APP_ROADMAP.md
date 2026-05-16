@@ -110,9 +110,9 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 - [x] 74. Load Bambu printer profiles.
 - [~] 75. Load Bambu/Orca filament defaults.
-- [ ] 76. Define material families: PLA, PETG, TPU, ABS/ASA, PC, PA.
-- [ ] 77. Create filament override rules.
-- [ ] 78. Create process override rules.
+- [x] 76. Define material families: PLA, PETG, TPU, ABS/ASA, PC, PA.
+- [x] 77. Create filament override rules.
+- [x] 78. Create process override rules.
 - [x] 79. Validate enum values against Bambu schema/source.
 - [x] 80. Generate settings delta report.
 - [x] 81. Attach reason to every changed setting.
@@ -155,9 +155,9 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 106. Flat bracket/wrench-like object.
 - [x] 107. Decorative organic object.
 - [x] 108. Existing STL import test.
-- [ ] 109. TPU test.
-- [ ] 110. PLA test.
-- [ ] 111. PETG test.
+- [~] 109. TPU test.
+- [~] 110. PLA test.
+- [~] 111. PETG test.
 - [x] 112. Compare all outcomes.
 
 ## Phase 14 - Local UI
