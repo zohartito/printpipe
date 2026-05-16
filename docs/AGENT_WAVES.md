@@ -73,12 +73,14 @@ Status: complete as a software foundation. Outputs are covered by `tests/test_ma
 
 ## Wave 7 - Local UX
 
-1. Local HTML report polish.
-2. Local web UI shell.
-3. Drag/drop input.
-4. Printer/filament selectors.
-5. Progress states.
-6. Open/download artifacts.
+Status: complete as a local UX foundation. Outputs are covered by `tests/test_reports_html.py`, `tests/test_cli_serve.py`, `tests/test_web_server.py`, `tests/test_web_options.py`, `tests/test_web_status.py`, and `tests/test_web_artifacts.py`.
+
+1. Done: local HTML report polish.
+2. Done: stdlib local web UI shell.
+3. Done as UI foundation: file input/drop-zone surface.
+4. Done as UI foundation: printer and filament selectors.
+5. Done as snapshot model: progress states from manifest/report files.
+6. Done as foundation: safe report/artifact links and download route.
 
 ## Wave 8 - Packaging
 

@@ -162,14 +162,14 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 14 - Local UI
 
-- [ ] 113. Build local web UI.
-- [ ] 114. Drag/drop input.
-- [ ] 115. Select Bambu printer.
-- [ ] 116. Select filament.
-- [ ] 117. Enter target size.
-- [ ] 118. Show pipeline progress.
-- [ ] 119. Show previews.
-- [ ] 120. Download/open `.3mf`.
+- [~] 113. Build local web UI.
+- [~] 114. Drag/drop input.
+- [~] 115. Select Bambu printer.
+- [~] 116. Select filament.
+- [~] 117. Enter target size.
+- [~] 118. Show pipeline progress.
+- [~] 119. Show previews.
+- [~] 120. Download/open `.3mf`.
 
 ## Phase 15 - Packaging
 

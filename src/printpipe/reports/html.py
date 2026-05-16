@@ -43,20 +43,15 @@ def render_html_report(
             "      <p>PrintPipe run report</p>",
             f"      <h1>{run_id}</h1>",
             "    </header>",
+            _render_input_section(stages, artifacts, layout=layout),
+            _render_mesh_repair_section(stages, artifacts, layout=layout),
+            _render_bed_fit_section(stages, artifacts, layout=layout),
+            _render_slice_summary(stages, artifacts, layout=layout),
+            _render_warnings_section(warnings),
+            _render_settings_changes_section(settings_changes),
+            _render_pre_print_checklist_section(pre_print_checklist),
             _render_stages(stages, layout=layout),
             _render_artifacts(artifacts, layout=layout),
-            _render_slice_summary(stages),
-            _render_list_section("Warnings", warnings, empty="No warnings recorded."),
-            _render_list_section(
-                "Settings Changes",
-                settings_changes,
-                empty="No settings changes recorded.",
-            ),
-            _render_list_section(
-                "Pre-print Checklist",
-                pre_print_checklist,
-                empty="Pre-print checklist pending final slice gate integration.",
-            ),
             "  </main>",
             "</body>",
             "</html>",
@@ -76,6 +71,90 @@ def write_html_report(layout: RunLayout, report_dict: Mapping[str, Any]) -> Arti
         path=report_path,
         label="Run report HTML",
     )
+
+
+def _render_input_section(
+    stages: list[Any],
+    artifacts: list[Any],
+    *,
+    layout: RunLayout | None,
+) -> str:
+    input_artifacts = _artifacts_with_kinds(
+        artifacts,
+        {"original_input", "cleaned_frame"},
+    )
+    input_stages = _stages_matching(stages, ("input", "frame"))
+    body = "\n".join(
+        [
+            _render_artifact_cards(
+                input_artifacts,
+                layout=layout,
+                empty="No input artifact recorded yet.",
+            ),
+            _render_stage_cards(input_stages),
+        ]
+    )
+    return _section("Input", body, classes=("section-input",))
+
+
+def _render_mesh_repair_section(
+    stages: list[Any],
+    artifacts: list[Any],
+    *,
+    layout: RunLayout | None,
+) -> str:
+    mesh_artifacts = _artifacts_with_kinds(
+        artifacts,
+        {"generated_mesh", "repaired_mesh", "oriented_mesh"},
+    )
+    mesh_stages = _stages_matching(stages, ("mesh", "repair"))
+    body = "\n".join(
+        [
+            _render_artifact_cards(
+                mesh_artifacts,
+                layout=layout,
+                empty="No mesh artifacts recorded yet.",
+            ),
+            _render_stage_cards(mesh_stages),
+        ]
+    )
+    return _section("Mesh and Repair", body, classes=("section-mesh-repair",))
+
+
+def _render_bed_fit_section(
+    stages: list[Any],
+    artifacts: list[Any],
+    *,
+    layout: RunLayout | None,
+) -> str:
+    bed_stages = _stages_matching(stages, ("bed", "orient", "geometry", "min_margin"))
+    bed_artifacts = _unique_artifacts(
+        [
+            *[
+                artifact
+                for artifact in artifacts
+                if _artifact_kind(artifact) == "preview"
+                and _artifact_mentions(artifact, ("bed", "fit"))
+            ],
+            *[
+                artifact
+                for stage in bed_stages
+                for artifact in _as_list(stage.get("artifacts"))
+                if isinstance(stage, Mapping)
+            ],
+        ]
+    )
+    body = "\n".join(
+        [
+            _render_artifact_cards(
+                bed_artifacts,
+                layout=layout,
+                empty="No bed-fit preview recorded yet.",
+            ),
+            _render_stage_cards(bed_stages),
+        ]
+    )
+    return _section("Bed Fit", body, classes=("section-bed-fit",))
 
 
 def _render_stages(stages: list[Any], *, layout: RunLayout | None) -> str:
@@ -130,7 +209,12 @@ def _render_artifacts(artifacts: list[Any], *, layout: RunLayout | None) -> str:
     return _section("Artifacts", _render_artifact_links(artifacts, layout=layout))
 
 
-def _render_slice_summary(stages: list[Any]) -> str:
+def _render_slice_summary(
+    stages: list[Any],
+    artifacts: list[Any],
+    *,
+    layout: RunLayout | None,
+) -> str:
     slice_stages = [
         stage
         for stage in stages
@@ -139,14 +223,23 @@ def _render_slice_summary(stages: list[Any]) -> str:
     if not slice_stages:
         return _section(
             "Slice Summary",
-            "<p>Slice summary pending final slice gate integration.</p>",
+            '<p class="empty-note">Slice summary pending final slice gate integration.</p>',
+            classes=("section-slice-summary",),
         )
 
-    items = [
-        f"      <li>{_render_value(stage.get('metrics', {}))}</li>"
-        for stage in slice_stages
-    ]
-    return _section("Slice Summary", "<ul>\n" + "\n".join(items) + "\n    </ul>")
+    slice_artifacts = _artifacts_with_kinds(artifacts, {"3mf", "slice_log"})
+    body = "\n".join(
+        [
+            _render_slice_metrics(slice_stages),
+            _render_stage_cards(slice_stages),
+            _render_artifact_cards(
+                slice_artifacts,
+                layout=layout,
+                empty="No slice artifacts recorded yet.",
+            ),
+        ]
+    )
+    return _section("Slice Summary", body, classes=("section-slice-summary",))
 
 
 def _render_list_section(title: str, values: list[Any], *, empty: str) -> str:
@@ -154,6 +247,151 @@ def _render_list_section(title: str, values: list[Any], *, empty: str) -> str:
         return _section(title, f"<p>{_as_text(empty)}</p>")
     items = [f"      <li>{_render_value(value)}</li>" for value in values]
     return _section(title, "<ul>\n" + "\n".join(items) + "\n    </ul>")
+
+
+def _render_warnings_section(warnings: list[Any]) -> str:
+    if not warnings:
+        return _section(
+            "Warnings",
+            '<p class="empty-note">No warnings recorded.</p>',
+            classes=("section-warnings",),
+        )
+    items = [f"      <li class=\"warning-item\">{_render_value(warning)}</li>" for warning in warnings]
+    return _section(
+        "Warnings",
+        '<ul class="warning-list">\n' + "\n".join(items) + "\n    </ul>",
+        classes=("section-warnings",),
+    )
+
+
+def _render_settings_changes_section(settings_changes: list[Any]) -> str:
+    if not settings_changes:
+        return _section(
+            "Settings Changes",
+            '<p class="empty-note">No settings changes recorded.</p>',
+            classes=("section-settings-changes",),
+        )
+
+    items = [
+        f"      <li class=\"settings-change\">{_render_settings_change(change)}</li>"
+        for change in settings_changes
+    ]
+    return _section(
+        "Settings Changes",
+        '<ul class="settings-list">\n' + "\n".join(items) + "\n    </ul>",
+        classes=("section-settings-changes",),
+    )
+
+
+def _render_pre_print_checklist_section(pre_print_checklist: list[Any]) -> str:
+    if not pre_print_checklist:
+        return _section(
+            "Pre-print Checklist",
+            '<p class="empty-note">Pre-print checklist pending final slice gate integration.</p>',
+            classes=("section-pre-print-checklist",),
+        )
+
+    items = [
+        f"      {_render_checklist_item(item)}"
+        for item in pre_print_checklist
+    ]
+    return _section(
+        "Pre-print Checklist",
+        '<ul class="checklist">\n' + "\n".join(items) + "\n    </ul>",
+        classes=("section-pre-print-checklist",),
+    )
+
+
+def _render_stage_cards(stages: list[Any]) -> str:
+    if not stages:
+        return ""
+
+    cards = []
+    for stage in stages:
+        if not isinstance(stage, Mapping):
+            cards.append(f'      <article class="stage-card">{_render_value(stage)}</article>')
+            continue
+
+        stage_name = _as_text(stage.get("stage", "unknown"))
+        status_value = str(stage.get("status", "unknown"))
+        status_class = _class_name(status_value)
+        message = _as_text(stage.get("message", ""))
+        metrics = stage.get("metrics", {})
+        metrics_html = ""
+        if metrics:
+            metrics_html = f'\n        <div class="stage-metrics">{_render_value(metrics)}</div>'
+        cards.append(
+            "      <article "
+            f'class="stage-card stage-{_class_name(str(stage.get("stage", "unknown")))}">'
+            f"<h3>{stage_name}</h3>"
+            f'<span class="status status-{status_class}">{_as_text(status_value)}</span>'
+            f"<p>{message}</p>"
+            f"{metrics_html}"
+            "</article>"
+        )
+
+    return '<div class="stage-card-grid">\n' + "\n".join(cards) + "\n    </div>"
+
+
+def _render_slice_metrics(slice_stages: list[Any]) -> str:
+    metrics = []
+    for stage in slice_stages:
+        if not isinstance(stage, Mapping):
+            continue
+        stage_metrics = stage.get("metrics", {})
+        if isinstance(stage_metrics, Mapping):
+            metrics.extend(stage_metrics.items())
+        elif stage_metrics:
+            metrics.append(("summary", stage_metrics))
+
+    if not metrics:
+        return '<p class="empty-note">No slice metrics recorded yet.</p>'
+
+    cards = [
+        "      <div class=\"slice-metric\">"
+        f"<dt>{_as_text(key)}</dt>"
+        f"<dd>{_render_value(value)}</dd>"
+        "</div>"
+        for key, value in metrics
+    ]
+    return '<dl class="slice-metric-grid">\n' + "\n".join(cards) + "\n    </dl>"
+
+
+def _render_artifact_cards(
+    artifacts: list[Any],
+    *,
+    layout: RunLayout | None,
+    empty: str,
+) -> str:
+    if not artifacts:
+        return f'<p class="empty-note">{_as_text(empty)}</p>'
+
+    cards = []
+    for artifact in artifacts:
+        if not isinstance(artifact, Mapping):
+            cards.append(f'      <article class="artifact-card">{_render_value(artifact)}</article>')
+            continue
+
+        path = artifact.get("path", "")
+        href = _artifact_href(path, layout=layout)
+        label = artifact.get("label") or path or "Artifact"
+        kind = artifact.get("kind", "artifact")
+        kind_class = _class_name(str(kind))
+        metadata = artifact.get("metadata", {})
+        metadata_html = ""
+        if metadata:
+            metadata_html = f'\n        <div class="metadata">{_render_value(metadata)}</div>'
+        cards.append(
+            "      <article "
+            f'class="artifact-card artifact-{kind_class}">'
+            f'<h3><a href="{_as_attribute(href)}">{_as_text(label)}</a></h3>'
+            f'<span class="kind">{_as_text(kind)}</span>'
+            f' <code>{_as_text(path)}</code>'
+            f"{metadata_html}"
+            "</article>"
+        )
+
+    return '<div class="artifact-card-grid">\n' + "\n".join(cards) + "\n    </div>"
 
 
 def _render_artifact_links(artifacts: list[Any], *, layout: RunLayout | None) -> str:
@@ -185,6 +423,66 @@ def _render_artifact_links(artifacts: list[Any], *, layout: RunLayout | None) ->
     return "<ul>\n" + "\n".join(items) + "\n    </ul>"
 
 
+def _render_settings_change(change: Any) -> str:
+    if not isinstance(change, Mapping):
+        return _render_value(change)
+
+    label = (
+        change.get("key")
+        or change.get("setting")
+        or change.get("name")
+        or "Setting change"
+    )
+    details = []
+    for key, title in (
+        ("default", "Default"),
+        ("previous", "Previous"),
+        ("value", "Value"),
+        ("reason", "Reason"),
+    ):
+        if key in change:
+            details.append(
+                "      <div>"
+                f"<dt>{title}</dt>"
+                f"<dd>{_render_value(change.get(key))}</dd>"
+                "</div>"
+            )
+    if not details:
+        return _render_value(change)
+
+    return (
+        f"<h3>{_as_text(label)}</h3>"
+        '<dl class="key-values">\n'
+        + "\n".join(details)
+        + "\n    </dl>"
+    )
+
+
+def _render_checklist_item(item: Any) -> str:
+    if not isinstance(item, Mapping):
+        return f'<li class="checklist-item checklist-status-pending">{_render_value(item)}</li>'
+
+    status = str(item.get("status", "pending"))
+    status_class = _class_name(status)
+    label = item.get("item") or item.get("label") or item.get("text") or "Checklist item"
+    detail_items = {
+        key: value
+        for key, value in item.items()
+        if key not in {"item", "label", "text", "status"}
+    }
+    details = ""
+    if detail_items:
+        details = f'\n        <div class="checklist-details">{_render_value(detail_items)}</div>'
+
+    return (
+        f'<li class="checklist-item checklist-status-{status_class}">'
+        f'<span class="checklist-status status-{status_class}">{_as_text(status)}</span>'
+        f"<span>{_as_text(label)}</span>"
+        f"{details}"
+        "</li>"
+    )
+
+
 def _render_value(value: Any) -> str:
     if isinstance(value, Mapping):
         if not value:
@@ -208,15 +506,93 @@ def _render_value(value: Any) -> str:
     return _as_text(value)
 
 
-def _section(title: str, body: str) -> str:
+def _section(title: str, body: str, *, classes: Sequence[str] = ()) -> str:
+    class_names = " ".join(["report-section", *classes])
     return "\n".join(
         [
-            '    <section class="report-section">',
+            f'    <section class="{_as_attribute(class_names)}">',
             f"      <h2>{_as_text(title)}</h2>",
             f"    {body}",
             "    </section>",
         ]
     )
+
+
+def _artifacts_with_kinds(artifacts: list[Any], kinds: set[str]) -> list[Any]:
+    return [
+        artifact
+        for artifact in artifacts
+        if _artifact_kind(artifact) in kinds
+    ]
+
+
+def _artifact_kind(artifact: Any) -> str:
+    if not isinstance(artifact, Mapping):
+        return ""
+    return str(artifact.get("kind", ""))
+
+
+def _artifact_mentions(artifact: Any, terms: Sequence[str]) -> bool:
+    if not isinstance(artifact, Mapping):
+        return False
+    searchable = " ".join(
+        str(artifact.get(key, ""))
+        for key in ("kind", "label", "path")
+    ).lower()
+    return any(term in searchable for term in terms)
+
+
+def _stages_matching(stages: list[Any], terms: Sequence[str]) -> list[Any]:
+    matches = []
+    for stage in stages:
+        if not isinstance(stage, Mapping):
+            continue
+        stage_text = " ".join(
+            [
+                str(stage.get("stage", "")),
+                str(stage.get("message", "")),
+                _metric_keys_text(stage.get("metrics", {})),
+            ]
+        ).lower()
+        if any(term in stage_text for term in terms):
+            matches.append(stage)
+    return matches
+
+
+def _metric_keys_text(value: Any) -> str:
+    if isinstance(value, Mapping):
+        return " ".join(
+            [
+                str(key)
+                for key in value
+            ]
+            + [
+                _metric_keys_text(nested_value)
+                for nested_value in value.values()
+            ]
+        )
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+        return " ".join(_metric_keys_text(item) for item in value)
+    return ""
+
+
+def _unique_artifacts(artifacts: list[Any]) -> list[Any]:
+    seen: set[tuple[str, str, str]] = set()
+    unique = []
+    for artifact in artifacts:
+        if not isinstance(artifact, Mapping):
+            unique.append(artifact)
+            continue
+        key = (
+            str(artifact.get("kind", "")),
+            str(artifact.get("path", "")),
+            str(artifact.get("label", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(artifact)
+    return unique
 
 
 def _artifact_href(path: Any, *, layout: RunLayout | None) -> str:
@@ -299,12 +675,55 @@ _CSS = """
       font-size: 1.15rem;
       margin-bottom: 12px;
     }
+    h3 {
+      font-size: 0.98rem;
+      margin: 0 0 6px;
+    }
     .report-section {
       background: #ffffff;
       border: 1px solid #d9e2ec;
       border-radius: 8px;
       margin: 16px 0;
       padding: 18px;
+    }
+    .artifact-card-grid,
+    .stage-card-grid,
+    .slice-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin: 0;
+    }
+    .artifact-card,
+    .stage-card,
+    .slice-metric,
+    .settings-change,
+    .checklist-item,
+    .warning-item {
+      border: 1px solid #e4e7eb;
+      border-radius: 6px;
+      background: #fbfcfd;
+      padding: 12px;
+    }
+    .artifact-card h3 {
+      word-break: break-word;
+    }
+    .stage-card-grid {
+      margin-top: 12px;
+    }
+    .stage-card p {
+      margin: 8px 0 0;
+    }
+    .stage-metrics {
+      border-top: 1px solid #e4e7eb;
+      margin-top: 10px;
+      padding-top: 10px;
+    }
+    .slice-metric {
+      display: block;
+    }
+    .slice-metric dt {
+      margin-bottom: 4px;
     }
     table {
       border-collapse: collapse;
@@ -324,6 +743,12 @@ _CSS = """
     ul {
       margin: 0;
       padding-left: 20px;
+    }
+    .warning-list,
+    .settings-list,
+    .checklist {
+      list-style: none;
+      padding-left: 0;
     }
     li + li {
       margin-top: 8px;
@@ -367,6 +792,23 @@ _CSS = """
       background: #fff3c4;
       color: #8d2b0b;
     }
+    .status-pending {
+      background: #edf2f7;
+      color: #334e68;
+    }
+    .status-skipped {
+      background: #e6e6ff;
+      color: #3f3cbb;
+    }
+    .checklist-item {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 8px 10px;
+      align-items: start;
+    }
+    .checklist-details {
+      grid-column: 2;
+    }
     .key-values {
       display: grid;
       grid-template-columns: max-content minmax(0, 1fr);
@@ -388,6 +830,24 @@ _CSS = """
     }
     .nested {
       margin-top: 4px;
+    }
+    .empty-note {
+      color: #52606d;
+      margin: 0;
+    }
+    @media (max-width: 720px) {
+      main {
+        padding: 20px 12px 40px;
+      }
+      th, td {
+        padding: 8px;
+      }
+      .checklist-item {
+        grid-template-columns: 1fr;
+      }
+      .checklist-details {
+        grid-column: auto;
+      }
     }
 """.strip()
 

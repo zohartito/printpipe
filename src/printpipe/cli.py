@@ -62,6 +62,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     open_report.add_argument("run_root", type=Path, help="Run folder to inspect.")
 
+    serve = subparsers.add_parser(
+        "serve",
+        help="Start the local web UI.",
+    )
+    serve.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host interface for the local web server.",
+    )
+    serve.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Port for the local web server.",
+    )
+    serve.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory where run folders are read and created.",
+    )
+
     return parser
 
 
@@ -142,7 +164,17 @@ def main(argv: list[str] | None = None) -> int:
             print(run_root / "80_reports" / "run_report.md")
         return 0
 
+    if args.command == "serve":
+        return _serve(host=args.host, port=args.port, runs_dir=args.runs_dir)
+
     parser.print_help()
+    return 0
+
+
+def _serve(*, host: str, port: int, runs_dir: Path) -> int:
+    from printpipe.web import server
+
+    server.serve(host=host, port=port, runs_dir=runs_dir)
     return 0
 
 
