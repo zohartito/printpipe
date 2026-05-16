@@ -59,12 +59,22 @@ def test_prepare_still_image_saves_extracted_cleaned_selected_reference_and_mani
 
     assert result.contact_sheet is not None
     assert result.contact_sheet.kind == ArtifactKind.PREVIEW
+    assert result.contact_sheet.path.name == "contact_sheet_manifest.json"
     manifest = json.loads(result.contact_sheet.path.read_text(encoding="utf-8"))
     assert manifest["schema_version"] == 1
     assert manifest["input_kind"] == "image"
     assert manifest["reference_count"] == 1
     assert manifest["references"][0]["path"].endswith("selected/reference.png")
     assert manifest["preview_items"][0]["path"].endswith("selected/reference.png")
+    assert manifest["html_path"].endswith("contact_sheet.html")
+
+    html_path = work_dir / "contact_sheet.html"
+    assert html_path.exists()
+    html = html_path.read_text(encoding="utf-8")
+    assert "PrintPipe Contact Sheet" in html
+    assert "reference.png" in html
+    assert 'src="selected/reference.png"' in html
+    assert "selected_reference_000" in html
 
     receipt_by_stage = {receipt.stage: receipt for receipt in result.receipts}
     assert receipt_by_stage["classify_input"].status == StageStatus.SUCCEEDED
@@ -77,6 +87,10 @@ def test_prepare_still_image_saves_extracted_cleaned_selected_reference_and_mani
     assert receipt_by_stage["select_references"].status == StageStatus.SUCCEEDED
     assert receipt_by_stage["select_references"].metrics["candidate_count"] == 1
     assert receipt_by_stage["contact_sheet"].status == StageStatus.SUCCEEDED
+    assert [artifact.path.name for artifact in receipt_by_stage["contact_sheet"].artifacts] == [
+        "contact_sheet_manifest.json",
+        "contact_sheet.html",
+    ]
 
 
 def test_prepare_gif_and_video_extract_with_fake_runner_and_select_references(tmp_path: Path):

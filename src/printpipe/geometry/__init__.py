@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from printpipe.geometry.artifacts import (
+    read_ascii_stl_vertices,
+    write_oriented_ascii_stl_artifacts,
+)
 from printpipe.geometry.core import (
     DEFAULT_ROTATIONS_DEGREES,
     BedFitResult,
@@ -47,9 +51,11 @@ __all__ = [
     "infer_target_scale",
     "likely_cavity_opening_heuristic",
     "likely_flat_base_heuristic",
+    "read_ascii_stl_vertices",
     "rotate_z",
     "score_bed_fit_margin",
     "score_support_burden_orientation",
     "select_top_orientations",
     "write_bed_fit_preview_artifacts",
+    "write_oriented_ascii_stl_artifacts",
 ]

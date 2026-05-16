@@ -107,6 +107,70 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/runs/run-ui-001/artifacts/60_bundle/ready.3mf"' in response.text
 
 
+def test_home_response_groups_run_artifacts_for_preview_report_and_download(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-artifacts-001")
+    bundle = layout.bundle_dir / "ready to print.3mf"
+    preview_svg = layout.reports_dir / "bed fit.svg"
+    preview_html = layout.reports_dir / "preview.html"
+    for artifact_path in (bundle, preview_svg, preview_html):
+        artifact_path.write_text("artifact\n", encoding="utf-8")
+    stages = (
+        StageReceipt(
+            stage="geometry",
+            status=StageStatus.SUCCEEDED,
+            message="Preview ready.",
+            artifacts=(
+                Artifact(
+                    kind=ArtifactKind.PREVIEW,
+                    path=preview_svg,
+                    label="Bed fit preview",
+                ),
+                Artifact(
+                    kind=ArtifactKind.PREVIEW,
+                    path=preview_html,
+                    label="Interactive preview",
+                ),
+            ),
+        ),
+        StageReceipt(
+            stage="bundle",
+            status=StageStatus.SUCCEEDED,
+            message="Bundle ready.",
+            artifacts=(
+                Artifact(
+                    kind=ArtifactKind.THREEMF,
+                    path=bundle,
+                    label="Bambu bundle",
+                ),
+            ),
+        ),
+    )
+    report_dict = build_run_report_dict(layout, stages=stages)
+    write_run_report(layout, stages=stages)
+    write_html_report(layout, report_dict)
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert '<section class="artifact-group artifact-group-bundle">' in response.text
+    assert "Downloads" in response.text
+    assert (
+        'href="/runs/run-artifacts-001/artifacts/60_bundle/ready%20to%20print.3mf" '
+        'download="ready to print.3mf"'
+    ) in response.text
+    assert '<section class="artifact-group artifact-group-preview">' in response.text
+    assert "Previews" in response.text
+    assert 'href="/runs/run-artifacts-001/artifacts/80_reports/bed%20fit.svg"' in response.text
+    assert 'href="/runs/run-artifacts-001/artifacts/80_reports/preview.html"' in response.text
+    assert '<section class="artifact-group artifact-group-reports">' in response.text
+    assert "Reports" in response.text
+    assert 'href="/runs/run-artifacts-001/artifacts/80_reports/run_report.html"' in response.text
+
+
 def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     app = create_app(runs_dir=runs_dir)

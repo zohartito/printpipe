@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import importlib
+import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from printpipe.contracts import MeshStats, StageStatus
+from printpipe.contracts import Artifact, ArtifactKind, MeshStats, StageReceipt, StageStatus
 from printpipe.mesh.topology import (
     count_boundary_edges,
     count_face_edges,
@@ -92,6 +93,54 @@ def repair_mesh_file(
     raise MeshRepairError(result)
 
 
+def repair_mesh_file_to_receipt(
+    input_path: Path | str,
+    output_path: Path | str,
+    *,
+    stats_path: Path | str | None = None,
+    allow_non_watertight: bool = False,
+    stage: str = "mesh_repair",
+) -> StageReceipt:
+    """Run mesh repair and write a pipeline-friendly stats receipt."""
+    input_path = Path(input_path)
+    output_path = Path(output_path)
+    stats_path = Path(stats_path) if stats_path is not None else _default_stats_path(output_path)
+
+    try:
+        result = repair_mesh_file(
+            input_path,
+            output_path,
+            allow_non_watertight=allow_non_watertight,
+        )
+    except MeshRepairUnavailableError as exc:
+        payload = {
+            "stage": stage,
+            "status": StageStatus.SKIPPED.value,
+            "dependency": "trimesh",
+            "message": str(exc),
+            "input_path": str(input_path),
+            "output_path": str(output_path),
+        }
+        _write_json(stats_path, payload)
+        return StageReceipt(
+            stage=stage,
+            status=StageStatus.SKIPPED,
+            message=str(exc),
+            artifacts=(_stats_artifact(stats_path),),
+            metrics={
+                "dependency": "trimesh",
+                "input_path": str(input_path),
+                "output_path": str(output_path),
+            },
+        )
+    except MeshRepairError as exc:
+        result = exc.result
+
+    payload = {"stage": stage, **result.to_dict()}
+    _write_json(stats_path, payload)
+    return _repair_result_to_receipt(stage, result, stats_path)
+
+
 def _import_trimesh() -> Any:
     try:
         return importlib.import_module("trimesh")
@@ -100,6 +149,60 @@ def _import_trimesh() -> Any:
             "Mesh repair requires the optional 'trimesh' package. "
             "Install trimesh to enable repair_mesh_file()."
         ) from exc
+
+
+def _default_stats_path(output_path: Path) -> Path:
+    return output_path.with_suffix(f"{output_path.suffix}.repair.json")
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def _stats_artifact(path: Path) -> Artifact:
+    return Artifact(
+        kind=ArtifactKind.REPORT,
+        path=path,
+        label="Mesh repair stats JSON",
+    )
+
+
+def _repair_result_to_receipt(
+    stage: str,
+    result: MeshRepairResult,
+    stats_path: Path,
+) -> StageReceipt:
+    artifacts: list[Artifact] = []
+    if result.output_path.exists():
+        artifacts.append(
+            Artifact(
+                kind=ArtifactKind.REPAIRED_MESH,
+                path=result.output_path,
+                label="Repaired mesh",
+            )
+        )
+    artifacts.append(_stats_artifact(stats_path))
+
+    return StageReceipt(
+        stage=stage,
+        status=result.status,
+        message=result.message,
+        artifacts=tuple(artifacts),
+        metrics={
+            "vertices_before": result.before.vertices,
+            "vertices_after": result.after.vertices,
+            "faces_before": result.before.faces,
+            "faces_after": result.after.faces,
+            "watertight_before": result.before.watertight,
+            "watertight_after": result.after.watertight,
+            "boundary_edges_before": result.before.boundary_edges,
+            "boundary_edges_after": result.after.boundary_edges,
+            "non_manifold_edges_before": result.before.non_manifold_edges,
+            "non_manifold_edges_after": result.after.non_manifold_edges,
+            "stats_path": str(stats_path),
+        },
+    )
 
 
 def _load_mesh(trimesh: Any, input_path: Path) -> Any:

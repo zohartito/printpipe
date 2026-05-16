@@ -8,9 +8,13 @@ import pytest
 
 from printpipe.contracts import ArtifactKind, StageStatus
 from printpipe.bambu.slicer import (
+    BambuCliNotFoundError,
     SliceGateError,
     SliceResult,
+    bambu_cli_candidate_paths,
+    build_bambu_slice_command,
     classify_slicer_output,
+    discover_bambu_cli_executable,
     gate_slice,
     parse_slice_estimate_from_text,
     run_slice_command,
@@ -21,6 +25,99 @@ from printpipe.bambu.slicer import (
 class FakeRunLayout:
     def __init__(self, slice_dir: Path) -> None:
         self.slice_dir = slice_dir
+
+
+def test_bambu_cli_candidates_put_env_override_first(tmp_path: Path):
+    override = tmp_path / "custom-bambu-studio"
+    home = tmp_path / "home"
+
+    candidates = bambu_cli_candidate_paths(
+        env={"PRINTPIPE_BAMBU_STUDIO_CLI": str(override), "HOME": str(home)},
+        platform="darwin",
+    )
+
+    assert candidates[0] == override
+    assert Path("/Applications/BambuStudio.app/Contents/MacOS/BambuStudio") in candidates
+    assert (
+        home / "Applications" / "BambuStudio.app" / "Contents" / "MacOS" / "BambuStudio"
+    ) in candidates
+
+
+def test_bambu_cli_candidates_include_platform_specific_common_paths(tmp_path: Path):
+    win_program_files = tmp_path / "Program Files"
+    linux_home = tmp_path / "home"
+
+    mac_candidates = bambu_cli_candidate_paths(env={}, platform="darwin")
+    win_candidates = bambu_cli_candidate_paths(
+        env={"ProgramFiles": str(win_program_files)},
+        platform="win32",
+    )
+    linux_candidates = bambu_cli_candidate_paths(
+        env={"HOME": str(linux_home)},
+        platform="linux",
+    )
+
+    assert Path("/Applications/Bambu Studio.app/Contents/MacOS/BambuStudio") in mac_candidates
+    assert (
+        win_program_files / "Bambu Studio" / "bambu-studio.exe"
+    ) in win_candidates
+    assert Path("/usr/bin/bambu-studio") in linux_candidates
+    assert linux_home / ".local" / "bin" / "bambu-studio" in linux_candidates
+
+
+def test_discover_bambu_cli_executable_returns_first_existing_candidate(tmp_path: Path):
+    missing = tmp_path / "missing-bambu"
+    existing = tmp_path / "existing-bambu"
+
+    discovered = discover_bambu_cli_executable(
+        env={"PRINTPIPE_BAMBU_STUDIO_CLI": str(missing), "PATH": ""},
+        platform="linux",
+        extra_candidates=[existing],
+        path_exists=lambda path: path == existing,
+    )
+
+    assert discovered == existing
+
+
+def test_build_bambu_slice_command_uses_explicit_executable_and_output_dir(tmp_path: Path):
+    executable = tmp_path / "BambuStudio"
+    bundle = tmp_path / "slipper.3mf"
+    output_dir = tmp_path / "slice"
+
+    command = build_bambu_slice_command(
+        three_mf_path=bundle,
+        output_dir=output_dir,
+        executable=executable,
+    )
+
+    assert command == (
+        str(executable),
+        "--slice",
+        "0",
+        "--outputdir",
+        str(output_dir),
+        str(bundle),
+    )
+
+
+def test_build_bambu_slice_command_reports_missing_executable(tmp_path: Path):
+    bundle = tmp_path / "model.3mf"
+    output_dir = tmp_path / "slice"
+
+    with pytest.raises(BambuCliNotFoundError) as exc_info:
+        build_bambu_slice_command(
+            three_mf_path=bundle,
+            output_dir=output_dir,
+            env={"PATH": ""},
+            platform="linux",
+            extra_candidates=[tmp_path / "also-missing"],
+            path_exists=lambda path: False,
+        )
+
+    message = str(exc_info.value)
+    assert "Bambu Studio CLI executable was not found" in message
+    assert "PRINTPIPE_BAMBU_STUDIO_CLI" in message
+    assert str(tmp_path / "also-missing") in message
 
 
 def test_parse_slice_estimate_reads_bambu_gcode_header_patterns():

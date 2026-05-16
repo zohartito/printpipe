@@ -9,13 +9,39 @@ whether to retry repair, bed fit, profile validation, or support/orientation.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
+import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
+
+BAMBU_STUDIO_CLI_ENV = "PRINTPIPE_BAMBU_STUDIO_CLI"
+_BAMBU_STUDIO_CLI_ENV_KEYS: tuple[str, ...] = (
+    BAMBU_STUDIO_CLI_ENV,
+    "BAMBU_STUDIO_CLI",
+    "BAMBU_STUDIO_EXECUTABLE",
+)
+_MACOS_APP_BUNDLES: tuple[str, ...] = (
+    "BambuStudio.app",
+    "Bambu Studio.app",
+)
+_WINDOWS_INSTALL_DIRS: tuple[str, ...] = (
+    "Bambu Studio",
+    "BambuStudio",
+)
+_WINDOWS_EXECUTABLE_NAMES: tuple[str, ...] = (
+    "bambu-studio.exe",
+    "BambuStudio.exe",
+    "Bambu Studio.exe",
+)
+_PATH_EXECUTABLE_NAMES: tuple[str, ...] = (
+    "bambu-studio",
+    "BambuStudio",
+)
 
 
 @dataclass(frozen=True)
@@ -34,6 +60,10 @@ class SliceResult:
 
 class SliceGateError(RuntimeError):
     """Raised when a slice result should stop the run."""
+
+
+class BambuCliNotFoundError(SliceGateError):
+    """Raised when PrintPipe cannot find a Bambu Studio CLI executable."""
 
 
 NONCRITICAL_WARNING_MARKERS: tuple[str, ...] = (
@@ -80,6 +110,96 @@ _HARD_FAILURE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(r"\b(missing profile|profile not found|failed to load profile)\b", re.IGNORECASE),
     ),
 )
+
+
+def bambu_cli_candidate_paths(
+    *,
+    env: Mapping[str, str] | None = None,
+    platform: str | None = None,
+    extra_candidates: Sequence[str | Path] = (),
+) -> tuple[Path, ...]:
+    """Return likely Bambu Studio CLI executable paths in search order."""
+
+    values = os.environ if env is None else env
+    normalized_platform = _normalize_platform(platform or sys.platform)
+    candidates: list[Path] = []
+
+    for key in _BAMBU_STUDIO_CLI_ENV_KEYS:
+        value = values.get(key, "").strip()
+        if value:
+            candidates.extend(_cli_paths_from_configured_path(value, normalized_platform))
+
+    candidates.extend(Path(candidate).expanduser() for candidate in extra_candidates)
+    candidates.extend(_path_candidates_from_env(values))
+
+    if normalized_platform == "macos":
+        candidates.extend(_macos_bambu_cli_candidates(values))
+    elif normalized_platform == "windows":
+        candidates.extend(_windows_bambu_cli_candidates(values))
+    else:
+        candidates.extend(_linux_bambu_cli_candidates(values))
+
+    return _dedupe_paths(candidates)
+
+
+def discover_bambu_cli_executable(
+    *,
+    env: Mapping[str, str] | None = None,
+    platform: str | None = None,
+    extra_candidates: Sequence[str | Path] = (),
+    path_exists: Callable[[Path], bool] | None = None,
+) -> Path | None:
+    """Return the first existing Bambu Studio CLI executable candidate."""
+
+    exists = _path_exists if path_exists is None else path_exists
+    for candidate in bambu_cli_candidate_paths(
+        env=env,
+        platform=platform,
+        extra_candidates=extra_candidates,
+    ):
+        if exists(candidate):
+            return candidate
+    return None
+
+
+def build_bambu_slice_command(
+    *,
+    three_mf_path: str | Path,
+    output_dir: str | Path,
+    executable: str | Path | None = None,
+    plate: int = 0,
+    env: Mapping[str, str] | None = None,
+    platform: str | None = None,
+    extra_candidates: Sequence[str | Path] = (),
+    path_exists: Callable[[Path], bool] | None = None,
+) -> tuple[str, ...]:
+    """Build a Bambu Studio CLI command that slices a 3MF into an output folder."""
+
+    if executable is None:
+        executable_path = discover_bambu_cli_executable(
+            env=env,
+            platform=platform,
+            extra_candidates=extra_candidates,
+            path_exists=path_exists,
+        )
+        if executable_path is None:
+            candidates = bambu_cli_candidate_paths(
+                env=env,
+                platform=platform,
+                extra_candidates=extra_candidates,
+            )
+            raise BambuCliNotFoundError(_missing_bambu_cli_message(candidates))
+    else:
+        executable_path = Path(executable).expanduser()
+
+    return (
+        str(executable_path),
+        "--slice",
+        str(plate),
+        "--outputdir",
+        str(Path(output_dir).expanduser()),
+        str(Path(three_mf_path).expanduser()),
+    )
 
 
 def classify_slicer_output(stdout: str, stderr: str, return_code: int) -> SliceResult:
@@ -411,6 +531,118 @@ def _slice_result_metrics(result: SliceResult) -> dict[str, Any]:
 
 def _path_to_text(path: Path | None) -> str | None:
     return None if path is None else str(path)
+
+
+def _normalize_platform(platform: str) -> str:
+    platform_text = platform.lower()
+    if platform_text in {"darwin", "mac", "macos", "osx"}:
+        return "macos"
+    if platform_text in {"win32", "cygwin", "msys", "nt", "windows"}:
+        return "windows"
+    return platform_text
+
+
+def _cli_paths_from_configured_path(value: str, platform: str) -> tuple[Path, ...]:
+    path = Path(value).expanduser()
+    if platform == "macos" and path.suffix == ".app":
+        return (path / "Contents" / "MacOS" / "BambuStudio",)
+    return (path,)
+
+
+def _path_candidates_from_env(env: Mapping[str, str]) -> tuple[Path, ...]:
+    path_text = env.get("PATH", "")
+    if not path_text:
+        return ()
+    paths: list[Path] = []
+    for raw_dir in path_text.split(os.pathsep):
+        if not raw_dir:
+            continue
+        directory = Path(raw_dir).expanduser()
+        for executable_name in _PATH_EXECUTABLE_NAMES:
+            paths.append(directory / executable_name)
+    return tuple(paths)
+
+
+def _macos_bambu_cli_candidates(env: Mapping[str, str]) -> tuple[Path, ...]:
+    roots = [Path("/Applications")]
+    home = env.get("HOME", "").strip()
+    if home:
+        roots.append(Path(home).expanduser() / "Applications")
+
+    bundle_candidates = [
+        root / bundle_name / "Contents" / "MacOS" / "BambuStudio"
+        for root in roots
+        for bundle_name in _MACOS_APP_BUNDLES
+    ]
+    return (
+        *bundle_candidates,
+        Path("/opt/homebrew/bin/bambu-studio"),
+        Path("/usr/local/bin/bambu-studio"),
+    )
+
+
+def _windows_bambu_cli_candidates(env: Mapping[str, str]) -> tuple[Path, ...]:
+    roots: list[Path] = []
+    for key in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"):
+        value = env.get(key, "").strip()
+        if value:
+            roots.append(Path(value))
+
+    local_app_data = env.get("LOCALAPPDATA", "").strip()
+    if local_app_data:
+        roots.append(Path(local_app_data) / "Programs")
+
+    return tuple(
+        root / directory_name / executable_name
+        for root in roots
+        for directory_name in _WINDOWS_INSTALL_DIRS
+        for executable_name in _WINDOWS_EXECUTABLE_NAMES
+    )
+
+
+def _linux_bambu_cli_candidates(env: Mapping[str, str]) -> tuple[Path, ...]:
+    candidates: list[Path] = [
+        Path("/usr/bin/bambu-studio"),
+        Path("/usr/local/bin/bambu-studio"),
+        Path("/snap/bin/bambu-studio"),
+        Path("/opt/BambuStudio/bambu-studio"),
+        Path("/opt/BambuStudio/BambuStudio"),
+        Path("/opt/bambu-studio/bambu-studio"),
+    ]
+    home = env.get("HOME", "").strip()
+    if home:
+        candidates.append(Path(home).expanduser() / ".local" / "bin" / "bambu-studio")
+    return tuple(candidates)
+
+
+def _path_exists(path: Path) -> bool:
+    return path.exists()
+
+
+def _dedupe_paths(paths: Sequence[Path]) -> tuple[Path, ...]:
+    deduped: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(path)
+    return tuple(deduped)
+
+
+def _missing_bambu_cli_message(candidates: Sequence[Path]) -> str:
+    candidate_text = ", ".join(str(path) for path in candidates[:8])
+    if len(candidates) > 8:
+        candidate_text += f", ... ({len(candidates)} total)"
+    elif not candidate_text:
+        candidate_text = "none"
+
+    return (
+        "Bambu Studio CLI executable was not found. "
+        f"Set {BAMBU_STUDIO_CLI_ENV} to the Bambu Studio executable "
+        f"or install Bambu Studio. Checked: {candidate_text}"
+    )
 
 
 def _file_has_content(path: Path | None) -> bool:

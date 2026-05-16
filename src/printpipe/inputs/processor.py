@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from html import escape
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -184,13 +185,18 @@ def prepare_input(
         )
     )
 
-    contact_sheet = create_contact_sheet_manifest(input_path, input_kind, selected_references, work_dir)
+    contact_sheet, contact_sheet_html = create_contact_sheet_artifacts(
+        input_path,
+        input_kind,
+        selected_references,
+        work_dir,
+    )
     receipts.append(
         StageReceipt(
             stage="contact_sheet",
             status=StageStatus.SUCCEEDED,
-            message="wrote contact-sheet manifest placeholder",
-            artifacts=(contact_sheet,),
+            message="wrote contact-sheet manifest and HTML preview",
+            artifacts=(contact_sheet, contact_sheet_html),
             metrics={"reference_count": len(selected_references)},
         )
     )
@@ -461,19 +467,33 @@ def create_contact_sheet_manifest(
     references: tuple[Artifact, ...],
     work_dir: Path,
 ) -> Artifact:
+    manifest, _html_artifact = create_contact_sheet_artifacts(input_path, input_kind, references, work_dir)
+    return manifest
+
+
+def create_contact_sheet_artifacts(
+    input_path: Path,
+    input_kind: InputKind,
+    references: tuple[Artifact, ...],
+    work_dir: Path,
+) -> tuple[Artifact, Artifact]:
+    work_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = work_dir / "contact_sheet_manifest.json"
+    html_path = work_dir / "contact_sheet.html"
     payload = {
         "schema_version": 1,
-        "placeholder": True,
+        "placeholder": False,
         "preview_manifest": True,
         "input_kind": input_kind.value,
         "source_path": str(input_path),
+        "html_path": str(html_path),
         "reference_count": len(references),
         "references": [
             {
                 "label": reference.label,
                 "kind": reference.kind.value,
                 "path": str(reference.path),
+                "relative_path": _relative_artifact_ref(reference.path, work_dir),
                 "metadata": reference.metadata,
             }
             for reference in references
@@ -482,13 +502,15 @@ def create_contact_sheet_manifest(
             {
                 "label": reference.label,
                 "path": str(reference.path),
+                "relative_path": _relative_artifact_ref(reference.path, work_dir),
                 "source_frame_path": reference.metadata.get("selected_from"),
             }
             for reference in references
         ],
     }
     manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    return Artifact(
+    html_path.write_text(_render_contact_sheet_html(payload), encoding="utf-8")
+    manifest_artifact = Artifact(
         kind=ArtifactKind.PREVIEW,
         path=manifest_path,
         label="contact_sheet_manifest",
@@ -496,8 +518,182 @@ def create_contact_sheet_manifest(
             "format": "json-manifest",
             "reference_count": len(references),
             "preview_manifest": True,
+            "paired_html": str(html_path),
         },
     )
+    html_artifact = Artifact(
+        kind=ArtifactKind.PREVIEW,
+        path=html_path,
+        label="contact_sheet_html",
+        metadata={
+            "format": "html",
+            "reference_count": len(references),
+            "preview_manifest": False,
+            "source_manifest": str(manifest_path),
+        },
+    )
+    return manifest_artifact, html_artifact
+
+
+def _render_contact_sheet_html(payload: dict[str, object]) -> str:
+    input_kind = escape(str(payload["input_kind"]))
+    source_path = escape(str(payload["source_path"]))
+    reference_count = escape(str(payload["reference_count"]))
+    references = payload["references"]
+    if not isinstance(references, list):
+        references = []
+
+    if references:
+        cards = "\n".join(_render_contact_sheet_card(reference) for reference in references)
+    else:
+        cards = '<p class="empty">No selected references were available for preview.</p>'
+
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PrintPipe Contact Sheet</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #171717;
+      background: #f6f7f8;
+    }}
+    main {{
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }}
+    h1 {{
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }}
+    .summary {{
+      margin: 0 0 24px;
+      color: #4a5562;
+      line-height: 1.5;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }}
+    .card {{
+      overflow: hidden;
+      border: 1px solid #d7dce2;
+      border-radius: 8px;
+      background: #fff;
+    }}
+    .thumb {{
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: contain;
+      background: #e9edf2;
+    }}
+    .fallback {{
+      display: grid;
+      min-height: 160px;
+      place-items: center;
+      padding: 16px;
+      background: #e9edf2;
+      color: #53606f;
+      text-align: center;
+    }}
+    .details {{
+      padding: 12px;
+    }}
+    .label {{
+      margin: 0 0 8px;
+      font-weight: 700;
+    }}
+    dl {{
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 4px 10px;
+      margin: 0;
+      font-size: 13px;
+    }}
+    dt {{
+      color: #5d6876;
+    }}
+    dd {{
+      margin: 0;
+      overflow-wrap: anywhere;
+    }}
+    pre {{
+      margin: 10px 0 0;
+      padding: 8px;
+      overflow: auto;
+      border-radius: 6px;
+      background: #f2f4f6;
+      font-size: 12px;
+      line-height: 1.35;
+    }}
+    .empty {{
+      margin: 0;
+      padding: 16px;
+      border: 1px solid #d7dce2;
+      border-radius: 8px;
+      background: #fff;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>PrintPipe Contact Sheet</h1>
+    <p class="summary">Input kind: {input_kind}. Selected references: {reference_count}. Source: {source_path}</p>
+    <section class="grid" aria-label="Selected references">
+{cards}
+    </section>
+  </main>
+</body>
+</html>
+"""
+
+
+def _render_contact_sheet_card(reference: object) -> str:
+    if not isinstance(reference, dict):
+        return ""
+
+    label = escape(str(reference.get("label", "reference")))
+    kind = escape(str(reference.get("kind", "")))
+    path = escape(str(reference.get("path", "")))
+    relative_path = str(reference.get("relative_path") or reference.get("path") or "")
+    href = escape(relative_path, quote=True)
+    metadata = reference.get("metadata", {})
+    metadata_json = escape(json.dumps(metadata, indent=2, sort_keys=True), quote=False)
+
+    if _is_preview_image(Path(relative_path)):
+        preview = f'<a href="{href}"><img class="thumb" src="{href}" alt="{label}"></a>'
+    else:
+        preview = f'<a class="fallback" href="{href}">Open artifact</a>'
+
+    return f"""      <article class="card">
+        {preview}
+        <div class="details">
+          <p class="label">{label}</p>
+          <dl>
+            <dt>Kind</dt><dd>{kind}</dd>
+            <dt>Path</dt><dd><a href="{href}">{path}</a></dd>
+          </dl>
+          <pre>{metadata_json}</pre>
+        </div>
+      </article>"""
+
+
+def _relative_artifact_ref(path: Path, base_dir: Path) -> str:
+    try:
+        return path.resolve().relative_to(base_dir.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _is_preview_image(path: Path) -> bool:
+    return path.suffix.lower() in IMAGE_SUFFIXES
 
 
 def _selection_receipt(

@@ -384,20 +384,7 @@ class PrintPipeWebApp:
                 "Open report"
                 "</a>"
             )
-        artifact_links = self._run_artifact_links(run_id)
-        artifacts = ""
-        if artifact_links:
-            artifacts = (
-                '\n        <ul class="artifact-links">\n'
-                + "\n".join(
-                    "          <li>"
-                    f'<a href="{escape(link.href, quote=True)}">{escape(link.label)}</a>'
-                    f' <span class="muted">{escape(link.category)}</span>'
-                    "</li>"
-                    for link in artifact_links
-                )
-                + "\n        </ul>"
-            )
+        artifacts = _render_artifact_groups(self._run_artifact_links(run_id))
 
         return "\n".join(
             [
@@ -804,6 +791,88 @@ def _render_select_options(
     return "".join(rendered)
 
 
+_ARTIFACT_GROUPS = (
+    ("bundle", "Downloads", ("bundle",)),
+    ("preview", "Previews", ("preview",)),
+    ("reports", "Reports", ("reports",)),
+    ("mesh", "Inputs & Meshes", ("original_input", "generated_mesh", "repaired_mesh")),
+    ("logs", "Logs", ("slice_log",)),
+)
+
+
+def _render_artifact_groups(artifact_links: list[Any]) -> str:
+    grouped: dict[str, list[Any]] = {}
+    for link in artifact_links:
+        grouped.setdefault(str(getattr(link, "category", "other")), []).append(link)
+
+    sections: list[str] = []
+    rendered_categories: set[str] = set()
+    for group_id, heading, categories in _ARTIFACT_GROUPS:
+        links = [
+            link
+            for category in categories
+            for link in grouped.get(category, [])
+        ]
+        if not links:
+            continue
+        rendered_categories.update(categories)
+        sections.append(_render_artifact_group(group_id, heading, links))
+
+    remaining_links = [
+        link
+        for category, links in grouped.items()
+        if category not in rendered_categories
+        for link in links
+    ]
+    if remaining_links:
+        sections.append(_render_artifact_group("other", "Other Artifacts", remaining_links))
+
+    if not sections:
+        return ""
+    return '\n        <div class="artifact-groups">\n' + "\n".join(sections) + "\n        </div>"
+
+
+def _render_artifact_group(group_id: str, heading: str, links: list[Any]) -> str:
+    items = "\n".join(
+        f"              <li>{_render_artifact_anchor(link)}</li>"
+        for link in links
+    )
+    return "\n".join(
+        [
+            f'          <section class="artifact-group artifact-group-{_class_name(group_id)}">',
+            f"            <h4>{escape(heading)}</h4>",
+            '            <ul class="artifact-links">',
+            items,
+            "            </ul>",
+            "          </section>",
+        ]
+    )
+
+
+def _render_artifact_anchor(link: Any) -> str:
+    label = str(getattr(link, "label", "Artifact"))
+    href = str(getattr(link, "href", "#"))
+    category = str(getattr(link, "category", "artifact"))
+    download_name = str(getattr(link, "download_name", ""))
+    media_type = str(getattr(link, "media_type", ""))
+    is_bundle_download = (
+        category == "bundle"
+        and download_name.lower().endswith(".3mf")
+        and media_type == "model/3mf"
+    )
+    download_attribute = (
+        f' download="{escape(download_name, quote=True)}"'
+        if is_bundle_download
+        else ""
+    )
+    suffix = " .3mf" if is_bundle_download and ".3mf" not in label.lower() else ""
+    return (
+        f'<a href="{escape(href, quote=True)}"{download_attribute}>'
+        f"{escape(label)}{suffix}"
+        "</a>"
+    )
+
+
 def _media_type(path: Path) -> str:
     guessed, _ = mimetypes.guess_type(path.name)
     if path.suffix.lower() == ".3mf":
@@ -923,6 +992,21 @@ _CSS = """
       margin: 0 0 8px;
       word-break: break-word;
     }
+    .artifact-groups {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .artifact-group {
+      border-top: 1px solid #e4e7eb;
+      padding-top: 10px;
+    }
+    .artifact-group h4 {
+      color: #334e68;
+      font-size: 0.84rem;
+      margin: 0 0 6px;
+      text-transform: uppercase;
+    }
     progress {
       height: 10px;
       width: 100%;
@@ -931,7 +1015,7 @@ _CSS = """
       color: #52606d;
     }
     .artifact-links {
-      margin-top: 10px;
+      margin-top: 0;
     }
     ul {
       margin: 0;

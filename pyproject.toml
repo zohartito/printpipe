@@ -18,6 +18,9 @@ dependencies = []
 dev = [
   "pytest>=8.0",
 ]
+mesh-repair = [
+  "trimesh>=4.0",
+]
 
 [project.scripts]
 printpipe = "printpipe.cli:main"
@@ -27,4 +30,3 @@ testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/printpipe"]
-

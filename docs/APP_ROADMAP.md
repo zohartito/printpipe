@@ -32,7 +32,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 16. Inventory current slipper scripts.
 - [x] 17. Identify reusable parts.
 - [x] 18. Identify slipper-specific hardcoded assumptions.
-- [~] 19. Move reusable mesh repair into app repo.
+- [x] 19. Move reusable mesh repair into app repo.
 - [x] 20. Move Bambu `.3mf` bundling logic into app repo.
 - [x] 21. Move settings-delta logic into app repo.
 - [x] 22. Move slice-estimate parsing into app repo.
@@ -44,8 +44,8 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 25. Store original input.
 - [x] 26. Store cleaned frames.
 - [x] 27. Store generated mesh.
-- [~] 28. Store repaired mesh.
-- [ ] 29. Store oriented mesh.
+- [x] 28. Store repaired mesh.
+- [x] 29. Store oriented mesh.
 - [x] 30. Store profile JSONs.
 - [x] 31. Store `.3mf`.
 - [x] 32. Store slice logs.
@@ -62,7 +62,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [~] 40. Remove background.
 - [~] 41. Normalize lighting/contrast.
 - [x] 42. Save selected references.
-- [~] 43. Generate preview contact sheet.
+- [x] 43. Generate preview contact sheet.
 
 ## Phase 5 - Mesh Generation Providers
 
@@ -80,8 +80,8 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 52. Detect non-manifold edges.
 - [x] 53. Detect boundary edges.
 - [~] 54. Detect inverted normals.
-- [~] 55. Repair with local pipeline.
-- [~] 56. Validate watertightness after repair.
+- [x] 55. Repair with local pipeline.
+- [x] 56. Validate watertightness after repair.
 - [x] 57. Export repair stats JSON.
 - [x] 58. Fail clearly if repair cannot pass.
 
