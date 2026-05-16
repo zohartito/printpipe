@@ -55,6 +55,6 @@ gh repo create zohartito/printpipe --private --source=. --remote=origin --push
 
 Expected: remote `origin` points to the private GitHub repo and `main` is pushed.
 
-- [ ] **Step 5: Dispatch Wave 1**
+- [x] **Step 5: Dispatch Wave 1**
 
 Dispatch six independent agents using the package assignments in `docs/AGENT_WAVES.md`.

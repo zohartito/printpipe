@@ -29,9 +29,9 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 2 - Extract the Slipper Pipeline
 
-- [ ] 16. Inventory current slipper scripts.
-- [ ] 17. Identify reusable parts.
-- [ ] 18. Identify slipper-specific hardcoded assumptions.
+- [x] 16. Inventory current slipper scripts.
+- [x] 17. Identify reusable parts.
+- [x] 18. Identify slipper-specific hardcoded assumptions.
 - [ ] 19. Move reusable mesh repair into app repo.
 - [ ] 20. Move Bambu `.3mf` bundling logic into app repo.
 - [ ] 21. Move settings-delta logic into app repo.
@@ -205,4 +205,3 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 ## Current Gate
 
 Phase 0 and Phase 1 are complete when this repo is created, tests pass, and the private GitHub remote is pushed.
-

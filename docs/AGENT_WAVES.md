@@ -6,12 +6,14 @@ Rule: at most 6 active agents per wave. Each agent owns a coherent work package 
 
 ## Wave 1 - Foundation Research and Extraction
 
-1. Requirements/spec agent: turn the brainstorm into v1 acceptance criteria.
-2. Repo architecture agent: review package structure and suggest boundaries.
-3. Slipper extraction agent: audit `/Users/zohartito/Desktop/slipper_3d` for reusable code.
-4. Bambu schema agent: map profile files, enum sources, and 3MF requirements.
-5. Meshgen provider agent: compare local/API/HF/Replicate options.
-6. Validation strategy agent: define tests, fixtures, and gates.
+Status: complete. Outputs are in `docs/research/wave1_*.md`.
+
+1. Done: requirements/spec agent turned the brainstorm into v1 acceptance criteria.
+2. Done: repo architecture agent reviewed package structure and suggested boundaries.
+3. Done: slipper extraction agent audited `/Users/zohartito/Desktop/slipper_3d` for reusable code.
+4. Done: Bambu schema agent mapped profile files, enum sources, and 3MF requirements.
+5. Done: meshgen provider agent compared local/API/HF/Replicate options.
+6. Done: validation strategy agent defined tests, fixtures, and gates.
 
 ## Wave 2 - Core Pipeline Skeleton
 
@@ -93,4 +95,3 @@ Rule: at most 6 active agents per wave. Each agent owns a coherent work package 
 4. Cost model.
 5. Cloud meshgen worker plan.
 6. Keep-local-power-user plan.
-
