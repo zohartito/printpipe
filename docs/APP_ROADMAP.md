@@ -43,47 +43,47 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 24. Create one folder per run.
 - [x] 25. Store original input.
 - [ ] 26. Store cleaned frames.
-- [ ] 27. Store generated mesh.
+- [x] 27. Store generated mesh.
 - [ ] 28. Store repaired mesh.
 - [ ] 29. Store oriented mesh.
-- [ ] 30. Store profile JSONs.
-- [ ] 31. Store `.3mf`.
+- [~] 30. Store profile JSONs.
+- [x] 31. Store `.3mf`.
 - [ ] 32. Store slice logs.
-- [ ] 33. Store screenshots/previews.
-- [ ] 34. Store final run report.
+- [~] 33. Store screenshots/previews.
+- [x] 34. Store final run report.
 
 ## Phase 4 - Input Processing
 
-- [ ] 35. Accept still image.
-- [ ] 36. Accept GIF.
-- [ ] 37. Accept video.
+- [x] 35. Accept still image.
+- [x] 36. Accept GIF.
+- [x] 37. Accept video.
 - [ ] 38. Extract frames.
-- [ ] 39. Rank/select best frames.
+- [~] 39. Rank/select best frames.
 - [ ] 40. Remove background.
 - [ ] 41. Normalize lighting/contrast.
-- [ ] 42. Save selected references.
-- [ ] 43. Generate preview contact sheet.
+- [~] 42. Save selected references.
+- [~] 43. Generate preview contact sheet.
 
 ## Phase 5 - Mesh Generation Providers
 
-- [ ] 44. Define meshgen provider interface.
+- [x] 44. Define meshgen provider interface.
 - [ ] 45. Add Hunyuan3D provider.
-- [ ] 46. Add existing-mesh import provider.
-- [ ] 47. Add placeholder for Replicate/Meshy/Rodin.
-- [ ] 48. Add retry logic.
-- [ ] 49. Add provider failure logging.
-- [ ] 50. Add provider cost/time tracking.
+- [x] 46. Add existing-mesh import provider.
+- [x] 47. Add placeholder for Replicate/Meshy/Rodin.
+- [x] 48. Add retry logic.
+- [x] 49. Add provider failure logging.
+- [x] 50. Add provider cost/time tracking.
 
 ## Phase 6 - Mesh Repair and Validation
 
-- [ ] 51. Run mesh topology scan.
-- [ ] 52. Detect non-manifold edges.
-- [ ] 53. Detect boundary edges.
-- [ ] 54. Detect inverted normals.
+- [x] 51. Run mesh topology scan.
+- [x] 52. Detect non-manifold edges.
+- [x] 53. Detect boundary edges.
+- [~] 54. Detect inverted normals.
 - [ ] 55. Repair with local pipeline.
 - [ ] 56. Validate watertightness after repair.
-- [ ] 57. Export repair stats JSON.
-- [ ] 58. Fail clearly if repair cannot pass.
+- [x] 57. Export repair stats JSON.
+- [x] 58. Fail clearly if repair cannot pass.
 
 ## Phase 7 - Object Understanding
 
@@ -108,25 +108,25 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 9 - Printer and Filament Engine
 
-- [ ] 74. Load Bambu printer profiles.
+- [x] 74. Load Bambu printer profiles.
 - [ ] 75. Load Bambu/Orca filament defaults.
 - [ ] 76. Define material families: PLA, PETG, TPU, ABS/ASA, PC, PA.
 - [ ] 77. Create filament override rules.
 - [ ] 78. Create process override rules.
-- [ ] 79. Validate enum values against Bambu schema/source.
-- [ ] 80. Generate settings delta report.
-- [ ] 81. Attach reason to every changed setting.
+- [x] 79. Validate enum values against Bambu schema/source.
+- [x] 80. Generate settings delta report.
+- [x] 81. Attach reason to every changed setting.
 
 ## Phase 10 - 3MF Bundling
 
-- [ ] 82. Build Bambu-native `.3mf`.
-- [ ] 83. Include model.
-- [ ] 84. Include printer profile.
-- [ ] 85. Include filament profile.
-- [ ] 86. Include process profile.
-- [ ] 87. Include correct Bambu metadata signature.
-- [ ] 88. Include GUI-safe bed transform.
-- [ ] 89. Validate `.3mf` contents before delivery.
+- [x] 82. Build Bambu-native `.3mf`.
+- [x] 83. Include model.
+- [x] 84. Include printer profile.
+- [x] 85. Include filament profile.
+- [x] 86. Include process profile.
+- [x] 87. Include correct Bambu metadata signature.
+- [x] 88. Include GUI-safe bed transform.
+- [x] 89. Validate `.3mf` contents before delivery.
 
 ## Phase 11 - Slice Gate
 
@@ -142,10 +142,10 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [ ] 96. Create local command: `printpipe run input.gif`.
 - [ ] 97. Create `printpipe status`.
 - [ ] 98. Create `printpipe open-report`.
-- [ ] 99. Create HTML run report.
-- [ ] 100. Show input, mesh, repaired mesh, bed fit, and slice summary.
-- [ ] 101. Show warnings and what changed.
-- [ ] 102. Show pre-print checklist.
+- [~] 99. Create HTML run report.
+- [~] 100. Show input, mesh, repaired mesh, bed fit, and slice summary.
+- [~] 101. Show warnings and what changed.
+- [~] 102. Show pre-print checklist.
 
 ## Phase 13 - Test Objects
 

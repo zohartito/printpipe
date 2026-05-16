@@ -17,12 +17,15 @@ Status: complete. Outputs are in `docs/research/wave1_*.md`.
 
 ## Wave 2 - Core Pipeline Skeleton
 
-1. Run folder system.
-2. Input frame processing.
-3. Meshgen provider interface.
-4. Mesh repair and validation.
-5. Bambu settings engine.
-6. 3MF bundler.
+Status: complete. Outputs are covered by module tests in `tests/test_inputs.py`, `tests/test_meshgen.py`, `tests/test_mesh_validate.py`, `tests/test_bambu_profiles.py`, `tests/test_bambu_threemf.py`, and `tests/test_reports.py`.
+
+1. Done before dispatch: run folder system and shared contracts.
+2. Done: input processing skeleton.
+3. Done: meshgen provider interface and existing-mesh provider.
+4. Done: mesh topology validation skeleton.
+5. Done: Bambu settings/profile engine skeleton.
+6. Done: Bambu-native 3MF bundler skeleton.
+7. Done: receipt/report skeleton.
 
 ## Wave 3 - Verification Spine
 
