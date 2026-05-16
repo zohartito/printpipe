@@ -173,12 +173,12 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 15 - Packaging
 
-- [ ] 121. Package for macOS.
-- [ ] 122. Package for Windows.
-- [ ] 123. Detect Bambu Studio install path.
-- [ ] 124. Detect Bambu user profile folder.
-- [ ] 125. Handle missing dependencies.
-- [ ] 126. Add updater later, not v1.
+- [~] 121. Package for macOS.
+- [~] 122. Package for Windows.
+- [x] 123. Detect Bambu Studio install path.
+- [x] 124. Detect Bambu user profile folder.
+- [x] 125. Handle missing dependencies.
+- [x] 126. Add updater later, not v1.
 
 ## Phase 16 - Beta
 

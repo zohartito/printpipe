@@ -1,0 +1,158 @@
+# PrintPipe Packaging
+
+Status: v1 packaging plan and operator notes. This is not a finished packaged
+installer yet.
+
+## V1 Goal
+
+PrintPipe v1 should run locally on macOS and Windows, keep user data in local run
+folders, and use the user's installed Bambu Studio/Bambu CLI for final slice
+verification. Packaging should make setup predictable, but the core acceptance
+gate remains the same as development: a run folder with receipts, a Bambu-native
+`.3mf`, and a slice result when Bambu Studio is available.
+
+The updater is explicitly later work, not v1.
+
+## Current Developer Setup
+
+Use the source checkout while packaging is still foundation work:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+pytest
+printpipe --version
+```
+
+On Windows PowerShell, activate the venv with:
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+pytest
+printpipe --version
+```
+
+## Running Locally
+
+Current CLI commands are available from the editable install:
+
+```bash
+printpipe --version
+printpipe init-run tests/fixtures/objects/existing_stl_pipeline/tiny_tetrahedron.stl --runs-dir runs
+printpipe run tests/fixtures/objects/existing_stl_pipeline/tiny_tetrahedron.stl --runs-dir runs
+printpipe status runs/<run-id>
+printpipe open-report runs/<run-id>
+printpipe doctor
+```
+
+`printpipe run` is still a skeleton pipeline for reports and prepared artifacts.
+Do not describe the current foundation command as a finished print-ready
+pipeline.
+
+## Local Web UI
+
+Start the stdlib local server with:
+
+```bash
+printpipe serve --host 127.0.0.1 --port 8765 --runs-dir runs
+```
+
+For local-only use, keep the default `127.0.0.1` host. Use `0.0.0.0` only when
+intentionally exposing the server on the local network.
+
+The current web UI is a foundation surface: it shows run status, report links,
+artifact links, selectors, and a new-run form. It does not yet submit a full live
+pipeline job.
+
+## macOS Package Plan
+
+V1 macOS packaging should provide a local launcher around the same `printpipe`
+entry point, bundled with a compatible Python runtime and the required Python
+dependencies. The package should not bundle Bambu Studio.
+
+The package should detect:
+
+- Bambu Studio app: `/Applications/BambuStudio.app`
+- App-shipped profiles, read-only:
+  `/Applications/BambuStudio.app/Contents/Resources/profiles/BBL/`
+- User profile root:
+  `~/Library/Application Support/BambuStudio/user/`
+
+Generated or copied user presets should prefer a numeric
+`user/<numeric_user_id>/` folder when present and fall back to `user/default/`.
+Expected preset subdirectories are `filament/`, `process/`, and `machine/`.
+
+Do not write into the Bambu Studio app bundle. Read from the app-shipped profile
+tree or copy profile sources into PrintPipe run artifacts for receipts.
+
+## Windows Package Plan
+
+V1 Windows packaging should provide a local launcher around the same `printpipe`
+entry point, bundled with a compatible Python runtime and the required Python
+dependencies. The package should not bundle Bambu Studio.
+
+The detector should check the common Bambu Studio install and user-data
+locations first, then let the user provide explicit paths when detection fails:
+
+- App install candidates such as:
+  `C:\Program Files\Bambu Studio\`
+- App-shipped profiles below the install resources tree, expected under a
+  `profiles\BBL\` subtree.
+- User profile root candidates such as:
+  `%APPDATA%\BambuStudio\user\`
+
+As on macOS, generated or copied user presets should prefer a numeric
+`user\<numeric_user_id>\` folder when present and fall back to `user\default\`.
+Expected preset subdirectories are `filament\`, `process\`, and `machine\`.
+
+The exact Windows profile tree should be confirmed during the Windows packaging
+smoke test before any installer writes presets automatically.
+
+## Missing Dependency Handling
+
+The base CLI should stay importable even when optional media, mesh repair, mesh
+generation, or slicer integrations are unavailable. `printpipe --version`,
+`printpipe status`, `printpipe open-report`, and `printpipe serve` should remain
+useful for diagnosis.
+
+Expected behavior for missing dependencies:
+
+- Missing Python optional dependency: show the feature that is unavailable and
+  the package or extra needed to enable it.
+- Missing Bambu Studio/Bambu CLI: keep setup, report viewing, and non-slice
+  checks available, but do not mark a run slice-verified.
+- Missing Bambu profile source: show the searched roots and the requested
+  printer, filament, or process profile.
+- Missing run artifacts: report them as missing in status/report surfaces rather
+  than crashing.
+
+Use the doctor command for a single local check:
+
+```bash
+printpipe doctor
+printpipe doctor --json
+```
+
+The report combines Python/runtime checks, optional dependency checks, Bambu
+Studio install candidates, and Bambu Studio user profile folder candidates.
+
+## Installer Smoke Checks
+
+Before calling v1 packaging acceptable on either OS, run a clean-environment
+smoke pass:
+
+```bash
+printpipe --version
+printpipe serve --host 127.0.0.1 --port 8765 --runs-dir runs
+printpipe init-run <existing-mesh.stl> --runs-dir runs
+printpipe run <existing-mesh.stl> --runs-dir runs
+printpipe status runs/<run-id>
+printpipe doctor
+```
+
+When Bambu Studio is installed, add a Bambu path/profile detection check and a
+slice-gate smoke check. When it is not installed, verify that the package reports
+that limitation clearly.

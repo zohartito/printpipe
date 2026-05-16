@@ -84,6 +84,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory where run folders are read and created.",
     )
 
+    doctor = subparsers.add_parser(
+        "doctor",
+        help="Check local PrintPipe environment and packaging prerequisites.",
+    )
+    doctor.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the full doctor report as JSON.",
+    )
+    doctor.add_argument(
+        "--platform",
+        help="Override platform detection for diagnostics and tests.",
+    )
+
     return parser
 
 
@@ -167,6 +181,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "serve":
         return _serve(host=args.host, port=args.port, runs_dir=args.runs_dir)
 
+    if args.command == "doctor":
+        return _doctor(json_output=args.json, platform_name=args.platform)
+
     parser.print_help()
     return 0
 
@@ -175,6 +192,17 @@ def _serve(*, host: str, port: int, runs_dir: Path) -> int:
     from printpipe.web import server
 
     server.serve(host=host, port=port, runs_dir=runs_dir)
+    return 0
+
+
+def _doctor(*, json_output: bool, platform_name: str | None) -> int:
+    from printpipe.env.doctor import build_environment_report, render_environment_report
+
+    report = build_environment_report(platform_name=platform_name)
+    if json_output:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_environment_report(report), end="")
     return 0
 
 

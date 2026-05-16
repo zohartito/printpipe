@@ -84,12 +84,14 @@ Status: complete as a local UX foundation. Outputs are covered by `tests/test_re
 
 ## Wave 8 - Packaging
 
-1. macOS dependency detection.
-2. Windows dependency detection.
-3. Bambu Studio path detection.
-4. Bambu user profile detection.
-5. Installer/package notes.
-6. Troubleshooting guide.
+Status: complete as a packaging/environment foundation. Outputs are covered by `tests/test_env_macos.py`, `tests/test_env_windows.py`, `tests/test_env_bambu_studio.py`, `tests/test_env_bambu_profiles.py`, `tests/test_env_dependencies.py`, `tests/test_env_doctor.py`, and `tests/test_cli_doctor.py`.
+
+1. Done: macOS dependency/runtime detection.
+2. Done: Windows dependency/runtime detection.
+3. Done: Bambu Studio install path detection.
+4. Done: Bambu user profile detection.
+5. Done as docs/foundation: installer/package notes.
+6. Done: troubleshooting guide and `printpipe doctor`.
 
 ## Wave 9 - Beta and Regression
 
