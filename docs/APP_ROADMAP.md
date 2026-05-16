@@ -150,15 +150,15 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 ## Phase 13 - Test Objects
 
 - [~] 103. Slipper proof of concept.
-- [ ] 104. Simple figurine.
-- [ ] 105. Cup/vase object.
-- [ ] 106. Flat bracket/wrench-like object.
-- [ ] 107. Decorative organic object.
-- [~] 108. Existing STL import test.
+- [x] 104. Simple figurine.
+- [x] 105. Cup/vase object.
+- [x] 106. Flat bracket/wrench-like object.
+- [x] 107. Decorative organic object.
+- [x] 108. Existing STL import test.
 - [ ] 109. TPU test.
 - [ ] 110. PLA test.
 - [ ] 111. PETG test.
-- [~] 112. Compare all outcomes.
+- [x] 112. Compare all outcomes.
 
 ## Phase 14 - Local UI
 

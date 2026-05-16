@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "roadmap_item": 108,
+  "object": {
+    "name": "existing_stl_tiny_tetrahedron",
+    "source_format": "ascii_stl",
+    "description": "Tiny closed tetrahedron used to prove the current existing-STL import path can feed the 3MF bundle writer."
+  },
+  "bundle": {
+    "filename": "existing_stl_tiny_tetrahedron.3mf"
+  },
+  "bed": {
+    "width_mm": 256,
+    "depth_mm": 256
+  },
+  "profile_ids": {
+    "filament_settings_id": "Generic PLA",
+    "print_settings_id": "0.20mm Standard",
+    "printer_settings_id": "Bambu Lab P2S 0.4 nozzle",
+    "printer_model": "Bambu Lab P2S",
+    "printer_variant": "0.4",
+    "nozzle_diameter": "0.4",
+    "printable_height": "256"
+  },
+  "expected_mesh": {
+    "vertices": 4,
+    "triangles": 4,
+    "repair_status": "not_run",
+    "slice_status": "not_run"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "fixture": "flat_bracket",
+  "roadmap_item": 106,
+  "units": "mm",
+  "description": "Small ASCII STL for a long, flat bracket/wrench-like object whose XY rotation can determine whether it fits the bed.",
+  "intended_orientation": {
+    "flattest_face_down": true,
+    "long_axis_can_rotate_for_bed_fit": true,
+    "semantic_understanding_priority": "less_critical_than_bed_fit_scoring",
+    "notes": [
+      "Use the broad 300 x 60 mm face as the flattest face down.",
+      "Allow the long axis to rotate around Z when checking bed fit.",
+      "For this fixture, semantic recognition as a bracket or wrench matters less than bed-fit scoring."
+    ]
+  },
+  "max_height_to_length_ratio": 0.05,
+  "bed_fit_test": {
+    "bed_width_mm": 256.0,
+    "bed_depth_mm": 256.0,
+    "rotations_degrees": [0.0, 45.0, 90.0, 135.0],
+    "non_fit_rotation_degrees": [0.0, 90.0],
+    "fit_rotation_degrees": [45.0, 135.0]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "fixture": "cup_vase_open_frustum",
+  "roadmap_item": 105,
+  "source_file": "cup_vase_open_frustum.stl",
+  "description": "Small six-sided open frustum cup/vase fixture with a closed base and open top rim.",
+  "intended_orientation_notes": [
+    "upright",
+    "opening up",
+    "base down",
+    "cavity/opening detection needed"
+  ],
+  "semantic_orientation": {
+    "upright_axis": "+Z",
+    "opening_direction": "+Z",
+    "base_direction": "-Z",
+    "requires_cavity_opening_detection": true
+  },
+  "expected_bounds_mm": {
+    "min": [-16.0, -14.0, 0.0],
+    "max": [16.0, 14.0, 30.0],
+    "extents": [32.0, 28.0, 30.0]
+  },
+  "expected_topology": {
+    "vertices": 13,
+    "triangles": 18,
+    "watertight": false,
+    "boundary_edges": 6,
+    "non_manifold_edges": 0,
+    "expected_open_boundary": "top rim"
+  }
+}

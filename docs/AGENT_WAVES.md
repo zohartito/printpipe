@@ -51,12 +51,14 @@ Status: complete. Outputs are covered by module tests in `tests/test_mesh_repair
 
 ## Wave 5 - Generic Object Expansion
 
-1. Figurine test object.
-2. Cup/vase test object.
-3. Flat bracket/wrench test object.
-4. Decorative organic object.
-5. Existing STL import test.
-6. Cross-object orientation review.
+Status: complete. Outputs are covered by `tests/test_object_fixture_*.py`, `tests/test_existing_stl_pipeline_bundle.py`, and `tests/test_wave5_orientation_review_doc.py`.
+
+1. Done: figurine test object.
+2. Done: cup/vase test object.
+3. Done: flat bracket/wrench test object.
+4. Done: decorative organic object.
+5. Done: existing STL import-to-bundle fixture test.
+6. Done: cross-object orientation review.
 
 ## Wave 6 - Filament Coverage
 

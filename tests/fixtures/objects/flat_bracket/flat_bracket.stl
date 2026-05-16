@@ -1,0 +1,142 @@
+solid flat_bracket
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 4
+      vertex 240 0 4
+      vertex 300 20 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 4
+      vertex 300 20 4
+      vertex 300 40 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 4
+      vertex 300 40 4
+      vertex 240 60 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 4
+      vertex 240 60 4
+      vertex 0 35 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 0
+      vertex 300 20 0
+      vertex 240 0 0
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 0
+      vertex 300 40 0
+      vertex 300 20 0
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 0
+      vertex 240 60 0
+      vertex 300 40 0
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 0
+      vertex 0 35 0
+      vertex 240 60 0
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 0
+      vertex 240 0 4
+      vertex 0 25 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 25 0
+      vertex 240 0 0
+      vertex 240 0 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 240 0 0
+      vertex 300 20 4
+      vertex 240 0 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 240 0 0
+      vertex 300 20 0
+      vertex 300 20 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 300 20 0
+      vertex 300 40 4
+      vertex 300 20 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 300 20 0
+      vertex 300 40 0
+      vertex 300 40 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 300 40 0
+      vertex 240 60 4
+      vertex 300 40 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 300 40 0
+      vertex 240 60 0
+      vertex 240 60 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 240 60 0
+      vertex 0 35 4
+      vertex 240 60 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 240 60 0
+      vertex 0 35 0
+      vertex 0 35 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 35 0
+      vertex 0 25 4
+      vertex 0 35 4
+    endloop
+  endfacet
+  facet normal 0 0 0
+    outer loop
+      vertex 0 35 0
+      vertex 0 25 0
+      vertex 0 25 4
+    endloop
+  endfacet
+endsolid flat_bracket

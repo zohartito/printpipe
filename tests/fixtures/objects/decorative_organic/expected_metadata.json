@@ -1,0 +1,17 @@
+{
+  "roadmap_item": 107,
+  "fixture_name": "decorative_organic_asymmetric_leaf_shell",
+  "source_file": "asymmetric_leaf_shell.stl",
+  "description": "Small low-poly decorative organic shell with asymmetric lobes and overhang-like protrusions.",
+  "requires_future_support_risk_evaluation": true,
+  "intended_orientation_notes": {
+    "visual_orientation_competes_with_printability": true,
+    "support_risk_scoring_needed": true,
+    "bed_fit_alone_is_insufficient": true
+  },
+  "support_risk": {
+    "evaluation_required": true,
+    "reason": "asymmetric overhang-like decorative lobes",
+    "expected_future_signal": "orientation scoring should consider unsupported underside area, not just XY footprint"
+  }
+}

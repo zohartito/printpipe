@@ -1,0 +1,26 @@
+{
+  "fixture_id": "simple_upright_figurine",
+  "roadmap_item": 104,
+  "source_mesh": "simple_figurine_ascii.stl",
+  "description": "Small upright figurine made from simple stacked boxes: base, two feet, body, and head.",
+  "expected_bounds_mm": {
+    "width_x": 16.0,
+    "depth_y": 10.0,
+    "height_z": 34.0
+  },
+  "intended_orientation": {
+    "upright": true,
+    "base_down": true,
+    "semantic_orientation_required": true,
+    "notes": [
+      "The intended print pose is upright with the rectangular base down on the bed.",
+      "This is a semantic object fixture: a figurine standing on feet and a base, not just an arbitrary mesh.",
+      "PCA alone may be wrong for figurines because mass distribution and sparse facets do not prove which side is the base."
+    ]
+  },
+  "bed_fit_expectation": {
+    "bed_width_mm": 256.0,
+    "bed_depth_mm": 256.0,
+    "default_z_rotations_fit": true
+  }
+}
