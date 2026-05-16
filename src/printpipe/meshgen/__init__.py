@@ -14,6 +14,7 @@ from .contracts import (
 )
 from .providers import (
     ExistingMeshProvider,
+    Hunyuan3DProvider,
     PlaceholderMeshProvider,
     available_provider_ids,
     default_registry,
@@ -27,6 +28,7 @@ from .providers import (
 __all__ = [
     "DeleteResult",
     "ExistingMeshProvider",
+    "Hunyuan3DProvider",
     "MeshGenCapabilities",
     "MeshGenCost",
     "MeshGenError",

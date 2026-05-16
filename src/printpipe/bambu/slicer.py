@@ -8,11 +8,14 @@ whether to retry repair, bed fit, profile validation, or support/orientation.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
+
+from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
 
 
 @dataclass(frozen=True)
@@ -150,6 +153,76 @@ def run_slice_command(command: Sequence[str | Path], run_layout: object) -> Slic
         log_path=stdout_log,
         stderr_log_path=stderr_log,
     )
+
+
+def slice_result_to_receipt(result: SliceResult, run_layout: object) -> StageReceipt:
+    """Write a stable slice result JSON artifact and return a stage receipt."""
+
+    result_json_path = write_slice_result_json(result, run_layout)
+    failed = result.return_code != 0 or bool(result.errors)
+    return StageReceipt(
+        stage="slice",
+        status=StageStatus.FAILED if failed else StageStatus.SUCCEEDED,
+        message="Bambu CLI slice failed." if failed else "Bambu CLI slice passed.",
+        artifacts=slice_result_artifacts(result, result_json_path=result_json_path),
+        metrics=_slice_result_metrics(result),
+    )
+
+
+def write_slice_result_json(result: SliceResult, run_layout: object) -> Path:
+    """Write ``slice_result.json`` into the run slice directory."""
+
+    slice_dir = Path(getattr(run_layout, "slice_dir"))
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    path = slice_dir / "slice_result.json"
+    path.write_text(
+        json.dumps(_slice_result_payload(result), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def slice_result_artifacts(
+    result: SliceResult,
+    *,
+    result_json_path: Path,
+) -> tuple[Artifact, ...]:
+    """Return receipt artifacts for a slice result and its available files."""
+
+    artifacts: list[Artifact] = [
+        Artifact(
+            kind=ArtifactKind.SLICE_LOG,
+            path=result_json_path,
+            label="Slice result JSON",
+        )
+    ]
+
+    if _file_has_content(result.log_path):
+        artifacts.append(
+            Artifact(
+                kind=ArtifactKind.SLICE_LOG,
+                path=result.log_path,
+                label="Bambu slicer stdout log",
+            )
+        )
+    if _file_has_content(result.stderr_log_path):
+        artifacts.append(
+            Artifact(
+                kind=ArtifactKind.SLICE_LOG,
+                path=result.stderr_log_path,
+                label="Bambu slicer stderr log",
+            )
+        )
+    if result.gcode_path is not None:
+        artifacts.append(
+            Artifact(
+                kind=ArtifactKind.SLICE_LOG,
+                path=result.gcode_path,
+                label="G-code output",
+            )
+        )
+
+    return tuple(artifacts)
 
 
 def gate_slice(
@@ -306,6 +379,47 @@ def _parse_cost(text: str) -> float | None:
 
 def _float_from_text(value: str) -> float:
     return float(value.replace(",", ""))
+
+
+def _slice_result_payload(result: SliceResult) -> dict[str, Any]:
+    return {
+        "return_code": result.return_code,
+        "warnings": list(result.warnings),
+        "errors": list(result.errors),
+        "time_seconds": result.time_seconds,
+        "filament_g": result.filament_g,
+        "layer_count": result.layer_count,
+        "cost": result.cost,
+        "gcode_path": _path_to_text(result.gcode_path),
+        "log_path": _path_to_text(result.log_path),
+        "stderr_log_path": _path_to_text(result.stderr_log_path),
+    }
+
+
+def _slice_result_metrics(result: SliceResult) -> dict[str, Any]:
+    metrics: dict[str, Any] = {
+        "return_code": result.return_code,
+        "warnings": result.warnings,
+        "errors": result.errors,
+    }
+    for key in ("time_seconds", "filament_g", "layer_count", "cost"):
+        value = getattr(result, key)
+        if value is not None:
+            metrics[key] = value
+    return metrics
+
+
+def _path_to_text(path: Path | None) -> str | None:
+    return None if path is None else str(path)
+
+
+def _file_has_content(path: Path | None) -> bool:
+    if path is None:
+        return False
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except OSError:
+        return False
 
 
 def _find_gcode_path(stdout: str, stderr: str, slice_dir: Path) -> Path | None:

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
-from printpipe.contracts import StageReceipt, StageStatus
+from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
 
 
 Vertex3D = tuple[float, float, float]
@@ -118,6 +120,54 @@ class OrientationCandidate:
         if self.bed_fit is None:
             return 0.0
         return self.bed_fit.score
+
+
+@dataclass(frozen=True)
+class AxisEstimate:
+    """A bounds-only estimate of one model axis."""
+
+    axis: str
+    length_mm: float
+    rank: int
+    unit_vector: Vertex3D
+    normalized_length: float
+    diagnostics: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SupportBurdenScore:
+    """Bounds/vertex-only support burden proxy; lower score is better."""
+
+    score: float
+    base_contact_fraction: float
+    height_to_footprint_ratio: float
+    heuristic: str
+    diagnostics: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ScalePlan:
+    """Uniform scale inferred from an explicit target or bed envelope."""
+
+    scale_factor: float
+    source_longest_mm: float
+    target_longest_mm: float
+    reason: str
+    diagnostics: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ScaleDownDecision:
+    """Decision for oversized geometry: keep, scale down, or fail."""
+
+    action: str
+    scale_factor: float
+    fits_after: bool
+    reason: str
+    bounds: Bounds3D
+    scaled_bounds: Bounds3D
+    bed_fit: BedFitResult
+    diagnostics: Mapping[str, Any] = field(default_factory=dict)
 
 
 def compute_bounds(vertices: Iterable[Sequence[float]]) -> Bounds3D:
@@ -262,6 +312,35 @@ def candidate_rotations(
     return tuple(candidates)
 
 
+def estimate_primary_axes(
+    bounds_or_vertices: Bounds3D | Iterable[Sequence[float]],
+) -> tuple[AxisEstimate, ...]:
+    """Estimate primary axes from axis-aligned bounds only."""
+    bounds = _coerce_bounds(bounds_or_vertices)
+    axis_rows = (
+        ("x", bounds.width_x, (1.0, 0.0, 0.0)),
+        ("y", bounds.depth_y, (0.0, 1.0, 0.0)),
+        ("z", bounds.height_z, (0.0, 0.0, 1.0)),
+    )
+    longest = max(length for _, length, _ in axis_rows)
+    ranked = sorted(axis_rows, key=lambda row: (-row[1], row[0]))
+
+    return tuple(
+        AxisEstimate(
+            axis=axis,
+            length_mm=_clean_float(length),
+            rank=rank,
+            unit_vector=unit_vector,
+            normalized_length=_clean_float(length / longest) if longest > 0.0 else 0.0,
+            diagnostics={
+                "basis": "axis_aligned_bounds",
+                "semantic_claim": False,
+            },
+        )
+        for rank, (axis, length, unit_vector) in enumerate(ranked, start=1)
+    )
+
+
 def likely_flat_base_heuristic(
     vertices: Iterable[Sequence[float]],
     *,
@@ -304,6 +383,351 @@ def likely_flat_base_heuristic(
     )
 
 
+def likely_cavity_opening_heuristic(
+    vertices: Iterable[Sequence[float]],
+    *,
+    tolerance_mm: float = 0.25,
+    asymmetry_threshold: float = 0.25,
+) -> StageReceipt:
+    """Return a diagnostic boundary-vertex asymmetry score, not a vision claim."""
+    if tolerance_mm < 0:
+        raise ValueError("tolerance_mm must be non-negative")
+    if asymmetry_threshold < 0:
+        raise ValueError("asymmetry_threshold must be non-negative")
+
+    normalized = _normalize_vertices(vertices)
+    if not normalized:
+        return StageReceipt(
+            stage="geometry.likely_cavity_opening_heuristic",
+            status=StageStatus.FAILED,
+            message="no vertices available for cavity/opening heuristic",
+            metrics={
+                "score": 0.0,
+                "heuristic": "opposite_boundary_vertex_asymmetry",
+                "tolerance_mm": tolerance_mm,
+                "asymmetry_threshold": asymmetry_threshold,
+            },
+        )
+
+    bounds = compute_bounds(normalized)
+    side_counts = {
+        "x-": sum(1 for x, _, _ in normalized if x <= bounds.min_x + tolerance_mm),
+        "x+": sum(1 for x, _, _ in normalized if x >= bounds.max_x - tolerance_mm),
+        "y-": sum(1 for _, y, _ in normalized if y <= bounds.min_y + tolerance_mm),
+        "y+": sum(1 for _, y, _ in normalized if y >= bounds.max_y - tolerance_mm),
+        "z-": sum(1 for _, _, z in normalized if z <= bounds.min_z + tolerance_mm),
+        "z+": sum(1 for _, _, z in normalized if z >= bounds.max_z - tolerance_mm),
+    }
+    side_pairs = (("x", "x-", "x+"), ("y", "y-", "y+"), ("z", "z-", "z+"))
+    best_axis = "x"
+    best_side = "x-"
+    best_low_count = side_counts["x-"]
+    best_high_count = side_counts["x+"]
+    best_score = -1.0
+
+    for axis, negative_side, positive_side in side_pairs:
+        negative_count = side_counts[negative_side]
+        positive_count = side_counts[positive_side]
+        low_side = negative_side if negative_count <= positive_count else positive_side
+        low_count = min(negative_count, positive_count)
+        high_count = max(negative_count, positive_count)
+        score = abs(negative_count - positive_count) / len(normalized)
+        if score > best_score:
+            best_axis = axis
+            best_side = low_side
+            best_low_count = low_count
+            best_high_count = high_count
+            best_score = score
+
+    possible_opening = best_score >= asymmetry_threshold and best_high_count > 0
+
+    return StageReceipt(
+        stage="geometry.likely_cavity_opening_heuristic",
+        status=StageStatus.SUCCEEDED,
+        message="computed boundary-vertex asymmetry diagnostic",
+        metrics={
+            "score": _clean_float(best_score),
+            "heuristic": "opposite_boundary_vertex_asymmetry",
+            "possible_opening": possible_opening,
+            "possible_opening_axis": best_axis,
+            "possible_opening_side": best_side,
+            "sparser_side_vertex_count": best_low_count,
+            "opposite_side_vertex_count": best_high_count,
+            "side_vertex_counts": side_counts,
+            "total_vertices": len(normalized),
+            "tolerance_mm": tolerance_mm,
+            "asymmetry_threshold": asymmetry_threshold,
+            "semantic_claim": False,
+        },
+    )
+
+
+def score_support_burden_orientation(
+    vertices_or_candidate: OrientationCandidate | Iterable[Sequence[float]],
+    *,
+    tolerance_mm: float = 0.25,
+) -> SupportBurdenScore:
+    """Score an orientation using only low-Z concentration and bounds shape."""
+    if tolerance_mm < 0:
+        raise ValueError("tolerance_mm must be non-negative")
+
+    if isinstance(vertices_or_candidate, OrientationCandidate):
+        normalized = vertices_or_candidate.vertices
+    else:
+        normalized = _normalize_vertices(vertices_or_candidate)
+    if not normalized:
+        raise ValueError("at least one vertex is required to score support burden")
+
+    bounds = compute_bounds(normalized)
+    low_z_count = sum(1 for _, _, z in normalized if z <= bounds.min_z + tolerance_mm)
+    base_contact_fraction = low_z_count / len(normalized)
+    footprint_reference = max(bounds.width_x, bounds.depth_y)
+    if footprint_reference <= 0.0:
+        height_to_footprint_ratio = bounds.height_z
+    else:
+        height_to_footprint_ratio = bounds.height_z / footprint_reference
+    height_penalty = min(height_to_footprint_ratio, 10.0) * 0.1
+    score = (1.0 - base_contact_fraction) + height_penalty
+
+    return SupportBurdenScore(
+        score=_clean_float(score),
+        base_contact_fraction=_clean_float(base_contact_fraction),
+        height_to_footprint_ratio=_clean_float(height_to_footprint_ratio),
+        heuristic="low_z_contact_fraction_and_height_ratio",
+        diagnostics={
+            "basis": "bounds_only_vertices_only",
+            "lower_is_better": True,
+            "low_z_vertex_count": low_z_count,
+            "total_vertices": len(normalized),
+            "tolerance_mm": tolerance_mm,
+            "height_penalty": _clean_float(height_penalty),
+            "semantic_claim": False,
+        },
+    )
+
+
+def infer_target_scale(
+    bounds_or_vertices: Bounds3D | Iterable[Sequence[float]],
+    *,
+    target_longest_mm: float | None = None,
+    target_height_mm: float | None = None,
+    bed: BedSize | None = None,
+    bed_fill_fraction: float = 0.9,
+) -> ScalePlan:
+    """Infer a uniform scale from a target dimension or bed fill fraction."""
+    if target_longest_mm is not None and target_height_mm is not None:
+        raise ValueError("provide only one target dimension")
+    if target_longest_mm is not None and target_longest_mm <= 0.0:
+        raise ValueError("target_longest_mm must be positive")
+    if target_height_mm is not None and target_height_mm <= 0.0:
+        raise ValueError("target_height_mm must be positive")
+    if bed_fill_fraction <= 0.0 or bed_fill_fraction > 1.0:
+        raise ValueError("bed_fill_fraction must be greater than 0 and at most 1")
+
+    bounds = _coerce_bounds(bounds_or_vertices)
+    source_longest = max(bounds.extents)
+    if source_longest <= 0.0:
+        raise ValueError("source geometry must have at least one positive extent")
+
+    if target_longest_mm is not None:
+        target_longest = target_longest_mm
+        scale_factor = target_longest / source_longest
+        reason = "target_longest_mm"
+    elif target_height_mm is not None:
+        if bounds.height_z <= 0.0:
+            raise ValueError("source geometry height must be positive")
+        scale_factor = target_height_mm / bounds.height_z
+        target_longest = source_longest * scale_factor
+        reason = "target_height_mm"
+    elif bed is not None:
+        target_longest = min(bed.usable_width_mm, bed.usable_depth_mm) * bed_fill_fraction
+        if target_longest <= 0.0:
+            raise ValueError("bed usable dimensions must be positive")
+        scale_factor = target_longest / source_longest
+        reason = "bed_fill_fraction"
+    else:
+        target_longest = source_longest
+        scale_factor = 1.0
+        reason = "preserve_source_size"
+
+    return ScalePlan(
+        scale_factor=_clean_float(scale_factor),
+        source_longest_mm=_clean_float(source_longest),
+        target_longest_mm=_clean_float(target_longest),
+        reason=reason,
+        diagnostics={
+            "basis": "axis_aligned_bounds",
+            "bed_fill_fraction": bed_fill_fraction,
+            "semantic_claim": False,
+        },
+    )
+
+
+def apply_uniform_scale(
+    vertices: Iterable[Sequence[float]],
+    scale_factor: float,
+) -> tuple[Vertex3D, ...]:
+    """Apply a uniform scale to vertices."""
+    if scale_factor <= 0.0:
+        raise ValueError("scale_factor must be positive")
+    normalized = _normalize_vertices(vertices)
+    return tuple(
+        (
+            _clean_float(x * scale_factor),
+            _clean_float(y * scale_factor),
+            _clean_float(z * scale_factor),
+        )
+        for x, y, z in normalized
+    )
+
+
+def decide_scale_down_or_fail(
+    bounds_or_vertices: Bounds3D | Iterable[Sequence[float]],
+    bed: BedSize,
+    *,
+    min_scale_factor: float = 0.5,
+) -> ScaleDownDecision:
+    """Decide whether oversized geometry may be uniformly scaled to the bed."""
+    if min_scale_factor <= 0.0 or min_scale_factor > 1.0:
+        raise ValueError("min_scale_factor must be greater than 0 and at most 1")
+
+    bounds = _coerce_bounds(bounds_or_vertices)
+    current_fit = fits_bed(bounds, bed)
+    if current_fit.fits:
+        return ScaleDownDecision(
+            action="keep",
+            scale_factor=1.0,
+            fits_after=True,
+            reason="already_fits_bed",
+            bounds=bounds,
+            scaled_bounds=bounds,
+            bed_fit=current_fit,
+            diagnostics={"required_scale_factor": 1.0},
+        )
+
+    scale_x = bed.usable_width_mm / bounds.width_x if bounds.width_x > 0.0 else math.inf
+    scale_y = bed.usable_depth_mm / bounds.depth_y if bounds.depth_y > 0.0 else math.inf
+    required_scale = _clean_float(min(1.0, scale_x, scale_y))
+    scaled_bounds = _scale_bounds(bounds, required_scale)
+    scaled_fit = fits_bed(scaled_bounds, bed)
+    can_scale = required_scale >= min_scale_factor and scaled_fit.fits
+    action = "scale_down" if can_scale else "fail"
+
+    return ScaleDownDecision(
+        action=action,
+        scale_factor=required_scale,
+        fits_after=can_scale,
+        reason=(
+            "scale_down_within_allowed_threshold"
+            if can_scale
+            else "required_scale_below_allowed_threshold"
+        ),
+        bounds=bounds,
+        scaled_bounds=scaled_bounds,
+        bed_fit=scaled_fit,
+        diagnostics={
+            "min_scale_factor": min_scale_factor,
+            "required_scale_factor": required_scale,
+            "original_fit": current_fit.fits,
+        },
+    )
+
+
+def select_top_orientations(
+    candidates: Iterable[OrientationCandidate],
+    *,
+    limit: int = 3,
+    require_bed_fit: bool = False,
+    support_weight: float = 10.0,
+) -> tuple[OrientationCandidate, ...]:
+    """Select the best orientation candidates by bed margin and support proxy."""
+    if limit <= 0:
+        return ()
+    if support_weight < 0.0:
+        raise ValueError("support_weight must be non-negative")
+
+    scored: list[tuple[float, float, float, float, OrientationCandidate]] = []
+    for candidate in candidates:
+        if require_bed_fit and (candidate.bed_fit is None or not candidate.bed_fit.fits):
+            continue
+        bed_score = candidate.bed_fit.score if candidate.bed_fit is not None else 0.0
+        support_score = score_support_burden_orientation(candidate).score
+        combined_score = bed_score - (support_score * support_weight)
+        scored.append(
+            (
+                combined_score,
+                bed_score,
+                -support_score,
+                -candidate.rotation_degrees,
+                candidate,
+            )
+        )
+
+    scored.sort(key=lambda row: (row[0], row[1], row[2], row[3]), reverse=True)
+    return tuple(row[4] for row in scored[:limit])
+
+
+def write_bed_fit_preview_artifacts(
+    candidate_or_bounds: OrientationCandidate | Bounds3D | Iterable[Sequence[float]],
+    bed: BedSize,
+    output_dir: str | Path,
+    *,
+    stem: str = "bed_fit",
+) -> StageReceipt:
+    """Write dependency-free SVG and JSON bed-fit preview artifacts."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    svg_path = output_path / f"{stem}.svg"
+    json_path = output_path / f"{stem}.json"
+
+    if isinstance(candidate_or_bounds, OrientationCandidate):
+        bounds = candidate_or_bounds.bounds
+        rotation_degrees = candidate_or_bounds.rotation_degrees
+    else:
+        bounds = _coerce_bounds(candidate_or_bounds)
+        rotation_degrees = None
+    bed_fit = fits_bed(bounds, bed)
+    payload = {
+        "bed": _bed_to_dict(bed),
+        "bounds": _bounds_to_dict(bounds),
+        "fit": _bed_fit_to_dict(bed_fit),
+        "orientation": {"rotation_degrees": rotation_degrees},
+        "heuristics": {
+            "basis": "bounds_only",
+            "semantic_claim": False,
+        },
+    }
+
+    svg_path.write_text(_render_bed_fit_svg(bounds, bed, bed_fit), encoding="utf-8")
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    return StageReceipt(
+        stage="geometry.write_bed_fit_preview_artifacts",
+        status=StageStatus.SUCCEEDED,
+        message="wrote bounds-only bed-fit preview artifacts",
+        artifacts=(
+            Artifact(
+                kind=ArtifactKind.PREVIEW,
+                path=svg_path,
+                label="Bed fit SVG preview",
+                metadata={"format": "svg"},
+            ),
+            Artifact(
+                kind=ArtifactKind.REPORT,
+                path=json_path,
+                label="Bed fit preview JSON",
+                metadata={"format": "json"},
+            ),
+        ),
+        metrics={
+            "fits": bed_fit.fits,
+            "min_margin_mm": bed_fit.min_margin_mm,
+            "rotation_degrees": rotation_degrees,
+            "basis": "bounds_only",
+        },
+    )
+
+
 def _coerce_bounds(
     bounds_or_vertices: Bounds3D | Iterable[Sequence[float]],
 ) -> Bounds3D:
@@ -320,6 +744,92 @@ def _normalize_vertices(vertices: Iterable[Sequence[float]]) -> tuple[Vertex3D, 
         x, y, z = vertex
         normalized.append((float(x), float(y), float(z)))
     return tuple(normalized)
+
+
+def _scale_bounds(bounds: Bounds3D, scale_factor: float) -> Bounds3D:
+    return Bounds3D(
+        min_x=_clean_float(bounds.min_x * scale_factor),
+        min_y=_clean_float(bounds.min_y * scale_factor),
+        min_z=_clean_float(bounds.min_z * scale_factor),
+        max_x=_clean_float(bounds.max_x * scale_factor),
+        max_y=_clean_float(bounds.max_y * scale_factor),
+        max_z=_clean_float(bounds.max_z * scale_factor),
+    )
+
+
+def _bounds_to_dict(bounds: Bounds3D) -> dict[str, float]:
+    return {
+        "min_x": bounds.min_x,
+        "min_y": bounds.min_y,
+        "min_z": bounds.min_z,
+        "max_x": bounds.max_x,
+        "max_y": bounds.max_y,
+        "max_z": bounds.max_z,
+        "width_x": bounds.width_x,
+        "depth_y": bounds.depth_y,
+        "height_z": bounds.height_z,
+    }
+
+
+def _bed_to_dict(bed: BedSize) -> dict[str, float]:
+    return {
+        "width_mm": bed.width_mm,
+        "depth_mm": bed.depth_mm,
+        "margin_mm": bed.margin_mm,
+        "usable_width_mm": bed.usable_width_mm,
+        "usable_depth_mm": bed.usable_depth_mm,
+    }
+
+
+def _bed_fit_to_dict(bed_fit: BedFitResult) -> dict[str, Any]:
+    return {
+        "fits": bed_fit.fits,
+        "margin_x_mm": bed_fit.margin_x_mm,
+        "margin_y_mm": bed_fit.margin_y_mm,
+        "min_margin_mm": bed_fit.min_margin_mm,
+        "overflow_x_mm": bed_fit.overflow_x_mm,
+        "overflow_y_mm": bed_fit.overflow_y_mm,
+        "score": bed_fit.score,
+    }
+
+
+def _render_bed_fit_svg(bounds: Bounds3D, bed: BedSize, bed_fit: BedFitResult) -> str:
+    bed_width = _svg_float(bed.width_mm)
+    bed_depth = _svg_float(bed.depth_mm)
+    usable_width = _svg_float(max(0.0, bed.usable_width_mm))
+    usable_depth = _svg_float(max(0.0, bed.usable_depth_mm))
+    margin = _svg_float(bed.margin_mm)
+    part_x = _svg_float((bed.width_mm - bounds.width_x) / 2.0)
+    part_y = _svg_float((bed.depth_mm - bounds.depth_y) / 2.0)
+    part_width = _svg_float(bounds.width_x)
+    part_depth = _svg_float(bounds.depth_y)
+    part_fill = "#22c55e" if bed_fit.fits else "#ef4444"
+    part_stroke = "#15803d" if bed_fit.fits else "#b91c1c"
+
+    return "\n".join(
+        (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            f'viewBox="0 0 {bed_width} {bed_depth}" width="512" height="512" '
+            'role="img" aria-labelledby="title desc">',
+            "  <title id=\"title\">Bed fit preview</title>",
+            "  <desc id=\"desc\">Bounds-only footprint preview centered on the selected bed.</desc>",
+            f'  <rect x="0" y="0" width="{bed_width}" height="{bed_depth}" '
+            'fill="#f8fafc" stroke="#64748b" stroke-width="1" />',
+            f'  <rect x="{margin}" y="{margin}" width="{usable_width}" height="{usable_depth}" '
+            'fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 3" />',
+            f'  <rect x="{part_x}" y="{part_y}" width="{part_width}" height="{part_depth}" '
+            f'fill="{part_fill}" fill-opacity="0.28" stroke="{part_stroke}" stroke-width="2" />',
+            "</svg>",
+            "",
+        )
+    )
+
+
+def _svg_float(value: float) -> str:
+    cleaned = _clean_float(value)
+    if float(cleaned).is_integer():
+        return str(int(cleaned))
+    return f"{cleaned:.6f}".rstrip("0").rstrip(".")
 
 
 def _clean_float(value: float) -> float:

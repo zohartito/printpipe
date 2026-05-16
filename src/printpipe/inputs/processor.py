@@ -1,16 +1,20 @@
-"""Dependency-light input processing skeleton.
+"""Dependency-light input processing helpers.
 
-This module deliberately works by extension and file copying only. Heavier
-media decoding, background removal, and contrast normalization can be wired in
-later without changing the public receipts.
+This module keeps media preparation honest and local: still images are copied
+through stable frame folders, GIF/video extraction uses ffmpeg only when it is
+available, and cleanup stages are explicit no-op copies until real background
+or lighting processing exists.
 """
 
 from __future__ import annotations
 
 import json
 import shutil
+import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 from printpipe.contracts import Artifact, ArtifactKind, InputKind, StageReceipt, StageStatus
 
@@ -19,6 +23,59 @@ IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".
 GIF_SUFFIXES = frozenset({".gif"})
 VIDEO_SUFFIXES = frozenset({".mov", ".mp4", ".m4v", ".avi", ".webm"})
 MESH_SUFFIXES = frozenset({".stl", ".glb", ".gltf", ".obj", ".3mf"})
+DEFAULT_MAX_EXTRACTED_FRAMES = 8
+
+
+class FrameExtractor(Protocol):
+    def extract_frames(self, input_path: Path, output_dir: Path, max_frames: int) -> Sequence[Path]:
+        """Extract frame files into output_dir and return their paths."""
+
+
+class FrameExtractorUnavailable(RuntimeError):
+    """Raised when a configured frame extractor cannot run in this environment."""
+
+
+class FrameExtractionError(RuntimeError):
+    """Raised when a configured frame extractor runs but does not produce usable frames."""
+
+
+@dataclass(frozen=True)
+class FfmpegFrameExtractor:
+    executable: str = "ffmpeg"
+    name: str = "ffmpeg"
+
+    def extract_frames(self, input_path: Path, output_dir: Path, max_frames: int) -> Sequence[Path]:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_pattern = output_dir / "frame_%06d.png"
+        command = [
+            self.executable,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(input_path),
+            "-vf",
+            "fps=1",
+            "-frames:v",
+            str(max_frames),
+            str(output_pattern),
+        ]
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True)
+        except FileNotFoundError as exc:
+            raise FrameExtractorUnavailable("ffmpeg executable was not found") from exc
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or exc.stdout or "").strip()
+            message = "ffmpeg failed to extract frames"
+            if detail:
+                message = f"{message}: {detail}"
+            raise FrameExtractionError(message) from exc
+
+        frame_paths = tuple(sorted(output_dir.glob("frame_*.png")))[:max_frames]
+        if not frame_paths:
+            raise FrameExtractionError("ffmpeg did not produce any frame files")
+        return frame_paths
 
 
 @dataclass(frozen=True)
@@ -48,7 +105,15 @@ def classify_input_path(path: Path) -> InputKind:
     raise ValueError(f"unsupported input type: {path.suffix or path.name}")
 
 
-def prepare_input(input_path: Path, work_dir: Path, max_references: int = 4) -> InputProcessingResult:
+def prepare_input(
+    input_path: Path,
+    work_dir: Path,
+    max_references: int = 4,
+    *,
+    frame_extractor: FrameExtractor | None = None,
+    use_system_ffmpeg: bool = True,
+    max_extracted_frames: int = DEFAULT_MAX_EXTRACTED_FRAMES,
+) -> InputProcessingResult:
     input_path = input_path.expanduser().resolve()
     if not input_path.exists():
         raise FileNotFoundError(input_path)
@@ -92,13 +157,32 @@ def prepare_input(input_path: Path, work_dir: Path, max_references: int = 4) -> 
             mesh_artifact=mesh_artifact,
         )
 
-    extracted_references, extract_receipt = extract_references(input_path, work_dir, input_kind)
+    extracted_references, extract_receipt = extract_references(
+        input_path,
+        work_dir,
+        input_kind,
+        frame_extractor=frame_extractor,
+        use_system_ffmpeg=use_system_ffmpeg,
+        max_frames=max_extracted_frames,
+    )
     receipts.append(extract_receipt)
 
-    selected_references = select_references(extracted_references, max_references=max_references)
-    receipts.append(_selection_receipt(selected_references))
-    receipts.append(_skipped_receipt("background_removal", "background removal is not implemented in the v1 skeleton"))
-    receipts.append(_skipped_receipt("normalize_lighting", "lighting normalization is not implemented in the v1 skeleton"))
+    cleaned_references, background_receipt, lighting_receipt = clean_references(extracted_references, work_dir)
+    receipts.append(background_receipt)
+    receipts.append(lighting_receipt)
+
+    selected_references = select_references(
+        cleaned_references,
+        max_references=max_references,
+        selected_dir=work_dir / "selected",
+    )
+    receipts.append(
+        _selection_receipt(
+            selected_references,
+            candidate_count=len(cleaned_references),
+            max_references=max_references,
+        )
+    )
 
     contact_sheet = create_contact_sheet_manifest(input_path, input_kind, selected_references, work_dir)
     receipts.append(
@@ -120,23 +204,30 @@ def prepare_input(input_path: Path, work_dir: Path, max_references: int = 4) -> 
     )
 
 
-def extract_references(input_path: Path, work_dir: Path, input_kind: InputKind | None = None) -> tuple[tuple[Artifact, ...], StageReceipt]:
+def extract_references(
+    input_path: Path,
+    work_dir: Path,
+    input_kind: InputKind | None = None,
+    *,
+    frame_extractor: FrameExtractor | None = None,
+    use_system_ffmpeg: bool = True,
+    max_frames: int = DEFAULT_MAX_EXTRACTED_FRAMES,
+) -> tuple[tuple[Artifact, ...], StageReceipt]:
     input_kind = input_kind or classify_input_path(input_path)
 
     if input_kind == InputKind.IMAGE:
-        selected_dir = work_dir / "selected"
-        selected_dir.mkdir(parents=True, exist_ok=True)
-        reference_path = selected_dir / input_path.name
-        shutil.copy2(input_path, reference_path)
+        extracted_dir = work_dir / "extracted"
+        reference_path = _copy_to_dir(input_path, extracted_dir)
         reference = Artifact(
             kind=ArtifactKind.CLEANED_FRAME,
             path=reference_path,
-            label="selected_reference_000",
+            label="extracted_frame_000",
             metadata={
                 "input_kind": input_kind.value,
                 "source_path": str(input_path),
                 "frame_index": 0,
-                "selection_role": "still_image_reference",
+                "processing_stage": "extracted_frame",
+                "extraction_method": "still_image_copy",
             },
         )
         return (
@@ -144,21 +235,95 @@ def extract_references(input_path: Path, work_dir: Path, input_kind: InputKind |
             StageReceipt(
                 stage="extract_references",
                 status=StageStatus.SUCCEEDED,
-                message="copied still image as the initial selected reference",
+                message="copied still image into extracted frame storage",
                 artifacts=(reference,),
-                metrics={"candidate_count": 1},
+                metrics={
+                    "candidate_count": 1,
+                    "extraction_method": "still_image_copy",
+                    "output_dir": str(extracted_dir),
+                },
             ),
         )
 
     if input_kind in {InputKind.GIF, InputKind.VIDEO}:
-        media_type = "GIF frame extraction" if input_kind == InputKind.GIF else "video decoding"
+        extractor = _resolve_frame_extractor(frame_extractor, use_system_ffmpeg=use_system_ffmpeg)
+        if extractor is None:
+            return (
+                (),
+                StageReceipt(
+                    stage="extract_references",
+                    status=StageStatus.SKIPPED,
+                    message="ffmpeg is unavailable, so GIF/video frame extraction was skipped",
+                    metrics={
+                        "candidate_count": 0,
+                        "ffmpeg_available": False,
+                        "max_frames": max_frames,
+                    },
+                ),
+            )
+
+        extracted_dir = work_dir / "extracted"
+        extractor_name = _extractor_name(extractor)
+        try:
+            frame_paths = tuple(extractor.extract_frames(input_path, extracted_dir, max_frames))
+        except FrameExtractorUnavailable as exc:
+            return (
+                (),
+                StageReceipt(
+                    stage="extract_references",
+                    status=StageStatus.SKIPPED,
+                    message=str(exc),
+                    metrics={
+                        "candidate_count": 0,
+                        "extractor": extractor_name,
+                        "ffmpeg_available": False,
+                        "max_frames": max_frames,
+                    },
+                ),
+            )
+        except FrameExtractionError as exc:
+            return (
+                (),
+                StageReceipt(
+                    stage="extract_references",
+                    status=StageStatus.FAILED,
+                    message=str(exc),
+                    metrics={
+                        "candidate_count": 0,
+                        "extractor": extractor_name,
+                        "max_frames": max_frames,
+                    },
+                ),
+            )
+
+        references = tuple(
+            Artifact(
+                kind=ArtifactKind.CLEANED_FRAME,
+                path=frame_path,
+                label=f"extracted_frame_{index:03d}",
+                metadata={
+                    "input_kind": input_kind.value,
+                    "source_path": str(input_path),
+                    "frame_index": index,
+                    "processing_stage": "extracted_frame",
+                    "extraction_method": extractor_name,
+                },
+            )
+            for index, frame_path in enumerate(sorted(frame_paths))
+        )
         return (
-            (),
+            references,
             StageReceipt(
                 stage="extract_references",
-                status=StageStatus.SKIPPED,
-                message=f"{media_type} is not implemented in the v1 skeleton",
-                metrics={"candidate_count": 0},
+                status=StageStatus.SUCCEEDED,
+                message="extracted media frames for reference selection",
+                artifacts=references,
+                metrics={
+                    "candidate_count": len(references),
+                    "extractor": extractor_name,
+                    "max_frames": max_frames,
+                    "output_dir": str(extracted_dir),
+                },
             ),
         )
 
@@ -173,10 +338,109 @@ def extract_references(input_path: Path, work_dir: Path, input_kind: InputKind |
     )
 
 
-def select_references(references: tuple[Artifact, ...], max_references: int = 4) -> tuple[Artifact, ...]:
+def clean_references(
+    references: tuple[Artifact, ...],
+    work_dir: Path,
+) -> tuple[tuple[Artifact, ...], StageReceipt, StageReceipt]:
+    if not references:
+        return (
+            (),
+            _skipped_receipt(
+                "background_removal",
+                "no extracted frames were available for background removal",
+                metrics={"frame_count": 0, "semantic_background_removed": False},
+            ),
+            _skipped_receipt(
+                "normalize_lighting",
+                "no cleaned frames were available for lighting normalization",
+                metrics={"frame_count": 0, "lighting_normalized": False},
+            ),
+        )
+
+    cleaned_dir = work_dir / "cleaned"
+    cleaned_references: list[Artifact] = []
+    for index, reference in enumerate(references):
+        cleaned_path = _copy_to_dir(reference.path, cleaned_dir)
+        metadata = dict(reference.metadata)
+        metadata.update(
+            {
+                "processing_stage": "cleaned_frame",
+                "source_frame_path": str(reference.path),
+                "semantic_background_removed": False,
+                "background_removal_method": "not_performed_copy",
+                "lighting_normalized": False,
+                "lighting_normalization_method": "not_performed",
+            }
+        )
+        cleaned_references.append(
+            Artifact(
+                kind=ArtifactKind.CLEANED_FRAME,
+                path=cleaned_path,
+                label=f"cleaned_frame_{index:03d}",
+                metadata=metadata,
+            )
+        )
+
+    cleaned = tuple(cleaned_references)
+    return (
+        cleaned,
+        StageReceipt(
+            stage="background_removal",
+            status=StageStatus.SUCCEEDED,
+            message="copied frames without semantic background removal",
+            artifacts=cleaned,
+            metrics={
+                "frame_count": len(cleaned),
+                "operation": "copy",
+                "semantic_background_removed": False,
+            },
+        ),
+        StageReceipt(
+            stage="normalize_lighting",
+            status=StageStatus.SUCCEEDED,
+            message="left cleaned frames unchanged; no lighting normalization was applied",
+            artifacts=cleaned,
+            metrics={
+                "frame_count": len(cleaned),
+                "operation": "no_op",
+                "lighting_normalized": False,
+            },
+        ),
+    )
+
+
+def select_references(
+    references: tuple[Artifact, ...],
+    max_references: int = 4,
+    selected_dir: Path | None = None,
+) -> tuple[Artifact, ...]:
     if max_references < 1:
         raise ValueError("max_references must be at least 1")
-    return references[:max_references]
+    selected = references[:max_references]
+    if selected_dir is None:
+        return selected
+
+    selected_references: list[Artifact] = []
+    for index, reference in enumerate(selected):
+        selected_path = _copy_to_dir(reference.path, selected_dir)
+        metadata = dict(reference.metadata)
+        metadata.update(
+            {
+                "processing_stage": "selected_reference",
+                "selected_from": str(reference.path),
+                "selection_rank": index,
+                "selection_strategy": "first_available_frames",
+            }
+        )
+        selected_references.append(
+            Artifact(
+                kind=reference.kind,
+                path=selected_path,
+                label=f"selected_reference_{index:03d}",
+                metadata=metadata,
+            )
+        )
+    return tuple(selected_references)
 
 
 def route_existing_mesh(input_path: Path) -> Artifact:
@@ -201,6 +465,7 @@ def create_contact_sheet_manifest(
     payload = {
         "schema_version": 1,
         "placeholder": True,
+        "preview_manifest": True,
         "input_kind": input_kind.value,
         "source_path": str(input_path),
         "reference_count": len(references),
@@ -213,6 +478,14 @@ def create_contact_sheet_manifest(
             }
             for reference in references
         ],
+        "preview_items": [
+            {
+                "label": reference.label,
+                "path": str(reference.path),
+                "source_frame_path": reference.metadata.get("selected_from"),
+            }
+            for reference in references
+        ],
     }
     manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return Artifact(
@@ -220,28 +493,66 @@ def create_contact_sheet_manifest(
         path=manifest_path,
         label="contact_sheet_manifest",
         metadata={
-            "format": "json-placeholder",
+            "format": "json-manifest",
             "reference_count": len(references),
+            "preview_manifest": True,
         },
     )
 
 
-def _selection_receipt(selected_references: tuple[Artifact, ...]) -> StageReceipt:
+def _selection_receipt(
+    selected_references: tuple[Artifact, ...],
+    *,
+    candidate_count: int | None = None,
+    max_references: int | None = None,
+) -> StageReceipt:
+    metrics = {
+        "selected_count": len(selected_references),
+        "candidate_count": candidate_count if candidate_count is not None else len(selected_references),
+    }
+    if max_references is not None:
+        metrics["max_references"] = max_references
     if selected_references:
         return StageReceipt(
             stage="select_references",
             status=StageStatus.SUCCEEDED,
             message="selected reference artifacts for mesh generation",
             artifacts=selected_references,
-            metrics={"selected_count": len(selected_references)},
+            metrics=metrics,
         )
     return StageReceipt(
         stage="select_references",
         status=StageStatus.SKIPPED,
         message="no extracted references are available yet",
-        metrics={"selected_count": 0},
+        metrics=metrics,
     )
 
 
-def _skipped_receipt(stage: str, message: str) -> StageReceipt:
-    return StageReceipt(stage=stage, status=StageStatus.SKIPPED, message=message)
+def _resolve_frame_extractor(
+    frame_extractor: FrameExtractor | None,
+    *,
+    use_system_ffmpeg: bool,
+) -> FrameExtractor | None:
+    if frame_extractor is not None:
+        return frame_extractor
+    if not use_system_ffmpeg:
+        return None
+    ffmpeg_path = shutil.which("ffmpeg")
+    if ffmpeg_path is None:
+        return None
+    return FfmpegFrameExtractor(executable=ffmpeg_path)
+
+
+def _extractor_name(frame_extractor: FrameExtractor) -> str:
+    return str(getattr(frame_extractor, "name", frame_extractor.__class__.__name__))
+
+
+def _copy_to_dir(source_path: Path, target_dir: Path) -> Path:
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / source_path.name
+    shutil.copy2(source_path, target_path)
+    return target_path
+
+
+def _skipped_receipt(stage: str, message: str, metrics: dict[str, object] | None = None) -> StageReceipt:
+    return StageReceipt(stage=stage, status=StageStatus.SKIPPED, message=message, metrics=metrics or {})

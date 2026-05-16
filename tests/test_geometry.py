@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import json
 
 from printpipe.contracts import StageStatus
 from printpipe.geometry import (
@@ -12,6 +13,16 @@ from printpipe.geometry import (
     likely_flat_base_heuristic,
     rotate_z,
     score_bed_fit_margin,
+)
+from printpipe.geometry.core import (
+    apply_uniform_scale,
+    decide_scale_down_or_fail,
+    estimate_primary_axes,
+    infer_target_scale,
+    likely_cavity_opening_heuristic,
+    score_support_burden_orientation,
+    select_top_orientations,
+    write_bed_fit_preview_artifacts,
 )
 
 
@@ -104,3 +115,106 @@ def test_likely_flat_base_heuristic_returns_diagnostic_receipt_not_claim():
     assert receipt.metrics["score"] == 0.5
     assert receipt.metrics["low_z_vertex_fraction"] == 0.5
     assert receipt.metrics["heuristic"] == "low_z_vertex_fraction"
+
+
+def test_estimate_primary_axes_sorts_bounds_axes_without_semantic_claims():
+    estimates = estimate_primary_axes(box_vertices(10.0, 25.0, 5.0))
+
+    assert [estimate.axis for estimate in estimates] == ["y", "x", "z"]
+    assert [estimate.length_mm for estimate in estimates] == [25.0, 10.0, 5.0]
+    assert estimates[0].unit_vector == (0.0, 1.0, 0.0)
+    assert estimates[0].diagnostics["basis"] == "axis_aligned_bounds"
+
+
+def test_likely_cavity_opening_heuristic_reports_boundary_asymmetry_only():
+    vertices = (
+        (0.0, 0.0, 0.0),
+        (10.0, 0.0, 0.0),
+        (10.0, 10.0, 0.0),
+        (0.0, 10.0, 0.0),
+        (5.0, 5.0, 20.0),
+    )
+
+    receipt = likely_cavity_opening_heuristic(vertices, tolerance_mm=0.01)
+
+    assert receipt.status is StageStatus.SUCCEEDED
+    assert receipt.stage == "geometry.likely_cavity_opening_heuristic"
+    assert receipt.metrics["heuristic"] == "opposite_boundary_vertex_asymmetry"
+    assert receipt.metrics["possible_opening"] is True
+    assert receipt.metrics["possible_opening_side"] == "z+"
+    assert receipt.metrics["score"] == 0.6
+
+
+def test_support_burden_score_prefers_broader_lower_orientations():
+    flat = box_vertices(60.0, 30.0, 6.0)
+    upright = box_vertices(6.0, 30.0, 60.0)
+
+    flat_score = score_support_burden_orientation(flat, tolerance_mm=0.01)
+    upright_score = score_support_burden_orientation(upright, tolerance_mm=0.01)
+
+    assert flat_score.heuristic == "low_z_contact_fraction_and_height_ratio"
+    assert flat_score.score < upright_score.score
+    assert flat_score.base_contact_fraction == 0.5
+    assert upright_score.height_to_footprint_ratio == 2.0
+
+
+def test_infer_target_scale_and_apply_uniform_scale_from_bounds():
+    vertices = box_vertices(100.0, 40.0, 20.0)
+
+    explicit = infer_target_scale(vertices, target_longest_mm=50.0)
+    inferred = infer_target_scale(vertices, bed=BedSize(120.0, 80.0), bed_fill_fraction=0.5)
+    scaled = apply_uniform_scale(vertices, explicit.scale_factor)
+
+    assert explicit.reason == "target_longest_mm"
+    assert explicit.scale_factor == 0.5
+    assert inferred.reason == "bed_fill_fraction"
+    assert inferred.target_longest_mm == 40.0
+    assert compute_bounds(scaled).extents == (50.0, 20.0, 10.0)
+
+
+def test_decide_scale_down_or_fail_uses_bed_fit_threshold():
+    vertices = box_vertices(300.0, 80.0, 20.0)
+    bed = BedSize(200.0, 200.0, margin_mm=10.0)
+
+    allowed = decide_scale_down_or_fail(vertices, bed, min_scale_factor=0.5)
+    rejected = decide_scale_down_or_fail(vertices, bed, min_scale_factor=0.8)
+
+    assert allowed.action == "scale_down"
+    assert allowed.scale_factor == 0.6
+    assert allowed.fits_after is True
+    assert rejected.action == "fail"
+    assert rejected.scale_factor == 0.6
+    assert rejected.fits_after is False
+
+
+def test_select_top_orientations_and_write_bed_fit_preview_artifacts(tmp_path):
+    vertices = box_vertices(300.0, 50.0, 20.0)
+    bed = BedSize(256.0, 256.0)
+    candidates = candidate_rotations(
+        vertices,
+        bed,
+        rotations_degrees=(0.0, 45.0, 90.0, 135.0),
+    )
+
+    selected = select_top_orientations(candidates)
+    receipt = write_bed_fit_preview_artifacts(
+        selected[0],
+        bed,
+        tmp_path,
+        stem="bed-fit",
+    )
+
+    assert [candidate.rotation_degrees for candidate in selected] == [45.0, 135.0, 0.0]
+    assert receipt.status is StageStatus.SUCCEEDED
+    assert {artifact.path.name for artifact in receipt.artifacts} == {
+        "bed-fit.svg",
+        "bed-fit.json",
+    }
+
+    svg_path = tmp_path / "bed-fit.svg"
+    json_path = tmp_path / "bed-fit.json"
+    assert "<svg" in svg_path.read_text()
+    preview = json.loads(json_path.read_text())
+    assert preview["fit"]["fits"] is True
+    assert preview["orientation"]["rotation_degrees"] == 45.0
+    assert preview["heuristics"]["basis"] == "bounds_only"

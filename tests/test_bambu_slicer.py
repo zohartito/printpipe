@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
 import pytest
 
+from printpipe.contracts import ArtifactKind, StageStatus
 from printpipe.bambu.slicer import (
     SliceGateError,
     SliceResult,
@@ -12,6 +14,7 @@ from printpipe.bambu.slicer import (
     gate_slice,
     parse_slice_estimate_from_text,
     run_slice_command,
+    slice_result_to_receipt,
 )
 
 
@@ -123,6 +126,85 @@ def test_run_slice_command_records_gcode_path_when_named_in_output(tmp_path: Pat
     result = run_slice_command(command, layout)
 
     assert result.gcode_path == gcode_path
+
+
+def test_slice_result_receipt_writes_json_and_exposes_present_artifacts(tmp_path: Path):
+    layout = FakeRunLayout(tmp_path / "70_slice")
+    layout.slice_dir.mkdir()
+    stdout_log = layout.slice_dir / "bambu_slice_stdout.log"
+    stderr_log = layout.slice_dir / "bambu_slice_stderr.log"
+    gcode_path = layout.slice_dir / "plate_1.gcode"
+    stdout_log.write_text("slice estimate\n", encoding="utf-8")
+    stderr_log.write_text("warning line\n", encoding="utf-8")
+    gcode_path.write_text("gcode\n", encoding="utf-8")
+    result = SliceResult(
+        return_code=0,
+        warnings=("minor internal warning",),
+        errors=(),
+        time_seconds=3723,
+        filament_g=12.5,
+        layer_count=42,
+        cost=0.25,
+        gcode_path=gcode_path,
+        log_path=stdout_log,
+        stderr_log_path=stderr_log,
+    )
+
+    receipt = slice_result_to_receipt(result, layout)
+
+    result_json = layout.slice_dir / "slice_result.json"
+    assert json.loads(result_json.read_text(encoding="utf-8")) == {
+        "return_code": 0,
+        "warnings": ["minor internal warning"],
+        "errors": [],
+        "time_seconds": 3723,
+        "filament_g": 12.5,
+        "layer_count": 42,
+        "cost": 0.25,
+        "gcode_path": str(gcode_path),
+        "log_path": str(stdout_log),
+        "stderr_log_path": str(stderr_log),
+    }
+    assert receipt.stage == "slice"
+    assert receipt.status is StageStatus.SUCCEEDED
+    assert receipt.metrics == {
+        "return_code": 0,
+        "warnings": ("minor internal warning",),
+        "errors": (),
+        "time_seconds": 3723,
+        "filament_g": 12.5,
+        "layer_count": 42,
+        "cost": 0.25,
+    }
+    assert [(artifact.kind, artifact.path, artifact.label) for artifact in receipt.artifacts] == [
+        (ArtifactKind.SLICE_LOG, result_json, "Slice result JSON"),
+        (ArtifactKind.SLICE_LOG, stdout_log, "Bambu slicer stdout log"),
+        (ArtifactKind.SLICE_LOG, stderr_log, "Bambu slicer stderr log"),
+        (ArtifactKind.SLICE_LOG, gcode_path, "G-code output"),
+    ]
+
+
+def test_slice_result_receipt_marks_failures_and_skips_absent_artifacts(tmp_path: Path):
+    layout = FakeRunLayout(tmp_path / "70_slice")
+    layout.slice_dir.mkdir()
+    empty_stdout_log = layout.slice_dir / "bambu_slice_stdout.log"
+    empty_stdout_log.write_text("", encoding="utf-8")
+    result = SliceResult(
+        return_code=1,
+        warnings=("warning before failure",),
+        errors=("slicer exited with return code 1",),
+        log_path=empty_stdout_log,
+    )
+
+    receipt = slice_result_to_receipt(result, layout)
+
+    assert receipt.status is StageStatus.FAILED
+    assert receipt.message == "Bambu CLI slice failed."
+    assert receipt.metrics["warnings"] == ("warning before failure",)
+    assert receipt.metrics["errors"] == ("slicer exited with return code 1",)
+    assert [(artifact.path, artifact.label) for artifact in receipt.artifacts] == [
+        (layout.slice_dir / "slice_result.json", "Slice result JSON"),
+    ]
 
 
 def test_gate_slice_allows_success_with_noncritical_warnings():

@@ -11,6 +11,41 @@ from printpipe.web import PrintPipeWebApp, create_app
 from printpipe.web import server as web_server
 
 
+def _multipart_form_body(
+    *,
+    fields: dict[str, str],
+    file_field: str,
+    filename: str,
+    content_type: str,
+    file_content: bytes,
+) -> tuple[bytes, str]:
+    boundary = "printpipe-test-boundary"
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("ascii"),
+                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("ascii"),
+                value.encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+    chunks.extend(
+        [
+            f"--{boundary}\r\n".encode("ascii"),
+            (
+                f'Content-Disposition: form-data; name="{file_field}"; '
+                f'filename="{filename}"\r\n'
+            ).encode("ascii"),
+            f"Content-Type: {content_type}\r\n\r\n".encode("ascii"),
+            file_content,
+            b"\r\n",
+            f"--{boundary}--\r\n".encode("ascii"),
+        ]
+    )
+    return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
 def test_home_response_renders_status_and_static_page_links(tmp_path: Path):
     report = tmp_path / "run_report.html"
     report.write_text("<!doctype html><h1>Run Report</h1>\n", encoding="utf-8")
@@ -70,6 +105,56 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert "Open report" in response.text
     assert 'href="/static/run-ui-001/80_reports/run_report.html"' in response.text
     assert 'href="/runs/run-ui-001/artifacts/60_bundle/ready.3mf"' in response.text
+
+
+def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_form_body(
+        fields={
+            "printer_id": "bambu-p2s-0-4-nozzle",
+            "material_id": "sunlu-tpu-90a-slipper",
+            "target_length_mm": "123.5",
+        },
+        file_field="input",
+        filename="reference.png",
+        content_type="image/png",
+        file_content=b"fake image",
+    )
+
+    response = app.handle(
+        "/runs",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    run_roots = [path for path in runs_dir.iterdir() if (path / "manifest.json").exists()]
+    assert response.status == 303
+    assert len(run_roots) == 1
+    run_root = run_roots[0]
+    assert response.header("Location") == f"/static/{run_root.name}/80_reports/run_report.html"
+    assert (run_root / "00_input" / "reference.png").read_bytes() == b"fake image"
+    assert (run_root / "10_frames" / "selected" / "reference.png").exists()
+    assert (run_root / "80_reports" / "run_report.json").exists()
+    assert (run_root / "80_reports" / "run_report.md").exists()
+    assert (run_root / "80_reports" / "run_report.html").exists()
+
+    manifest = json.loads((run_root / "manifest.json").read_text(encoding="utf-8"))
+    launch_options = manifest["launch_options"]
+    assert launch_options["source"] == "web_form"
+    assert launch_options["uploaded_filename"] == "reference.png"
+    assert launch_options["printer_id"] == "bambu-p2s-0-4-nozzle"
+    assert launch_options["material_id"] == "sunlu-tpu-90a-slipper"
+    assert launch_options["target_length_mm"] == 123.5
+
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    assert report["settings_changes"] == [launch_options]
+    stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
+    assert ("classify_input", "succeeded") in stages
+    assert ("extract_references", "succeeded") in stages
+    assert ("select_references", "succeeded") in stages
+    assert ("contact_sheet", "succeeded") in stages
 
 
 def test_run_artifact_response_serves_safe_downloads_from_runs_dir(tmp_path: Path):

@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import json
+import math
 import mimetypes
+import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass
+from email.parser import BytesParser
+from email.policy import default as email_policy
 from html import escape
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,6 +17,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote, urlsplit
 
+from printpipe.inputs import prepare_input
+from printpipe.reports import build_run_report_dict, write_run_report
+from printpipe.reports.html import write_html_report
+from printpipe.runs import RunLayout, create_run
 from printpipe.web.artifacts import discover_run_artifacts, resolve_artifact_request
 from printpipe.web.options import selector_catalog
 from printpipe.web.status import build_run_status
@@ -24,6 +32,15 @@ _TEXT_MEDIA_TYPE = "text/plain; charset=utf-8"
 _STATIC_PREFIX = "/static/"
 _RUNS_PREFIX = "/runs/"
 _HTML_SUFFIXES = {".html", ".htm"}
+_MAX_FORM_BODY_BYTES = 8 * 1024 * 1024
+_MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+_MAX_FIELD_CHARS = 2_048
+_TARGET_SIZE_FIELDS = (
+    "target_length_mm",
+    "target_width_mm",
+    "target_height_mm",
+    "target_size_mm",
+)
 
 
 @dataclass(frozen=True)
@@ -79,6 +96,40 @@ class WebResponse:
             ),
         )
 
+    @classmethod
+    def redirect(cls, location: str, *, status: int = HTTPStatus.SEE_OTHER) -> WebResponse:
+        body = f"See {location}\n".encode("utf-8")
+        return cls(
+            int(status),
+            body,
+            (
+                ("Content-Type", _TEXT_MEDIA_TYPE),
+                ("Content-Length", str(len(body))),
+                ("Location", location),
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class _UploadedFile:
+    field_name: str
+    filename: str
+    content_type: str
+    content: bytes
+
+
+@dataclass(frozen=True)
+class _ParsedRunForm:
+    upload: _UploadedFile
+    launch_options: dict[str, Any]
+
+
+class _FormError(ValueError):
+    def __init__(self, status: HTTPStatus, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
 
 class PrintPipeWebApp:
     """Tiny local app that can be called directly or adapted to http.server."""
@@ -92,14 +143,25 @@ class PrintPipeWebApp:
         self.static_roots = tuple(Path(root) for root in static_roots)
         self.runs_dir = Path(runs_dir) if runs_dir is not None else None
 
-    def handle(self, target: str, *, method: str = "GET") -> WebResponse:
+    def handle(
+        self,
+        target: str,
+        *,
+        method: str = "GET",
+        headers: Any | None = None,
+        body: bytes = b"",
+    ) -> WebResponse:
         """Return a response for a local request target such as ``/health``."""
 
         request_method = method.upper()
+        path = urlsplit(target).path or "/"
+        if request_method == "POST":
+            if path == "/runs":
+                return self.create_run_response(headers=headers, body=body)
+            return self._method_not_allowed()
         if request_method not in {"GET", "HEAD"}:
             return self._method_not_allowed()
 
-        path = urlsplit(target).path or "/"
         if path in {"/", "/index.html"}:
             return self.home_response()
         if path == "/health":
@@ -110,6 +172,39 @@ class PrintPipeWebApp:
             return self.run_artifact_response(path.removeprefix(_RUNS_PREFIX))
 
         return self.not_found_response()
+
+    def create_run_response(self, *, headers: Any | None, body: bytes) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+        try:
+            form = _parse_run_form(headers=headers, body=body)
+            layout = self._create_skeleton_run(form)
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except FileExistsError:
+            return WebResponse.from_text(
+                "A run with that id already exists. Please retry.\n",
+                status=HTTPStatus.CONFLICT,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+        location = f"/static/{quote(layout.run_id, safe='')}/80_reports/run_report.html"
+        return WebResponse.redirect(location)
 
     def home_response(self) -> WebResponse:
         return WebResponse.html(self.render_home())
@@ -418,6 +513,43 @@ class PrintPipeWebApp:
             return None
         return candidate
 
+    def _create_skeleton_run(self, form: _ParsedRunForm) -> RunLayout:
+        runs_dir = Path(self.runs_dir).expanduser().resolve()
+        incoming_dir = runs_dir / ".incoming"
+        incoming_dir.mkdir(parents=True, exist_ok=True)
+
+        safe_filename = _safe_upload_filename(form.upload.filename)
+        try:
+            with tempfile.TemporaryDirectory(prefix="upload-", dir=incoming_dir) as upload_dir_name:
+                upload_path = Path(upload_dir_name) / safe_filename
+                upload_path.write_bytes(form.upload.content)
+
+                layout = create_run(upload_path, runs_dir)
+                self._record_launch_options(layout, form.launch_options)
+                input_result = prepare_input(layout.original_input, layout.frames_dir)
+                report_dict = build_run_report_dict(
+                    layout,
+                    stages=input_result.receipts,
+                    settings_changes=(form.launch_options,),
+                )
+                write_run_report(
+                    layout,
+                    stages=input_result.receipts,
+                    settings_changes=(form.launch_options,),
+                )
+                write_html_report(layout, report_dict)
+                return layout
+        finally:
+            try:
+                incoming_dir.rmdir()
+            except OSError:
+                pass
+
+    def _record_launch_options(self, layout: RunLayout, launch_options: dict[str, Any]) -> None:
+        manifest = json.loads(layout.manifest_path.read_text(encoding="utf-8"))
+        manifest["launch_options"] = launch_options
+        layout.manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
 
 def create_app(
     static_roots: Iterable[str | Path] = (),
@@ -473,10 +605,33 @@ def _handler_for(app: PrintPipeWebApp) -> type[BaseHTTPRequestHandler]:
             self._send(app.handle(self.path, method="HEAD"), include_body=False)
 
         def do_POST(self) -> None:
-            self._send(app.handle(self.path, method="POST"))
+            try:
+                body = self._read_request_body()
+            except _FormError as exc:
+                self._send(
+                    WebResponse.from_text(
+                        f"{exc.message}\n",
+                        status=exc.status,
+                        content_type=_TEXT_MEDIA_TYPE,
+                    )
+                )
+                return
+            self._send(app.handle(self.path, method="POST", headers=self.headers, body=body))
 
         def log_message(self, format: str, *args: Any) -> None:
             return
+
+        def _read_request_body(self) -> bytes:
+            raw_length = self.headers.get("Content-Length", "0")
+            try:
+                content_length = int(raw_length)
+            except ValueError as exc:
+                raise _FormError(HTTPStatus.BAD_REQUEST, "Invalid Content-Length.") from exc
+            if content_length < 0:
+                raise _FormError(HTTPStatus.BAD_REQUEST, "Invalid Content-Length.")
+            if content_length > _MAX_FORM_BODY_BYTES:
+                raise _FormError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Form upload is too large.")
+            return self.rfile.read(content_length)
 
         def _send(self, response: WebResponse, *, include_body: bool = True) -> None:
             self.send_response(response.status)
@@ -487,6 +642,138 @@ def _handler_for(app: PrintPipeWebApp) -> type[BaseHTTPRequestHandler]:
                 self.wfile.write(response.body)
 
     return PrintPipeRequestHandler
+
+
+def _parse_run_form(*, headers: Any | None, body: bytes) -> _ParsedRunForm:
+    if len(body) > _MAX_FORM_BODY_BYTES:
+        raise _FormError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Form upload is too large.")
+
+    content_type = _header_value(headers, "Content-Type")
+    if content_type is None or "multipart/form-data" not in content_type.lower():
+        raise _FormError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Expected multipart/form-data.")
+
+    try:
+        message = BytesParser(policy=email_policy).parsebytes(
+            f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+            + body
+        )
+    except (LookupError, ValueError) as exc:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.") from exc
+
+    if not message.is_multipart():
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.")
+
+    fields: dict[str, str] = {}
+    upload: _UploadedFile | None = None
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+        field_name = part.get_param("name", header="content-disposition")
+        if not field_name:
+            continue
+
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            payload_text = part.get_payload()
+            payload = str(payload_text).encode(part.get_content_charset() or "utf-8", "replace")
+
+        filename = part.get_filename()
+        if filename is not None:
+            if field_name != "input":
+                continue
+            if len(payload) > _MAX_UPLOAD_BYTES:
+                raise _FormError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Uploaded input is too large.")
+            upload = _UploadedFile(
+                field_name=field_name,
+                filename=filename,
+                content_type=part.get_content_type(),
+                content=payload,
+            )
+            continue
+
+        if len(payload) > _MAX_FIELD_CHARS * 4:
+            raise _FormError(HTTPStatus.BAD_REQUEST, f"Form field is too long: {field_name}.")
+        fields[field_name] = payload.decode(part.get_content_charset() or "utf-8", "replace").strip()
+
+    if upload is None:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Missing uploaded input file.")
+    if not upload.content:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Uploaded input file is empty.")
+
+    return _ParsedRunForm(upload=upload, launch_options=_launch_options(fields, upload.filename))
+
+
+def _launch_options(fields: dict[str, str], uploaded_filename: str) -> dict[str, Any]:
+    catalog = selector_catalog()
+    defaults = catalog["defaults"]
+    printer_id = fields.get("printer_id") or defaults["printer_id"]
+    material_id = fields.get("material_id") or defaults["material_id"]
+
+    printer_labels = {str(option.get("id", "")): str(option.get("label", "")) for option in catalog["printers"]}
+    material_labels = {str(option.get("id", "")): str(option.get("label", "")) for option in catalog["materials"]}
+    if printer_id not in printer_labels:
+        raise _FormError(HTTPStatus.BAD_REQUEST, f"Unknown printer selection: {printer_id}.")
+    if material_id not in material_labels:
+        raise _FormError(HTTPStatus.BAD_REQUEST, f"Unknown material selection: {material_id}.")
+
+    options: dict[str, Any] = {
+        "source": "web_form",
+        "uploaded_filename": _safe_upload_filename(uploaded_filename),
+        "printer_id": printer_id,
+        "printer_label": printer_labels[printer_id],
+        "material_id": material_id,
+        "material_label": material_labels[material_id],
+    }
+    target_fields = {
+        field_name: _positive_float(fields[field_name], field_name=field_name)
+        for field_name in _TARGET_SIZE_FIELDS
+        if fields.get(field_name)
+    }
+    if not target_fields:
+        target_fields["target_length_mm"] = 100.0
+    options.update(target_fields)
+    return options
+
+
+def _positive_float(value: str, *, field_name: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise _FormError(HTTPStatus.BAD_REQUEST, f"Invalid numeric value for {field_name}.") from exc
+    if not math.isfinite(parsed) or parsed <= 0 or parsed > 10_000:
+        raise _FormError(HTTPStatus.BAD_REQUEST, f"Invalid numeric value for {field_name}.")
+    return parsed
+
+
+def _header_value(headers: Any | None, name: str) -> str | None:
+    if headers is None:
+        return None
+    direct = headers.get(name) if hasattr(headers, "get") else None
+    if direct is not None:
+        return str(direct)
+    lower_name = name.lower()
+    if hasattr(headers, "items"):
+        for key, value in headers.items():
+            if str(key).lower() == lower_name:
+                return str(value)
+    return None
+
+
+def _safe_upload_filename(filename: str) -> str:
+    raw_name = filename.replace("\\", "/").rsplit("/", 1)[-1].strip()
+    cleaned = "".join(
+        character if character.isalnum() or character in {".", "-", "_"} else "_"
+        for character in raw_name
+        if character not in {"\x00", "\r", "\n"}
+    ).strip("._")
+    if not cleaned:
+        cleaned = "upload"
+    if len(cleaned) <= 120:
+        return cleaned
+
+    suffix = Path(cleaned).suffix[:24]
+    stem_limit = max(1, 120 - len(suffix))
+    return f"{Path(cleaned).stem[:stem_limit]}{suffix}"
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:

@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shlex
 import shutil
+import subprocess
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,7 +33,9 @@ from .contracts import (
 
 
 MESH_SUFFIXES = {".stl", ".glb", ".gltf", ".obj", ".3mf"}
+HUNYUAN3D_COMMAND_ENV = "PRINTPIPE_HUNYUAN3D_COMMAND"
 ProviderRegistry = MutableMapping[str, MeshGenProvider]
+CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 def utc_now() -> str:
@@ -280,6 +286,378 @@ class ExistingMeshProvider:
         )
 
 
+class Hunyuan3DProvider:
+    provider_id = "hunyuan3d"
+    display_name = "Hunyuan3D local command"
+    adapter_version = "0.1.0"
+    model_id = "hunyuan3d-local-command"
+    capabilities = MeshGenCapabilities(
+        input_kinds=(InputKind.IMAGE, InputKind.GIF, InputKind.VIDEO),
+        output_formats=("glb", "stl", "obj"),
+        supports_cloud=False,
+        supports_local=True,
+        supports_remote_delete=False,
+    )
+
+    def __init__(
+        self,
+        command: str | Path | Sequence[str | Path] | None = None,
+        runner: CommandRunner | None = None,
+    ) -> None:
+        self.command = self._configured_command(command)
+        self._runner = runner or self._run_subprocess
+
+    def estimate(self, request: MeshGenRequest) -> MeshGenEstimate:
+        if not self.command:
+            return MeshGenEstimate(
+                provider_id=self.provider_id,
+                status=StageStatus.SKIPPED,
+                cost=MeshGenCost(currency="USD", amount=0.0, estimated=False),
+                estimated_seconds=None,
+                message=(
+                    "Hunyuan3D local command is not configured; set "
+                    f"{HUNYUAN3D_COMMAND_ENV} or pass a command path."
+                ),
+            )
+
+        return MeshGenEstimate(
+            provider_id=self.provider_id,
+            status=StageStatus.SUCCEEDED,
+            cost=MeshGenCost(currency="USD", amount=0.0, estimated=False),
+            estimated_seconds=None,
+            message="Hunyuan3D local command is configured; adapter cost is local/free.",
+        )
+
+    def healthcheck(self) -> ProviderHealth:
+        if not self.command:
+            return ProviderHealth(
+                provider_id=self.provider_id,
+                status=StageStatus.SKIPPED,
+                message=(
+                    "Hunyuan3D local command is not configured. Set "
+                    f"{HUNYUAN3D_COMMAND_ENV} to enable this provider."
+                ),
+                checked_at=utc_now(),
+            )
+
+        return ProviderHealth(
+            provider_id=self.provider_id,
+            status=StageStatus.SUCCEEDED,
+            message=f"Hunyuan3D local command is configured: {self.command[0]}",
+            checked_at=utc_now(),
+        )
+
+    def generate(self, request: MeshGenRequest, run: RunLayout) -> MeshGenResult:
+        started_perf = time.perf_counter()
+        started_at = utc_now()
+
+        if not self.command:
+            result = self._failure_result(
+                category="provider_unavailable",
+                message=(
+                    "Hunyuan3D local command is not configured; set "
+                    f"{HUNYUAN3D_COMMAND_ENV} or pass a command path."
+                ),
+                retryable=False,
+                started_at=started_at,
+                wall_seconds=_duration(started_perf),
+            )
+            write_provider_receipts(result, run)
+            return result
+
+        failure = self._validate_request(request)
+        if failure is not None:
+            result = self._failure_result(
+                category="invalid_request",
+                message=failure,
+                retryable=False,
+                started_at=started_at,
+                wall_seconds=_duration(started_perf),
+            )
+            write_provider_receipts(result, run)
+            return result
+
+        output_format = self._select_output_format(request)
+        if output_format is None:
+            result = self._failure_result(
+                category="invalid_request",
+                message=(
+                    "Hunyuan3D local command cannot produce requested output formats: "
+                    f"{', '.join(request.output_formats)}"
+                ),
+                retryable=False,
+                started_at=started_at,
+                wall_seconds=_duration(started_perf),
+            )
+            write_provider_receipts(result, run)
+            return result
+
+        destination = self._destination_path(run.meshgen_dir, output_format)
+        argv = self._build_command(request, destination, output_format)
+        try:
+            completed = self._runner(argv, timeout_seconds=request.timeout_seconds)
+        except subprocess.TimeoutExpired as exc:
+            result = self._failure_result(
+                category="provider_timeout",
+                message=f"Hunyuan3D local command timed out after {request.timeout_seconds}s.",
+                retryable=True,
+                started_at=started_at,
+                wall_seconds=_duration(started_perf),
+                vendor_message=str(exc),
+            )
+            write_provider_receipts(result, run)
+            return result
+        except OSError as exc:
+            result = self._failure_result(
+                category="provider_command_error",
+                message=f"Hunyuan3D local command could not be started: {exc}",
+                retryable=False,
+                started_at=started_at,
+                wall_seconds=_duration(started_perf),
+                vendor_message=str(exc),
+            )
+            write_provider_receipts(result, run)
+            return result
+
+        if completed.returncode != 0:
+            result = self._failure_result(
+                category="provider_command_failed",
+                message=f"Hunyuan3D local command exited with code {completed.returncode}.",
+                retryable=False,
+                started_at=started_at,
+                wall_seconds=_duration(started_perf),
+                vendor_message=self._vendor_message(completed),
+            )
+            write_provider_receipts(result, run)
+            return result
+
+        source_output = self._resolve_output_path(completed, destination)
+        if source_output is None:
+            result = self._failure_result(
+                category="provider_output_missing",
+                message=(
+                    "Hunyuan3D local command succeeded but did not create the requested "
+                    "mesh output or report an output_path."
+                ),
+                retryable=False,
+                started_at=started_at,
+                wall_seconds=_duration(started_perf),
+                vendor_message=self._vendor_message(completed),
+            )
+            write_provider_receipts(result, run)
+            return result
+
+        if source_output.resolve() != destination.resolve():
+            shutil.copy2(source_output, destination)
+
+        output_hash = sha256_file(destination)
+        ended_at = utc_now()
+        timing_seconds = _duration(started_perf)
+        input_paths = request.source_paths + request.reference_images
+        artifact = Artifact(
+            kind=ArtifactKind.GENERATED_MESH,
+            path=destination,
+            label="Generated mesh from Hunyuan3D",
+            metadata={
+                "provider_id": self.provider_id,
+                "command": argv,
+                "source_output_path": str(source_output),
+                "sha256": output_hash,
+            },
+        )
+        result = MeshGenResult(
+            status=StageStatus.SUCCEEDED,
+            provider_id=self.provider_id,
+            model_id=self.model_id,
+            model_version=request.provider_params.get("model_version"),
+            timing=MeshGenTiming(
+                started_at=started_at,
+                ended_at=ended_at,
+                queue_seconds=0.0,
+                run_seconds=timing_seconds,
+                download_seconds=0.0,
+                wall_seconds=timing_seconds,
+            ),
+            cost=MeshGenCost(currency="USD", amount=0.0, estimated=False),
+            attempt_count=1,
+            raw_output_path=destination,
+            normalized_mesh_path=destination,
+            artifact=artifact,
+            input_hashes={str(path): sha256_file(path) for path in input_paths},
+            output_hashes={str(destination): output_hash},
+        )
+        write_provider_receipts(result, run)
+        return result
+
+    def delete_remote_artifacts(self, result: MeshGenResult) -> DeleteResult:
+        return DeleteResult(
+            status=StageStatus.SKIPPED,
+            message="Hunyuan3D local command creates no remote artifacts.",
+        )
+
+    def _configured_command(
+        self,
+        command: str | Path | Sequence[str | Path] | None,
+    ) -> tuple[str, ...]:
+        if command is None:
+            env_value = os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip()
+            return tuple(shlex.split(env_value)) if env_value else ()
+        if isinstance(command, Path):
+            return (str(command),)
+        if isinstance(command, str):
+            return tuple(shlex.split(command))
+        return tuple(str(part) for part in command if str(part))
+
+    def _run_subprocess(
+        self,
+        argv: tuple[str, ...],
+        *,
+        timeout_seconds: int,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            list(argv),
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=timeout_seconds,
+        )
+
+    def _validate_request(self, request: MeshGenRequest) -> str | None:
+        if request.input_kind not in self.capabilities.input_kinds:
+            return "hunyuan3d provider only accepts image, gif, or video input"
+        if not request.source_paths:
+            return "hunyuan3d provider requires at least one source reference path"
+        missing = [
+            path
+            for path in request.source_paths + request.reference_images
+            if not path.exists()
+        ]
+        if missing:
+            return f"source reference does not exist: {missing[0]}"
+        return None
+
+    def _select_output_format(self, request: MeshGenRequest) -> str | None:
+        requested = tuple(format_name.lower().lstrip(".") for format_name in request.output_formats)
+        for format_name in requested:
+            if format_name in self.capabilities.output_formats:
+                return format_name
+        return None
+
+    def _destination_path(self, meshgen_dir: Path, output_format: str) -> Path:
+        meshgen_dir.mkdir(parents=True, exist_ok=True)
+        destination = meshgen_dir / f"{self.provider_id}.{output_format}"
+        if not destination.exists():
+            return destination
+
+        index = 2
+        while True:
+            candidate = meshgen_dir / f"{self.provider_id}-{index}.{output_format}"
+            if not candidate.exists():
+                return candidate
+            index += 1
+
+    def _build_command(
+        self,
+        request: MeshGenRequest,
+        destination: Path,
+        output_format: str,
+    ) -> tuple[str, ...]:
+        argv = [
+            *self.command,
+            "--input-kind",
+            request.input_kind.value,
+            "--output",
+            str(destination),
+            "--output-format",
+            output_format,
+            "--target-use",
+            request.target_use,
+            "--quality",
+            request.quality,
+        ]
+        for source_path in request.source_paths:
+            argv.extend(("--source", str(source_path)))
+        for reference_image in request.reference_images:
+            argv.extend(("--reference-image", str(reference_image)))
+        if request.prompt_hint:
+            argv.extend(("--prompt", request.prompt_hint))
+        if request.seed is not None:
+            argv.extend(("--seed", str(request.seed)))
+        if request.provider_params:
+            argv.extend(("--params-json", json.dumps(request.provider_params, sort_keys=True)))
+        return tuple(argv)
+
+    def _resolve_output_path(
+        self,
+        completed: subprocess.CompletedProcess[str],
+        destination: Path,
+    ) -> Path | None:
+        if destination.exists():
+            return destination
+
+        stdout = (completed.stdout or "").strip()
+        if not stdout:
+            return None
+
+        try:
+            payload = json.loads(stdout)
+        except json.JSONDecodeError:
+            for line in reversed(stdout.splitlines()):
+                candidate = Path(line.strip())
+                if candidate.exists() and candidate.suffix.lower() in MESH_SUFFIXES:
+                    return candidate
+            return None
+
+        if not isinstance(payload, dict):
+            return None
+        output_path = payload.get("output_path") or payload.get("mesh_path") or payload.get("path")
+        if not isinstance(output_path, str):
+            return None
+        candidate = Path(output_path)
+        if candidate.exists() and candidate.suffix.lower() in MESH_SUFFIXES:
+            return candidate
+        return None
+
+    def _vendor_message(self, completed: subprocess.CompletedProcess[str]) -> str | None:
+        parts = []
+        if completed.stdout:
+            parts.append(f"stdout: {completed.stdout.strip()}")
+        if completed.stderr:
+            parts.append(f"stderr: {completed.stderr.strip()}")
+        if not parts:
+            return None
+        return "\n".join(parts)[:4000]
+
+    def _failure_result(
+        self,
+        *,
+        category: str,
+        message: str,
+        retryable: bool,
+        started_at: str,
+        wall_seconds: float,
+        vendor_message: str | None = None,
+    ) -> MeshGenResult:
+        return MeshGenResult(
+            status=StageStatus.FAILED,
+            provider_id=self.provider_id,
+            model_id=self.model_id,
+            timing=MeshGenTiming(
+                started_at=started_at,
+                ended_at=utc_now(),
+                wall_seconds=wall_seconds,
+            ),
+            cost=MeshGenCost(currency="USD", amount=0.0, estimated=False),
+            attempt_count=1,
+            error=MeshGenError(
+                category=category,
+                message=message,
+                retryable=retryable,
+                vendor_message=vendor_message,
+            ),
+        )
+
+
 class PlaceholderMeshProvider:
     adapter_version = "0.1.0"
 
@@ -364,6 +742,7 @@ def available_provider_ids(registry: ProviderRegistry | None = None) -> tuple[st
 def default_registry() -> dict[str, MeshGenProvider]:
     registry: dict[str, MeshGenProvider] = {}
     register_provider(ExistingMeshProvider(), registry)
+    register_provider(Hunyuan3DProvider(), registry)
     register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
     register_provider(PlaceholderMeshProvider("meshy", "Meshy"), registry)
     register_provider(PlaceholderMeshProvider("rodin", "Rodin"), registry)

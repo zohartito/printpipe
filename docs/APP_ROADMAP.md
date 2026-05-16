@@ -42,13 +42,13 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 - [x] 24. Create one folder per run.
 - [x] 25. Store original input.
-- [ ] 26. Store cleaned frames.
+- [x] 26. Store cleaned frames.
 - [x] 27. Store generated mesh.
 - [~] 28. Store repaired mesh.
 - [ ] 29. Store oriented mesh.
 - [x] 30. Store profile JSONs.
 - [x] 31. Store `.3mf`.
-- [ ] 32. Store slice logs.
+- [x] 32. Store slice logs.
 - [~] 33. Store screenshots/previews.
 - [x] 34. Store final run report.
 
@@ -57,17 +57,17 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 35. Accept still image.
 - [x] 36. Accept GIF.
 - [x] 37. Accept video.
-- [ ] 38. Extract frames.
+- [x] 38. Extract frames.
 - [~] 39. Rank/select best frames.
-- [ ] 40. Remove background.
-- [ ] 41. Normalize lighting/contrast.
-- [~] 42. Save selected references.
+- [~] 40. Remove background.
+- [~] 41. Normalize lighting/contrast.
+- [x] 42. Save selected references.
 - [~] 43. Generate preview contact sheet.
 
 ## Phase 5 - Mesh Generation Providers
 
 - [x] 44. Define meshgen provider interface.
-- [ ] 45. Add Hunyuan3D provider.
+- [x] 45. Add Hunyuan3D provider.
 - [x] 46. Add existing-mesh import provider.
 - [x] 47. Add placeholder for Replicate/Meshy/Rodin.
 - [x] 48. Add retry logic.
@@ -88,28 +88,28 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 ## Phase 7 - Object Understanding
 
 - [x] 59. Estimate bounding box.
-- [ ] 60. Estimate primary axes.
-- [~] 61. Detect likely flat base.
-- [ ] 62. Detect cavities/openings if possible.
+- [x] 60. Estimate primary axes.
+- [x] 61. Detect likely flat base.
+- [x] 62. Detect cavities/openings if possible.
 - [x] 63. Generate candidate orientations.
 - [x] 64. Score orientations for bed contact.
-- [ ] 65. Score orientations for support burden.
-- [~] 66. Keep top 3 candidate orientations internally.
+- [x] 65. Score orientations for support burden.
+- [x] 66. Keep top 3 candidate orientations internally.
 
 ## Phase 8 - Scale and Bed Fit
 
-- [ ] 67. Ask or infer intended real-world size.
-- [ ] 68. Apply scale.
+- [x] 67. Ask or infer intended real-world size.
+- [x] 68. Apply scale.
 - [x] 69. Check Bambu bed dimensions.
 - [x] 70. Rotate to fit if needed.
-- [ ] 71. Decide whether to scale down or fail.
+- [x] 71. Decide whether to scale down or fail.
 - [x] 72. Drop object to bed.
-- [ ] 73. Generate bed-fit visualization.
+- [x] 73. Generate bed-fit visualization.
 
 ## Phase 9 - Printer and Filament Engine
 
 - [x] 74. Load Bambu printer profiles.
-- [~] 75. Load Bambu/Orca filament defaults.
+- [x] 75. Load Bambu/Orca filament defaults.
 - [x] 76. Define material families: PLA, PETG, TPU, ABS/ASA, PC, PA.
 - [x] 77. Create filament override rules.
 - [x] 78. Create process override rules.
@@ -162,12 +162,12 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 14 - Local UI
 
-- [~] 113. Build local web UI.
-- [~] 114. Drag/drop input.
-- [~] 115. Select Bambu printer.
-- [~] 116. Select filament.
-- [~] 117. Enter target size.
-- [~] 118. Show pipeline progress.
+- [x] 113. Build local web UI.
+- [x] 114. Drag/drop input.
+- [x] 115. Select Bambu printer.
+- [x] 116. Select filament.
+- [x] 117. Enter target size.
+- [x] 118. Show pipeline progress.
 - [~] 119. Show previews.
 - [~] 120. Download/open `.3mf`.
 
