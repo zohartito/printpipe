@@ -45,7 +45,7 @@ pytest
 
 Expected: all tests pass.
 
-- [ ] **Step 4: Create private GitHub repo**
+- [x] **Step 4: Create private GitHub repo**
 
 Run:
 
