@@ -29,12 +29,14 @@ Status: complete. Outputs are covered by module tests in `tests/test_inputs.py`,
 
 ## Wave 3 - Verification Spine
 
-1. Bambu CLI slice gate.
-2. Settings delta report.
-3. Orientation and bed-fit scoring.
-4. HTML run report.
-5. CLI command wrapper.
-6. Regression fixture suite.
+Status: complete. Outputs are covered by module tests in `tests/test_bambu_slicer.py`, `tests/test_bambu_profile_report.py`, `tests/test_geometry.py`, `tests/test_reports_html.py`, `tests/test_cli_run.py`, and `tests/test_fixtures.py`.
+
+1. Done: Bambu CLI slice gate skeleton and warning classifier.
+2. Done: Settings delta JSON/Markdown report utilities.
+3. Done: Orientation and bed-fit scoring skeleton.
+4. Done: HTML run report.
+5. Done: CLI command wrapper for `run`, `status`, and `open-report`.
+6. Done: Regression fixture suite foundation.
 
 ## Wave 4 - Slipper POC Migration
 

@@ -1,0 +1,4 @@
+EXPECT: enum_replacement
+BambuStudio CLI loaded project settings.
+Warning: configuration value support_style=organic was replaced with default.
+Slice gate must fail before accepting downgraded settings.

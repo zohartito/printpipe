@@ -1,0 +1,4 @@
+EXPECT: non_manifold
+BambuStudio CLI slice failed.
+Warning: model has non-manifold edges after mesh repair.
+No gcode was generated.

@@ -87,23 +87,23 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 7 - Object Understanding
 
-- [ ] 59. Estimate bounding box.
+- [x] 59. Estimate bounding box.
 - [ ] 60. Estimate primary axes.
-- [ ] 61. Detect likely flat base.
+- [~] 61. Detect likely flat base.
 - [ ] 62. Detect cavities/openings if possible.
-- [ ] 63. Generate candidate orientations.
-- [ ] 64. Score orientations for bed contact.
+- [x] 63. Generate candidate orientations.
+- [x] 64. Score orientations for bed contact.
 - [ ] 65. Score orientations for support burden.
-- [ ] 66. Keep top 3 candidate orientations internally.
+- [~] 66. Keep top 3 candidate orientations internally.
 
 ## Phase 8 - Scale and Bed Fit
 
 - [ ] 67. Ask or infer intended real-world size.
 - [ ] 68. Apply scale.
-- [ ] 69. Check Bambu bed dimensions.
-- [ ] 70. Rotate to fit if needed.
+- [x] 69. Check Bambu bed dimensions.
+- [x] 70. Rotate to fit if needed.
 - [ ] 71. Decide whether to scale down or fail.
-- [ ] 72. Drop object to bed.
+- [x] 72. Drop object to bed.
 - [ ] 73. Generate bed-fit visualization.
 
 ## Phase 9 - Printer and Filament Engine
@@ -130,21 +130,21 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 11 - Slice Gate
 
-- [ ] 90. Run Bambu CLI slice.
-- [ ] 91. Parse warnings/errors.
-- [ ] 92. Extract time, mass, layers, cost.
-- [ ] 93. Fail or retry if non-manifold, off-bed, enum replacement, or floating cantilever.
-- [ ] 94. Save gcode/slice logs.
-- [ ] 95. Generate final slice report.
+- [~] 90. Run Bambu CLI slice.
+- [x] 91. Parse warnings/errors.
+- [x] 92. Extract time, mass, layers, cost.
+- [x] 93. Fail or retry if non-manifold, off-bed, enum replacement, or floating cantilever.
+- [x] 94. Save gcode/slice logs.
+- [~] 95. Generate final slice report.
 
 ## Phase 12 - Verification UX
 
-- [ ] 96. Create local command: `printpipe run input.gif`.
-- [ ] 97. Create `printpipe status`.
-- [ ] 98. Create `printpipe open-report`.
-- [~] 99. Create HTML run report.
+- [x] 96. Create local command: `printpipe run input.gif`.
+- [x] 97. Create `printpipe status`.
+- [x] 98. Create `printpipe open-report`.
+- [x] 99. Create HTML run report.
 - [~] 100. Show input, mesh, repaired mesh, bed fit, and slice summary.
-- [~] 101. Show warnings and what changed.
+- [x] 101. Show warnings and what changed.
 - [~] 102. Show pre-print checklist.
 
 ## Phase 13 - Test Objects
@@ -158,7 +158,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [ ] 109. TPU test.
 - [ ] 110. PLA test.
 - [ ] 111. PETG test.
-- [ ] 112. Compare all outcomes.
+- [~] 112. Compare all outcomes.
 
 ## Phase 14 - Local UI
 

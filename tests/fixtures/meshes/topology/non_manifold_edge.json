@@ -1,0 +1,17 @@
+{
+  "description": "Three triangles sharing edge 0-1, producing one non-manifold edge.",
+  "vertices_count": 5,
+  "faces": [
+    [0, 1, 2],
+    [1, 0, 3],
+    [0, 1, 4]
+  ],
+  "expected": {
+    "vertices_count": 5,
+    "faces": 3,
+    "passed": false,
+    "watertight": false,
+    "boundary_edges": 6,
+    "non_manifold_edges": 1
+  }
+}

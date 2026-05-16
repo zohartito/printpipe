@@ -1,0 +1,4 @@
+EXPECT: off_bed
+BambuStudio CLI slice failed.
+Warning: object boundary is outside the printable area.
+Plate 1 needs orientation, scale, or transform repair.

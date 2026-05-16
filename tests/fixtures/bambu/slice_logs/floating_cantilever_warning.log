@@ -1,0 +1,4 @@
+EXPECT: floating_cantilever
+BambuStudio CLI slice completed with warnings.
+Warning: detected floating cantilever regions that require supports.
+Retry orientation scoring or support rules before delivery.

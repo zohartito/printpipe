@@ -1,0 +1,338 @@
+"""Bambu CLI slice-gate skeleton.
+
+The real Bambu Studio executable is intentionally outside unit-test scope. This
+module wraps a command, records raw logs, parses lightweight estimate patterns,
+and classifies known hard slicer failures so later orchestration can decide
+whether to retry repair, bed fit, profile validation, or support/orientation.
+"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Sequence
+
+
+@dataclass(frozen=True)
+class SliceResult:
+    return_code: int = 0
+    warnings: tuple[str, ...] = ()
+    errors: tuple[str, ...] = ()
+    time_seconds: int | None = None
+    filament_g: float | None = None
+    layer_count: int | None = None
+    cost: float | None = None
+    gcode_path: Path | None = None
+    log_path: Path | None = None
+    stderr_log_path: Path | None = None
+
+
+class SliceGateError(RuntimeError):
+    """Raised when a slice result should stop the run."""
+
+
+NONCRITICAL_WARNING_MARKERS: tuple[str, ...] = (
+    "ZFiller: both point in subject",
+)
+
+_HARD_FAILURE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "non-manifold mesh detected; retry mesh repair before slicing",
+        re.compile(r"\bnon[-\s]?manifold\b", re.IGNORECASE),
+    ),
+    (
+        "boundary/open mesh detected; retry mesh repair before slicing",
+        re.compile(
+            r"\b(boundary edge|boundary edges|open contour|open contours|not watertight)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "off-bed placement detected; retry orientation, scale, or bed transform",
+        re.compile(
+            r"\b(outside (?:the )?(?:print )?bed|off[-\s]?bed|bed boundary|"
+            r"exceeds? (?:the )?printable|does not fit (?:on|within)|not on (?:the )?plate)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "enum replacement detected; retry Bambu profile validation",
+        re.compile(
+            r"\b(enum replacement|invalid enum|unknown enum|will be replaced|"
+            r"replaced by|support_style\s+organic)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "floating cantilever detected; retry orientation/support rules",
+        re.compile(
+            r"\b(floating cantilever|cantilever|floating (?:area|region|regions))\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "missing Bambu profile detected; retry 3MF bundling/profile selection",
+        re.compile(r"\b(missing profile|profile not found|failed to load profile)\b", re.IGNORECASE),
+    ),
+)
+
+
+def classify_slicer_output(stdout: str, stderr: str, return_code: int) -> SliceResult:
+    """Classify raw Bambu CLI output into warnings and hard errors."""
+
+    warnings: list[str] = []
+    errors: list[str] = []
+    combined = "\n".join(part for part in (stdout, stderr) if part)
+
+    for line in combined.splitlines():
+        text = line.strip()
+        if not text:
+            continue
+
+        hard_failure = _hard_failure_for_line(text)
+        if hard_failure is not None:
+            errors.append(hard_failure)
+            continue
+
+        warning = _warning_from_line(text)
+        if warning:
+            warnings.append(warning)
+
+    if return_code != 0:
+        errors.insert(0, f"slicer exited with return code {return_code}")
+
+    estimate = parse_slice_estimate_from_text(combined)
+    return replace(
+        estimate,
+        return_code=return_code,
+        warnings=tuple(_dedupe(warnings)),
+        errors=tuple(_dedupe(errors)),
+    )
+
+
+def parse_slice_estimate_from_text(text: str) -> SliceResult:
+    """Parse simple Bambu stdout/G-code/Markdown estimate patterns."""
+
+    return SliceResult(
+        time_seconds=_parse_time_seconds(text),
+        filament_g=_parse_filament_g(text),
+        layer_count=_parse_layer_count(text),
+        cost=_parse_cost(text),
+    )
+
+
+def run_slice_command(command: Sequence[str | Path], run_layout: object) -> SliceResult:
+    """Run a slicer command, save stdout/stderr logs, and return a parsed result."""
+
+    slice_dir = Path(getattr(run_layout, "slice_dir"))
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    stdout_log = slice_dir / "bambu_slice_stdout.log"
+    stderr_log = slice_dir / "bambu_slice_stderr.log"
+
+    completed = subprocess.run(
+        [str(part) for part in command],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+    stdout_log.write_text(completed.stdout, encoding="utf-8")
+    stderr_log.write_text(completed.stderr, encoding="utf-8")
+
+    result = classify_slicer_output(completed.stdout, completed.stderr, completed.returncode)
+    return replace(
+        result,
+        gcode_path=_find_gcode_path(completed.stdout, completed.stderr, slice_dir),
+        log_path=stdout_log,
+        stderr_log_path=stderr_log,
+    )
+
+
+def gate_slice(
+    result: SliceResult,
+    *,
+    allowed_warning_markers: Sequence[str] = NONCRITICAL_WARNING_MARKERS,
+) -> SliceResult:
+    """Raise for hard slice failures; return the result for accepted outcomes."""
+
+    problems: list[str] = []
+    if result.return_code != 0:
+        problems.append(f"slicer exited with return code {result.return_code}")
+    problems.extend(result.errors)
+
+    unallowed_warnings = [
+        warning
+        for warning in result.warnings
+        if not _warning_allowed(warning, allowed_warning_markers)
+    ]
+    if unallowed_warnings:
+        problems.append("unallowlisted slicer warnings: " + "; ".join(unallowed_warnings))
+
+    if problems:
+        raise SliceGateError("Slice gate failed: " + "; ".join(_dedupe(problems)))
+
+    return result
+
+
+def _hard_failure_for_line(line: str) -> str | None:
+    for message, pattern in _HARD_FAILURE_PATTERNS:
+        if pattern.search(line):
+            return f"{message}: {line}"
+    return None
+
+
+def _warning_from_line(line: str) -> str | None:
+    warning_message = re.search(
+        r"\bwarning_message\b\s*[:=]\s*['\"]?([^'\"]*)",
+        line,
+        re.IGNORECASE,
+    )
+    if warning_message:
+        value = warning_message.group(1).strip()
+        if value:
+            return _strip_log_level(value)
+        return None
+
+    if re.search(r"\bwarning\b", line, re.IGNORECASE):
+        return _strip_log_level(line)
+    return None
+
+
+def _strip_log_level(line: str) -> str:
+    return re.sub(r"^\s*(?:warning|warn)\s*[:=-]\s*", "", line, flags=re.IGNORECASE).strip()
+
+
+def _parse_time_seconds(text: str) -> int | None:
+    for line in text.splitlines():
+        if re.search(r"total print time|estimated printing time|total estimated time", line, re.IGNORECASE):
+            parenthetical_seconds = re.search(
+                r"\(([\d,]+)\s*s(?:ec(?:ond)?s?)?\)",
+                line,
+                re.IGNORECASE,
+            )
+            if parenthetical_seconds:
+                return int(parenthetical_seconds.group(1).replace(",", ""))
+
+    explicit = re.search(
+        r"\b(?:total_print_time_seconds|estimated_time_seconds|time_seconds)\b\s*[:=]\s*([\d,]+)",
+        text,
+        re.IGNORECASE,
+    )
+    if explicit:
+        return int(explicit.group(1).replace(",", ""))
+
+    labels = (
+        r"estimated printing time(?:\s*\([^)]+\))?",
+        r"total estimated time",
+        r"model printing time",
+        r"total print time",
+    )
+    label_pattern = "|".join(labels)
+    match = re.search(
+        rf"(?:{label_pattern})[^\n\r\d]*(\d+\s*d\s*)?(\d+\s*h\s*)?(\d+\s*m\s*)?(\d+\s*s)",
+        text,
+        re.IGNORECASE,
+    )
+    if match:
+        return _time_string_to_seconds("".join(part or "" for part in match.groups()))
+
+    any_hms = re.search(
+        r"\b(?:(\d+\s*d\s*)?(\d+\s*h\s*)?(\d+\s*m\s*)?(\d+\s*s))\b",
+        text,
+        re.IGNORECASE,
+    )
+    if any_hms:
+        return _time_string_to_seconds("".join(part or "" for part in any_hms.groups()))
+
+    return None
+
+
+def _time_string_to_seconds(time_text: str) -> int:
+    total = 0
+    for value, unit in re.findall(r"(\d+)\s*([dhms])", time_text, re.IGNORECASE):
+        amount = int(value)
+        unit = unit.lower()
+        if unit == "d":
+            total += amount * 86400
+        elif unit == "h":
+            total += amount * 3600
+        elif unit == "m":
+            total += amount * 60
+        elif unit == "s":
+            total += amount
+    return total
+
+
+def _parse_filament_g(text: str) -> float | None:
+    patterns = (
+        r"total filament weight\s*\[g\]\s*[:=]\s*([\d.,]+)",
+        r"filament(?:\s*[\u2014-]\s*weight|_used_g| weight).{0,80}?([\d.,]+)\s*g\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if match:
+            return _float_from_text(match.group(1))
+    return None
+
+
+def _parse_layer_count(text: str) -> int | None:
+    patterns = (
+        r"total layer (?:number|count)\s*[:=]\s*(\d+)",
+        r"\blayer_count\b\s*[:=]\s*(\d+)",
+        r"\blayer count\b[^\d\n\r]*(\d+)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _parse_cost(text: str) -> float | None:
+    for line in text.splitlines():
+        if re.search(r"filament cost|cost", line, re.IGNORECASE):
+            dollar_values = re.findall(r"\$\s*([\d.,]+)", line)
+            if dollar_values:
+                return _float_from_text(dollar_values[-1])
+            values = re.findall(r"[\d.,]+", line)
+            if values:
+                return _float_from_text(values[-1])
+    return None
+
+
+def _float_from_text(value: str) -> float:
+    return float(value.replace(",", ""))
+
+
+def _find_gcode_path(stdout: str, stderr: str, slice_dir: Path) -> Path | None:
+    combined = "\n".join(part for part in (stdout, stderr) if part)
+    match = re.search(
+        r"(?:g-?code|gcode)[^:\n\r]*:\s*['\"]?([^'\"\n\r]+?\.gcode(?:\.3mf)?)['\"]?\s*$",
+        combined,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    if match:
+        path = Path(match.group(1).strip())
+        return path if path.is_absolute() else slice_dir / path
+
+    candidates = sorted(slice_dir.glob("*.gcode")) + sorted(slice_dir.glob("*.gcode.3mf"))
+    return candidates[0] if candidates else None
+
+
+def _warning_allowed(warning: str, allowed_warning_markers: Sequence[str]) -> bool:
+    warning_lower = warning.lower()
+    return any(marker.lower() in warning_lower for marker in allowed_warning_markers)
+
+
+def _dedupe(items: Sequence[str]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in items:
+        if item not in seen:
+            unique.append(item)
+            seen.add(item)
+    return tuple(unique)

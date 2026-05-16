@@ -1,0 +1,15 @@
+{
+  "description": "Single triangle fixture with three boundary edges for open mesh failures.",
+  "vertices_count": 3,
+  "faces": [
+    [0, 1, 2]
+  ],
+  "expected": {
+    "vertices_count": 3,
+    "faces": 1,
+    "passed": false,
+    "watertight": false,
+    "boundary_edges": 3,
+    "non_manifold_edges": 0
+  }
+}
