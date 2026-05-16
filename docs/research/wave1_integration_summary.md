@@ -43,3 +43,4 @@ Before the six Wave 2 implementation agents start, the orchestrator should add s
 
 This reduces merge conflicts and prevents each module from inventing its own data model.
 
+Status: partially satisfied by `src/printpipe/contracts.py` and `src/printpipe/runs/paths.py`. Wave 2 agents should use those shared contracts instead of inventing new run IDs, artifact kinds, mesh stat payloads, or stage statuses.

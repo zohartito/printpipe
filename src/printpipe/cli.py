@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from printpipe import __version__
+from printpipe.runs import create_run
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,11 +45,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "init-run":
-        if not args.input.exists():
+        try:
+            layout = create_run(args.input, args.runs_dir)
+        except FileNotFoundError:
             parser.error(f"input does not exist: {args.input}")
-        args.runs_dir.mkdir(parents=True, exist_ok=True)
-        print(f"run root: {args.runs_dir.resolve()}")
-        print(f"input: {args.input.resolve()}")
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(f"run id: {layout.run_id}")
+        print(f"run root: {layout.root}")
+        print(f"input: {layout.original_input}")
         return 0
 
     parser.print_help()
@@ -57,4 +62,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -22,7 +22,9 @@ def test_init_run_requires_existing_input(tmp_path: Path, capsys):
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert runs_dir.exists()
+    run_roots = list(runs_dir.iterdir())
+    assert len(run_roots) == 1
+    assert (run_roots[0] / "manifest.json").exists()
     assert "run root:" in captured.out
-    assert str(source.resolve()) in captured.out
+    assert "input:" in captured.out
 

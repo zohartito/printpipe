@@ -8,8 +8,7 @@ __pycache__/
 dist/
 build/
 *.egg-info/
-runs/
-artifacts/
+/runs/
+/artifacts/
 .env
 .env.*
-

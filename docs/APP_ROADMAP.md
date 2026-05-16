@@ -40,8 +40,8 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 3 - Run Folder and Receipts System
 
-- [ ] 24. Create one folder per run.
-- [ ] 25. Store original input.
+- [x] 24. Create one folder per run.
+- [x] 25. Store original input.
 - [ ] 26. Store cleaned frames.
 - [ ] 27. Store generated mesh.
 - [ ] 28. Store repaired mesh.
