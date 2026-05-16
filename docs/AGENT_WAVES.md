@@ -95,12 +95,14 @@ Status: complete as a packaging/environment foundation. Outputs are covered by `
 
 ## Wave 9 - Beta and Regression
 
-1. Slipper full validation.
-2. Three non-slipper beta runs.
-3. Failure log template.
-4. Regression test harness.
-5. GitHub issue templates.
-6. Beta onboarding docs.
+Status: complete as beta/regression infrastructure. Outputs are covered by `tests/test_beta_slipper_dogfood_doc.py`, `tests/test_beta_non_slipper_runs_doc.py`, `tests/test_beta_failures.py`, `tests/test_beta_regression.py`, `tests/test_github_issue_templates.py`, and `tests/test_beta_onboarding_docs.py`.
+
+1. Done as gated plan: slipper full validation.
+2. Done as beta plan: three-plus non-slipper beta runs.
+3. Done: failure log template and structured failure capture helpers.
+4. Done as foundation: regression manifest helpers.
+5. Done: GitHub issue templates.
+6. Done: beta onboarding docs.
 
 ## Wave 10 - Hosted Future Planning
 

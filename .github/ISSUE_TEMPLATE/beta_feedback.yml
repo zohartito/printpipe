@@ -1,0 +1,61 @@
+name: Beta feedback
+description: Share workflow friction and environment details from a PrintPipe beta run.
+title: "[Feedback]: "
+labels: ["beta", "feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us where the beta workflow felt slow, confusing, fragile, or surprising.
+  - type: textarea
+    id: workflow-friction
+    attributes:
+      label: Workflow friction
+      description: Describe the hardest or least clear part of the PrintPipe workflow.
+      placeholder: "What slowed you down, forced a workaround, or made the result hard to trust?"
+    validations:
+      required: true
+  - type: input
+    id: object-type
+    attributes:
+      label: Object type
+      description: What were you trying to make?
+      placeholder: "slipper, figurine, cup/vase, flat bracket, decorative object, existing STL"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      description: Which operating system did you run PrintPipe on?
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - other
+    validations:
+      required: true
+  - type: input
+    id: bambu-studio-version
+    attributes:
+      label: Bambu Studio version
+      description: Include the Bambu Studio version used for opening or slicing the 3MF.
+      placeholder: "Bambu Studio 2.1.1"
+    validations:
+      required: true
+  - type: input
+    id: printer-material
+    attributes:
+      label: Printer/material
+      description: Include printer model, nozzle, material brand/type, and selected profile if known.
+      placeholder: "Bambu Lab P2S, 0.4 mm nozzle, SUNLU TPU 90A"
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots-artifacts
+    attributes:
+      label: Screenshots/artifacts
+      description: Attach screenshots, reports, manifests, 3MF/STL files, slice logs, or photos that help explain the feedback.
+      placeholder: "Drag files here or paste links to run artifacts."
+    validations:
+      required: true

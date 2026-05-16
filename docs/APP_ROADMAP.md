@@ -182,14 +182,14 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 16 - Beta
 
-- [ ] 127. Dogfood with slipper.
-- [ ] 128. Dogfood with 3 non-slipper objects.
-- [ ] 129. Give to 3 to 5 trusted users.
-- [ ] 130. Collect failed runs.
-- [ ] 131. Turn every failure into a regression test.
-- [ ] 132. Update material rules.
-- [ ] 133. Update orientation rules.
-- [ ] 134. Update repair rules.
+- [~] 127. Dogfood with slipper.
+- [~] 128. Dogfood with 3 non-slipper objects.
+- [~] 129. Give to 3 to 5 trusted users.
+- [~] 130. Collect failed runs.
+- [~] 131. Turn every failure into a regression test.
+- [~] 132. Update material rules.
+- [~] 133. Update orientation rules.
+- [~] 134. Update repair rules.
 
 ## Phase 17 - Web/Cloud Later
 

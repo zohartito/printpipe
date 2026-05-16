@@ -1,0 +1,22 @@
+# PrintPipe Beta
+
+Status: limited local beta notes for 3-5 trusted users.
+
+PrintPipe is local-first, but it is not a finished print-ready pipeline. The
+current beta is for people who can run a terminal command, inspect generated
+reports, and give artifact-backed feedback before any real printing decision.
+
+Start with [onboarding.md](onboarding.md).
+
+## Ground Rules
+
+- Keep the first pass local: run setup, `printpipe doctor`, and one tiny fixture.
+- Treat generated reports as diagnostic evidence, not permission to print.
+- Return the requested feedback artifacts even when the run looks boring.
+- Do not use beta outputs for unattended, wearable, food-contact,
+  load-bearing, medical, child, pet, electrical, or heat-exposed parts.
+
+## Current Folder
+
+- `onboarding.md`: setup, test object choice, run/report collection, safety
+  boundaries, privacy notes, and feedback expectations.

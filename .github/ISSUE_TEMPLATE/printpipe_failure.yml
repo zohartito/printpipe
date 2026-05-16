@@ -1,0 +1,102 @@
+name: PrintPipe failed run
+description: Report a failed PrintPipe run with enough context to reproduce and triage it.
+title: "[Failure]: "
+labels: ["beta", "failure"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share the run details and the artifacts that show where PrintPipe failed.
+  - type: input
+    id: run-id
+    attributes:
+      label: Run ID
+      description: Paste the PrintPipe run id from the manifest or run directory.
+      placeholder: "20260516-154012-slipper"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Paste the exact PrintPipe command or UI action that started the run.
+      placeholder: "printpipe run examples/slipper.png --printer Bambu Lab P2S --material TPU 90A"
+    validations:
+      required: true
+  - type: dropdown
+    id: input-type
+    attributes:
+      label: Input type
+      description: What kind of source input did this run use?
+      options:
+        - image
+        - gif
+        - video
+        - existing STL/mesh
+        - other
+    validations:
+      required: true
+  - type: input
+    id: printer
+    attributes:
+      label: Printer
+      description: Include the printer model and nozzle size when relevant.
+      placeholder: "Bambu Lab P2S, 0.4 mm nozzle"
+    validations:
+      required: true
+  - type: input
+    id: material
+    attributes:
+      label: Material
+      description: Include brand, type, and profile when known.
+      placeholder: "SUNLU TPU 90A, PrintPipe slipper profile"
+    validations:
+      required: true
+  - type: dropdown
+    id: failed-stage
+    attributes:
+      label: Failed stage
+      description: Pick the first stage that failed or produced unusable output.
+      options:
+        - input import
+        - frame extraction
+        - mesh generation
+        - mesh repair
+        - geometry/orientation
+        - profile selection
+        - 3MF bundle
+        - slicing
+        - reporting
+        - physical print
+        - unknown
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts-logs
+    attributes:
+      label: Artifacts/logs
+      description: Link or attach the manifest, report, 3MF, STL, screenshots, logs, and any other run artifacts.
+      placeholder: "Attach run_manifest.json, reports/*.html, slice logs, screenshots, or a zip of the run directory."
+    validations:
+      required: true
+  - type: textarea
+    id: bambu-studio-warnings
+    attributes:
+      label: Bambu Studio warnings
+      description: Paste warnings from Bambu Studio or note if the bundle never reached Bambu Studio.
+      placeholder: "Example: non-manifold edges, floating regions, object outside printable area, supports required."
+    validations:
+      required: true
+  - type: dropdown
+    id: physical-print-status
+    attributes:
+      label: Physical print status
+      description: Tell us how far the output got on the printer.
+      options:
+        - not printed
+        - print started and failed
+        - print completed with defects
+        - print completed successfully
+        - blocked before printer
+    validations:
+      required: true
