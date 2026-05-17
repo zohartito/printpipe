@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import main
 
 
@@ -63,6 +65,63 @@ def test_run_existing_stl_writes_bundle_reports_and_checklist(tmp_path: Path, ca
     assert ("bundle", "succeeded") in stages
     assert ("slice", "skipped") in stages
     assert report["pre_print_checklist"]
+
+
+def test_run_slice_failure_prints_report_paths_before_returning_nonzero(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+):
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    runs_dir = tmp_path / "runs"
+    missing_bambu = tmp_path / "missing-bambu"
+
+    exit_code = main(
+        [
+            "run",
+            str(source),
+            "--runs-dir",
+            str(runs_dir),
+            "--slice",
+            "--bambu-cli",
+            str(missing_bambu),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    run_root = next(runs_dir.iterdir())
+    assert exit_code == 2
+    assert f"run root: {run_root}" in captured.out
+    assert f"report json: {run_root / '80_reports' / 'run_report.json'}" in captured.out
+    assert f"report markdown: {run_root / '80_reports' / 'run_report.md'}" in captured.out
+    assert f"report html: {run_root / '80_reports' / 'run_report.html'}" in captured.out
+    assert "failed stage: slice" in captured.out
+    assert "error: Bambu CLI slice failed" in captured.err
+
+
+def test_run_bambu_cli_requires_slice_flag(tmp_path: Path):
+    source = tmp_path / "reference.stl"
+    source.write_text("solid fake\nendsolid fake\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as raised:
+        main(["run", str(source), "--bambu-cli", str(tmp_path / "fake-bambu")])
+
+    assert raised.value.code == 2
+
+
+def test_run_slice_requires_existing_mesh_until_meshgen_is_wired(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+
+    with pytest.raises(SystemExit) as raised:
+        main(["run", str(source), "--slice"])
+
+    assert raised.value.code == 2
 
 
 def test_status_reads_manifest_and_report_summary(tmp_path: Path, capsys):

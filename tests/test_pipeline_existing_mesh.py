@@ -119,6 +119,94 @@ def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_repor
     assert (result.layout.reports_dir / "run_report.html").exists()
 
 
+def test_existing_mesh_pipeline_runs_requested_slice_and_reports_success(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def fake_slice_stage(**kwargs) -> StageReceipt:
+        run_layout = kwargs["run_layout"]
+        slice_result = run_layout.slice_dir / "slice_result.json"
+        slice_result.parent.mkdir(parents=True, exist_ok=True)
+        slice_result.write_text('{"return_code": 0}\n', encoding="utf-8")
+        return StageReceipt(
+            stage="slice",
+            status=StageStatus.SUCCEEDED,
+            message="Bambu CLI slice passed.",
+            artifacts=(Artifact(ArtifactKind.SLICE_LOG, slice_result, "Slice result JSON"),),
+            metrics={
+                "slice_requested": True,
+                "return_code": 0,
+                "time_seconds": 3723,
+                "filament_g": 12.5,
+            },
+        )
+
+    monkeypatch.setattr(pipeline_module, "run_bambu_cli_slice_stage", fake_slice_stage)
+
+    result = run_existing_mesh_pipeline(STL_FIXTURE, tmp_path / "runs", run_slice=True)
+
+    stages = {receipt.stage: receipt for receipt in result.stages}
+    assert stages["slice"].status == StageStatus.SUCCEEDED
+    assert stages["slice"].metrics["slice_requested"] is True
+
+    report = json.loads(
+        (result.layout.reports_dir / "run_report.json").read_text(encoding="utf-8")
+    )
+    assert ("slice", "succeeded") in {
+        (stage["stage"], stage["status"]) for stage in report["stages"]
+    }
+    assert ("slice_log", "70_slice/slice_result.json") in {
+        (artifact["kind"], artifact["path"]) for artifact in report["artifacts"]
+    }
+    checklist = {item["id"]: item for item in report["pre_print_checklist"]}
+    assert checklist["slice_gate"]["status"] == "passed"
+
+
+def test_existing_mesh_pipeline_preserves_requested_slice_failure_report(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def fake_slice_stage(**kwargs) -> StageReceipt:
+        run_layout = kwargs["run_layout"]
+        slice_result = run_layout.slice_dir / "slice_result.json"
+        slice_result.parent.mkdir(parents=True, exist_ok=True)
+        slice_result.write_text('{"return_code": -11}\n', encoding="utf-8")
+        return StageReceipt(
+            stage="slice",
+            status=StageStatus.FAILED,
+            message="Bambu CLI slice failed.",
+            artifacts=(Artifact(ArtifactKind.SLICE_LOG, slice_result, "Slice result JSON"),),
+            metrics={
+                "slice_requested": True,
+                "return_code": -11,
+                "errors": ("slicer terminated by signal 11 (SIGSEGV)",),
+            },
+        )
+
+    monkeypatch.setattr(pipeline_module, "run_bambu_cli_slice_stage", fake_slice_stage)
+
+    with pytest.raises(PipelineError, match="Bambu CLI slice failed.") as raised:
+        run_existing_mesh_pipeline(STL_FIXTURE, tmp_path / "runs", run_slice=True)
+
+    result = raised.value.result
+    stages = {receipt.stage: receipt for receipt in result.stages}
+    assert stages["slice"].status == StageStatus.FAILED
+    assert stages["slice"].metrics["slice_requested"] is True
+
+    report = json.loads(
+        (result.layout.reports_dir / "run_report.json").read_text(encoding="utf-8")
+    )
+    assert ("slice", "failed") in {
+        (stage["stage"], stage["status"]) for stage in report["stages"]
+    }
+    assert ("slice_log", "70_slice/slice_result.json") in {
+        (artifact["kind"], artifact["path"]) for artifact in report["artifacts"]
+    }
+    assert "Bambu CLI slice failed." in report["warnings"]
+    checklist = {item["id"]: item for item in report["pre_print_checklist"]}
+    assert checklist["slice_gate"]["status"] == "failed"
+
+
 def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_path: Path):
     source = tmp_path / "reference.png"
     source.write_bytes(b"not a real image yet")

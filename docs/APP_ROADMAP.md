@@ -206,7 +206,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 13 made the existing-STL path honest end-to-end in software: existing mesh input can produce repaired/oriented artifacts, bed-fit preview, Bambu `.3mf`, validation receipt, report, and local web download. The remaining original-roadmap partials are mostly live slicer, real image/GIF meshgen orchestration, packaging, and physical/beta evidence.
+Wave 14 tightened the live slice gate: `printpipe run --slice` deliberately invokes Bambu Studio CLI, records slice receipts/logs, preserves report paths on failure, and parses G-code estimate headers when produced. Bambu Studio 2.6.00.51 on this macOS 26.5 machine currently segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
 
 ## Post-Wave 13 Findings Backlog
 
@@ -214,7 +214,7 @@ These items are not part of the original 142 count. They come from Wave 13 verif
 
 - [ ] F1. Fix or document macOS Desktop/TCC permission recovery for the primary checkout.
 - [ ] F2. Add a `printpipe doctor` check that warns when the current workspace or external artifact paths are unreadable.
-- [ ] F3. Add a run option that deliberately invokes live Bambu CLI slicing against the generated `.3mf` and records the real receipt.
+- [x] F3. Add a run option that deliberately invokes live Bambu CLI slicing against the generated `.3mf` and records the real receipt.
 - [ ] F4. Wire image/GIF/video runs through Hunyuan3D meshgen, repair, orientation, bundle, and report.
 - [ ] F5. Add real mesh preview screenshots or deterministic rendered previews, not only SVG/contact-sheet previews.
 - [ ] F6. Add one-click "open bundle/report folder" affordance for local macOS/Windows flows.
@@ -224,3 +224,4 @@ These items are not part of the original 142 count. They come from Wave 13 verif
 - [ ] F10. Build a clean macOS app/package smoke path.
 - [ ] F11. Build a clean Windows package smoke path.
 - [ ] F12. Add a regression for unreadable external artifact paths so permission problems skip or report clearly instead of crashing.
+- [ ] F13. Isolate Bambu Studio 2.6.00.51 CLI `--slice` SIGSEGV on macOS 26.5; direct STL and generated `.3mf` both crash in `update_values_to_printer_extruders_for_multiple_filaments`.

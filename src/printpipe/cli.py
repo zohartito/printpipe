@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -135,7 +136,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         try:
+            if args.bambu_cli is not None and not args.slice:
+                parser.error("--bambu-cli requires --slice")
             input_kind = classify_input_path(args.input)
+            if args.slice and input_kind != InputKind.MESH:
+                parser.error(
+                    "--slice currently requires an existing mesh input; "
+                    "image/GIF/video meshgen is not wired into the orchestrator yet"
+                )
             if input_kind == InputKind.MESH:
                 result = run_existing_mesh_pipeline(
                     args.input,
@@ -162,7 +170,8 @@ def main(argv: list[str] | None = None) -> int:
         except FileNotFoundError:
             parser.error(f"input does not exist: {args.input}")
         except PipelineError as exc:
-            parser.error(str(exc))
+            _print_pipeline_error(exc)
+            return 2
         except ValueError as exc:
             parser.error(str(exc))
         print(f"run id: {layout.run_id}")
@@ -237,6 +246,28 @@ def _doctor(*, json_output: bool, platform_name: str | None) -> int:
     else:
         print(render_environment_report(report), end="")
     return 0
+
+
+def _print_pipeline_error(error: PipelineError) -> None:
+    result = error.result
+    layout = result.layout
+    print(f"run id: {layout.run_id}")
+    print(f"run root: {layout.root}")
+    print(f"input: {layout.original_input}")
+    print(f"report json: {layout.reports_dir / 'run_report.json'}")
+    print(f"report markdown: {layout.reports_dir / 'run_report.md'}")
+    print(f"report html: {layout.reports_dir / 'run_report.html'}")
+    failed_stage = _first_failed_stage(result.stages)
+    if failed_stage is not None:
+        print(f"failed stage: {failed_stage.stage}")
+    print(f"error: {error}", file=sys.stderr)
+
+
+def _first_failed_stage(stages: tuple[Any, ...]) -> Any | None:
+    for stage in stages:
+        if getattr(getattr(stage, "status", None), "value", None) == "failed":
+            return stage
+    return None
 
 
 def _read_json_if_present(path: Path) -> dict[str, Any] | None:

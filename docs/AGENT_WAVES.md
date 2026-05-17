@@ -147,3 +147,14 @@ Status: complete for existing mesh inputs. Outputs are covered by `tests/test_pi
 4. Done: requested Bambu CLI slice failures become slice receipts instead of raw exceptions.
 5. Done: HTML reports embed previews, highlight bundles, and render pre-print checklist items.
 6. Done: roadmap items 100, 102, and 119 moved from partial to done; live Bambu slicing and physical beta remain partial until artifact-backed evidence exists.
+
+## Wave 14 - Live Slice Gate Hardening
+
+Status: F3 complete as a PrintPipe feature; successful live slicing remains blocked by a local Bambu Studio CLI segfault. Outputs are covered by `tests/test_bambu_slicer.py`, `tests/test_pipeline_existing_mesh.py`, and `tests/test_cli_run.py`.
+
+1. Done: `printpipe run --slice` preserves run/report paths on requested slice failure instead of hiding the receipt behind an argparse error.
+2. Done: `--bambu-cli` now requires `--slice`, and `--slice` is rejected for image/GIF/video inputs until meshgen is wired into the orchestrator.
+3. Done: missing Bambu CLI is a failed requested slice gate; not-requested slicing remains a skipped gate.
+4. Done: slice receipts now include `slice_requested=true`, command, executable, checked candidates, logs, return code, warnings, errors, and G-code-derived estimates when available.
+5. Done: negative subprocess return codes are classified as signals, including `SIGSEGV` for Bambu Studio crashes.
+6. Found: Bambu Studio 02.06.00.51 on macOS 26.5 crashes with signal 11 for CLI `--slice` on both a PrintPipe `.3mf` and a direct tiny STL; follow-up F13 owns isolating that Bambu CLI/runtime issue.

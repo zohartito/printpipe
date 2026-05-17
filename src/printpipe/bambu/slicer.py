@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 from dataclasses import dataclass, replace
@@ -224,7 +225,7 @@ def classify_slicer_output(stdout: str, stderr: str, return_code: int) -> SliceR
             warnings.append(warning)
 
     if return_code != 0:
-        errors.insert(0, f"slicer exited with return code {return_code}")
+        errors.insert(0, _return_code_error(return_code))
 
     estimate = parse_slice_estimate_from_text(combined)
     return replace(
@@ -267,9 +268,12 @@ def run_slice_command(command: Sequence[str | Path], run_layout: object) -> Slic
     stderr_log.write_text(completed.stderr, encoding="utf-8")
 
     result = classify_slicer_output(completed.stdout, completed.stderr, completed.returncode)
+    gcode_path = _find_gcode_path(completed.stdout, completed.stderr, slice_dir)
+    if gcode_path is not None:
+        result = _merge_gcode_estimates(result, gcode_path)
     return replace(
         result,
-        gcode_path=_find_gcode_path(completed.stdout, completed.stderr, slice_dir),
+        gcode_path=gcode_path,
         log_path=stdout_log,
         stderr_log_path=stderr_log,
     )
@@ -306,9 +310,10 @@ def run_bambu_cli_slice_stage(
         if executable_path is None:
             return StageReceipt(
                 stage="slice",
-                status=StageStatus.SKIPPED,
-                message="Bambu CLI slice skipped; executable was not found.",
+                status=StageStatus.FAILED,
+                message="Bambu CLI slice failed; executable was not found.",
                 metrics={
+                    "slice_requested": True,
                     "executable": None,
                     "command": None,
                     "checked_candidates": tuple(str(path) for path in checked_candidates),
@@ -331,6 +336,7 @@ def run_bambu_cli_slice_stage(
             status=StageStatus.FAILED,
             message=f"Bambu CLI slice failed to start: {exc}",
             metrics={
+                "slice_requested": True,
                 "executable": str(executable_path),
                 "command": command,
                 "checked_candidates": tuple(str(path) for path in checked_candidates),
@@ -341,6 +347,7 @@ def run_bambu_cli_slice_stage(
         receipt,
         metrics={
             **receipt.metrics,
+            "slice_requested": True,
             "executable": str(executable_path),
             "command": command,
             "checked_candidates": tuple(str(path) for path in checked_candidates),
@@ -427,7 +434,7 @@ def gate_slice(
 
     problems: list[str] = []
     if result.return_code != 0:
-        problems.append(f"slicer exited with return code {result.return_code}")
+        problems.append(_return_code_error(result.return_code))
     problems.extend(result.errors)
 
     unallowed_warnings = [
@@ -449,6 +456,17 @@ def _hard_failure_for_line(line: str) -> str | None:
         if pattern.search(line):
             return f"{message}: {line}"
     return None
+
+
+def _return_code_error(return_code: int) -> str:
+    if return_code < 0:
+        signal_number = abs(return_code)
+        try:
+            signal_name = signal.Signals(signal_number).name
+        except ValueError:
+            signal_name = "UNKNOWN"
+        return f"slicer terminated by signal {signal_number} ({signal_name})"
+    return f"slicer exited with return code {return_code}"
 
 
 def _warning_from_line(line: str) -> str | None:
@@ -740,6 +758,29 @@ def _find_gcode_path(stdout: str, stderr: str, slice_dir: Path) -> Path | None:
 
     candidates = sorted(slice_dir.glob("*.gcode")) + sorted(slice_dir.glob("*.gcode.3mf"))
     return candidates[0] if candidates else None
+
+
+def _merge_gcode_estimates(result: SliceResult, gcode_path: Path) -> SliceResult:
+    try:
+        with gcode_path.open("r", encoding="utf-8", errors="replace") as handle:
+            text = handle.read(2_000_000)
+    except OSError:
+        return result
+
+    estimate = parse_slice_estimate_from_text(text)
+    return replace(
+        result,
+        time_seconds=result.time_seconds
+        if result.time_seconds is not None
+        else estimate.time_seconds,
+        filament_g=result.filament_g
+        if result.filament_g is not None
+        else estimate.filament_g,
+        layer_count=result.layer_count
+        if result.layer_count is not None
+        else estimate.layer_count,
+        cost=result.cost if result.cost is not None else estimate.cost,
+    )
 
 
 def _warning_allowed(warning: str, allowed_warning_markers: Sequence[str]) -> bool:

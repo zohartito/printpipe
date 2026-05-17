@@ -121,7 +121,7 @@ def test_build_bambu_slice_command_reports_missing_executable(tmp_path: Path):
     assert str(tmp_path / "also-missing") in message
 
 
-def test_run_bambu_cli_slice_stage_skips_when_no_executable_is_available(tmp_path: Path):
+def test_run_bambu_cli_slice_stage_fails_when_no_executable_is_available(tmp_path: Path):
     bundle = tmp_path / "model.3mf"
     layout = FakeRunLayout(tmp_path / "70_slice")
     candidate = tmp_path / "missing-bambu"
@@ -138,10 +138,11 @@ def test_run_bambu_cli_slice_stage_skips_when_no_executable_is_available(tmp_pat
     )
 
     assert receipt.stage == "slice"
-    assert receipt.status is StageStatus.SKIPPED
-    assert receipt.message == "Bambu CLI slice skipped; executable was not found."
+    assert receipt.status is StageStatus.FAILED
+    assert receipt.message == "Bambu CLI slice failed; executable was not found."
     assert calls == []
     assert str(candidate) in receipt.metrics["checked_candidates"]
+    assert receipt.metrics["slice_requested"] is True
     assert receipt.metrics["executable"] is None
     assert receipt.metrics["command"] is None
 
@@ -173,6 +174,7 @@ def test_run_bambu_cli_slice_stage_uses_explicit_executable_without_discovery(tm
     )
     assert calls == [(expected_command, layout)]
     assert receipt.status is StageStatus.SUCCEEDED
+    assert receipt.metrics["slice_requested"] is True
     assert receipt.metrics["command"] == expected_command
     assert receipt.metrics["executable"] == str(executable)
     assert receipt.metrics["time_seconds"] == 123
@@ -281,6 +283,12 @@ def test_classify_slicer_output_keeps_unknown_warning_nonfatal():
     assert result.warnings == ("ZFiller: both point in subject",)
 
 
+def test_classify_slicer_output_names_unix_signal_crashes():
+    result = classify_slicer_output(stdout="", stderr="", return_code=-11)
+
+    assert result.errors == ("slicer terminated by signal 11 (SIGSEGV)",)
+
+
 def test_run_slice_command_writes_stdout_stderr_logs_and_parsed_result(tmp_path: Path):
     layout = FakeRunLayout(tmp_path / "70_slice")
     command = [
@@ -318,12 +326,19 @@ def test_run_slice_command_records_gcode_path_when_named_in_output(tmp_path: Pat
         "-c",
         f"from pathlib import Path; p = Path({str(gcode_path)!r}); "
         "p.parent.mkdir(parents=True, exist_ok=True); "
-        "p.write_text('gcode'); print(f'Exported G-code: {p}')",
+        "p.write_text('; estimated printing time (normal mode) = 2h 3m 4s\\n"
+        "; total filament weight [g] = 45.6\\n"
+        "; total layer number = 78\\n"
+        "; filament cost = 0.91\\n'); print(f'Exported G-code: {p}')",
     ]
 
     result = run_slice_command(command, layout)
 
     assert result.gcode_path == gcode_path
+    assert result.time_seconds == 7384
+    assert result.filament_g == 45.6
+    assert result.layer_count == 78
+    assert result.cost == 0.91
 
 
 def test_slice_result_receipt_writes_json_and_exposes_present_artifacts(tmp_path: Path):
