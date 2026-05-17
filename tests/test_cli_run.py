@@ -38,6 +38,33 @@ def test_run_creates_prepared_input_reports_and_prints_paths(tmp_path: Path, cap
     assert ("contact_sheet", "succeeded") in stages
 
 
+def test_run_existing_stl_writes_bundle_reports_and_checklist(tmp_path: Path, capsys):
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    runs_dir = tmp_path / "runs"
+
+    exit_code = main(["run", str(source), "--runs-dir", str(runs_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    run_root = next(runs_dir.iterdir())
+    assert (run_root / "40_geometry" / "tiny_tetrahedron_oriented.stl").exists()
+    assert (run_root / "60_bundle" / "existing_stl_tiny_tetrahedron.3mf").exists()
+    assert (run_root / "80_reports" / "run_report.html").exists()
+    assert f"run root: {run_root}" in captured.out
+
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
+    assert ("bundle", "succeeded") in stages
+    assert ("slice", "skipped") in stages
+    assert report["pre_print_checklist"]
+
+
 def test_status_reads_manifest_and_report_summary(tmp_path: Path, capsys):
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")

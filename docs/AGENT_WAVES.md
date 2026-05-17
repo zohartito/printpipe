@@ -114,3 +114,36 @@ Status: complete as hosted-future planning. Outputs are covered by `tests/test_c
 4. Done: cost model.
 5. Done: cloud meshgen worker decision and gates.
 6. Done: keep-local-power-user plan.
+
+## Wave 11 - Local Pipeline Integration
+
+Status: complete as a local pipeline spine. Outputs are covered by the full test suite and by the run-folder contract used by CLI and web smoke checks.
+
+1. Done: image/GIF/video input preparation records extracted, cleaned, selected, and contact-sheet artifacts.
+2. Done: local Hunyuan3D command provider contract exists without forcing hosted credentials.
+3. Done: geometry helpers cover axes, bed fit, cavity/opening notes, and support-burden scoring.
+4. Done: Bambu/Orca profile default discovery is available through environment diagnostics.
+5. Done: slice receipts/log artifacts are stable even before live slicing is enabled.
+6. Done: web `POST /runs` creates run folders and reports for media inputs.
+
+## Wave 12 - Artifact and Repair Integration
+
+Status: complete as artifact/repair infrastructure. Outputs are covered by `tests/test_mesh_repair.py`, `tests/test_web_artifacts.py`, `tests/test_reports_html.py`, and the existing-STL pipeline tests.
+
+1. Done: ASCII STL orientation artifact writer stores oriented mesh and sidecar JSON.
+2. Done: optional `trimesh` repair extra writes repair stats and repaired mesh artifacts.
+3. Done: contact-sheet and bed-fit previews are discoverable as local report artifacts.
+4. Done: Bambu CLI path discovery and safe command construction are covered by tests.
+5. Done: web artifact grouping includes reports, mesh artifacts, bundles, slice logs, and previews.
+6. Done: packaging and beta blockers are documented honestly instead of marked physically complete.
+
+## Wave 13 - Existing STL End-to-End Spine
+
+Status: complete for existing mesh inputs. Outputs are covered by `tests/test_pipeline_existing_mesh.py`, `tests/test_existing_stl_pipeline_bundle.py`, `tests/test_cli_run.py`, `tests/test_web_server.py`, `tests/test_bambu_slicer.py`, `tests/test_reports_html.py`, and `tests/test_preflight.py`.
+
+1. Done: `printpipe run input.stl` now runs import -> repair -> orient -> bed fit -> Bambu 3MF bundle -> validation -> report.
+2. Done: web STL uploads use the same existing-mesh pipeline and expose the resulting `.3mf`.
+3. Done: failed mesh repair stops before orientation/bundling and writes a failed report.
+4. Done: requested Bambu CLI slice failures become slice receipts instead of raw exceptions.
+5. Done: HTML reports embed previews, highlight bundles, and render pre-print checklist items.
+6. Done: roadmap items 100, 102, and 119 moved from partial to done; live Bambu slicing and physical beta remain partial until artifact-backed evidence exists.

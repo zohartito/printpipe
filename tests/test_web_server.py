@@ -221,6 +221,64 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(t
     assert ("contact_sheet", "succeeded") in stages
 
 
+def test_post_runs_existing_stl_creates_bundle_and_report(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir)
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    body, content_type = _multipart_form_body(
+        fields={
+            "printer_id": "bambu-p2s-0-4-nozzle",
+            "material_id": "pla",
+            "target_length_mm": "50",
+        },
+        file_field="input",
+        filename="tiny_tetrahedron.stl",
+        content_type="model/stl",
+        file_content=source.read_bytes(),
+    )
+
+    response = app.handle(
+        "/runs",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    run_root = next(path for path in runs_dir.iterdir() if (path / "manifest.json").exists())
+    assert response.status == 303
+    assert response.header("Location") == f"/static/{run_root.name}/80_reports/run_report.html"
+    assert (run_root / "60_bundle" / "existing_stl_tiny_tetrahedron.3mf").exists()
+    assert (run_root / "40_geometry" / "tiny_tetrahedron_oriented.stl").exists()
+
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    assert report["settings_changes"][0]["material_id"] == "pla"
+    stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
+    assert ("bundle", "succeeded") in stages
+    assert ("slice", "skipped") in stages
+    assert report["pre_print_checklist"]
+
+
+def test_home_response_skips_unreadable_recent_runs_dir(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    app = create_app(runs_dir=runs_dir)
+
+    runs_dir.chmod(0)
+    try:
+        response = app.handle("/")
+    finally:
+        runs_dir.chmod(0o700)
+
+    assert response.status == 200
+    assert "PrintPipe" in response.text
+
+
 def test_run_artifact_response_serves_safe_downloads_from_runs_dir(tmp_path: Path):
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")
@@ -249,6 +307,16 @@ def test_health_response_returns_json_status():
     assert response.status == 200
     assert response.header("Content-Type") == "application/json; charset=utf-8"
     assert json.loads(response.text) == {"service": "printpipe-web", "status": "ok"}
+
+
+def test_favicon_response_is_empty_success():
+    app = PrintPipeWebApp()
+
+    response = app.handle("/favicon.ico")
+
+    assert response.status == 204
+    assert response.body == b""
+    assert response.header("Content-Length") == "0"
 
 
 def test_static_response_serves_local_generated_html(tmp_path: Path):

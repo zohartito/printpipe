@@ -275,6 +275,79 @@ def run_slice_command(command: Sequence[str | Path], run_layout: object) -> Slic
     )
 
 
+def run_bambu_cli_slice_stage(
+    *,
+    three_mf_path: str | Path,
+    run_layout: object,
+    executable: str | Path | None = None,
+    plate: int = 0,
+    env: Mapping[str, str] | None = None,
+    platform: str | None = None,
+    extra_candidates: Sequence[str | Path] = (),
+    path_exists: Callable[[Path], bool] | None = None,
+    slice_runner: Callable[[Sequence[str | Path], object], SliceResult] = run_slice_command,
+) -> StageReceipt:
+    """Run Bambu CLI slicing only when an executable is explicit or discovered."""
+
+    output_dir = Path(getattr(run_layout, "slice_dir"))
+    checked_candidates = bambu_cli_candidate_paths(
+        env=env,
+        platform=platform,
+        extra_candidates=extra_candidates,
+    )
+
+    if executable is None:
+        executable_path = discover_bambu_cli_executable(
+            env=env,
+            platform=platform,
+            extra_candidates=extra_candidates,
+            path_exists=path_exists,
+        )
+        if executable_path is None:
+            return StageReceipt(
+                stage="slice",
+                status=StageStatus.SKIPPED,
+                message="Bambu CLI slice skipped; executable was not found.",
+                metrics={
+                    "executable": None,
+                    "command": None,
+                    "checked_candidates": tuple(str(path) for path in checked_candidates),
+                },
+            )
+    else:
+        executable_path = Path(executable).expanduser()
+
+    command = build_bambu_slice_command(
+        three_mf_path=three_mf_path,
+        output_dir=output_dir,
+        executable=executable_path,
+        plate=plate,
+    )
+    try:
+        result = slice_runner(command, run_layout)
+    except OSError as exc:
+        return StageReceipt(
+            stage="slice",
+            status=StageStatus.FAILED,
+            message=f"Bambu CLI slice failed to start: {exc}",
+            metrics={
+                "executable": str(executable_path),
+                "command": command,
+                "checked_candidates": tuple(str(path) for path in checked_candidates),
+            },
+        )
+    receipt = slice_result_to_receipt(result, run_layout)
+    return replace(
+        receipt,
+        metrics={
+            **receipt.metrics,
+            "executable": str(executable_path),
+            "command": command,
+            "checked_candidates": tuple(str(path) for path in checked_candidates),
+        },
+    )
+
+
 def slice_result_to_receipt(result: SliceResult, run_layout: object) -> StageReceipt:
     """Write a stable slice result JSON artifact and return a stage receipt."""
 

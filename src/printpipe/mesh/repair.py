@@ -66,7 +66,7 @@ def repair_mesh_file(
     after = _mesh_stats(repaired)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    repaired.export(output_path)
+    _export_repaired_mesh(repaired, output_path)
 
     if after.watertight:
         return MeshRepairResult(
@@ -228,6 +228,34 @@ def _repair_mesh(trimesh: Any, mesh: Any) -> Any:
     return repaired
 
 
+def _export_repaired_mesh(mesh: Any, output_path: Path) -> None:
+    if output_path.suffix.lower() != ".stl":
+        mesh.export(output_path)
+        return
+
+    lines = [f"solid {output_path.stem}"]
+    vertices = mesh.vertices
+    faces = _int_faces(mesh.faces)
+    for face_index, face in enumerate(faces):
+        normal = mesh.face_normals[face_index] if len(mesh.face_normals) else (0.0, 0.0, 0.0)
+        lines.append(
+            "  facet normal "
+            f"{_format_float(normal[0])} {_format_float(normal[1])} {_format_float(normal[2])}"
+        )
+        lines.append("    outer loop")
+        for vertex_index in face:
+            vertex = vertices[vertex_index]
+            lines.append(
+                "      vertex "
+                f"{_format_float(vertex[0])} {_format_float(vertex[1])} {_format_float(vertex[2])}"
+            )
+        lines.append("    endloop")
+        lines.append("  endfacet")
+    lines.append(f"endsolid {output_path.stem}")
+    lines.append("")
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _remove_duplicate_faces(mesh: Any) -> None:
     if hasattr(mesh, "unique_faces") and hasattr(mesh, "update_faces"):
         mesh.update_faces(mesh.unique_faces())
@@ -282,3 +310,12 @@ def _mesh_stats_to_dict(stats: MeshStats) -> dict[str, Any]:
         "non_manifold_edges": stats.non_manifold_edges,
         "bounds_mm": stats.bounds_mm,
     }
+
+
+def _format_float(value: Any) -> str:
+    number = float(value)
+    if abs(number) < 1e-12:
+        number = 0.0
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:.12g}"

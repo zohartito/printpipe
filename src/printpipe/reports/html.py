@@ -44,6 +44,7 @@ def render_html_report(
             f"      <h1>{run_id}</h1>",
             "    </header>",
             _render_input_section(stages, artifacts, layout=layout),
+            _render_previews_section(stages, artifacts, layout=layout),
             _render_mesh_repair_section(stages, artifacts, layout=layout),
             _render_bed_fit_section(stages, artifacts, layout=layout),
             _render_slice_summary(stages, artifacts, layout=layout),
@@ -95,6 +96,33 @@ def _render_input_section(
         ]
     )
     return _section("Input", body, classes=("section-input",))
+
+
+def _render_previews_section(
+    stages: list[Any],
+    artifacts: list[Any],
+    *,
+    layout: RunLayout | None,
+) -> str:
+    preview_artifacts = _unique_artifacts(
+        [
+            *[
+                artifact
+                for artifact in artifacts
+                if _artifact_kind(artifact) == "preview"
+            ],
+            *_preview_artifacts_from_stages(stages),
+        ]
+    )
+    return _section(
+        "Previews",
+        _render_artifact_cards(
+            preview_artifacts,
+            layout=layout,
+            empty="No preview artifacts recorded yet.",
+        ),
+        classes=("section-previews",),
+    )
 
 
 def _render_mesh_repair_section(
@@ -377,16 +405,26 @@ def _render_artifact_cards(
         label = artifact.get("label") or path or "Artifact"
         kind = artifact.get("kind", "artifact")
         kind_class = _class_name(str(kind))
+        card_classes = " ".join(_artifact_card_classes(kind_class))
+        download_attribute = _download_attribute(kind, path)
+        preview_html = _render_preview_embed(
+            kind=kind,
+            href=href,
+            label=label,
+            path=path,
+        )
         metadata = artifact.get("metadata", {})
         metadata_html = ""
         if metadata:
             metadata_html = f'\n        <div class="metadata">{_render_value(metadata)}</div>'
         cards.append(
             "      <article "
-            f'class="artifact-card artifact-{kind_class}">'
-            f'<h3><a href="{_as_attribute(href)}">{_as_text(label)}</a></h3>'
+            f'class="{_as_attribute(card_classes)}">'
+            f'<h3><a href="{_as_attribute(href)}"{download_attribute}>'
+            f"{_as_text(label)}</a></h3>"
             f'<span class="kind">{_as_text(kind)}</span>'
             f' <code>{_as_text(path)}</code>'
+            f"{preview_html}"
             f"{metadata_html}"
             "</article>"
         )
@@ -421,6 +459,57 @@ def _render_artifact_links(artifacts: list[Any], *, layout: RunLayout | None) ->
             "</li>"
         )
     return "<ul>\n" + "\n".join(items) + "\n    </ul>"
+
+
+def _artifact_card_classes(kind_class: str) -> tuple[str, ...]:
+    extra_classes = []
+    if kind_class == "preview":
+        extra_classes.append("artifact-preview-card")
+    if kind_class == "3mf":
+        extra_classes.append("artifact-print-bundle")
+    if kind_class == "slice-log":
+        extra_classes.append("artifact-slice-artifact")
+    return ("artifact-card", f"artifact-{kind_class}", *extra_classes)
+
+
+def _download_attribute(kind: Any, path: Any) -> str:
+    if str(kind) != "3mf":
+        return ""
+    filename = Path(str(path)).name
+    if not filename:
+        return ""
+    return f' download="{_as_attribute(filename)}"'
+
+
+def _render_preview_embed(*, kind: Any, href: str, label: Any, path: Any) -> str:
+    if str(kind) != "preview" or not _is_safe_local_href(href):
+        return ""
+
+    suffix = Path(str(path)).suffix.lower()
+    title = f"Preview: {label}"
+    if suffix in {".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+        return (
+            '\n        <a class="artifact-preview-frame" '
+            f'href="{_as_attribute(href)}">'
+            '<img class="artifact-preview-embed" '
+            f'src="{_as_attribute(href)}" alt="{_as_attribute(title)}">'
+            "</a>"
+        )
+    if suffix in {".html", ".htm"}:
+        return (
+            '\n        <iframe class="artifact-preview-embed" '
+            f'src="{_as_attribute(href)}" title="{_as_attribute(title)}" '
+            'loading="lazy" sandbox=""></iframe>'
+        )
+    return ""
+
+
+def _is_safe_local_href(href: str) -> bool:
+    href_lower = href.lower()
+    return bool(href) and not (
+        href_lower.startswith(("http://", "https://", "data:", "javascript:"))
+        or href.startswith("//")
+    )
 
 
 def _render_settings_change(change: Any) -> str:
@@ -464,11 +553,17 @@ def _render_checklist_item(item: Any) -> str:
 
     status = str(item.get("status", "pending"))
     status_class = _class_name(status)
-    label = item.get("item") or item.get("label") or item.get("text") or "Checklist item"
+    label = (
+        item.get("title")
+        or item.get("item")
+        or item.get("label")
+        or item.get("text")
+        or "Checklist item"
+    )
     detail_items = {
         key: value
         for key, value in item.items()
-        if key not in {"item", "label", "text", "status"}
+        if key not in {"item", "label", "text", "title", "status"}
     }
     details = ""
     if detail_items:
@@ -524,6 +619,17 @@ def _artifacts_with_kinds(artifacts: list[Any], kinds: set[str]) -> list[Any]:
         for artifact in artifacts
         if _artifact_kind(artifact) in kinds
     ]
+
+
+def _preview_artifacts_from_stages(stages: list[Any]) -> list[Any]:
+    previews = []
+    for stage in stages:
+        if not isinstance(stage, Mapping):
+            continue
+        for artifact in _as_list(stage.get("artifacts")):
+            if _artifact_kind(artifact) == "preview":
+                previews.append(artifact)
+    return previews
 
 
 def _artifact_kind(artifact: Any) -> str:
@@ -707,6 +813,26 @@ _CSS = """
     }
     .artifact-card h3 {
       word-break: break-word;
+    }
+    .artifact-preview-frame,
+    .artifact-preview-embed {
+      display: block;
+      width: 100%;
+    }
+    .artifact-preview-frame {
+      margin-top: 10px;
+    }
+    .artifact-preview-embed {
+      margin-top: 10px;
+      min-height: 140px;
+      max-height: 260px;
+      object-fit: contain;
+      border: 1px solid #e4e7eb;
+      border-radius: 6px;
+      background: #ffffff;
+    }
+    iframe.artifact-preview-embed {
+      height: 220px;
     }
     .stage-card-grid {
       margin-top: 12px;
