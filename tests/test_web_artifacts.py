@@ -134,6 +134,47 @@ def test_link_for_artifact_normalizes_safe_absolute_paths(tmp_path: Path):
     )
 
 
+def test_discover_run_artifacts_includes_geometry_frame_bundle_and_slice_outputs(
+    tmp_path: Path,
+):
+    run_root = tmp_path / "run-artifacts"
+    paths = (
+        run_root / "10_frames" / "contact_sheet.html",
+        run_root / "40_geometry" / "shoe_oriented.stl",
+        run_root / "40_geometry" / "bed_fit.svg",
+        run_root / "60_bundle" / "shoe.3mf",
+        run_root / "70_slice" / "slice_result.json",
+        run_root / "70_slice" / "bambu_slice_stdout.log",
+        run_root / "80_reports" / "run_report.html",
+        run_root / "80_reports" / "run_report.json",
+    )
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("artifact\n", encoding="utf-8")
+
+    links = discover_run_artifacts(run_root)
+
+    assert [(link.category, link.label, link.path) for link in links] == [
+        ("reports", "Run report HTML", "80_reports/run_report.html"),
+        ("reports", "Run report JSON", "80_reports/run_report.json"),
+        (
+            "oriented_mesh",
+            "Oriented mesh",
+            "40_geometry/shoe_oriented.stl",
+        ),
+        ("bundle", "Bambu bundle", "60_bundle/shoe.3mf"),
+        ("slice_log", "Slice result JSON", "70_slice/slice_result.json"),
+        ("slice_log", "Bambu slicer stdout log", "70_slice/bambu_slice_stdout.log"),
+        ("preview", "Bed fit SVG preview", "40_geometry/bed_fit.svg"),
+        ("preview", "Contact sheet HTML preview", "10_frames/contact_sheet.html"),
+    ]
+    assert links[3].download_name == "shoe.3mf"
+    assert links[3].media_type == "model/3mf"
+    assert links[4].media_type == "application/json"
+    assert links[6].media_type == "image/svg+xml"
+    assert links[7].media_type == "text/html"
+
+
 def test_resolve_artifact_request_rejects_traversal_and_symlink_escape(tmp_path: Path):
     run_root = tmp_path / "run-789"
     safe_path = run_root / "20_meshgen" / "raw mesh.stl"

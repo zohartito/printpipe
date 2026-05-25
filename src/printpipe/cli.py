@@ -8,7 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from printpipe import __version__
-from printpipe.inputs import prepare_input
+from printpipe.contracts import InputKind
+from printpipe.inputs import classify_input_path, prepare_input
+from printpipe.pipeline import PipelineError, run_existing_mesh_pipeline
 from printpipe.reports import build_run_report_dict, write_run_report
 from printpipe.reports.html import write_html_report
 from printpipe.runs import create_run
@@ -48,6 +50,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("runs"),
         help="Directory where run folders are created.",
+    )
+    run.add_argument(
+        "--slice",
+        action="store_true",
+        help="Run the Bambu CLI slice gate after bundling when the input is an existing mesh.",
+    )
+    run.add_argument(
+        "--bambu-cli",
+        type=Path,
+        help="Explicit Bambu Studio executable path for --slice.",
     )
 
     status = subparsers.add_parser(
@@ -123,21 +135,42 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         try:
-            layout = create_run(args.input, args.runs_dir)
-            input_result = prepare_input(layout.original_input, layout.frames_dir)
-            report_dict = build_run_report_dict(layout, stages=input_result.receipts)
-            report_json, report_markdown = write_run_report(layout, stages=input_result.receipts)
-            report_html = write_html_report(layout, report_dict)
+            input_kind = classify_input_path(args.input)
+            if input_kind == InputKind.MESH:
+                result = run_existing_mesh_pipeline(
+                    args.input,
+                    args.runs_dir,
+                    run_slice=args.slice,
+                    slice_executable=args.bambu_cli,
+                )
+                layout = result.layout
+                report_json = layout.reports_dir / "run_report.json"
+                report_markdown = layout.reports_dir / "run_report.md"
+                report_html = layout.reports_dir / "run_report.html"
+            else:
+                layout = create_run(args.input, args.runs_dir)
+                input_result = prepare_input(layout.original_input, layout.frames_dir)
+                report_dict = build_run_report_dict(layout, stages=input_result.receipts)
+                report_json_artifact, report_markdown_artifact = write_run_report(
+                    layout,
+                    stages=input_result.receipts,
+                )
+                report_html_artifact = write_html_report(layout, report_dict)
+                report_json = report_json_artifact.path
+                report_markdown = report_markdown_artifact.path
+                report_html = report_html_artifact.path
         except FileNotFoundError:
             parser.error(f"input does not exist: {args.input}")
+        except PipelineError as exc:
+            parser.error(str(exc))
         except ValueError as exc:
             parser.error(str(exc))
         print(f"run id: {layout.run_id}")
         print(f"run root: {layout.root}")
         print(f"input: {layout.original_input}")
-        print(f"report json: {report_json.path}")
-        print(f"report markdown: {report_markdown.path}")
-        print(f"report html: {report_html.path}")
+        print(f"report json: {report_json}")
+        print(f"report markdown: {report_markdown}")
+        print(f"report html: {report_html}")
         return 0
 
     if args.command == "status":

@@ -17,7 +17,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote, urlsplit
 
-from printpipe.inputs import prepare_input
+from printpipe.contracts import InputKind
+from printpipe.inputs import classify_input_path, prepare_input
+from printpipe.pipeline import PipelineError, run_existing_mesh_pipeline
 from printpipe.reports import build_run_report_dict, write_run_report
 from printpipe.reports.html import write_html_report
 from printpipe.runs import RunLayout, create_run
@@ -194,6 +196,12 @@ class PrintPipeWebApp:
             return WebResponse.from_text(
                 "A run with that id already exists. Please retry.\n",
                 status=HTTPStatus.CONFLICT,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except PipelineError as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
                 content_type=_TEXT_MEDIA_TYPE,
             )
         except (FileNotFoundError, ValueError) as exc:
@@ -510,6 +518,18 @@ class PrintPipeWebApp:
             with tempfile.TemporaryDirectory(prefix="upload-", dir=incoming_dir) as upload_dir_name:
                 upload_path = Path(upload_dir_name) / safe_filename
                 upload_path.write_bytes(form.upload.content)
+
+                if classify_input_path(upload_path) == InputKind.MESH:
+                    result = run_existing_mesh_pipeline(
+                        upload_path,
+                        runs_dir,
+                        material=str(form.launch_options.get("material_id", "Unknown material")),
+                        printer=str(form.launch_options.get("printer_id", "Unknown printer")),
+                        use_case="web run",
+                        settings_changes=(form.launch_options,),
+                    )
+                    self._record_launch_options(result.layout, form.launch_options)
+                    return result.layout
 
                 layout = create_run(upload_path, runs_dir)
                 self._record_launch_options(layout, form.launch_options)

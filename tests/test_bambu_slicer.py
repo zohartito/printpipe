@@ -18,6 +18,7 @@ from printpipe.bambu.slicer import (
     gate_slice,
     parse_slice_estimate_from_text,
     run_slice_command,
+    run_bambu_cli_slice_stage,
     slice_result_to_receipt,
 )
 
@@ -118,6 +119,106 @@ def test_build_bambu_slice_command_reports_missing_executable(tmp_path: Path):
     assert "Bambu Studio CLI executable was not found" in message
     assert "PRINTPIPE_BAMBU_STUDIO_CLI" in message
     assert str(tmp_path / "also-missing") in message
+
+
+def test_run_bambu_cli_slice_stage_skips_when_no_executable_is_available(tmp_path: Path):
+    bundle = tmp_path / "model.3mf"
+    layout = FakeRunLayout(tmp_path / "70_slice")
+    candidate = tmp_path / "missing-bambu"
+    calls: list[tuple[str | Path, ...]] = []
+
+    receipt = run_bambu_cli_slice_stage(
+        three_mf_path=bundle,
+        run_layout=layout,
+        env={"PATH": ""},
+        platform="linux",
+        extra_candidates=[candidate],
+        path_exists=lambda path: False,
+        slice_runner=lambda command, run_layout: calls.append(tuple(command)) or SliceResult(),
+    )
+
+    assert receipt.stage == "slice"
+    assert receipt.status is StageStatus.SKIPPED
+    assert receipt.message == "Bambu CLI slice skipped; executable was not found."
+    assert calls == []
+    assert str(candidate) in receipt.metrics["checked_candidates"]
+    assert receipt.metrics["executable"] is None
+    assert receipt.metrics["command"] is None
+
+
+def test_run_bambu_cli_slice_stage_uses_explicit_executable_without_discovery(tmp_path: Path):
+    executable = tmp_path / "fake-bambu"
+    bundle = tmp_path / "model.3mf"
+    layout = FakeRunLayout(tmp_path / "70_slice")
+    calls: list[tuple[tuple[str | Path, ...], object]] = []
+
+    def fake_runner(command, run_layout):
+        calls.append((tuple(command), run_layout))
+        return SliceResult(return_code=0, time_seconds=123)
+
+    receipt = run_bambu_cli_slice_stage(
+        three_mf_path=bundle,
+        run_layout=layout,
+        executable=executable,
+        slice_runner=fake_runner,
+    )
+
+    expected_command = (
+        str(executable),
+        "--slice",
+        "0",
+        "--outputdir",
+        str(layout.slice_dir),
+        str(bundle),
+    )
+    assert calls == [(expected_command, layout)]
+    assert receipt.status is StageStatus.SUCCEEDED
+    assert receipt.metrics["command"] == expected_command
+    assert receipt.metrics["executable"] == str(executable)
+    assert receipt.metrics["time_seconds"] == 123
+
+
+def test_run_bambu_cli_slice_stage_discovers_executable_before_running(tmp_path: Path):
+    discovered = tmp_path / "BambuStudio"
+    bundle = tmp_path / "model.3mf"
+    layout = FakeRunLayout(tmp_path / "70_slice")
+    commands: list[tuple[str | Path, ...]] = []
+
+    receipt = run_bambu_cli_slice_stage(
+        three_mf_path=bundle,
+        run_layout=layout,
+        env={"PATH": ""},
+        platform="linux",
+        extra_candidates=[discovered],
+        path_exists=lambda path: path == discovered,
+        slice_runner=lambda command, run_layout: commands.append(tuple(command)) or SliceResult(),
+    )
+
+    assert commands[0][0] == str(discovered)
+    assert receipt.status is StageStatus.SUCCEEDED
+    assert receipt.metrics["executable"] == str(discovered)
+    assert receipt.metrics["command"] == commands[0]
+    assert str(discovered) in receipt.metrics["checked_candidates"]
+
+
+def test_run_bambu_cli_slice_stage_reports_start_failure(tmp_path: Path):
+    executable = tmp_path / "missing-bambu"
+    bundle = tmp_path / "model.3mf"
+    layout = FakeRunLayout(tmp_path / "70_slice")
+
+    receipt = run_bambu_cli_slice_stage(
+        three_mf_path=bundle,
+        run_layout=layout,
+        executable=executable,
+        slice_runner=lambda command, run_layout: (_ for _ in ()).throw(
+            FileNotFoundError("missing-bambu")
+        ),
+    )
+
+    assert receipt.status is StageStatus.FAILED
+    assert receipt.message == "Bambu CLI slice failed to start: missing-bambu"
+    assert receipt.metrics["executable"] == str(executable)
+    assert receipt.metrics["command"][0] == str(executable)
 
 
 def test_parse_slice_estimate_reads_bambu_gcode_header_patterns():

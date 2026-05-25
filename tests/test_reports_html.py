@@ -77,6 +77,7 @@ def test_render_html_report_shows_receipts_and_escapes_content(tmp_path: Path):
             },
         ),
         pre_print_checklist=(
+            {"title": "Dry TPU", "status": "required", "detail": "50 C before printing."},
             {"item": "Open .3mf in Bambu Studio", "status": "pending"},
             "Confirm first layer <clean> & purge line.",
         ),
@@ -103,6 +104,8 @@ def test_render_html_report_shows_receipts_and_escapes_content(tmp_path: Path):
     assert "snug" in html
     assert "TPU support &lt;safer&gt; &amp; removable" in html
     assert "Open .3mf in Bambu Studio" in html
+    assert "Dry TPU" in html
+    assert "50 C before printing." in html
     assert "Confirm first layer &lt;clean&gt; &amp; purge line." in html
 
 
@@ -215,7 +218,7 @@ def test_render_html_report_promotes_local_print_readiness_sections(tmp_path: Pa
     assert 'class="artifact-card artifact-original-input"' in html
     assert 'class="artifact-card artifact-generated-mesh"' in html
     assert 'class="artifact-card artifact-repaired-mesh"' in html
-    assert 'class="artifact-card artifact-preview"' in html
+    assert 'class="artifact-card artifact-preview artifact-preview-card"' in html
     assert 'class="slice-metric-grid"' in html
     assert 'class="warning-list"' in html
     assert 'class="settings-change"' in html
@@ -225,6 +228,125 @@ def test_render_html_report_promotes_local_print_readiness_sections(tmp_path: Pa
     assert "min_margin_mm" in html
     assert "140" in html
     assert "3h 12m" in html
+
+
+def test_render_html_report_embeds_preview_cards_and_highlights_print_artifacts(
+    tmp_path: Path,
+):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-html-previews")
+
+    preview_svg = layout.reports_dir / "bed-fit.svg"
+    contact_sheet = layout.reports_dir / "contact-sheet.html"
+    oriented_mesh = layout.geometry_dir / "oriented.stl"
+    repaired_mesh = layout.repair_dir / "repaired.stl"
+    bundle = layout.bundle_dir / "ready.3mf"
+    slice_log = layout.slice_dir / "slice.log"
+    preview_svg.write_text("<svg></svg>\n", encoding="utf-8")
+    contact_sheet.write_text("<!doctype html><title>Contact</title>\n", encoding="utf-8")
+    for artifact_path in (oriented_mesh, repaired_mesh, bundle, slice_log):
+        artifact_path.write_text("artifact\n", encoding="utf-8")
+
+    report_dict = {
+        "schema_version": 1,
+        "run_id": "run-html-previews",
+        "stages": [
+            {
+                "stage": "mesh repair",
+                "status": "succeeded",
+                "message": "Mesh repaired and oriented.",
+                "artifacts": [
+                    {
+                        "kind": "repaired_mesh",
+                        "path": "30_repair/repaired.stl",
+                        "label": "Repaired mesh",
+                    },
+                    {
+                        "kind": "oriented_mesh",
+                        "path": "40_geometry/oriented.stl",
+                        "label": "Oriented mesh",
+                    },
+                ],
+            },
+            {
+                "stage": "bed fit",
+                "status": "succeeded",
+                "message": "Generated bed-fit preview.",
+                "artifacts": [
+                    {
+                        "kind": "preview",
+                        "path": "80_reports/bed-fit.svg",
+                        "label": "Bed-fit preview",
+                    },
+                ],
+            },
+            {
+                "stage": "slice",
+                "status": "succeeded",
+                "message": "Slice completed.",
+                "artifacts": [
+                    {
+                        "kind": "3mf",
+                        "path": "60_bundle/ready.3mf",
+                        "label": "Bambu 3MF bundle",
+                    },
+                    {
+                        "kind": "slice_log",
+                        "path": "70_slice/slice.log",
+                        "label": "Slice log",
+                    },
+                ],
+                "metrics": {"layers": 222, "mass_g": 118.5},
+            },
+        ],
+        "artifacts": [
+            {
+                "kind": "preview",
+                "path": "80_reports/bed-fit.svg",
+                "label": "Bed-fit preview",
+            },
+            {
+                "kind": "preview",
+                "path": "80_reports/contact-sheet.html",
+                "label": "Contact sheet",
+            },
+            {
+                "kind": "oriented_mesh",
+                "path": "40_geometry/oriented.stl",
+                "label": "Oriented mesh",
+            },
+            {
+                "kind": "repaired_mesh",
+                "path": "30_repair/repaired.stl",
+                "label": "Repaired mesh",
+            },
+            {
+                "kind": "3mf",
+                "path": "60_bundle/ready.3mf",
+                "label": "Bambu 3MF bundle",
+            },
+            {
+                "kind": "slice_log",
+                "path": "70_slice/slice.log",
+                "label": "Slice log",
+            },
+        ],
+    }
+
+    html = render_html_report(report_dict, layout=layout)
+
+    assert 'class="report-section section-previews"' in html
+    assert 'class="artifact-card artifact-preview artifact-preview-card"' in html
+    assert '<img class="artifact-preview-embed"' in html
+    assert 'src="bed-fit.svg"' in html
+    assert '<iframe class="artifact-preview-embed"' in html
+    assert 'src="contact-sheet.html"' in html
+    assert 'class="artifact-card artifact-repaired-mesh"' in html
+    assert 'class="artifact-card artifact-oriented-mesh"' in html
+    assert 'class="artifact-card artifact-3mf artifact-print-bundle"' in html
+    assert 'download="ready.3mf"' in html
+    assert 'class="artifact-card artifact-slice-log artifact-slice-artifact"' in html
 
 
 def test_write_html_report_writes_report_artifact(tmp_path: Path):

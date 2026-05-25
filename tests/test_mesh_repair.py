@@ -133,6 +133,7 @@ def test_repair_mesh_file_repairs_and_exports_tiny_mesh(tmp_path: Path):
     assert isinstance(result.after, MeshStats)
     assert "repaired" in result.message.lower()
     assert output_path.exists()
+    assert output_path.read_text(encoding="utf-8").lstrip().startswith("solid output")
 
     repaired = trimesh.load(output_path, force="mesh", process=True)
     assert isinstance(repaired, trimesh.Trimesh)

@@ -143,9 +143,9 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 97. Create `printpipe status`.
 - [x] 98. Create `printpipe open-report`.
 - [x] 99. Create HTML run report.
-- [~] 100. Show input, mesh, repaired mesh, bed fit, and slice summary.
+- [x] 100. Show input, mesh, repaired mesh, bed fit, and slice summary.
 - [x] 101. Show warnings and what changed.
-- [~] 102. Show pre-print checklist.
+- [x] 102. Show pre-print checklist.
 
 ## Phase 13 - Test Objects
 
@@ -168,7 +168,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 116. Select filament.
 - [x] 117. Enter target size.
 - [x] 118. Show pipeline progress.
-- [~] 119. Show previews.
+- [x] 119. Show previews.
 - [~] 120. Download/open `.3mf`.
 
 ## Phase 15 - Packaging

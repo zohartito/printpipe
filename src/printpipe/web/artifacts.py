@@ -15,6 +15,7 @@ CATEGORY_ORIGINAL_INPUT = "original_input"
 CATEGORY_REPORTS = "reports"
 CATEGORY_GENERATED_MESH = "generated_mesh"
 CATEGORY_REPAIRED_MESH = "repaired_mesh"
+CATEGORY_ORIENTED_MESH = "oriented_mesh"
 CATEGORY_BUNDLE = "bundle"
 CATEGORY_SLICE_LOG = "slice_log"
 CATEGORY_PREVIEW = "preview"
@@ -24,6 +25,7 @@ CATEGORY_ORDER: tuple[str, ...] = (
     CATEGORY_REPORTS,
     CATEGORY_GENERATED_MESH,
     CATEGORY_REPAIRED_MESH,
+    CATEGORY_ORIENTED_MESH,
     CATEGORY_BUNDLE,
     CATEGORY_SLICE_LOG,
     CATEGORY_PREVIEW,
@@ -179,6 +181,7 @@ _KIND_TO_CATEGORY = {
     "report": CATEGORY_REPORTS,
     "generated_mesh": CATEGORY_GENERATED_MESH,
     "repaired_mesh": CATEGORY_REPAIRED_MESH,
+    "oriented_mesh": CATEGORY_ORIENTED_MESH,
     "3mf": CATEGORY_BUNDLE,
     "slice_log": CATEGORY_SLICE_LOG,
     "preview": CATEGORY_PREVIEW,
@@ -189,6 +192,7 @@ _DEFAULT_LABELS = {
     CATEGORY_REPORTS: "Run report",
     CATEGORY_GENERATED_MESH: "Generated mesh",
     CATEGORY_REPAIRED_MESH: "Repaired mesh",
+    CATEGORY_ORIENTED_MESH: "Oriented mesh",
     CATEGORY_BUNDLE: "Bambu bundle",
     CATEGORY_SLICE_LOG: "Slice log",
     CATEGORY_PREVIEW: "Preview",
@@ -198,9 +202,13 @@ _MEDIA_TYPES = {
     ".3mf": "model/3mf",
     ".gltf": "model/gltf+json",
     ".glb": "model/gltf-binary",
+    ".gcode": "text/plain",
+    ".html": "text/html",
+    ".json": "application/json",
     ".log": "text/plain",
     ".md": "text/markdown",
     ".obj": "model/obj",
+    ".svg": "image/svg+xml",
     ".stl": "model/stl",
 }
 
@@ -310,6 +318,12 @@ def _fallback_candidates(root: Path) -> Iterable[_Candidate]:
     )
     yield from _fallback_glob(
         root,
+        CATEGORY_ORIENTED_MESH,
+        "40_geometry/*",
+        suffixes={".3mf", ".glb", ".gltf", ".obj", ".stl"},
+    )
+    yield from _fallback_glob(
+        root,
         CATEGORY_BUNDLE,
         "60_bundle/*.3mf",
     )
@@ -317,19 +331,25 @@ def _fallback_candidates(root: Path) -> Iterable[_Candidate]:
         root,
         CATEGORY_SLICE_LOG,
         "70_slice/*",
-        suffixes={".log", ".txt"},
+        suffixes={".bgcode", ".gcode", ".json", ".log", ".txt"},
+    )
+    yield from _fallback_glob(
+        root,
+        CATEGORY_PREVIEW,
+        "10_frames/*",
+        suffixes={".gif", ".html", ".jpeg", ".jpg", ".png", ".svg", ".webp"},
     )
     yield from _fallback_glob(
         root,
         CATEGORY_PREVIEW,
         "80_reports/*",
-        suffixes={".gif", ".jpeg", ".jpg", ".png", ".webp"},
+        suffixes={".gif", ".html", ".jpeg", ".jpg", ".png", ".svg", ".webp"},
     )
     yield from _fallback_glob(
         root,
         CATEGORY_PREVIEW,
         "40_geometry/*",
-        suffixes={".gif", ".jpeg", ".jpg", ".png", ".webp"},
+        suffixes={".gif", ".html", ".jpeg", ".jpg", ".png", ".svg", ".webp"},
     )
 
 
@@ -344,7 +364,7 @@ def _fallback_existing(
             yield _Candidate(
                 category=category,
                 path=path,
-                label=_default_label(category),
+                label=_label_for_path(category, path),
                 priority=order,
             )
 
@@ -386,8 +406,26 @@ def _label_for_path(category: str, path: Path) -> str:
             return "Run report Markdown"
         if path.suffix == ".json":
             return "Run report JSON"
+    if category == CATEGORY_ORIENTED_MESH:
+        return "Oriented mesh"
+    if category == CATEGORY_SLICE_LOG:
+        path_text = path.as_posix().lower()
+        if path.name.lower() == "slice_result.json":
+            return "Slice result JSON"
+        if "stdout" in path_text:
+            return "Bambu slicer stdout log"
+        if "stderr" in path_text:
+            return "Bambu slicer stderr log"
+        if path.suffix.lower() in {".bgcode", ".gcode"}:
+            return "G-code output"
     if category == CATEGORY_PREVIEW and _looks_like_bed_fit(path):
+        if path.suffix.lower() == ".svg":
+            return "Bed fit SVG preview"
         return "Bed fit preview"
+    if category == CATEGORY_PREVIEW and _looks_like_contact_sheet(path):
+        if path.suffix.lower() == ".html":
+            return "Contact sheet HTML preview"
+        return "Contact sheet preview"
     return _default_label(category)
 
 
@@ -398,9 +436,24 @@ def _priority(category: str, path: str | Path, label: str) -> int:
         suffix = Path(path_text).suffix
         return {".html": 0, ".md": 1, ".json": 2}.get(suffix, 5)
     if category == CATEGORY_PREVIEW:
-        return 0 if _looks_like_bed_fit_text(f"{path_text} {label_text}") else 5
+        if _looks_like_bed_fit_text(f"{path_text} {label_text}"):
+            return 0
+        if _looks_like_contact_sheet_text(f"{path_text} {label_text}"):
+            return 1
+        return 5
     if category == CATEGORY_BUNDLE:
         return 0 if path_text.endswith(".3mf") else 5
+    if category == CATEGORY_SLICE_LOG:
+        suffix = Path(path_text).suffix
+        if path_text.endswith("slice_result.json"):
+            return 0
+        if "stdout" in path_text:
+            return 1
+        if "stderr" in path_text:
+            return 2
+        if suffix in {".bgcode", ".gcode"}:
+            return 3
+        return 5
     return 0
 
 
@@ -411,6 +464,15 @@ def _looks_like_bed_fit(path: Path) -> bool:
 def _looks_like_bed_fit_text(text: str) -> bool:
     lowered = text.lower()
     return "bed" in lowered or "fit" in lowered
+
+
+def _looks_like_contact_sheet(path: Path) -> bool:
+    return _looks_like_contact_sheet_text(path.as_posix())
+
+
+def _looks_like_contact_sheet_text(text: str) -> bool:
+    lowered = text.lower()
+    return "contact" in lowered and "sheet" in lowered
 
 
 def _media_type(path: Path) -> str:
@@ -430,6 +492,7 @@ __all__ = [
     "CATEGORY_BUNDLE",
     "CATEGORY_GENERATED_MESH",
     "CATEGORY_ORIGINAL_INPUT",
+    "CATEGORY_ORIENTED_MESH",
     "CATEGORY_ORDER",
     "CATEGORY_PREVIEW",
     "CATEGORY_REPAIRED_MESH",
