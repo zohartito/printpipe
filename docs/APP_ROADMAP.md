@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 118: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 119: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 118 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
+Wave 119 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
 
-The latest completed wave made the top-level next action carry its required evidence files. `final-plan` now preserves action-specific artifact and handoff paths on `next_action`, including physical coupon STL/JSON paths, print handoff Markdown, trusted-user report/bundle paths, and release handoff paths when those are the active next action. The home-page `Final readiness / Remaining actions` callout now renders those next-action files beside the immediate command, so the first action is no longer just a shell command with hidden supporting files.
+The latest completed wave aligned the terminal `final-plan` renderer with the JSON contract and home-page callout. The human CLI output now prints next-action supporting files (`artifact`, `sidecar`, `handoff`, `report`, `bundle`) directly under the immediate command, so the current PLA physical-validation action includes the coupon STL, coupon JSON, and print handoff in all three surfaces: terminal, JSON, and web.
+
+Wave 118 made the top-level next action carry its required evidence files. `final-plan` now preserves action-specific artifact and handoff paths on `next_action`, including physical coupon STL/JSON paths, print handoff Markdown, trusted-user report/bundle paths, and release handoff paths when those are the active next action. The home-page `Final readiness / Remaining actions` callout now renders those next-action files beside the immediate command, so the first action is no longer just a shell command with hidden supporting files.
 
 Wave 117 made the release distribution gate self-contained for handoff without fabricating signed artifacts. `release-start` now writes `dist/release_handoffs/release_distribution_handoff.md`, including the release dir, runs dir, regression manifest, current release actions, required signing inputs, exact build/check commands, and signed-distribution proof boundary. `release-plan` and the home-page final-readiness surfaces now show the `release-start` command and existing handoff path for macOS, Windows, and signing-prerequisite actions. Physical and trusted-user gates were also hardened: a passed physical packet only counts when its referenced photo exists on disk, and a completed trusted-user packet only counts when the run has an existing report or existing attached artifact. `release-status` still reports action required because Developer ID/notary credentials and a signed Windows installer are not present.
 

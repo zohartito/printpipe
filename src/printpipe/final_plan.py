@@ -122,6 +122,8 @@ def render_final_action_plan(plan: Mapping[str, Any]) -> str:
         command = str(next_action.get("command") or "")
         if command:
             lines.append(f"  command: {command}")
+        for label, value in _supporting_path_lines(next_action):
+            lines.append(f"  {label}: {value}")
         lines.append("")
     lines.append("Sections:")
     sections = _list(plan.get("sections"))
@@ -171,6 +173,22 @@ def _section(
         "proof_boundary": str(source_plan.get("proof_boundary") or ""),
         "actions": _list(source_plan.get("actions")),
     }
+
+
+def _supporting_path_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
+    pairs = (
+        ("coupon_stl_path", "artifact"),
+        ("coupon_json_path", "sidecar"),
+        ("handoff_markdown_path", "handoff"),
+        ("report_path", "report"),
+        ("bundle_path", "bundle"),
+    )
+    lines: list[tuple[str, str]] = []
+    for key, label in pairs:
+        value = str(action.get(key) or "")
+        if value:
+            lines.append((label, value))
+    return lines
 
 
 def _action_count(source_plan: Mapping[str, Any]) -> int:

@@ -174,6 +174,35 @@ def test_render_final_action_plan_keeps_proof_boundaries(tmp_path: Path) -> None
     assert "printpipe release-plan" in rendered
 
 
+def test_render_final_action_plan_lists_next_action_supporting_paths(
+    tmp_path: Path,
+) -> None:
+    plan = {
+        "overall_status": "action_required",
+        "action_count": 1,
+        "runs_dir": str(tmp_path / "runs"),
+        "release_dir": str(tmp_path / "release"),
+        "proof_boundary": "A final plan is not evidence.",
+        "next_action": {
+            "section_label": "Physical validation",
+            "label": "PLA",
+            "status": "recorded_but_not_passed",
+            "detail": "no passed physical evidence",
+            "command": "printpipe record-physical-evidence runs/pla",
+            "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+            "coupon_json_path": "runs/pla/40_geometry/coupon.json",
+            "handoff_markdown_path": "runs/pla/90_physical/handoff.md",
+        },
+        "sections": [],
+    }
+
+    rendered = render_final_action_plan(plan)
+
+    assert "artifact: runs/pla/40_geometry/coupon.stl" in rendered
+    assert "sidecar: runs/pla/40_geometry/coupon.json" in rendered
+    assert "handoff: runs/pla/90_physical/handoff.md" in rendered
+
+
 def test_final_plan_parser_accepts_dirs_json_and_regression_manifest(
     tmp_path: Path,
 ) -> None:

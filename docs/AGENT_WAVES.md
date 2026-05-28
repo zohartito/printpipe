@@ -1315,3 +1315,13 @@ Status: partial progress for endgame execution UX. This makes the immediate next
 4. Done: regression coverage verifies the physical PLA next action keeps its coupon STL/JSON and handoff paths while still selecting the record command.
 5. Current local result: `final-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json --json` still reports `action_required`, nine actions, and `physical_validation` / `PLA` as the next action; that next action now carries the physical coupon and handoff paths.
 6. Boundary: this is visibility and execution guidance only. The physical validation gate still requires real printed coupons with existing photo files and observations, trusted-user beta still requires completed feedback packets, and release still requires signed/notarized artifacts.
+
+## Wave 119 - Terminal Next-Action File Visibility
+
+Status: partial progress for command-line execution UX. This aligns the human `final-plan` output with the JSON and web next-action file visibility.
+
+1. Done: the `render_final_action_plan()` next-action block now prints supporting paths under the immediate command.
+2. Done: supported terminal labels are `artifact`, `sidecar`, `handoff`, `report`, and `bundle`.
+3. Done: regression coverage verifies that a PLA next action renders its coupon STL, coupon JSON sidecar, and physical handoff Markdown.
+4. Current local result: `printpipe final-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json` now shows the PLA record command plus the coupon STL, coupon JSON, and print handoff paths.
+5. Boundary: printing the supporting paths in terminal output does not satisfy any evidence gate. It only makes the first real physical-validation action easier to execute correctly.
