@@ -37,8 +37,8 @@ Local CLI / local app
 | --- | --- | --- |
 | Existing mesh | Production spine for v1 foundation. | Imports existing geometry, repairs it, writes oriented STL, preview artifacts, Bambu `.3mf`, validation report, and optional slice receipt. |
 | Image/GIF/video | Wired through the configured local Hunyuan3D adapter. | Writes extracted/selected references and contact sheet artifacts, then either generates a mesh and continues through repair/orient/bundle/report, or fails `meshgen` with a provider-configuration receipt when `PRINTPIPE_HUNYUAN3D_COMMAND` is unset. |
-| Prompt + image | CLI wired. | `printpipe run image.png --prompt "..."` prepares the reference image normally and passes the prompt through as `MeshGenRequest.prompt_hint`. |
-| Prompt only | CLI wired through a configured reference-image generator. | `printpipe run --prompt "..."` writes `00_input/prompt.txt`, calls `PRINTPIPE_PROMPT_IMAGE_COMMAND` to create a reference image, then continues through the same Hunyuan3D/repair/orient/bundle spine. If the prompt-image command is unset, the run fails at `prompt_reference_generation` with receipts. |
+| Prompt + image | CLI and local web wired. | `printpipe run image.png --prompt "..."` and the local web file-plus-prompt form prepare the reference image normally and pass the prompt through as `MeshGenRequest.prompt_hint`. |
+| Prompt only | CLI and local web wired through a configured reference-image generator. | `printpipe run --prompt "..."` and prompt-only web runs write `00_input/prompt.txt`, call `PRINTPIPE_PROMPT_IMAGE_COMMAND` to create a reference image, then continue through the same Hunyuan3D/repair/orient/bundle spine. If the prompt-image command is unset, the run fails at `prompt_reference_generation` with receipts. |
 
 ## Hard Gates
 

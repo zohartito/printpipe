@@ -18,7 +18,12 @@ from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from printpipe.local_open import open_run_folder
-from printpipe.pipeline import PipelineError, run_edit_recipe_pipeline, run_existing_mesh_pipeline
+from printpipe.pipeline import (
+    PipelineError,
+    run_edit_recipe_pipeline,
+    run_existing_mesh_pipeline,
+    run_prompt_pipeline,
+)
 from printpipe.runs import (
     EditRecipe,
     EditScale,
@@ -128,7 +133,8 @@ class _UploadedFile:
 
 @dataclass(frozen=True)
 class _ParsedRunForm:
-    upload: _UploadedFile
+    upload: _UploadedFile | None
+    prompt: str
     launch_options: dict[str, Any]
 
 
@@ -425,6 +431,10 @@ class PrintPipeWebApp:
                 '          <span>Input reference</span>',
                 '          <input type="file" name="input" accept="image/*,video/*,.gif,.stl,.glb,.gltf,.obj,.3mf">',
                 "        </label>",
+                "        <label>",
+                "          <span>Prompt</span>",
+                '          <textarea name="prompt" rows="3" placeholder="small ergonomic desk hook, wider TPU slipper upper, modular lamp shade"></textarea>',
+                "        </label>",
                 '        <div class="field-grid">',
                 "          <label>",
                 "            <span>Printer</span>",
@@ -599,6 +609,9 @@ class PrintPipeWebApp:
         return candidate
 
     def _create_skeleton_run(self, form: _ParsedRunForm) -> RunLayout:
+        if form.upload is None:
+            return self._create_prompt_skeleton_run(form)
+
         runs_dir = Path(self.runs_dir).expanduser().resolve()
         incoming_dir = runs_dir / ".incoming"
         incoming_dir.mkdir(parents=True, exist_ok=True)
@@ -617,6 +630,7 @@ class PrintPipeWebApp:
                         printer=str(form.launch_options.get("printer_id", "Unknown printer")),
                         use_case="web run",
                         settings_changes=(form.launch_options,),
+                        prompt_hint=form.prompt or None,
                     )
                 except PipelineError as exc:
                     result = exc.result
@@ -627,6 +641,22 @@ class PrintPipeWebApp:
                 incoming_dir.rmdir()
             except OSError:
                 pass
+
+    def _create_prompt_skeleton_run(self, form: _ParsedRunForm) -> RunLayout:
+        runs_dir = Path(self.runs_dir).expanduser().resolve()
+        try:
+            result = run_prompt_pipeline(
+                form.prompt,
+                runs_dir,
+                material=str(form.launch_options.get("material_id", "Unknown material")),
+                printer=str(form.launch_options.get("printer_id", "Unknown printer")),
+                use_case="web run",
+                settings_changes=(form.launch_options,),
+            )
+        except PipelineError as exc:
+            result = exc.result
+        self._record_launch_options(result.layout, form.launch_options)
+        return result.layout
 
     def _record_launch_options(self, layout: RunLayout, launch_options: dict[str, Any]) -> None:
         manifest = json.loads(layout.manifest_path.read_text(encoding="utf-8"))
@@ -765,6 +795,8 @@ def _parse_run_form(*, headers: Any | None, body: bytes) -> _ParsedRunForm:
         if filename is not None:
             if field_name != "input":
                 continue
+            if not filename and not payload:
+                continue
             if len(payload) > _MAX_UPLOAD_BYTES:
                 raise _FormError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Uploaded input is too large.")
             upload = _UploadedFile(
@@ -779,12 +811,20 @@ def _parse_run_form(*, headers: Any | None, body: bytes) -> _ParsedRunForm:
             raise _FormError(HTTPStatus.BAD_REQUEST, f"Form field is too long: {field_name}.")
         fields[field_name] = payload.decode(part.get_content_charset() or "utf-8", "replace").strip()
 
-    if upload is None:
-        raise _FormError(HTTPStatus.BAD_REQUEST, "Missing uploaded input file.")
-    if not upload.content:
+    prompt = fields.get("prompt", "").strip()
+    if upload is None and not prompt:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Missing uploaded input file or prompt.")
+    if upload is not None and not upload.content:
         raise _FormError(HTTPStatus.BAD_REQUEST, "Uploaded input file is empty.")
 
-    return _ParsedRunForm(upload=upload, launch_options=_launch_options(fields, upload.filename))
+    return _ParsedRunForm(
+        upload=upload,
+        prompt=prompt,
+        launch_options=_launch_options(
+            fields,
+            uploaded_filename=upload.filename if upload is not None else None,
+        ),
+    )
 
 
 def _parse_edit_form(*, headers: Any | None, body: bytes) -> dict[str, str]:
@@ -840,11 +880,12 @@ def _edit_recipe_from_fields(run_id: str, fields: dict[str, str]) -> EditRecipe:
     )
 
 
-def _launch_options(fields: dict[str, str], uploaded_filename: str) -> dict[str, Any]:
+def _launch_options(fields: dict[str, str], uploaded_filename: str | None) -> dict[str, Any]:
     catalog = selector_catalog()
     defaults = catalog["defaults"]
     printer_id = fields.get("printer_id") or defaults["printer_id"]
     material_id = fields.get("material_id") or defaults["material_id"]
+    prompt = fields.get("prompt", "").strip()
 
     printer_labels = {str(option.get("id", "")): str(option.get("label", "")) for option in catalog["printers"]}
     material_labels = {str(option.get("id", "")): str(option.get("label", "")) for option in catalog["materials"]}
@@ -855,12 +896,16 @@ def _launch_options(fields: dict[str, str], uploaded_filename: str) -> dict[str,
 
     options: dict[str, Any] = {
         "source": "web_form",
-        "uploaded_filename": _safe_upload_filename(uploaded_filename),
+        "input_mode": _input_mode(uploaded_filename=uploaded_filename, prompt=prompt),
         "printer_id": printer_id,
         "printer_label": printer_labels[printer_id],
         "material_id": material_id,
         "material_label": material_labels[material_id],
     }
+    if uploaded_filename is not None:
+        options["uploaded_filename"] = _safe_upload_filename(uploaded_filename)
+    if prompt:
+        options["prompt"] = prompt
     target_fields = {
         field_name: _positive_float(fields[field_name], field_name=field_name)
         for field_name in _TARGET_SIZE_FIELDS
@@ -870,6 +915,14 @@ def _launch_options(fields: dict[str, str], uploaded_filename: str) -> dict[str,
         target_fields["target_length_mm"] = 100.0
     options.update(target_fields)
     return options
+
+
+def _input_mode(*, uploaded_filename: str | None, prompt: str) -> str:
+    if uploaded_filename is None:
+        return "prompt"
+    if prompt:
+        return "file+prompt"
+    return "file"
 
 
 def _positive_float(value: str, *, field_name: str) -> float:

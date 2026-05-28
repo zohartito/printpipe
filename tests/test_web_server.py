@@ -53,6 +53,22 @@ def _multipart_form_body(
     return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 
 
+def _multipart_fields_body(fields: dict[str, str]) -> tuple[bytes, str]:
+    boundary = "printpipe-test-boundary"
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("ascii"),
+                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("ascii"),
+                value.encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+    chunks.append(f"--{boundary}--\r\n".encode("ascii"))
+    return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
 def test_home_response_renders_status_and_static_page_links(tmp_path: Path):
     report = tmp_path / "run_report.html"
     report.write_text("<!doctype html><h1>Run Report</h1>\n", encoding="utf-8")
@@ -104,6 +120,7 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert response.status == 200
     assert "New Run" in response.text
     assert 'type="file"' in response.text
+    assert 'name="prompt"' in response.text
     assert "Bambu Lab P2S" in response.text
     assert "SUNLU TPU 90A Slipper" in response.text
     assert "Target length (mm)" in response.text
@@ -707,6 +724,89 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(t
     assert "Warning and Failure Receipts" in workbench.text
     assert "Hunyuan3D local command is not configured" in workbench.text
     assert "<strong>Mesh generation</strong>" in workbench.text
+
+
+def test_post_runs_accepts_prompt_only_creates_prompt_run_and_failed_receipts(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_fields_body(
+        {
+            "prompt": "small ergonomic wall hook with rounded screw tabs",
+            "printer_id": "bambu-p2s-0-4-nozzle",
+            "material_id": "pla",
+            "target_length_mm": "80",
+        }
+    )
+
+    response = app.handle(
+        "/runs",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    run_root = next(path for path in runs_dir.iterdir() if (path / "manifest.json").exists())
+    assert response.status == 303
+    assert response.header("Location") == f"/static/{run_root.name}/80_reports/run_report.html"
+    assert (run_root / "00_input" / "prompt.txt").read_text(encoding="utf-8") == (
+        "small ergonomic wall hook with rounded screw tabs\n"
+    )
+
+    manifest = json.loads((run_root / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["input"]["kind"] == "prompt"
+    assert manifest["input"]["prompt"] == "small ergonomic wall hook with rounded screw tabs"
+    assert manifest["launch_options"]["input_mode"] == "prompt"
+    assert manifest["launch_options"]["prompt"] == "small ergonomic wall hook with rounded screw tabs"
+    assert "uploaded_filename" not in manifest["launch_options"]
+
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
+    assert ("classify_input", "succeeded") in stages
+    assert ("prompt_reference_generation", "failed") in stages
+    assert report["settings_changes"] == [manifest["launch_options"]]
+    assert report["warnings"] == [
+        "prompt image generation command is not configured; set PRINTPIPE_PROMPT_IMAGE_COMMAND"
+    ]
+
+
+def test_post_runs_upload_with_prompt_preserves_prompt_hint_in_launch_options(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir)
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    body, content_type = _multipart_form_body(
+        fields={
+            "prompt": "keep the base flat and add a softer rounded top",
+            "printer_id": "bambu-p2s-0-4-nozzle",
+            "material_id": "pla",
+            "target_length_mm": "50",
+        },
+        file_field="input",
+        filename="tiny_tetrahedron.stl",
+        content_type="model/stl",
+        file_content=source.read_bytes(),
+    )
+
+    response = app.handle(
+        "/runs",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    run_root = next(path for path in runs_dir.iterdir() if (path / "manifest.json").exists())
+    manifest = json.loads((run_root / "manifest.json").read_text(encoding="utf-8"))
+    assert response.status == 303
+    assert manifest["input"]["kind"] == "mesh"
+    assert manifest["launch_options"]["input_mode"] == "file+prompt"
+    assert manifest["launch_options"]["uploaded_filename"] == "tiny_tetrahedron.stl"
+    assert manifest["launch_options"]["prompt"] == "keep the base flat and add a softer rounded top"
+    assert (run_root / "60_bundle" / "existing_stl_tiny_tetrahedron.3mf").exists()
 
 
 def test_post_runs_existing_stl_creates_bundle_and_report(tmp_path: Path):

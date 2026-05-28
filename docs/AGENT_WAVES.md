@@ -706,3 +706,15 @@ Status: partial progress for prompt/reference generation. Prompt-only and prompt
 6. Done: `printpipe run image.png --prompt "..."` passes the prompt through to meshgen providers as `prompt_hint`.
 7. Done: CLI tests cover both missing-command failure and configured prompt-image-plus-Hunyuan success into a Bambu `.3mf`.
 8. Remaining: local web UI prompt input, real prompt-image model adapter, hosted/image-provider selection UI, and physical validation stay open.
+
+## Wave 64 - Local Web Prompt Input
+
+Status: partial progress for prompt/reference generation. The local web UI now matches the CLI input modes for prompt-only and prompt-plus-file runs, while real prompt-image provider selection remains future work.
+
+1. Done: added a `Prompt` field to the local web new-run form.
+2. Done: web prompt-only submissions write `00_input/prompt.txt` and a prompt manifest.
+3. Done: prompt-only web runs call the same `PRINTPIPE_PROMPT_IMAGE_COMMAND` spine as `printpipe run --prompt`.
+4. Done: missing prompt-image command fails honestly at `prompt_reference_generation` with reports and warnings.
+5. Done: file-plus-prompt web runs preserve the prompt in `manifest.json` launch options and pass it to meshgen as `prompt_hint`.
+6. Done: launch metadata now records `input_mode` as `file`, `prompt`, or `file+prompt`.
+7. Remaining: real prompt-image model adapter, hosted/local provider selection UI, and physical validation stay open.
