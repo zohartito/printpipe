@@ -152,6 +152,8 @@ def test_packaging_doc_names_macos_package_smoke_command() -> None:
         "printpipe build-macos-app --output dist/printpipe.app --json",
         "printpipe build-macos-app --output dist/printpipe.app --adhoc-sign --json",
         "codesign --verify --deep --strict dist/printpipe.app",
+        "printpipe build-macos-dmg --output dist/printpipe.dmg --adhoc-sign --json",
+        "hdiutil imageinfo dist/printpipe.dmg",
         "printpipe_app_dry_run=1 dist/printpipe.app/contents/macos/printpipe",
         "printpipe_app_dry_run=1 dist/printpipe.app/contents/macos/printpipe path/to/input.stl",
         "cfbundledocumenttypes",

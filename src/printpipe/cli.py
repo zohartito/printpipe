@@ -222,6 +222,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Apply a local ad-hoc codesign signature; this is not notarization.",
     )
 
+    build_macos_dmg = subparsers.add_parser(
+        "build-macos-dmg",
+        help="Build a drag-install DMG containing PrintPipe.app.",
+    )
+    build_macos_dmg.add_argument(
+        "--output",
+        type=Path,
+        default=Path("dist/PrintPipe.dmg"),
+        help="Path for the generated .dmg artifact.",
+    )
+    build_macos_dmg.add_argument(
+        "--json",
+        action="store_true",
+        help="Print DMG build output as JSON.",
+    )
+    build_macos_dmg.add_argument(
+        "--adhoc-sign",
+        action="store_true",
+        help="Ad-hoc sign the embedded app before creating the DMG.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -436,6 +457,13 @@ def main(argv: list[str] | None = None) -> int:
             adhoc_sign=args.adhoc_sign,
         )
 
+    if args.command == "build-macos-dmg":
+        return _build_macos_dmg(
+            output_path=args.output,
+            json_output=args.json,
+            adhoc_sign=args.adhoc_sign,
+        )
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -532,6 +560,21 @@ def _build_macos_app(*, output_path: Path, json_output: bool, adhoc_sign: bool) 
     else:
         print(f"macOS app: {payload['app_path']}")
         print(f"executable: {payload['executable_path']}")
+        print(f"signed: {str(payload['signed']).lower()}")
+        print("notarized: false")
+    return 0
+
+
+def _build_macos_dmg(*, output_path: Path, json_output: bool, adhoc_sign: bool) -> int:
+    from printpipe.packaging.macos_dmg import build_macos_dmg_package
+
+    payload = build_macos_dmg_package(output_path=output_path, adhoc_sign=adhoc_sign)
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"macOS DMG: {payload['dmg_path']}")
+        print(f"app: {payload['app_name']}")
+        print(f"drag install: {str(payload['drag_install']).lower()}")
         print(f"signed: {str(payload['signed']).lower()}")
         print("notarized: false")
     return 0

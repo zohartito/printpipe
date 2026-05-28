@@ -540,3 +540,14 @@ Status: partial progress for original item 121. The `.app` bundle now declares a
 4. Done: preserved CLI pass-through for normal subcommands and flags.
 5. Done: added `PRINTPIPE_APP_DRY_RUN=1` smoke coverage for the document-launch path.
 6. Remaining: default-handler registration, Developer ID signing, notarization, bundled Python runtime, and release installer packaging stay open.
+
+## Wave 50 - macOS DMG Distribution Artifact
+
+Status: partial progress for original item 121. PrintPipe can now produce a real drag-install `.dmg`, but it is still not Developer ID signed, notarized, or runtime-bundled.
+
+1. Done: added `printpipe.packaging.macos_dmg.build_macos_dmg_package()`.
+2. Done: added `printpipe build-macos-dmg --output dist/PrintPipe.dmg`.
+3. Done: the DMG staging folder contains `PrintPipe.app` and an `Applications` symlink.
+4. Done: the DMG builder uses `hdiutil create -format UDZO`.
+5. Done: verified the generated artifact with `hdiutil imageinfo`.
+6. Remaining: Developer ID signing, notarization, bundled Python runtime, default-handler registration, and Windows signed installer packaging stay open.

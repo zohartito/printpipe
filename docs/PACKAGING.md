@@ -328,3 +328,22 @@ Observed live:
 
 This is useful local packaging hygiene, but it is not Developer ID signing and
 does not replace notarization.
+
+## macOS DMG Distribution Artifact
+
+Wave 50 adds a drag-install DMG builder around the generated app:
+
+```bash
+printpipe build-macos-dmg --output dist/PrintPipe.dmg --adhoc-sign --json
+hdiutil imageinfo dist/PrintPipe.dmg
+```
+
+Observed behavior:
+
+- Builds `PrintPipe.app` into a temporary staging folder.
+- Adds an `Applications` symlink for the normal drag-install visual pattern.
+- Creates a compressed `UDZO` image with `hdiutil create`.
+- Preserves the app's optional ad-hoc signature when `--adhoc-sign` is used.
+
+This is a real distribution artifact, but it is still not a Developer ID signed
+or notarized installer. It does not bundle Python or Bambu Studio.
