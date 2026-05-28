@@ -26,7 +26,11 @@ from printpipe.geometry import (
     write_scaled_ascii_stl_artifacts,
 )
 from printpipe.inputs import prepare_input
+from printpipe.materials.abs_asa import MaterialRule as AbsAsaMaterialRule
+from printpipe.materials.abs_asa import get_abs_asa_rule
 from printpipe.materials.petg import build_petg_overrides
+from printpipe.materials.pc_pa import MaterialRule as PcPaMaterialRule
+from printpipe.materials.pc_pa import get_material_rule as get_pc_pa_material_rule
 from printpipe.materials.pla import build_pla_overrides
 from printpipe.materials.tpu import TpuMaterialRule, get_tpu_rule
 from printpipe.mesh.repair import repair_mesh_file_to_receipt
@@ -940,6 +944,42 @@ def _bundle_profile_config(material: str) -> BundleProfileConfig:
             ),
         )
 
+    abs_asa_rule = _abs_asa_rule_for_material(material)
+    if abs_asa_rule is not None:
+        filament_settings_id = f"Generic {abs_asa_rule.variant}"
+        return _generic_material_bundle_profile_config(
+            profile_ids=_profile_ids_with_filament(filament_settings_id),
+            filament_profile_fallbacks=_generic_filament_profile_fallbacks(
+                filament_settings_id
+            ),
+            material_overrides={
+                "filament_overrides": abs_asa_rule.filament_overrides,
+                "process_overrides": abs_asa_rule.process_overrides,
+            },
+            printer_settings=printer_settings,
+            profiles=profiles,
+            material_rule_slug=abs_asa_rule.variant.lower(),
+            material_rule_name=abs_asa_rule.variant,
+        )
+
+    pc_pa_rule = _pc_pa_rule_for_material(material)
+    if pc_pa_rule is not None:
+        filament_settings_id = f"Generic {pc_pa_rule.material}"
+        return _generic_material_bundle_profile_config(
+            profile_ids=_profile_ids_with_filament(filament_settings_id),
+            filament_profile_fallbacks=_generic_filament_profile_fallbacks(
+                filament_settings_id
+            ),
+            material_overrides={
+                "filament_overrides": pc_pa_rule.filament_overrides,
+                "process_overrides": pc_pa_rule.process_overrides,
+            },
+            printer_settings=printer_settings,
+            profiles=profiles,
+            material_rule_slug=pc_pa_rule.material.lower(),
+            material_rule_name=pc_pa_rule.material,
+        )
+
     return BundleProfileConfig(
         profile_ids=DEFAULT_PROFILE_IDS,
         filament_settings=_resolved_bambu_profile_settings(
@@ -1005,6 +1045,13 @@ def _profile_ids_with_filament(filament_settings_id: str) -> BambuProfileIds:
     )
 
 
+def _generic_filament_profile_fallbacks(filament_settings_id: str) -> tuple[str, ...]:
+    return (
+        f"{filament_settings_id} @BBL P2S",
+        f"{filament_settings_id} @base",
+    )
+
+
 def _available_bambu_profiles() -> dict[str, Mapping[str, Any]]:
     profiles: dict[str, Mapping[str, Any]] = {}
     for root in default_bambu_orca_profile_roots():
@@ -1062,6 +1109,29 @@ def _pla_overrides_for_material(material: str) -> Mapping[str, Any] | None:
     if "plus" in normalized or "+" in material:
         return build_pla_overrides("pla+")
     return build_pla_overrides("pla")
+
+
+def _abs_asa_rule_for_material(material: str) -> AbsAsaMaterialRule | None:
+    normalized = material.lower().replace("_", " ").replace("-", " ")
+    tokens = set(normalized.split())
+    if "abs" in tokens:
+        return get_abs_asa_rule("ABS")
+    if "asa" in tokens:
+        return get_abs_asa_rule("ASA")
+    return None
+
+
+def _pc_pa_rule_for_material(material: str) -> PcPaMaterialRule | None:
+    normalized = material.lower().replace("_", "-").replace("/", "-")
+    compact = normalized.replace(" ", "-")
+    if "pa-cf" in compact or "nylon-cf" in compact:
+        return get_pc_pa_material_rule("pa-cf")
+    tokens = set(normalized.replace("-", " ").split())
+    if "pc" in tokens or "polycarbonate" in tokens:
+        return get_pc_pa_material_rule("pc")
+    if "pa" in tokens or "nylon" in tokens or "polyamide" in tokens:
+        return get_pc_pa_material_rule("pa")
+    return None
 
 
 def _tpu_filament_settings_id(rule: TpuMaterialRule) -> str:

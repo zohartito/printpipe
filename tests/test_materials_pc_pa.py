@@ -56,6 +56,8 @@ def test_pc_pa_rule_settings_have_foundation_categories_and_reasons(requested: s
     assert set(overrides) <= set(rule.setting_categories)
     assert set(overrides) <= set(rule.setting_reasons)
     assert all(rule.setting_reasons[key].strip() for key in overrides)
+    assert rule.process_overrides["curr_bed_type"] == "Textured PEI Plate"
+    assert rule.setting_categories["curr_bed_type"] == "bed_adhesion"
 
 
 def test_pa_cf_rule_output_can_feed_settings_delta_rows():

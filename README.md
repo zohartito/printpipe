@@ -68,6 +68,7 @@ printpipe run input.stl --runs-dir runs --material "PETG" --slice
 ```
 
 PETG bundles select Textured PEI in project settings so Bambu Studio does not treat them as Cool Plate jobs.
+Current software material coverage includes PLA/PLA+, PETG, TPU, ABS, ASA, PC, PA, and PA-CF bundle settings with Bambu CLI slice receipts.
 
 Local handoff helpers:
 

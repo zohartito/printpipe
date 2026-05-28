@@ -452,3 +452,14 @@ Status: complete for original items 109, 110, and 111 as software/slice tests. P
 4. Done: reproduced the live PETG Bambu CLI failure `Plate 1: Cool Plate does not support filament 1`, then fixed it by carrying the PETG bed-type setting into the bundle.
 5. Done: live-sliced tiny-tetrahedron PLA and PETG PrintPipe bundles with Bambu Studio `02.06.00.51` on macOS; both returned code 0, wrote G-code, and reported zero warnings/errors.
 6. Done: updated the roadmap count to 132 done / 10 partial.
+
+## Wave 42 - Engineering Material Bundle Coverage
+
+Status: complete as software/slice coverage for ABS, ASA, PC, PA, and PA-CF. Physical validation remains tracked under F9/beta.
+
+1. Done: added regression tests proving ABS, ASA, PC, PA, and PA-CF material requests no longer fall through to Generic PLA in generated `.3mf` bundles.
+2. Done: wired ABS/ASA and PC/PA/PA-CF rule modules into the full-settings Bambu bundle path.
+3. Done: added `curr_bed_type=Textured PEI Plate` to high-temperature/engineering material rules so Bambu does not default them to Cool Plate.
+4. Done: live-sliced tiny-tetrahedron ABS, ASA, PC, PA, and PA-CF bundles with Bambu Studio `02.06.00.51` on macOS; all returned code 0, wrote G-code, and reported zero warnings/errors.
+5. Boundary: this is software/slicer evidence only; real material-rule hardening still needs physical failed/successful prints through beta evidence packets.
+6. Roadmap count remains 132 done / 10 partial because the remaining beta and packaging items are still physical/user/installer gates.

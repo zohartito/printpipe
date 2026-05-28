@@ -69,6 +69,7 @@ _SETTING_CATEGORIES = {
     "overhang_fan_speed": "cooling",
     "slow_down_layer_time": "cooling",
     "fan_cooling_layer_time": "cooling",
+    "curr_bed_type": "bed_adhesion",
     "brim_type": "bed_adhesion",
     "brim_width": "bed_adhesion",
     "brim_object_gap": "bed_adhesion",
@@ -107,6 +108,7 @@ _PC_FILAMENT_OVERRIDES = {
 }
 
 _PC_PROCESS_OVERRIDES = {
+    "curr_bed_type": "Textured PEI Plate",
     "brim_type": "outer_only",
     "brim_width": "8",
     "brim_object_gap": "0.05",
@@ -136,6 +138,7 @@ _PA_FILAMENT_OVERRIDES = {
 }
 
 _PA_PROCESS_OVERRIDES = {
+    "curr_bed_type": "Textured PEI Plate",
     "brim_type": "outer_only",
     "brim_width": "8",
     "brim_object_gap": "0.05",
@@ -165,6 +168,7 @@ _PA_CF_FILAMENT_OVERRIDES = {
 }
 
 _PA_CF_PROCESS_OVERRIDES = {
+    "curr_bed_type": "Textured PEI Plate",
     "brim_type": "outer_only",
     "brim_width": "10",
     "brim_object_gap": "0.05",
@@ -175,6 +179,7 @@ _PA_CF_PROCESS_OVERRIDES = {
 }
 
 _COMMON_PROCESS_REASONS = {
+    "curr_bed_type": "Select Textured PEI so Bambu does not default engineering-material jobs to Cool Plate.",
     "brim_type": "Use an outer brim as a conservative first-line warp guard.",
     "brim_width": "Increase brim contact area for engineering materials that can lift while cooling.",
     "brim_object_gap": "Keep a small brim gap so adhesion improves without intentionally welding the brim to the part.",

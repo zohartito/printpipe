@@ -60,18 +60,21 @@ COMMON_FILAMENT_CATEGORIES = {
 }
 
 COMMON_PROCESS_OVERRIDES = {
+    "curr_bed_type": "Textured PEI Plate",
     "brim_type": "outer_only",
     "brim_width": "8",
     "brim_object_gap": "0.1",
 }
 
 COMMON_PROCESS_CATEGORIES = {
+    "curr_bed_type": "bed_adhesion",
     "brim_type": "brim",
     "brim_width": "brim",
     "brim_object_gap": "brim",
 }
 
 COMMON_PROCESS_REASONS = {
+    "curr_bed_type": "Select Textured PEI so Bambu does not default warp-prone ABS/ASA jobs to Cool Plate.",
     "brim_type": "Use an outer brim to add edge hold without filling internal holes.",
     "brim_width": "ABS and ASA shrink as they cool, so a wider brim gives corners more bed contact.",
     "brim_object_gap": "Keep a small removable gap instead of welding the brim to the part.",

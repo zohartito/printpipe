@@ -5,6 +5,8 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from printpipe.bambu.threemf import CORE_NS, validate_bundle
 from printpipe.bambu.threemf.mesh_adapter import read_ascii_stl
 from printpipe.contracts import ArtifactKind, StageStatus
@@ -264,6 +266,81 @@ def test_petg_bundle_merges_petg_material_overrides_with_resolved_profiles(
     assert project_settings["brim_object_gap"] == "0.1"
     assert project_settings["curr_bed_type"] == "Textured PEI Plate"
     assert project_settings["filament_settings_id"] == ["Generic PETG"]
+
+
+@pytest.mark.parametrize(
+    (
+        "material",
+        "profile_name",
+        "expected_filament_id",
+        "expected_filament_type",
+        "expected_nozzle_temp",
+        "expected_bed_temp",
+        "expected_mvs",
+    ),
+    [
+        ("ABS", "Generic ABS @BBL P2S", "Generic ABS", ["ABS"], ["260"], ["100"], ["10"]),
+        ("ASA", "Generic ASA @BBL P2S", "Generic ASA", ["ASA"], ["255"], ["100"], ["8"]),
+        ("PC", "Generic PC @BBL P2S", "Generic PC", ["PC"], ["280"], ["100"], ["8"]),
+        ("PA", "Generic PA @BBL P2S", "Generic PA", ["PA"], ["260"], ["90"], ["8"]),
+        (
+            "PA-CF",
+            "Generic PA-CF @BBL P2S",
+            "Generic PA-CF",
+            ["PA-CF"],
+            ["285"],
+            ["100"],
+            ["6"],
+        ),
+    ],
+)
+def test_engineering_material_bundles_merge_material_overrides(
+    tmp_path: Path,
+    monkeypatch,
+    material: str,
+    profile_name: str,
+    expected_filament_id: str,
+    expected_filament_type: list[str],
+    expected_nozzle_temp: list[str],
+    expected_bed_temp: list[str],
+    expected_mvs: list[str],
+):
+    profile_root = tmp_path / "profiles" / "BBL"
+    _write_minimal_p2s_profiles(profile_root)
+    _write_profile(
+        profile_root / "filament" / f"{profile_name}.json",
+        {
+            "name": profile_name,
+            "type": "filament",
+            "filament_type": ["PLA"],
+            "nozzle_temperature": ["220"],
+            "textured_plate_temp": ["55"],
+            "filament_max_volumetric_speed": ["20"],
+        },
+    )
+    monkeypatch.setenv("PRINTPIPE_BAMBU_PROFILE_ROOTS", str(profile_root))
+
+    result = run_existing_mesh_pipeline(
+        STL_FIXTURE,
+        tmp_path / "runs",
+        material=material,
+    )
+    bundle_path = next(
+        artifact.path
+        for artifact in result.artifacts
+        if artifact.kind == ArtifactKind.THREEMF
+    )
+
+    with zipfile.ZipFile(bundle_path) as archive:
+        project_settings = json.loads(archive.read("Metadata/project_settings.config"))
+
+    assert project_settings["filament_settings_id"] == [expected_filament_id]
+    assert project_settings["filament_type"] == expected_filament_type
+    assert project_settings["nozzle_temperature"] == expected_nozzle_temp
+    assert project_settings["textured_plate_temp"] == expected_bed_temp
+    assert project_settings["filament_max_volumetric_speed"] == expected_mvs
+    assert project_settings["curr_bed_type"] == "Textured PEI Plate"
+    assert project_settings["brim_type"] == "outer_only"
 
 
 def _write_minimal_p2s_profiles(profile_root: Path) -> None:

@@ -57,8 +57,10 @@ def test_categories_cover_bed_adhesion_brim_and_cooling():
         assert "brim" in category_values
         assert "cooling" in category_values
         assert material.categories["textured_plate_temp"] == "bed_adhesion"
+        assert material.categories["curr_bed_type"] == "bed_adhesion"
         assert material.categories["brim_width"] == "brim"
         assert material.categories["fan_max_speed"] == "cooling"
+        assert material.process_overrides["curr_bed_type"] == "Textured PEI Plate"
 
 
 def test_settings_delta_rows_can_consume_abs_asa_rule_output():
