@@ -49,6 +49,7 @@ def test_environment_report_combines_dependencies_bambu_and_profile_detection(
     assert report["bambu_profiles"]["candidate_count"] == 1
     assert report["meshgen"]["overall_status"] == "action_required"
     assert report["meshgen"]["live_media_provider_count"] == 0
+    assert "printpipe media-meshgen-template" in report["meshgen"]["action"]
     assert report["summary"]["bambu_studio_found"] is True
     assert report["summary"]["bambu_profile_user_count"] == 1
     assert report["summary"]["dependency_status_counts"]["ok"] == 3

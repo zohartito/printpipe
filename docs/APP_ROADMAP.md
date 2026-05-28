@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 163: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 164: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 163 added `printpipe media-meshgen-template`, an executable starter adapter for the generic `PRINTPIPE_MEDIA_MESHGEN_COMMAND` protocol. Image/GIF/video/prompt-to-mesh runs can use that generic command hook for any local or hosted-wrapper adapter, while `PRINTPIPE_HUNYUAN3D_COMMAND` remains supported. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured live media meshgen provider for non-mesh inputs.
+Latest status: Wave 164 made missing-provider media failures generic-first instead of Hunyuan-first. If no media meshgen provider is configured, CLI, web, report warnings, and doctor/readiness actions now point at `printpipe media-meshgen-template`, `PRINTPIPE_MEDIA_MESHGEN_COMMAND`, `PRINTPIPE_HUNYUAN3D_COMMAND`, or a hosted provider. Hunyuan is still selected automatically when `PRINTPIPE_HUNYUAN3D_COMMAND` is set. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured live media meshgen provider for non-mesh inputs.
 
 ## Goal
 

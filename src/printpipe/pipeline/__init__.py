@@ -37,8 +37,10 @@ from printpipe.materials.tpu import TpuMaterialRule, get_tpu_rule
 from printpipe.mesh.repair import repair_mesh_file_to_receipt
 from printpipe.meshgen import (
     ExistingMeshProvider,
+    HUNYUAN3D_COMMAND_ENV,
     Hunyuan3DProvider,
     MEDIA_MESHGEN_COMMAND_ENV,
+    MEDIA_MESHGEN_SETUP_MESSAGE,
     MEDIA_MESHGEN_UNAVAILABLE_MESSAGE,
     MediaCommandMeshProvider,
     MeshGenProvider,
@@ -59,11 +61,7 @@ from printpipe.runs import (
 )
 
 
-NON_MESH_MESHGEN_MESSAGE = (
-    MEDIA_MESHGEN_UNAVAILABLE_MESSAGE
-    + " Set PRINTPIPE_MEDIA_MESHGEN_COMMAND for a generic adapter "
-    "or PRINTPIPE_HUNYUAN3D_COMMAND for the local Hunyuan3D adapter."
-)
+NON_MESH_MESHGEN_MESSAGE = MEDIA_MESHGEN_SETUP_MESSAGE
 DEFAULT_BED = BedSize(width_mm=256.0, depth_mm=256.0)
 DEFAULT_PROFILE_IDS = BambuProfileIds(
     filament_settings_id="Generic PLA",
@@ -1373,7 +1371,9 @@ def _mesh_output_format(path: Path) -> str:
 def _default_media_meshgen_provider() -> MeshGenProvider:
     if os.environ.get(MEDIA_MESHGEN_COMMAND_ENV, "").strip():
         return MediaCommandMeshProvider()
-    return Hunyuan3DProvider()
+    if os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip():
+        return Hunyuan3DProvider()
+    return MediaCommandMeshProvider()
 
 
 __all__ = [

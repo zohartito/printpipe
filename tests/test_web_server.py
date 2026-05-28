@@ -2039,14 +2039,16 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(t
     assert ("contact_sheet", "succeeded") in stages
     assert ("meshgen", "failed") in stages
     assert report["warnings"] == [
-        "Hunyuan3D local command is not configured; set "
-        "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
+        "No live image/GIF/video meshgen provider is configured. "
+        "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+        "set PRINTPIPE_MEDIA_MESHGEN_COMMAND, set PRINTPIPE_HUNYUAN3D_COMMAND, "
+        "or configure a hosted mesh provider."
     ]
 
     workbench = app.handle(f"/runs/{run_root.name}")
     assert workbench.status == 200
     assert "Warning and Failure Receipts" in workbench.text
-    assert "Hunyuan3D local command is not configured" in workbench.text
+    assert "printpipe media-meshgen-template" in workbench.text
     assert "<strong>Mesh generation</strong>" in workbench.text
 
 

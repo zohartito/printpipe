@@ -14,8 +14,10 @@ from .contracts import (
 )
 from .providers import (
     ExistingMeshProvider,
+    HUNYUAN3D_COMMAND_ENV,
     Hunyuan3DProvider,
     MEDIA_MESHGEN_COMMAND_ENV,
+    MEDIA_MESHGEN_SETUP_MESSAGE,
     MEDIA_MESHGEN_UNAVAILABLE_MESSAGE,
     MediaCommandMeshProvider,
     PlaceholderMeshProvider,
@@ -32,8 +34,10 @@ from .providers import (
 __all__ = [
     "DeleteResult",
     "ExistingMeshProvider",
+    "HUNYUAN3D_COMMAND_ENV",
     "Hunyuan3DProvider",
     "MEDIA_MESHGEN_COMMAND_ENV",
+    "MEDIA_MESHGEN_SETUP_MESSAGE",
     "MEDIA_MESHGEN_UNAVAILABLE_MESSAGE",
     "MediaCommandMeshProvider",
     "MeshGenCapabilities",

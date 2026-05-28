@@ -19,6 +19,13 @@ FLAT_BRACKET_FIXTURE = (
     Path(__file__).parent / "fixtures" / "objects" / "flat_bracket" / "flat_bracket.stl"
 )
 
+MEDIA_MESHGEN_SETUP_MESSAGE = (
+    "No live image/GIF/video meshgen provider is configured. "
+    "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+    "set PRINTPIPE_MEDIA_MESHGEN_COMMAND, set PRINTPIPE_HUNYUAN3D_COMMAND, "
+    "or configure a hosted mesh provider."
+)
+
 
 def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_reports(
     tmp_path: Path,
@@ -341,7 +348,7 @@ def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_p
 
     with pytest.raises(
         PipelineError,
-        match="Hunyuan3D local command is not configured",
+        match="No live image/GIF/video meshgen provider is configured",
     ) as raised:
         run_existing_mesh_pipeline(source, runs_dir)
 
@@ -354,11 +361,8 @@ def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_p
     assert stages["classify_input"].status == StageStatus.SUCCEEDED
     assert stages["extract_references"].status == StageStatus.SUCCEEDED
     assert stages["meshgen"].status == StageStatus.FAILED
-    assert stages["meshgen"].message == (
-        "Hunyuan3D local command is not configured; set "
-        "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
-    )
-    assert stages["meshgen"].metrics["provider_id"] == "hunyuan3d"
+    assert stages["meshgen"].message == MEDIA_MESHGEN_SETUP_MESSAGE
+    assert stages["meshgen"].metrics["provider_id"] == "media_command"
     assert stages["meshgen"].metrics["attempt_count"] == 1
     assert "mesh_repair" not in stages
     assert "bundle" not in stages
@@ -369,10 +373,7 @@ def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_p
     assert ("meshgen", "failed") in {
         (stage["stage"], stage["status"]) for stage in report["stages"]
     }
-    assert report["warnings"] == [
-        "Hunyuan3D local command is not configured; set "
-        "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
-    ]
+    assert report["warnings"] == [MEDIA_MESHGEN_SETUP_MESSAGE]
     assert (result.layout.reports_dir / "run_report.html").exists()
 
 

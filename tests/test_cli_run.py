@@ -11,6 +11,14 @@ from printpipe.cli import main
 from printpipe.runs.editing import EditRecipe, EditScale, create_edit_run
 
 
+MEDIA_MESHGEN_SETUP_MESSAGE = (
+    "No live image/GIF/video meshgen provider is configured. "
+    "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+    "set PRINTPIPE_MEDIA_MESHGEN_COMMAND, set PRINTPIPE_HUNYUAN3D_COMMAND, "
+    "or configure a hosted mesh provider."
+)
+
+
 def test_run_media_input_writes_failed_meshgen_report_and_returns_nonzero(
     tmp_path: Path,
     capsys,
@@ -38,7 +46,7 @@ def test_run_media_input_writes_failed_meshgen_report_and_returns_nonzero(
     assert f"report markdown: {run_root / '80_reports' / 'run_report.md'}" in captured.out
     assert f"report html: {run_root / '80_reports' / 'run_report.html'}" in captured.out
     assert "failed stage: meshgen" in captured.out
-    assert "error: Hunyuan3D local command is not configured" in captured.err
+    assert f"error: {MEDIA_MESHGEN_SETUP_MESSAGE}" in captured.err
 
     report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
     stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
@@ -47,10 +55,7 @@ def test_run_media_input_writes_failed_meshgen_report_and_returns_nonzero(
     assert ("select_references", "succeeded") in stages
     assert ("contact_sheet", "succeeded") in stages
     assert ("meshgen", "failed") in stages
-    assert report["warnings"] == [
-        "Hunyuan3D local command is not configured; set "
-        "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
-    ]
+    assert report["warnings"] == [MEDIA_MESHGEN_SETUP_MESSAGE]
 
 
 def test_run_media_input_with_configured_hunyuan_command_writes_bundle(

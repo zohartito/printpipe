@@ -39,6 +39,14 @@ MEDIA_MESHGEN_INPUT_KINDS = (InputKind.IMAGE, InputKind.GIF, InputKind.VIDEO)
 MEDIA_MESHGEN_UNAVAILABLE_MESSAGE = (
     "No live image/GIF/video meshgen provider is configured."
 )
+MEDIA_MESHGEN_SETUP_ACTION = (
+    "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+    f"set {MEDIA_MESHGEN_COMMAND_ENV}, set {HUNYUAN3D_COMMAND_ENV}, "
+    "or configure a hosted mesh provider."
+)
+MEDIA_MESHGEN_SETUP_MESSAGE = (
+    f"{MEDIA_MESHGEN_UNAVAILABLE_MESSAGE} {MEDIA_MESHGEN_SETUP_ACTION}"
+)
 ProviderRegistry = MutableMapping[str, MeshGenProvider]
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -320,10 +328,7 @@ class Hunyuan3DProvider:
                 status=StageStatus.SKIPPED,
                 cost=MeshGenCost(currency="USD", amount=0.0, estimated=False),
                 estimated_seconds=None,
-                message=(
-                    f"{self.display_name} is not configured; set "
-                    f"{self.command_env} or pass a command path."
-                ),
+                message=self._not_configured_message(),
             )
 
         return MeshGenEstimate(
@@ -339,10 +344,7 @@ class Hunyuan3DProvider:
             return ProviderHealth(
                 provider_id=self.provider_id,
                 status=StageStatus.SKIPPED,
-                message=(
-                    f"{self.display_name} is not configured. Set "
-                    f"{self.command_env} to enable this provider."
-                ),
+                message=self._not_configured_health_message(),
                 checked_at=utc_now(),
             )
 
@@ -360,10 +362,7 @@ class Hunyuan3DProvider:
         if not self.command:
             result = self._failure_result(
                 category="provider_unavailable",
-                message=(
-                    f"{self.display_name} is not configured; set "
-                    f"{self.command_env} or pass a command path."
-                ),
+                message=self._not_configured_message(),
                 retryable=False,
                 started_at=started_at,
                 wall_seconds=_duration(started_perf),
@@ -663,12 +662,33 @@ class Hunyuan3DProvider:
             ),
         )
 
+    def _not_configured_message(self) -> str:
+        return (
+            f"{self.display_name} is not configured; set "
+            f"{self.command_env} or pass a command path."
+        )
+
+    def _not_configured_health_message(self) -> str:
+        return (
+            f"{self.display_name} is not configured. Set "
+            f"{self.command_env} to enable this provider."
+        )
+
 
 class MediaCommandMeshProvider(Hunyuan3DProvider):
     provider_id = "media_command"
     display_name = "Generic media meshgen command"
     model_id = "generic-media-command"
     command_env = MEDIA_MESHGEN_COMMAND_ENV
+
+    def _not_configured_message(self) -> str:
+        return MEDIA_MESHGEN_SETUP_MESSAGE
+
+    def _not_configured_health_message(self) -> str:
+        return (
+            f"{self.display_name} is not configured. "
+            f"{MEDIA_MESHGEN_SETUP_ACTION}"
+        )
 
 
 class PlaceholderMeshProvider:
@@ -799,10 +819,7 @@ def build_media_meshgen_readiness(
         "action": (
             "No action needed."
             if ready
-            else (
-                f"Set {MEDIA_MESHGEN_COMMAND_ENV}, set {HUNYUAN3D_COMMAND_ENV}, "
-                "or configure a hosted mesh provider."
-            )
+            else MEDIA_MESHGEN_SETUP_ACTION
         ),
         "providers": provider_summaries,
     }

@@ -238,7 +238,11 @@ def test_beta_readiness_report_blocks_when_media_meshgen_provider_unavailable(
         "overall_status": "action_required",
         "live_media_provider_count": 0,
         "message": "No live image/GIF/video meshgen provider is configured.",
-        "action": "Set PRINTPIPE_HUNYUAN3D_COMMAND or configure a hosted mesh provider.",
+        "action": (
+            "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+            "set PRINTPIPE_MEDIA_MESHGEN_COMMAND, set PRINTPIPE_HUNYUAN3D_COMMAND, "
+            "or configure a hosted mesh provider."
+        ),
         "providers": [
             {
                 "provider_id": "hunyuan3d",
@@ -261,6 +265,8 @@ def test_beta_readiness_report_blocks_when_media_meshgen_provider_unavailable(
     assert report["overall_status"] == "action_required"
     assert gate["status"] == "action_required"
     assert "No live image/GIF/video meshgen provider" in gate["detail"]
+    assert "printpipe media-meshgen-template" in gate["action"]
+    assert "PRINTPIPE_MEDIA_MESHGEN_COMMAND" in gate["action"]
     assert "PRINTPIPE_HUNYUAN3D_COMMAND" in gate["action"]
 
 

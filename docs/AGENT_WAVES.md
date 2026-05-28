@@ -1793,3 +1793,14 @@ Status: partial progress for making the generic media-meshgen hook usable by fut
 4. Done: the template exits with an explicit placeholder error until `generate_mesh()` is replaced with a real local model, hosted wrapper, or provider API call.
 5. Done: README and troubleshooting docs now show the template command next to the generic media meshgen env hook.
 6. Boundary: this still does not provide the model itself. It gives Cursor/Codex/Claude or a human a concrete adapter file to fill in.
+
+## Wave 164 - Generic-First Missing Media Provider Failure
+
+Status: complete for missing-provider honesty in the image/GIF/video path.
+
+1. Done: media runs without a configured provider now fail through `MediaCommandMeshProvider` instead of the Hunyuan-specific provider.
+2. Done: the failure warning says no live image/GIF/video meshgen provider is configured and names `printpipe media-meshgen-template`, `PRINTPIPE_MEDIA_MESHGEN_COMMAND`, `PRINTPIPE_HUNYUAN3D_COMMAND`, and hosted providers as valid next steps.
+3. Done: if `PRINTPIPE_HUNYUAN3D_COMMAND` is set, the default media run path still selects the existing Hunyuan provider automatically.
+4. Done: doctor/readiness missing-provider actions now include the template scaffold command.
+5. Done: CLI, pipeline, web upload, environment doctor, and beta readiness coverage prove the generic-first missing-provider copy.
+6. Boundary: this does not configure a real model/provider. It removes misleading Hunyuan-only failure copy from the no-provider path.
