@@ -47,6 +47,7 @@ from printpipe.reports import build_run_report_dict, write_run_report
 from printpipe.reports.html import write_html_report
 from printpipe.runs import (
     RunLayout,
+    create_prompt_run,
     create_run,
     edit_recipe_to_dict,
     load_edit_recipe,
@@ -122,6 +123,7 @@ def run_existing_mesh_pipeline(
     run_slice: bool = False,
     slice_executable: str | Path | None = None,
     meshgen_provider: MeshGenProvider | None = None,
+    prompt_hint: str | None = None,
 ) -> PipelineResult:
     """Run the currently wired pipeline spine for mesh or media input."""
 
@@ -135,6 +137,31 @@ def run_existing_mesh_pipeline(
         run_slice=run_slice,
         slice_executable=slice_executable,
         meshgen_provider=meshgen_provider,
+        prompt_hint=prompt_hint,
+    )
+
+
+def run_prompt_pipeline(
+    prompt: str,
+    runs_dir: Path = Path("runs"),
+    *,
+    material: str = "Generic PLA",
+    printer: str = DEFAULT_PROFILE_IDS.printer_model,
+    use_case: str = "print",
+    settings_changes: Sequence[Mapping[str, Any] | str] = (),
+    meshgen_provider: MeshGenProvider | None = None,
+) -> PipelineResult:
+    """Run prompt-only input through configured reference generation and meshgen."""
+
+    layout = create_prompt_run(prompt, runs_dir)
+    return run_existing_mesh_pipeline_on_layout(
+        layout,
+        material=material,
+        printer=printer,
+        use_case=use_case,
+        settings_changes=settings_changes,
+        meshgen_provider=meshgen_provider,
+        prompt_hint=prompt,
     )
 
 
@@ -151,6 +178,7 @@ def run_existing_mesh_pipeline_on_layout(
     run_slice: bool = False,
     slice_executable: str | Path | None = None,
     meshgen_provider: MeshGenProvider | None = None,
+    prompt_hint: str | None = None,
 ) -> PipelineResult:
     """Run the mesh pipeline inside a pre-created run layout."""
 
@@ -206,31 +234,39 @@ def run_existing_mesh_pipeline_on_layout(
         reference_paths = tuple(Path(artifact.path) for artifact in selected_reference_artifacts)
         if not reference_paths:
             message = f"{input_kind.value} input did not produce selected references for meshgen"
+            upstream_failures = [
+                receipt.message
+                for receipt in stages
+                if receipt.status == StageStatus.FAILED and receipt.stage != "meshgen"
+            ]
+            failure_message = upstream_failures[-1] if upstream_failures else message
             stages.append(
                 StageReceipt(
                     stage="meshgen",
                     status=StageStatus.FAILED,
-                    message=message,
+                    message=failure_message,
                     metrics={"input_kind": input_kind.value},
                 )
             )
             result = _write_pipeline_reports(
                 layout,
                 stages=tuple(stages),
-                warnings=(message,),
+                warnings=(failure_message,),
                 material=material,
                 printer=printer,
                 use_case=use_case,
                 settings_changes=settings_changes,
             )
-            raise PipelineError(message, result)
+            raise PipelineError(failure_message, result)
 
         provider = meshgen_provider or Hunyuan3DProvider()
+        provider_input_kind = InputKind.IMAGE if input_kind == InputKind.PROMPT else input_kind
         request = MeshGenRequest(
-            input_kind=input_kind,
+            input_kind=provider_input_kind,
             source_paths=reference_paths,
             reference_images=reference_paths,
             output_formats=("stl", "glb", "obj"),
+            prompt_hint=prompt_hint,
             provider_params={"original_input": str(layout.original_input)},
         )
 

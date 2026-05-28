@@ -12,7 +12,7 @@ from printpipe.runs.editing import (
     next_edit_run_id,
     write_edit_recipe,
 )
-from printpipe.runs.paths import RunLayout, create_run, load_run
+from printpipe.runs.paths import RunLayout, create_prompt_run, create_run, load_run
 
 __all__ = [
     "EditRecipe",
@@ -22,6 +22,7 @@ __all__ = [
     "RunLayout",
     "build_run_detail",
     "create_edit_run",
+    "create_prompt_run",
     "create_run",
     "edit_recipe_to_dict",
     "load_run",

@@ -13,7 +13,12 @@ from printpipe import __version__
 from printpipe.contracts import InputKind
 from printpipe.inputs import classify_input_path
 from printpipe.local_open import open_run_folder
-from printpipe.pipeline import PipelineError, run_edit_recipe_pipeline, run_existing_mesh_pipeline
+from printpipe.pipeline import (
+    PipelineError,
+    run_edit_recipe_pipeline,
+    run_existing_mesh_pipeline,
+    run_prompt_pipeline,
+)
 from printpipe.runs import create_run
 
 
@@ -45,7 +50,16 @@ def build_parser() -> argparse.ArgumentParser:
         "run",
         help="Create a run, prepare input artifacts, and write reports.",
     )
-    run.add_argument("input", type=Path, help="Reference image, GIF, video, or mesh.")
+    run.add_argument(
+        "input",
+        type=Path,
+        nargs="?",
+        help="Reference image, GIF, video, or mesh. Omit when using --prompt.",
+    )
+    run.add_argument(
+        "--prompt",
+        help="Prompt text to use with a reference input, or by itself with a configured prompt-image command.",
+    )
     run.add_argument(
         "--runs-dir",
         type=Path,
@@ -457,21 +471,33 @@ def main(argv: list[str] | None = None) -> int:
         try:
             if args.bambu_cli is not None and not args.slice:
                 parser.error("--bambu-cli requires --slice")
-            input_kind = classify_input_path(args.input)
+            if args.input is None and args.prompt is None:
+                parser.error("run requires an input path or --prompt")
+            input_kind = classify_input_path(args.input) if args.input is not None else InputKind.PROMPT
             if args.slice and input_kind != InputKind.MESH:
                 parser.error(
                     "--slice currently requires an existing mesh input; "
-                    "run image/GIF/video through meshgen first, then slice the generated bundle"
+                    "run prompt/image/GIF/video through meshgen first, then slice the generated bundle"
                 )
-            result = run_existing_mesh_pipeline(
-                args.input,
-                args.runs_dir,
-                material=args.material,
-                printer=args.printer,
-                use_case=args.use_case,
-                run_slice=args.slice,
-                slice_executable=args.bambu_cli,
-            )
+            if args.input is None:
+                result = run_prompt_pipeline(
+                    args.prompt,
+                    args.runs_dir,
+                    material=args.material,
+                    printer=args.printer,
+                    use_case=args.use_case,
+                )
+            else:
+                result = run_existing_mesh_pipeline(
+                    args.input,
+                    args.runs_dir,
+                    material=args.material,
+                    printer=args.printer,
+                    use_case=args.use_case,
+                    run_slice=args.slice,
+                    slice_executable=args.bambu_cli,
+                    prompt_hint=args.prompt,
+                )
             layout = result.layout
             report_json = layout.reports_dir / "run_report.json"
             report_markdown = layout.reports_dir / "run_report.md"

@@ -693,3 +693,16 @@ Status: partial progress for original item 122. PrintPipe now reports whether a 
 5. Done: human doctor output labels the section `Windows installer signing` instead of macOS signing on Windows reports.
 6. Boundary on `desktop-zt`: PowerShell is present, but `signtool`, `wix/iscc/makensis`, and a `Code Signing Certificate` are missing; status is `missing_tools`.
 7. Remaining: install Windows signing/installer tools and certificate, build a signed native installer, install Bambu Studio on Windows for live slice evidence, complete physical print validation.
+
+## Wave 63 - Prompt-Only CLI Input Path
+
+Status: partial progress for prompt/reference generation. Prompt-only and prompt-plus-reference are now wired through the CLI, but the local web UI still needs a matching prompt field.
+
+1. Done: added `InputKind.PROMPT` and prompt run manifests with `00_input/prompt.txt`.
+2. Done: added `printpipe run --prompt "..."` for prompt-only runs.
+3. Done: added `PRINTPIPE_PROMPT_IMAGE_COMMAND`, requiring `{prompt_file}` and `{output}`, to generate a concrete prompt reference image.
+4. Done: missing prompt-image command now fails at `prompt_reference_generation` with run reports instead of pretending prompt-only geometry exists.
+5. Done: configured prompt-image command output flows through reference cleanup/selection/contact sheet, then into Hunyuan3D as an image reference.
+6. Done: `printpipe run image.png --prompt "..."` passes the prompt through to meshgen providers as `prompt_hint`.
+7. Done: CLI tests cover both missing-command failure and configured prompt-image-plus-Hunyuan success into a Bambu `.3mf`.
+8. Remaining: local web UI prompt input, real prompt-image model adapter, hosted/image-provider selection UI, and physical validation stay open.

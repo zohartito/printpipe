@@ -105,6 +105,123 @@ def test_run_media_input_with_configured_hunyuan_command_writes_bundle(
     }
 
 
+def test_run_prompt_only_without_generator_writes_failed_receipts(
+    tmp_path: Path,
+    capsys,
+):
+    runs_dir = tmp_path / "runs"
+
+    exit_code = main(
+        [
+            "run",
+            "--prompt",
+            "small ergonomic desk hook",
+            "--runs-dir",
+            str(runs_dir),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    run_root = next(runs_dir.iterdir())
+    assert (run_root / "00_input" / "prompt.txt").read_text(encoding="utf-8") == (
+        "small ergonomic desk hook\n"
+    )
+    assert f"run root: {run_root}" in captured.out
+    assert "failed stage: prompt_reference_generation" in captured.out
+    assert "PRINTPIPE_PROMPT_IMAGE_COMMAND" in captured.err
+
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
+    assert ("classify_input", "succeeded") in stages
+    assert ("prompt_reference_generation", "failed") in stages
+    assert ("meshgen", "failed") in stages
+    manifest = json.loads((run_root / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["input"]["kind"] == "prompt"
+    assert report["warnings"] == [
+        "prompt image generation command is not configured; set PRINTPIPE_PROMPT_IMAGE_COMMAND"
+    ]
+
+
+def test_run_prompt_only_with_configured_reference_and_hunyuan_writes_bundle(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source_mesh = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    fake_prompt_image = tmp_path / "fake_prompt_image.py"
+    fake_prompt_image.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--prompt-file', required=True)",
+                "parser.add_argument('--output', required=True)",
+                "args = parser.parse_args()",
+                "prompt = Path(args.prompt_file).read_text(encoding='utf-8')",
+                "Path(args.output).write_bytes(b'fake image for ' + prompt.encode('utf-8'))",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    fake_hunyuan = tmp_path / "fake_hunyuan.py"
+    fake_hunyuan.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--output', required=True)",
+                "parser.add_argument('--prompt')",
+                "args, _ = parser.parse_known_args()",
+                "assert args.prompt == 'small ergonomic desk hook'",
+                f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(
+        "PRINTPIPE_PROMPT_IMAGE_COMMAND",
+        f"{sys.executable} {fake_prompt_image} --prompt-file {{prompt_file}} --output {{output}}",
+    )
+    monkeypatch.setenv("PRINTPIPE_HUNYUAN3D_COMMAND", f"{sys.executable} {fake_hunyuan}")
+
+    runs_dir = tmp_path / "runs"
+
+    exit_code = main(
+        [
+            "run",
+            "--prompt",
+            "small ergonomic desk hook",
+            "--runs-dir",
+            str(runs_dir),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    run_root = next(runs_dir.iterdir())
+    assert f"run root: {run_root}" in captured.out
+    assert (run_root / "10_frames" / "prompt_reference" / "prompt_reference.png").exists()
+    assert (run_root / "20_meshgen" / "hunyuan3d.stl").exists()
+    assert (run_root / "60_bundle" / "generated_mesh_hunyuan3d.3mf").exists()
+
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
+    assert ("prompt_reference_generation", "succeeded") in stages
+    assert ("meshgen", "succeeded") in stages
+    assert ("bundle", "succeeded") in stages
+
+
 def test_run_existing_stl_writes_bundle_reports_and_checklist(tmp_path: Path, capsys):
     source = (
         Path(__file__).parent

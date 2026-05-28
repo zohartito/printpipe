@@ -39,14 +39,15 @@ Current input support is intentionally explicit:
 | --- | --- |
 | Existing STL/OBJ/3MF mesh | Runs end-to-end through import, repair, orientation, Bambu 3MF bundling, reports, and optional Bambu CLI slice gate. |
 | Image, GIF, video | Prepares references/contact sheets, then runs the configured Hunyuan3D local adapter through repair, orientation, Bambu 3MF bundling, and reports. If `PRINTPIPE_HUNYUAN3D_COMMAND` is not set, the run fails honestly at `meshgen` with provider-configuration receipts. |
-| Prompt plus image | Supported only at the provider-contract level as an optional `prompt_hint`; not wired through CLI/web runs yet. |
-| Prompt only | Not supported yet. The pipeline needs an image/video/mesh source before it can produce geometry. |
+| Prompt plus image | CLI supports `printpipe run image.png --prompt "..."`; the prompt is passed through to configured mesh providers as `prompt_hint`. |
+| Prompt only | CLI supports `printpipe run --prompt "..."`. It writes `00_input/prompt.txt`, then requires `PRINTPIPE_PROMPT_IMAGE_COMMAND` to produce a reference image before the normal meshgen path. If unset, the run fails honestly at `prompt_reference_generation` with receipts. |
 
 Optional media cleanup hooks:
 
 ```bash
 export PRINTPIPE_BACKGROUND_REMOVAL_COMMAND='your-bg-tool {input} {output}'
 export PRINTPIPE_LIGHTING_NORMALIZATION_COMMAND='your-light-tool {input} {output}'
+export PRINTPIPE_PROMPT_IMAGE_COMMAND='your-image-tool --prompt-file {prompt_file} --output {output}'
 ```
 
 When unset, those stages stay as explicit no-op/copy receipts.
@@ -65,6 +66,7 @@ printpipe run input.stl \
 
 printpipe run input.stl --runs-dir runs --material "PLA" --slice
 printpipe run input.stl --runs-dir runs --material "PETG" --slice
+printpipe run --prompt "small ergonomic desk hook" --runs-dir runs
 ```
 
 PETG bundles select Textured PEI in project settings so Bambu Studio does not treat them as Cool Plate jobs.

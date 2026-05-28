@@ -29,6 +29,7 @@ MESH_SUFFIXES = frozenset({".stl", ".glb", ".gltf", ".obj", ".3mf"})
 DEFAULT_MAX_EXTRACTED_FRAMES = 8
 BACKGROUND_REMOVAL_COMMAND_ENV = "PRINTPIPE_BACKGROUND_REMOVAL_COMMAND"
 LIGHTING_NORMALIZATION_COMMAND_ENV = "PRINTPIPE_LIGHTING_NORMALIZATION_COMMAND"
+PROMPT_IMAGE_COMMAND_ENV = "PRINTPIPE_PROMPT_IMAGE_COMMAND"
 
 
 class FrameExtractor(Protocol):
@@ -107,6 +108,8 @@ def classify_input_path(path: Path) -> InputKind:
         return InputKind.VIDEO
     if suffix in MESH_SUFFIXES:
         return InputKind.MESH
+    if path.name == "prompt.txt":
+        return InputKind.PROMPT
     raise ValueError(f"unsupported input type: {path.suffix or path.name}")
 
 
@@ -255,6 +258,9 @@ def extract_references(
             ),
         )
 
+    if input_kind == InputKind.PROMPT:
+        return _generate_prompt_reference(input_path, work_dir)
+
     if input_kind in {InputKind.GIF, InputKind.VIDEO}:
         extractor = _resolve_frame_extractor(frame_extractor, use_system_ffmpeg=use_system_ffmpeg)
         if extractor is None:
@@ -344,6 +350,75 @@ def extract_references(
             status=StageStatus.SKIPPED,
             message="existing mesh input has no media references to extract",
             metrics={"candidate_count": 0},
+        ),
+    )
+
+
+def _generate_prompt_reference(
+    prompt_path: Path,
+    work_dir: Path,
+) -> tuple[tuple[Artifact, ...], StageReceipt]:
+    command_template = os.environ.get(PROMPT_IMAGE_COMMAND_ENV)
+    if not command_template:
+        return (
+            (),
+            StageReceipt(
+                stage="prompt_reference_generation",
+                status=StageStatus.FAILED,
+                message=(
+                    "prompt image generation command is not configured; "
+                    f"set {PROMPT_IMAGE_COMMAND_ENV}"
+                ),
+                metrics={"command_configured": False, "candidate_count": 0},
+            ),
+        )
+
+    prompt = prompt_path.read_text(encoding="utf-8").strip()
+    output_dir = work_dir / "prompt_reference"
+    output_path = output_dir / "prompt_reference.png"
+    try:
+        _run_prompt_image_command(
+            command_template,
+            prompt_path=prompt_path,
+            prompt=prompt,
+            output_path=output_path,
+        )
+    except FrameExtractionError as exc:
+        return (
+            (),
+            StageReceipt(
+                stage="prompt_reference_generation",
+                status=StageStatus.FAILED,
+                message=str(exc),
+                metrics={"command_configured": True, "candidate_count": 0},
+            ),
+        )
+
+    reference = Artifact(
+        kind=ArtifactKind.CLEANED_FRAME,
+        path=output_path,
+        label="prompt_reference_000",
+        metadata={
+            "input_kind": InputKind.PROMPT.value,
+            "source_path": str(prompt_path),
+            "frame_index": 0,
+            "processing_stage": "prompt_reference",
+            "extraction_method": "configured_prompt_image_command",
+            "prompt": prompt,
+        },
+    )
+    return (
+        (reference,),
+        StageReceipt(
+            stage="prompt_reference_generation",
+            status=StageStatus.SUCCEEDED,
+            message="generated prompt-only reference image with configured command",
+            artifacts=(reference,),
+            metrics={
+                "candidate_count": 1,
+                "command_configured": True,
+                "output_dir": str(output_dir),
+            },
         ),
     )
 
@@ -581,12 +656,64 @@ def _run_configured_frame_command(
         raise FrameExtractionError(f"configured frame command did not write {output_path}")
 
 
+def _run_prompt_image_command(
+    command_template: str,
+    *,
+    prompt_path: Path,
+    prompt: str,
+    output_path: Path,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    command = _prompt_image_command_args(
+        command_template,
+        prompt_path=prompt_path,
+        prompt=prompt,
+        output_path=output_path,
+    )
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or "").strip()
+        message = "configured prompt image command failed"
+        if detail:
+            message = f"{message}: {detail}"
+        raise FrameExtractionError(message) from exc
+    if not output_path.exists():
+        raise FrameExtractionError(
+            f"configured prompt image command did not write {output_path}"
+        )
+
+
 def _frame_command_args(command_template: str, *, input_path: Path, output_path: Path) -> list[str]:
     tokens = shlex.split(command_template)
     if "{input}" not in tokens or "{output}" not in tokens:
         raise FrameExtractionError("configured frame command must include {input} and {output}")
     return [
         str(input_path) if token == "{input}" else str(output_path) if token == "{output}" else token
+        for token in tokens
+    ]
+
+
+def _prompt_image_command_args(
+    command_template: str,
+    *,
+    prompt_path: Path,
+    prompt: str,
+    output_path: Path,
+) -> list[str]:
+    tokens = shlex.split(command_template)
+    if "{prompt_file}" not in tokens or "{output}" not in tokens:
+        raise FrameExtractionError(
+            "configured prompt image command must include {prompt_file} and {output}"
+        )
+    return [
+        str(prompt_path)
+        if token == "{prompt_file}"
+        else str(output_path)
+        if token == "{output}"
+        else prompt
+        if token == "{prompt}"
+        else token
         for token in tokens
     ]
 

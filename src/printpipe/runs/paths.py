@@ -52,6 +52,8 @@ def infer_input_kind(path: Path) -> InputKind:
         return InputKind.VIDEO
     if suffix in {".stl", ".glb", ".gltf", ".obj", ".3mf"}:
         return InputKind.MESH
+    if path.name == "prompt.txt":
+        return InputKind.PROMPT
     raise ValueError(f"unsupported input type: {path.suffix or path.name}")
 
 
@@ -89,6 +91,60 @@ def create_run(input_path: Path, runs_dir: Path = Path("runs"), run_id: str | No
             "source_path": str(input_path),
             "artifact_kind": ArtifactKind.ORIGINAL_INPUT.value,
             "stored_path": str(original_input.relative_to(root)),
+        },
+        "stages": {key: dirname for key, dirname in STAGE_DIRS},
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+    return RunLayout(
+        run_id=actual_run_id,
+        root=root,
+        input_dir=dirs["input"],
+        frames_dir=dirs["frames"],
+        meshgen_dir=dirs["meshgen"],
+        repair_dir=dirs["repair"],
+        geometry_dir=dirs["geometry"],
+        profiles_dir=dirs["profiles"],
+        bundle_dir=dirs["bundle"],
+        slice_dir=dirs["slice"],
+        reports_dir=dirs["reports"],
+        manifest_path=manifest_path,
+        original_input=original_input,
+    )
+
+
+def create_prompt_run(
+    prompt: str,
+    runs_dir: Path = Path("runs"),
+    run_id: str | None = None,
+) -> RunLayout:
+    clean_prompt = prompt.strip()
+    if not clean_prompt:
+        raise ValueError("prompt must not be blank")
+
+    actual_run_id = run_id or make_run_id(Path("prompt.txt"))
+    root = runs_dir.expanduser().resolve() / actual_run_id
+    root.mkdir(parents=True, exist_ok=False)
+
+    dirs: dict[str, Path] = {}
+    for key, dirname in STAGE_DIRS:
+        dirs[key] = root / dirname
+        dirs[key].mkdir()
+
+    original_input = dirs["input"] / "prompt.txt"
+    original_input.write_text(clean_prompt + "\n", encoding="utf-8")
+
+    manifest_path = root / "manifest.json"
+    manifest = {
+        "schema_version": 1,
+        "run_id": actual_run_id,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "input": {
+            "kind": InputKind.PROMPT.value,
+            "source_path": "prompt://inline",
+            "artifact_kind": ArtifactKind.ORIGINAL_INPUT.value,
+            "stored_path": str(original_input.relative_to(root)),
+            "prompt": clean_prompt,
         },
         "stages": {key: dirname for key, dirname in STAGE_DIRS},
     }

@@ -13,6 +13,7 @@ class InputKind(str, Enum):
     GIF = "gif"
     VIDEO = "video"
     MESH = "mesh"
+    PROMPT = "prompt"
 
 
 class StageStatus(str, Enum):
