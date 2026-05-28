@@ -118,12 +118,15 @@ printpipe build-windows-standalone --output dist/PrintPipe-Windows-standalone.zi
 printpipe build-release --output-dir dist/release --adhoc-sign
 printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller"
 printpipe build-release --output-dir dist/release --adhoc-sign --windows-standalone-zip dist/PrintPipe-Windows-standalone.zip
+printpipe build-release --output-dir dist/release --developer-id-identity "Developer ID Application: Your Name (TEAMID)" --notary-profile printpipe-notary
 printpipe verify-release dist/release --json
 
 printpipe build-macos-app --output dist/PrintPipe.app
 printpipe build-macos-app --output dist/PrintPipe.app --adhoc-sign
+printpipe build-macos-app --output dist/PrintPipe.app --developer-id-identity "Developer ID Application: Your Name (TEAMID)"
 printpipe build-macos-standalone --output dist/PrintPipeStandalone.app --pyinstaller "uvx --from pyinstaller pyinstaller"
 printpipe build-macos-dmg --output dist/PrintPipe.dmg --adhoc-sign
+printpipe build-macos-dmg --output dist/PrintPipe.dmg --developer-id-identity "Developer ID Application: Your Name (TEAMID)" --notary-profile printpipe-notary
 PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipe.app/Contents/MacOS/printpipe
 PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipeStandalone.app/Contents/MacOS/PrintPipeStandalone
 PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipe.app/Contents/MacOS/printpipe path/to/input.stl

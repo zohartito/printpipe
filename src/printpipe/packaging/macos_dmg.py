@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from printpipe.packaging.macos_app import build_macos_app_bundle
+from printpipe.packaging.macos_signing import notarize_macos_artifact
 
 
 def build_macos_dmg_package(
@@ -16,9 +17,16 @@ def build_macos_dmg_package(
     project_root: str | Path = Path("."),
     output_path: str | Path = Path("dist/PrintPipe.dmg"),
     adhoc_sign: bool = False,
+    developer_id_identity: str | None = None,
+    notary_profile: str | None = None,
     volume_name: str = "PrintPipe",
 ) -> dict[str, Any]:
     """Build a drag-install DMG containing PrintPipe.app and /Applications."""
+
+    if adhoc_sign and developer_id_identity:
+        raise ValueError("Choose either ad-hoc signing or Developer ID signing, not both")
+    if notary_profile and not developer_id_identity:
+        raise ValueError("macOS notarization requires a Developer ID signed app")
 
     root = Path(project_root).expanduser().resolve()
     target = Path(output_path).expanduser()
@@ -42,6 +50,7 @@ def build_macos_dmg_package(
             project_root=root,
             app_path=staging / "PrintPipe.app",
             adhoc_sign=adhoc_sign,
+            developer_id_identity=developer_id_identity,
         )
         _create_applications_link(staging)
         command = [
@@ -61,6 +70,10 @@ def build_macos_dmg_package(
             message = (result.stderr or result.stdout or "hdiutil create failed").strip()
             raise RuntimeError(message)
 
+    notarization: dict[str, Any] | None = None
+    if notary_profile:
+        notarization = notarize_macos_artifact(target, keychain_profile=notary_profile)
+
     return {
         "status": "ok",
         "dmg_path": str(target),
@@ -71,7 +84,11 @@ def build_macos_dmg_package(
         "drag_install": True,
         "signed": bool(app_result["signed"]),
         "signing_identity": app_result.get("signing_identity", ""),
-        "notarized": False,
+        "signing_kind": app_result.get("signing_kind", ""),
+        "notarized": bool(notarization),
+        "notarization": notarization,
+        "notary_profile": notary_profile or "",
+        "stapled": bool(notarization and notarization.get("stapled")),
         "bundles_python_runtime": app_result["bundles_python_runtime"],
         "bundles_bambu_studio": app_result["bundles_bambu_studio"],
         "hdiutil_command": " ".join(command),

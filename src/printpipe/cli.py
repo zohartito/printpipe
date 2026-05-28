@@ -242,6 +242,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Apply a local ad-hoc codesign signature; this is not notarization.",
     )
+    build_macos_app.add_argument(
+        "--developer-id-identity",
+        help="Developer ID Application identity to use for distribution signing.",
+    )
 
     build_macos_standalone = subparsers.add_parser(
         "build-macos-standalone",
@@ -291,6 +295,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--adhoc-sign",
         action="store_true",
         help="Ad-hoc sign the embedded app before creating the DMG.",
+    )
+    build_macos_dmg.add_argument(
+        "--developer-id-identity",
+        help="Developer ID Application identity to sign the embedded app.",
+    )
+    build_macos_dmg.add_argument(
+        "--notary-profile",
+        help="Keychain profile name for xcrun notarytool submit --wait.",
     )
 
     build_windows_portable = subparsers.add_parser(
@@ -347,6 +359,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--adhoc-sign",
         action="store_true",
         help="Ad-hoc sign the embedded macOS app before creating the release DMG.",
+    )
+    build_release.add_argument(
+        "--developer-id-identity",
+        help="Developer ID Application identity to sign macOS release artifacts.",
+    )
+    build_release.add_argument(
+        "--notary-profile",
+        help="Keychain profile name for notarizing the release DMG with notarytool.",
     )
     build_release.add_argument(
         "--include-standalone",
@@ -652,10 +672,12 @@ def main(argv: list[str] | None = None) -> int:
         return _build_zipapp(output_path=args.output, json_output=args.json)
 
     if args.command == "build-macos-app":
+        _validate_macos_signing_flags(parser, args)
         return _build_macos_app(
             output_path=args.output,
             json_output=args.json,
             adhoc_sign=args.adhoc_sign,
+            developer_id_identity=args.developer_id_identity,
         )
 
     if args.command == "build-macos-standalone":
@@ -667,10 +689,13 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.command == "build-macos-dmg":
+        _validate_macos_signing_flags(parser, args)
         return _build_macos_dmg(
             output_path=args.output,
             json_output=args.json,
             adhoc_sign=args.adhoc_sign,
+            developer_id_identity=args.developer_id_identity,
+            notary_profile=args.notary_profile,
         )
 
     if args.command == "build-windows-portable":
@@ -684,10 +709,13 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.command == "build-release":
+        _validate_macos_signing_flags(parser, args)
         return _build_release(
             output_dir=args.output_dir,
             json_output=args.json,
             adhoc_sign=args.adhoc_sign,
+            developer_id_identity=args.developer_id_identity,
+            notary_profile=args.notary_profile,
             include_standalone=args.include_standalone,
             pyinstaller_command=args.pyinstaller,
             windows_standalone_zip=args.windows_standalone_zip,
@@ -727,6 +755,16 @@ def _serve(*, host: str, port: int, runs_dir: Path) -> int:
 
     server.serve(host=host, port=port, runs_dir=runs_dir)
     return 0
+
+
+def _validate_macos_signing_flags(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    if getattr(args, "adhoc_sign", False) and getattr(args, "developer_id_identity", None):
+        parser.error("--adhoc-sign cannot be combined with --developer-id-identity")
+    if getattr(args, "notary_profile", None) and not getattr(args, "developer_id_identity", None):
+        parser.error("--notary-profile requires --developer-id-identity")
 
 
 def _physical_status(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
@@ -829,17 +867,27 @@ def _build_zipapp(*, output_path: Path, json_output: bool) -> int:
     return 0
 
 
-def _build_macos_app(*, output_path: Path, json_output: bool, adhoc_sign: bool) -> int:
+def _build_macos_app(
+    *,
+    output_path: Path,
+    json_output: bool,
+    adhoc_sign: bool,
+    developer_id_identity: str | None,
+) -> int:
     from printpipe.packaging.macos_app import build_macos_app_bundle
 
-    payload = build_macos_app_bundle(app_path=output_path, adhoc_sign=adhoc_sign)
+    payload = build_macos_app_bundle(
+        app_path=output_path,
+        adhoc_sign=adhoc_sign,
+        developer_id_identity=developer_id_identity,
+    )
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print(f"macOS app: {payload['app_path']}")
         print(f"executable: {payload['executable_path']}")
         print(f"signed: {str(payload['signed']).lower()}")
-        print("notarized: false")
+        print(f"notarized: {str(payload['notarized']).lower()}")
     return 0
 
 
@@ -868,10 +916,22 @@ def _build_macos_standalone(
     return 0
 
 
-def _build_macos_dmg(*, output_path: Path, json_output: bool, adhoc_sign: bool) -> int:
+def _build_macos_dmg(
+    *,
+    output_path: Path,
+    json_output: bool,
+    adhoc_sign: bool,
+    developer_id_identity: str | None,
+    notary_profile: str | None,
+) -> int:
     from printpipe.packaging.macos_dmg import build_macos_dmg_package
 
-    payload = build_macos_dmg_package(output_path=output_path, adhoc_sign=adhoc_sign)
+    payload = build_macos_dmg_package(
+        output_path=output_path,
+        adhoc_sign=adhoc_sign,
+        developer_id_identity=developer_id_identity,
+        notary_profile=notary_profile,
+    )
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
@@ -879,7 +939,7 @@ def _build_macos_dmg(*, output_path: Path, json_output: bool, adhoc_sign: bool) 
         print(f"app: {payload['app_name']}")
         print(f"drag install: {str(payload['drag_install']).lower()}")
         print(f"signed: {str(payload['signed']).lower()}")
-        print("notarized: false")
+        print(f"notarized: {str(payload['notarized']).lower()}")
     return 0
 
 
@@ -925,6 +985,8 @@ def _build_release(
     output_dir: Path,
     json_output: bool,
     adhoc_sign: bool,
+    developer_id_identity: str | None,
+    notary_profile: str | None,
     include_standalone: bool,
     pyinstaller_command: str,
     windows_standalone_zip: Path | None,
@@ -934,6 +996,8 @@ def _build_release(
     payload = build_release_bundle(
         output_dir=output_dir,
         adhoc_sign=adhoc_sign,
+        developer_id_identity=developer_id_identity,
+        notary_profile=notary_profile,
         include_standalone=include_standalone,
         pyinstaller_command=pyinstaller_command,
         windows_standalone_zip=windows_standalone_zip,

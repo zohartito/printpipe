@@ -33,11 +33,18 @@ def build_release_bundle(
     project_root: str | Path = Path("."),
     output_dir: str | Path = Path("dist/release"),
     adhoc_sign: bool = False,
+    developer_id_identity: str | None = None,
+    notary_profile: str | None = None,
     include_standalone: bool = False,
     pyinstaller_command: str = "pyinstaller",
     windows_standalone_zip: str | Path | None = None,
 ) -> dict[str, Any]:
     """Build current distributable artifacts and write a checksum manifest."""
+
+    if adhoc_sign and developer_id_identity:
+        raise ValueError("Choose either ad-hoc signing or Developer ID signing, not both")
+    if notary_profile and not developer_id_identity:
+        raise ValueError("macOS notarization requires a Developer ID signed app")
 
     root = Path(project_root).expanduser().resolve()
     target = Path(output_dir).expanduser()
@@ -54,6 +61,8 @@ def build_release_bundle(
         project_root=root,
         output_path=target / "PrintPipe.dmg",
         adhoc_sign=adhoc_sign,
+        developer_id_identity=developer_id_identity,
+        notary_profile=notary_profile,
     )
     windows = build_windows_portable_package(
         project_root=root,
@@ -73,7 +82,7 @@ def build_release_bundle(
             path=target / "PrintPipe.dmg",
             metadata=macos_dmg,
             signed=bool(macos_dmg["signed"]),
-            notarized=False,
+            notarized=bool(macos_dmg["notarized"]),
         ),
         _artifact_manifest(
             kind="windows_portable",
@@ -233,7 +242,7 @@ def _artifact_manifest(
     signed: bool,
     notarized: bool,
 ) -> dict[str, Any]:
-    return {
+    artifact = {
         "kind": kind,
         "path": path.name,
         "size_bytes": path.stat().st_size,
@@ -243,6 +252,9 @@ def _artifact_manifest(
         "bundles_python_runtime": bool(metadata["bundles_python_runtime"]),
         "bundles_bambu_studio": bool(metadata["bundles_bambu_studio"]),
     }
+    if metadata.get("signing_kind"):
+        artifact["signing_kind"] = str(metadata["signing_kind"])
+    return artifact
 
 
 def _release_boundaries(artifacts: list[dict[str, Any]]) -> list[str]:
@@ -252,8 +264,8 @@ def _release_boundaries(artifacts: list[dict[str, Any]]) -> list[str]:
         if bool(artifact.get("bundles_python_runtime"))
     }
     if not runtime_artifacts:
-        return RELEASE_BOUNDARIES
-    if runtime_artifacts == {"macos_standalone_zip"}:
+        runtime_boundary = "No artifact bundles Python."
+    elif runtime_artifacts == {"macos_standalone_zip"}:
         runtime_boundary = "macOS standalone artifact bundles Python; other artifacts do not."
     elif runtime_artifacts == {"windows_standalone_zip"}:
         runtime_boundary = "Windows standalone artifact bundles Python; other artifacts do not."
@@ -266,10 +278,23 @@ def _release_boundaries(artifacts: list[dict[str, Any]]) -> list[str]:
     return [
         runtime_boundary,
         "No artifact bundles Bambu Studio.",
-        "macOS artifacts are not Developer ID signed or notarized.",
+        _macos_signing_boundary(artifacts),
         "Windows artifact is not a signed installer.",
         "Physical print validation is still recorded separately in run evidence packets.",
     ]
+
+
+def _macos_signing_boundary(artifacts: list[dict[str, Any]]) -> str:
+    macos_artifacts = [
+        artifact
+        for artifact in artifacts
+        if str(artifact.get("kind", "")).startswith("macos_")
+    ]
+    if any(bool(artifact.get("notarized")) for artifact in macos_artifacts):
+        return "macOS DMG is Developer ID signed and notarized."
+    if any(str(artifact.get("signing_kind")) == "developer_id_application" for artifact in macos_artifacts):
+        return "macOS artifacts are Developer ID signed but not notarized."
+    return "macOS artifacts are not Developer ID signed or notarized."
 
 
 def _list_artifacts(value: Any) -> list[dict[str, Any]]:

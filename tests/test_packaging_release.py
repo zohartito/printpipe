@@ -176,6 +176,8 @@ def test_build_release_bundle_can_include_prebuilt_windows_standalone_zip(
         project_root: str | Path,
         output_path: str | Path,
         adhoc_sign: bool,
+        developer_id_identity: str | None,
+        notary_profile: str | None,
     ) -> dict[str, object]:
         path = Path(output_path)
         path.write_text("dmg", encoding="utf-8")
@@ -183,6 +185,7 @@ def test_build_release_bundle_can_include_prebuilt_windows_standalone_zip(
             "bundles_python_runtime": False,
             "bundles_bambu_studio": False,
             "signed": adhoc_sign,
+            "notarized": False,
         }
 
     def fake_windows_portable_builder(
@@ -280,6 +283,65 @@ def test_cli_build_release_parser_accepts_windows_standalone_zip() -> None:
 
     assert args.command == "build-release"
     assert args.windows_standalone_zip == Path("dist/PrintPipe-Windows-standalone.zip")
+
+
+def test_build_release_bundle_can_request_developer_id_notarized_dmg(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import printpipe.packaging.release as release
+
+    def fake_zipapp_builder(*, project_root: str | Path, output_path: str | Path) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("zipapp", encoding="utf-8")
+        return {"bundles_python_runtime": False, "bundles_bambu_studio": False}
+
+    def fake_dmg_builder(
+        *,
+        project_root: str | Path,
+        output_path: str | Path,
+        adhoc_sign: bool,
+        developer_id_identity: str | None,
+        notary_profile: str | None,
+    ) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("notarized dmg", encoding="utf-8")
+        return {
+            "bundles_python_runtime": False,
+            "bundles_bambu_studio": False,
+            "signed": True,
+            "signing_identity": developer_id_identity,
+            "signing_kind": "developer_id_application",
+            "notarized": True,
+            "notary_profile": notary_profile,
+            "stapled": True,
+        }
+
+    def fake_windows_portable_builder(
+        *,
+        project_root: str | Path,
+        output_path: str | Path,
+    ) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("windows portable", encoding="utf-8")
+        return {"bundles_python_runtime": False, "bundles_bambu_studio": False}
+
+    monkeypatch.setattr(release, "build_zipapp_package", fake_zipapp_builder)
+    monkeypatch.setattr(release, "build_macos_dmg_package", fake_dmg_builder)
+    monkeypatch.setattr(release, "build_windows_portable_package", fake_windows_portable_builder)
+
+    result = release.build_release_bundle(
+        project_root=REPO_ROOT,
+        output_dir=tmp_path / "release",
+        developer_id_identity="Developer ID Application: Zohar Tito (TEAMID)",
+        notary_profile="printpipe-notary",
+    )
+
+    artifacts = {artifact["kind"]: artifact for artifact in result["artifacts"]}
+    assert artifacts["macos_dmg"]["signed"] is True
+    assert artifacts["macos_dmg"]["notarized"] is True
+    assert "macOS DMG is Developer ID signed and notarized." in result["boundaries"]
+    assert "macOS artifacts are not Developer ID signed or notarized." not in result["boundaries"]
 
 
 def test_verify_release_bundle_accepts_manifest_and_artifact_hashes(tmp_path: Path) -> None:

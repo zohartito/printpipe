@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from printpipe import __version__
+from printpipe.packaging.macos_signing import sign_macos_path
 from printpipe.packaging.zipapp import build_zipapp_package
 
 
@@ -21,8 +22,12 @@ def build_macos_app_bundle(
     project_root: str | Path = Path("."),
     app_path: str | Path = Path("dist/PrintPipe.app"),
     adhoc_sign: bool = False,
+    developer_id_identity: str | None = None,
 ) -> dict[str, Any]:
     """Build an unsigned `.app` bundle that runs the portable zipapp."""
+
+    if adhoc_sign and developer_id_identity:
+        raise ValueError("Choose either ad-hoc signing or Developer ID signing, not both")
 
     root = Path(project_root).expanduser().resolve()
     target = Path(app_path).expanduser()
@@ -54,9 +59,15 @@ def build_macos_app_bundle(
     plist_path.write_bytes(plistlib.dumps(_info_plist()))
 
     signing_identity = ""
+    signing_kind = ""
     if adhoc_sign:
         _adhoc_sign_app(target)
         signing_identity = "-"
+        signing_kind = "adhoc"
+    elif developer_id_identity:
+        sign_macos_path(target, identity=developer_id_identity)
+        signing_identity = developer_id_identity
+        signing_kind = "developer_id_application"
 
     return {
         "status": "ok",
@@ -71,8 +82,9 @@ def build_macos_app_bundle(
         "default_runs_dir": "~/PrintPipe/runs",
         "document_launch_mode": "run-and-open-web-ui",
         "document_extensions": list(DOCUMENT_EXTENSIONS),
-        "signed": adhoc_sign,
+        "signed": bool(adhoc_sign or developer_id_identity),
         "signing_identity": signing_identity,
+        "signing_kind": signing_kind,
         "notarized": False,
         "bundles_python_runtime": False,
         "bundles_bambu_studio": False,

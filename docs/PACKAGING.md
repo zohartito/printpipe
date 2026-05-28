@@ -493,6 +493,43 @@ Observed live:
 This is useful local packaging hygiene, but it is not Developer ID signing and
 does not replace notarization.
 
+## Developer ID macOS Signing and Notarization
+
+Wave 78 wires real Developer ID signing and notarization commands into the
+packaging flow:
+
+```bash
+printpipe build-macos-app \
+  --output dist/PrintPipe.app \
+  --developer-id-identity "Developer ID Application: Your Name (TEAMID)" \
+  --json
+
+printpipe build-macos-dmg \
+  --output dist/PrintPipe.dmg \
+  --developer-id-identity "Developer ID Application: Your Name (TEAMID)" \
+  --notary-profile printpipe-notary \
+  --json
+
+printpipe build-release \
+  --output-dir dist/release \
+  --developer-id-identity "Developer ID Application: Your Name (TEAMID)" \
+  --notary-profile printpipe-notary \
+  --json
+```
+
+The implementation runs:
+
+- `codesign --force --deep --options runtime --timestamp --sign ...`
+- `codesign --verify --deep --strict ...`
+- `xcrun notarytool submit ... --wait --output-format json`
+- `xcrun stapler staple ...`
+
+This is command plumbing, not credential provisioning. It still requires valid
+Apple Developer certificates in the keychain and a configured notarytool
+keychain profile. `printpipe doctor` and `printpipe readiness --strict` remain
+the honest gates for whether this machine can actually perform the signed
+release.
+
 ## macOS Standalone Runtime App
 
 Wave 57 adds a PyInstaller-backed app build that bundles a Python runtime:
@@ -559,6 +596,7 @@ writes checksums:
 printpipe build-release --output-dir dist/release --adhoc-sign --json
 printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller" --json
 printpipe build-release --output-dir dist/release --adhoc-sign --windows-standalone-zip dist/PrintPipe-Windows-standalone.zip --json
+printpipe build-release --output-dir dist/release --developer-id-identity "Developer ID Application: Your Name (TEAMID)" --notary-profile printpipe-notary --json
 printpipe verify-release dist/release --json
 ```
 
@@ -583,6 +621,10 @@ release folder also contains a copied prebuilt artifact:
 bundle is still honest about the remaining gates: no bundled Python, no bundled
 Bambu Studio, no Developer ID notarization, no signed Windows installer, and
 physical print validation living in separate run evidence packets.
+
+When `--developer-id-identity` and `--notary-profile` are used successfully, the
+`macos_dmg` artifact records `signed=true` and `notarized=true`, and the
+boundary changes to `macOS DMG is Developer ID signed and notarized.`
 
 When `--include-standalone` is used, the manifest adds a
 `macos_standalone_zip` artifact with `bundles_python_runtime=true` and changes

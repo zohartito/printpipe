@@ -859,3 +859,14 @@ Status: complete for terminal/release-script visibility. The combined readiness 
 4. Done: added a concise human renderer for physical, dependency, Bambu, filesystem, and signing gates.
 5. Done: regression coverage proves parser support, strict JSON gating, and human gate summaries.
 6. Boundary: the command is read-only; it does not print physical coupons, install dependencies, or sign/notarize release artifacts.
+
+## Wave 78 - macOS Developer ID Signing Plumbing
+
+Status: partial progress for original item 121. PrintPipe now has real Developer ID signing and notarization command plumbing, but actual signing/notarization still requires Zohar's Apple Developer identities and a configured notary keychain profile.
+
+1. Done: added `printpipe.packaging.macos_signing.sign_macos_path()` for Developer ID `codesign` plus verification.
+2. Done: added `printpipe.packaging.macos_signing.notarize_macos_artifact()` for `xcrun notarytool submit --wait` plus `stapler`.
+3. Done: `build-macos-app` accepts `--developer-id-identity`.
+4. Done: `build-macos-dmg` accepts `--developer-id-identity` and `--notary-profile`.
+5. Done: `build-release` can pass Developer ID/notary options into the release DMG and manifest the notarized boundary honestly.
+6. Boundary: no certificate or notary profile was installed by this wave; the readiness gate remains action-required on this machine.
