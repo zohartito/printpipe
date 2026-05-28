@@ -490,6 +490,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Return exit code 2 unless the release and readiness gates are ready.",
     )
 
+    release_plan = subparsers.add_parser(
+        "release-plan",
+        help="Turn release distribution blockers into exact next actions.",
+    )
+    release_plan.add_argument(
+        "--release-dir",
+        type=Path,
+        default=Path("dist/release"),
+        help="Release folder containing release_manifest.json.",
+    )
+    release_plan.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory where beta and physical evidence run folders are stored.",
+    )
+    release_plan.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Optional beta regression manifest to include in release status.",
+    )
+    release_plan.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the release distribution action plan as JSON.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -1181,6 +1209,14 @@ def main(argv: list[str] | None = None) -> int:
             strict=args.strict,
         )
 
+    if args.command == "release-plan":
+        return _release_plan(
+            release_dir=args.release_dir,
+            runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
+            json_output=args.json,
+        )
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -1710,6 +1746,30 @@ def _release_status(
         print(render_release_status_report(report), end="")
     if strict and report["overall_status"] != "ready":
         return 2
+    return 0
+
+
+def _release_plan(
+    *,
+    release_dir: Path,
+    runs_dir: Path,
+    regression_manifest_path: Path | None,
+    json_output: bool,
+) -> int:
+    from printpipe.packaging.release_plan import (
+        build_release_distribution_plan,
+        render_release_distribution_plan,
+    )
+
+    plan = build_release_distribution_plan(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
+    if json_output:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    else:
+        print(render_release_distribution_plan(plan), end="")
     return 0
 
 

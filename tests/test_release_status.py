@@ -8,6 +8,10 @@ from printpipe.packaging.release_status import (
     build_release_status_report,
     render_release_status_report,
 )
+from printpipe.packaging.release_plan import (
+    build_release_distribution_plan,
+    render_release_distribution_plan,
+)
 
 
 def test_release_status_report_combines_release_and_readiness_gates(tmp_path: Path) -> None:
@@ -212,6 +216,193 @@ def test_render_release_status_report_lists_next_actions(tmp_path: Path) -> None
     assert "Next actions:" in rendered
     assert "- Record TPU evidence." in rendered
     assert "- Install Developer ID certificate." in rendered
+
+
+def test_release_distribution_plan_turns_distribution_gates_into_commands(
+    tmp_path: Path,
+) -> None:
+    release_dir = tmp_path / "release"
+    runs_dir = tmp_path / "runs"
+    plan = build_release_distribution_plan(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        release_status_report={
+            "overall_status": "action_required",
+            "action_required_count": 2,
+            "release_dir": str(release_dir),
+            "runs_dir": str(runs_dir),
+            "gates": [
+                {
+                    "id": "release_bundle",
+                    "label": "Release bundle",
+                    "status": "ready",
+                    "detail": "Release manifest and 4 artifacts verify.",
+                    "action": "No action needed.",
+                },
+                {
+                    "id": "macos_distribution",
+                    "label": "macOS distribution",
+                    "status": "action_required",
+                    "detail": "macOS release artifact is not Developer ID signed and notarized.",
+                    "action": "Install Developer ID identities, configure notarytool, and rebuild the release DMG.",
+                },
+                {
+                    "id": "windows_distribution",
+                    "label": "Windows distribution",
+                    "status": "action_required",
+                    "detail": "No signed Windows installer artifact is recorded in the manifest.",
+                    "action": "Build and include a signed PrintPipeSetup.exe before a strict release handoff.",
+                },
+            ],
+        },
+    )
+
+    actions = {action["id"]: action for action in plan["actions"]}
+    assert plan["overall_status"] == "action_required"
+    assert plan["action_count"] == 2
+    assert "not signed distribution evidence" in plan["proof_boundary"]
+    assert actions["macos_distribution"]["status"] == "action_required"
+    assert "build-release" in actions["macos_distribution"]["command"]
+    assert "--developer-id-identity" in actions["macos_distribution"]["command"]
+    assert "--notary-profile" in actions["macos_distribution"]["command"]
+    assert actions["windows_distribution"]["status"] == "action_required"
+    assert "build-windows-installer" in actions["windows_distribution"]["command"]
+    assert "build-release" in actions["windows_distribution"]["followup_command"]
+    assert "--windows-installer-exe" in actions["windows_distribution"]["followup_command"]
+
+
+def test_release_distribution_plan_ready_when_release_status_ready(
+    tmp_path: Path,
+) -> None:
+    plan = build_release_distribution_plan(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+        release_status_report={
+            "overall_status": "ready",
+            "action_required_count": 0,
+            "release_dir": str(tmp_path / "release"),
+            "runs_dir": str(tmp_path / "runs"),
+            "gates": [
+                {
+                    "id": "release_bundle",
+                    "label": "Release bundle",
+                    "status": "ready",
+                    "detail": "Release manifest and artifacts verify.",
+                    "action": "No action needed.",
+                },
+                {
+                    "id": "macos_distribution",
+                    "label": "macOS distribution",
+                    "status": "ready",
+                    "detail": "A Developer ID signed and notarized macOS DMG is recorded.",
+                    "action": "No action needed.",
+                },
+                {
+                    "id": "windows_distribution",
+                    "label": "Windows distribution",
+                    "status": "ready",
+                    "detail": "A signed Windows installer artifact is recorded.",
+                    "action": "No action needed.",
+                },
+            ],
+        },
+    )
+
+    assert plan["overall_status"] == "ready"
+    assert plan["action_count"] == 0
+    assert plan["actions"] == []
+
+
+def test_render_release_distribution_plan_lists_commands(tmp_path: Path) -> None:
+    plan = build_release_distribution_plan(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+        release_status_report={
+            "overall_status": "action_required",
+            "action_required_count": 1,
+            "release_dir": str(tmp_path / "release"),
+            "runs_dir": str(tmp_path / "runs"),
+            "gates": [
+                {
+                    "id": "macos_distribution",
+                    "label": "macOS distribution",
+                    "status": "action_required",
+                    "detail": "macOS release artifact is not Developer ID signed and notarized.",
+                    "action": "Install Developer ID identities, configure notarytool, and rebuild the release DMG.",
+                }
+            ],
+        },
+    )
+
+    rendered = render_release_distribution_plan(plan)
+
+    assert "PrintPipe Release Distribution Plan" in rendered
+    assert "overall: action_required" in rendered
+    assert "macos_distribution" in rendered
+    assert "build-release" in rendered
+    assert "not signed distribution evidence" in rendered
+
+
+def test_release_plan_parser_accepts_dirs_json_and_regression_manifest(
+    tmp_path: Path,
+) -> None:
+    args = build_parser().parse_args(
+        [
+            "release-plan",
+            "--release-dir",
+            str(tmp_path / "release"),
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(tmp_path / "regression_manifest.json"),
+            "--json",
+        ]
+    )
+
+    assert args.command == "release-plan"
+    assert args.release_dir == tmp_path / "release"
+    assert args.runs_dir == tmp_path / "runs"
+    assert args.regression_manifest == tmp_path / "regression_manifest.json"
+    assert args.json is True
+
+
+def test_cli_release_plan_prints_json(monkeypatch, tmp_path: Path, capsys) -> None:
+    manifest_path = tmp_path / "regression_manifest.json"
+
+    def fake_release_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert release_dir == tmp_path / "release"
+        assert runs_dir == tmp_path / "runs"
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "plan only",
+            "actions": [{"id": "macos_distribution", "status": "action_required"}],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.packaging.release_plan.build_release_distribution_plan",
+        fake_release_plan,
+    )
+
+    exit_code = main(
+        [
+            "release-plan",
+            "--release-dir",
+            str(tmp_path / "release"),
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(manifest_path),
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "action_required"
+    assert payload["actions"][0]["id"] == "macos_distribution"
 
 
 def test_release_status_parser_accepts_dirs_json_and_strict_flags(tmp_path: Path) -> None:

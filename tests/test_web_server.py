@@ -313,6 +313,94 @@ def test_beta_plan_json_endpoint_returns_action_plan(tmp_path: Path):
     )
 
 
+def test_release_plan_json_endpoint_returns_distribution_plan(monkeypatch, tmp_path: Path):
+    def fake_release_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert release_dir == tmp_path / "release"
+        assert runs_dir == tmp_path / "runs"
+        assert regression_manifest_path is None
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A release plan is not signed distribution evidence.",
+            "actions": [
+                {
+                    "id": "macos_distribution",
+                    "label": "macOS distribution",
+                    "status": "action_required",
+                    "command": "printpipe build-release --developer-id-identity ...",
+                    "followup_command": "",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_distribution_plan",
+        fake_release_plan,
+    )
+    app = create_app(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+    )
+
+    response = app.handle("/release-plan.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "action_required"
+    assert payload["actions"][0]["id"] == "macos_distribution"
+
+
+def test_home_response_renders_release_distribution_plan(monkeypatch, tmp_path: Path):
+    def fake_release_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 2,
+            "proof_boundary": "A release plan is not signed distribution evidence.",
+            "actions": [
+                {
+                    "id": "macos_distribution",
+                    "label": "macOS distribution",
+                    "status": "action_required",
+                    "detail": "Developer ID signing and notarization are missing.",
+                    "command": "printpipe build-release --developer-id-identity ...",
+                    "followup_command": "",
+                },
+                {
+                    "id": "windows_distribution",
+                    "label": "Windows distribution",
+                    "status": "action_required",
+                    "detail": "Signed Windows installer is missing.",
+                    "command": "printpipe build-windows-installer ...",
+                    "followup_command": "printpipe build-release --windows-installer-exe ...",
+                },
+            ],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_distribution_plan",
+        fake_release_plan,
+    )
+    app = create_app(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+    )
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Release distribution plan" in response.text
+    assert "2 action required" in response.text
+    assert "A release plan is not signed distribution evidence." in response.text
+    assert "macOS distribution" in response.text
+    assert "Windows distribution" in response.text
+    assert "printpipe build-release --developer-id-identity" in response.text
+    assert "printpipe build-windows-installer" in response.text
+    assert 'href="/release-plan.json"' in response.text
+
+
 def test_beta_feedback_status_json_endpoint_returns_trusted_user_status(
     tmp_path: Path,
 ):

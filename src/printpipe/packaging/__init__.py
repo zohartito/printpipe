@@ -5,6 +5,14 @@ from printpipe.packaging.macos_dmg import build_macos_dmg_package
 from printpipe.packaging.macos_signing import notarize_macos_artifact, sign_macos_path
 from printpipe.packaging.macos_standalone import build_macos_standalone_app
 from printpipe.packaging.release import build_release_bundle, verify_release_bundle
+from printpipe.packaging.release_plan import (
+    build_release_distribution_plan,
+    render_release_distribution_plan,
+)
+from printpipe.packaging.release_status import (
+    build_release_status_report,
+    render_release_status_report,
+)
 from printpipe.packaging.smoke import (
     MacOSPackageSmokePlan,
     MacOSPackageSmokeResult,
@@ -33,13 +41,17 @@ __all__ = (
     "build_macos_dmg_package",
     "build_macos_package_smoke_plan",
     "build_macos_standalone_app",
+    "build_release_distribution_plan",
     "build_release_bundle",
+    "build_release_status_report",
     "build_windows_package_smoke_plan",
     "build_windows_installer_package",
     "build_windows_portable_package",
     "build_windows_standalone_package",
     "build_zipapp_package",
     "notarize_macos_artifact",
+    "render_release_distribution_plan",
+    "render_release_status_report",
     "run_macos_package_smoke",
     "run_windows_package_smoke",
     "sign_macos_path",

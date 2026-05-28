@@ -1165,3 +1165,14 @@ Status: complete for trusted-user beta planning. This does not create tester fee
 3. Done: added `/beta-feedback-plan.json` and a home-page `Trusted-user action plan` panel.
 4. Done: the plan turns missing trusted-user slots into exact `record-beta-feedback` commands.
 5. Boundary: a generated feedback plan is not trusted-user evidence; only recorded feedback packets count toward the beta gate.
+
+## Wave 106 - Release Distribution Action Plan
+
+Status: complete for release distribution planning. This does not create signed or notarized release artifacts.
+
+1. Done: added `printpipe.packaging.release_plan.build_release_distribution_plan()`.
+2. Done: added `printpipe release-plan --release-dir dist/release --runs-dir runs`.
+3. Done: added `/release-plan.json` and a home-page `Release distribution plan` panel.
+4. Done: the plan turns macOS Developer ID/notary gaps, Windows signed-installer gaps, and signing prerequisite gaps into exact commands.
+5. Current local result: `printpipe release-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json --json` reports three actions: `macos_distribution`, `windows_distribution`, and `signing`.
+6. Boundary: a generated release plan is not signed distribution evidence; final gates still require real Developer ID/notary credentials and a signed Windows installer artifact.
