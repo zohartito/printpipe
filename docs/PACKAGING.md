@@ -707,6 +707,14 @@ bundle gate first, then macOS distribution, Windows distribution, physical,
 beta regression, dependency, Bambu, filesystem, and signing gates, and lists the
 next actions that still block a strict release handoff.
 
+For local web/API automation, the JSON status endpoints accept the same
+manifest path as a query parameter:
+
+```text
+/readiness.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
+/release-status.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
+```
+
 Local smoke evidence: Wave 82 built the default ignored `dist/release` folder
 with ad-hoc macOS signing. `verify-release` returned `0`; `release-status
 --strict` returned `2` only because physical PLA/PETG/TPU evidence and

@@ -106,6 +106,12 @@ printpipe readiness \
   --strict
 ```
 
+The local JSON endpoint accepts the same manifest path:
+
+```text
+/readiness.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
+```
+
 Gate release status with the same manifest:
 
 ```bash
@@ -114,6 +120,12 @@ printpipe release-status \
   --runs-dir runs \
   --regression-manifest tests/fixtures/regression/failure_manifest.json \
   --strict
+```
+
+The local release JSON endpoint accepts the same manifest path:
+
+```text
+/release-status.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
 ```
 
 Meaning:

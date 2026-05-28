@@ -1037,3 +1037,13 @@ Status: complete for final-release gate plumbing. Release status can now include
 4. Done: strict release status now returns exit code `2` when the regression manifest drifts.
 5. Done: release-status next actions include the regression runner action when beta regression drift blocks the handoff.
 6. Boundary: this still does not create real trusted-user failures, physical print evidence, or signed distribution credentials; it only lets final release gating consume those regression manifests when they exist.
+
+## Wave 94 - Web Regression Gate Query
+
+Status: complete for local web/API parity. Browser and agent automation can now ask the local JSON endpoints to include beta regression manifest drift.
+
+1. Done: `/readiness.json?regression_manifest=<path>` passes the manifest path to `build_beta_readiness_report()`.
+2. Done: `/release-status.json?regression_manifest=<path>` passes the manifest path to `build_release_status_report()`.
+3. Done: blank or omitted query values keep the previous non-blocking default behavior.
+4. Done: endpoint tests prove the manifest path reaches the report builders and returns the `beta_regressions` gate.
+5. Boundary: the home page still shows the default no-manifest readiness/release panels unless a caller explicitly requests JSON with a manifest path.

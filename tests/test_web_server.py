@@ -396,6 +396,41 @@ def test_release_status_json_endpoint_returns_combined_release_report(
     assert payload["gates"][0]["id"] == "macos_distribution"
 
 
+def test_release_status_json_endpoint_accepts_regression_manifest_query(
+    monkeypatch,
+    tmp_path: Path,
+):
+    manifest_path = tmp_path / "regression_manifest.json"
+
+    def fake_release_status_report(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "release_dir": str(release_dir),
+            "runs_dir": str(runs_dir),
+            "gates": [
+                {
+                    "id": "beta_regressions",
+                    "status": "action_required",
+                    "detail": "1 regression case(s) drifted from expected outcomes.",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_status_report",
+        fake_release_status_report,
+    )
+    app = create_app(runs_dir=tmp_path / "runs", release_dir=tmp_path / "release")
+
+    response = app.handle(f"/release-status.json?regression_manifest={manifest_path}")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert payload["gates"][0]["id"] == "beta_regressions"
+
+
 def test_doctor_json_endpoint_returns_environment_report(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         "printpipe.web.server.build_environment_report",
@@ -444,6 +479,40 @@ def test_readiness_json_endpoint_returns_combined_gate_report(monkeypatch, tmp_p
     assert response.header("Content-Type") == "application/json; charset=utf-8"
     assert payload["overall_status"] == "action_required"
     assert payload["gates"][0]["id"] == "physical_validation"
+
+
+def test_readiness_json_endpoint_accepts_regression_manifest_query(
+    monkeypatch,
+    tmp_path: Path,
+):
+    manifest_path = tmp_path / "regression_manifest.json"
+
+    def fake_readiness_report(runs_dir, *, regression_manifest_path=None):
+        assert runs_dir == tmp_path / "runs"
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "gates": [
+                {
+                    "id": "beta_regressions",
+                    "status": "action_required",
+                    "detail": "1 regression case(s) drifted from expected outcomes.",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.web.server.build_beta_readiness_report",
+        fake_readiness_report,
+    )
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle(f"/readiness.json?regression_manifest={manifest_path}")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert payload["gates"][0]["id"] == "beta_regressions"
 
 
 def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_path: Path):

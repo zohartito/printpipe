@@ -177,7 +177,9 @@ class PrintPipeWebApp:
         """Return a response for a local request target such as ``/health``."""
 
         request_method = method.upper()
-        path = urlsplit(target).path or "/"
+        split_target = urlsplit(target)
+        path = split_target.path or "/"
+        query = parse_qs(split_target.query, keep_blank_values=True)
         if request_method == "POST":
             if path == "/runs":
                 return self.create_run_response(headers=headers, body=body)
@@ -203,9 +205,13 @@ class PrintPipeWebApp:
         if path == "/doctor.json":
             return self.doctor_response()
         if path == "/readiness.json":
-            return self.readiness_response()
+            return self.readiness_response(
+                regression_manifest_path=_query_path(query, "regression_manifest")
+            )
         if path == "/release-status.json":
-            return self.release_status_response()
+            return self.release_status_response(
+                regression_manifest_path=_query_path(query, "regression_manifest")
+            )
         if path == "/physical-plan.json":
             return self.physical_plan_response()
         if path == "/physical-status.json":
@@ -321,7 +327,11 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
-    def readiness_response(self) -> WebResponse:
+    def readiness_response(
+        self,
+        *,
+        regression_manifest_path: Path | None = None,
+    ) -> WebResponse:
         if self.runs_dir is None:
             return WebResponse.from_text(
                 "Runs directory is not configured.\n",
@@ -329,7 +339,14 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            return WebResponse.json(build_beta_readiness_report(self.runs_dir))
+            if regression_manifest_path is None:
+                return WebResponse.json(build_beta_readiness_report(self.runs_dir))
+            return WebResponse.json(
+                build_beta_readiness_report(
+                    self.runs_dir,
+                    regression_manifest_path=regression_manifest_path,
+                )
+            )
         except (OSError, ValueError) as exc:
             return WebResponse.from_text(
                 f"{exc}\n",
@@ -337,7 +354,11 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
-    def release_status_response(self) -> WebResponse:
+    def release_status_response(
+        self,
+        *,
+        regression_manifest_path: Path | None = None,
+    ) -> WebResponse:
         if self.runs_dir is None or self.release_dir is None:
             return WebResponse.from_text(
                 "Runs directory or release directory is not configured.\n",
@@ -345,10 +366,18 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
+            if regression_manifest_path is None:
+                return WebResponse.json(
+                    build_release_status_report(
+                        release_dir=self.release_dir,
+                        runs_dir=self.runs_dir,
+                    )
+                )
             return WebResponse.json(
                 build_release_status_report(
                     release_dir=self.release_dir,
                     runs_dir=self.runs_dir,
+                    regression_manifest_path=regression_manifest_path,
                 )
             )
         except (OSError, ValueError) as exc:
@@ -1374,6 +1403,14 @@ def _open_folder_route(relative_url_path: str) -> tuple[str, str] | None:
     if target not in {"run", "report", "bundle"}:
         return None
     return run_id, target
+
+
+def _query_path(query: dict[str, list[str]], field_name: str) -> Path | None:
+    values = query.get(field_name) or []
+    raw_value = values[0].strip() if values else ""
+    if not raw_value:
+        return None
+    return Path(raw_value).expanduser()
 
 
 
