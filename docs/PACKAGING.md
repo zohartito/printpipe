@@ -702,3 +702,8 @@ macOS DMG without `signed=true`.
 gates from `printpipe readiness`. It reports the release bundle gate first,
 then physical, dependency, Bambu, filesystem, and signing gates, and lists the
 next actions that still block a strict release handoff.
+
+Local smoke evidence: Wave 82 built the default ignored `dist/release` folder
+with ad-hoc macOS signing. `verify-release` returned `0`; `release-status
+--strict` returned `2` only because physical PLA/PETG/TPU evidence and
+Developer ID identities are still missing.

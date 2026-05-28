@@ -903,3 +903,14 @@ Status: complete for release gate visibility. PrintPipe now has one terminal com
 4. Done: added `printpipe release-status --release-dir dist/release --runs-dir runs`.
 5. Done: added `--json` and `--strict`, returning exit code `2` unless release integrity and readiness gates are all ready.
 6. Boundary: this is a read-only status layer; it does not build a release, sign packages, install tools, or record physical evidence.
+
+## Wave 82 - Local Release Bundle Smoke Evidence
+
+Status: partial progress for original items 121 and 122. A local ignored release bundle now verifies cleanly, while final distribution gates still require physical evidence and real signing credentials.
+
+1. Done: ran `printpipe build-release --output-dir dist/release --adhoc-sign --json`.
+2. Done: generated `printpipe.pyz`, `PrintPipe.dmg`, `PrintPipe-Windows-portable.zip`, and `release_manifest.json` in ignored `dist/release`.
+3. Done: `printpipe verify-release dist/release --json` returned exit code `0` with all manifest, boundary, metadata, size, and SHA-256 checks passing.
+4. Done: `printpipe release-status --release-dir dist/release --runs-dir runs --json --strict` reported the `release_bundle` gate as `ready`.
+5. Remaining: `release-status --strict` still returns exit code `2` because PLA/PETG/TPU physical evidence is missing and Developer ID Application/Installer identities are not installed.
+6. Boundary: generated files stay ignored under `dist/`; this wave records smoke evidence, not a committed binary release or final signed/notarized distribution.
