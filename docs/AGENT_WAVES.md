@@ -335,14 +335,14 @@ Status: complete for F10. This proves a clean macOS package smoke path around th
 
 ## Wave 31 - Windows Package Smoke Path
 
-Status: partial for F11. The Windows smoke command and PowerShell-ready plan exist, but the actual clean Windows host execution still needs to happen on Windows.
+Status: superseded by Wave 33. This wave added the Windows smoke command and PowerShell-ready plan; Wave 33 then executed it on a real Windows host.
 
 1. Done: added Windows package smoke plan output alongside the macOS smoke path.
 2. Done: added `printpipe package-smoke --platform windows --runs-dir ... --json`.
 3. Done: non-Windows hosts return `manual_required` with the exact command to run on Windows instead of pretending the smoke passed.
 4. Done: the Windows implementation can run the same generated-STL pipeline when invoked on a real Windows runtime.
 5. Done: updated `docs/PACKAGING.md` and `docs/APP_ROADMAP.md` with the F11 boundary.
-6. Remaining: run the command on a clean Windows host and attach the JSON evidence before marking F11 complete.
+6. Superseded: real Windows execution evidence is now recorded in Wave 33.
 
 ## Wave 32 - Bambu CLI SIGSEGV Boundary
 
@@ -354,3 +354,14 @@ Status: partial for F13. The crash is classified and documented as a Bambu CLI/r
 4. Done: crash-report text containing `update_values_to_printer_extruders_for_multiple_filaments` is classified as `extruder_filament_mapping`.
 5. Done: added `docs/research/wave32_bambu_cli_sigsegv.md` with the current boundary and workaround.
 6. Remaining: capture a fresh crash receipt, test another Bambu/macOS or Windows combination, or find a non-crashing CLI invocation before marking F13 complete.
+
+## Wave 33 - Windows Package Smoke Evidence
+
+Status: complete for F11. The Windows package smoke path has real Windows execution evidence, but original item 122 remains partial until there is a signed installer/package flow.
+
+1. Done: verified `desktop-zt` is reachable over SSH.
+2. Done: exported the current committed source with `git archive` because Windows GitHub auth was not configured.
+3. Done: ran `printpipe package-smoke --platform windows --runs-dir runs/package-smoke/windows --json` on Windows through the temporary source export.
+4. Done: Windows returned `status=ok`, with generated input fixture, reports, run root, and `.3mf` bundle.
+5. Done: recorded the evidence in `docs/research/wave33_windows_package_smoke.md`.
+6. Remaining: signed installer packaging and live Windows Bambu CLI slicing are separate future gates.
