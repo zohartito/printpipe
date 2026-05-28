@@ -134,6 +134,7 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/runs/run-ui-001/artifacts/60_bundle/ready.3mf"' in response.text
     assert 'href="/readiness.json"' in response.text
     assert 'href="/release-status.json"' in response.text
+    assert 'href="/physical-plan.json"' in response.text
     assert 'href="/doctor.json"' in response.text
 
 
@@ -229,6 +230,37 @@ def test_physical_status_json_endpoint_returns_beta_gate_status(tmp_path: Path):
     assert payload["family_status"]["pla"]["status"] == "passed"
     assert payload["family_status"]["petg"]["status"] == "missing"
     assert payload["family_status"]["tpu"]["status"] == "missing"
+
+
+def test_physical_plan_json_endpoint_returns_action_plan(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/physical-plan.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "action_required"
+    assert payload["action_count"] == 3
+    assert payload["actions"][0]["family"] == "pla"
+    assert "record-physical-evidence" in payload["actions"][0]["record_command"]
+    assert "Digital artifacts" in payload["proof_boundary"]
+
+
+def test_home_response_renders_physical_action_plan(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Physical action plan" in response.text
+    assert "3 action required" in response.text
+    assert "Digital artifacts, generated coupons, and slice receipts do not count" in response.text
+    assert "PLA" in response.text
+    assert "PETG" in response.text
+    assert "TPU" in response.text
+    assert "printpipe record-physical-evidence" in response.text
+    assert "printpipe physical-plan --runs-dir runs" in response.text
 
 
 def test_home_response_renders_combined_readiness_summary(monkeypatch, tmp_path: Path):

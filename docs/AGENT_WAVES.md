@@ -959,3 +959,14 @@ Status: complete for printer-side action planning. PrintPipe now turns the remai
 4. Done: the plan targets an existing incomplete packet's run folder when available, otherwise uses a clear placeholder run root for the next physical print.
 5. Done: the plan repeats the proof boundary: generated coupons, digital artifacts, and slice receipts do not count as physical proof until a real print is recorded.
 6. Boundary: this wave does not create fake physical evidence or mark F9 complete; real PLA, PETG, and TPU coupon/small-object prints are still required.
+
+## Wave 87 - Physical Action Plan in Local Web UI
+
+Status: complete for local web visibility. The browser now shows the same physical validation action plan as the CLI.
+
+1. Done: added `GET /physical-plan.json`.
+2. Done: added `Physical plan JSON` to the home-page service links.
+3. Done: added a `Physical action plan` home panel below the physical beta gate.
+4. Done: the panel renders missing/incomplete material-family actions, required fields, and exact `record-physical-evidence` command skeletons.
+5. Done: the panel repeats the proof boundary so UI users do not confuse generated coupons or slice receipts with real print evidence.
+6. Boundary: this is read-only guidance; it does not record evidence or mark physical validation complete.

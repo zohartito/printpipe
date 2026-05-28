@@ -18,6 +18,7 @@ from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from printpipe.beta.readiness import build_beta_readiness_report
+from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.env.doctor import build_environment_report
 from printpipe.local_open import open_run_folder
@@ -205,6 +206,8 @@ class PrintPipeWebApp:
             return self.readiness_response()
         if path == "/release-status.json":
             return self.release_status_response()
+        if path == "/physical-plan.json":
+            return self.physical_plan_response()
         if path == "/physical-status.json":
             return self.physical_status_response()
         if path.startswith(_STATIC_PREFIX):
@@ -371,6 +374,22 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
+    def physical_plan_response(self) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            return WebResponse.json(build_physical_validation_plan(self.runs_dir))
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
     def static_response(self, relative_url_path: str) -> WebResponse:
         static_path = self._find_static_html(relative_url_path)
         if static_path is None:
@@ -473,12 +492,14 @@ class PrintPipeWebApp:
                 self._render_release_status_panel(),
                 self._render_readiness_panel(),
                 self._render_physical_beta_gate_panel(),
+                self._render_physical_action_plan_panel(),
                 self._render_recent_runs_panel(),
                 '    <section class="panel">',
                 "      <h2>Service</h2>",
                 '      <p><a href="/health">Health check</a></p>',
                 '      <p><a href="/release-status.json">Release status JSON</a></p>',
                 '      <p><a href="/readiness.json">Readiness JSON</a></p>',
+                '      <p><a href="/physical-plan.json">Physical plan JSON</a></p>',
                 '      <p><a href="/doctor.json">Environment doctor JSON</a></p>',
                 "    </section>",
                 '    <section class="panel">',
@@ -686,6 +707,62 @@ class PrintPipeWebApp:
                 f"          <strong>{escape(state)}</strong>",
                 f"          <p>{escape(passed_count)} passed / {escape(packet_count)} packet(s)</p>",
                 f'          <p class="muted">{escape(reason)}</p>',
+                "        </article>",
+            ]
+        )
+
+    def _render_physical_action_plan_panel(self) -> str:
+        if self.runs_dir is None:
+            return ""
+        try:
+            plan = build_physical_validation_plan(self.runs_dir)
+        except (OSError, ValueError):
+            return ""
+
+        overall = str(plan.get("overall_status", "unknown"))
+        action_count = str(plan.get("action_count", 0))
+        proof_boundary = str(plan.get("proof_boundary", ""))
+        actions = _as_dicts(plan.get("actions"))
+        action_cards = "\n".join(
+            self._render_physical_action_card(action)
+            for action in actions
+        )
+        if not action_cards:
+            action_cards = '<p class="muted">No physical validation actions required.</p>'
+        command = "printpipe physical-plan --runs-dir runs"
+        return "\n".join(
+            [
+                '    <section class="panel physical-plan-panel">',
+                "      <div>",
+                "        <h2>Physical action plan</h2>",
+                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
+                f"        <p>{escape(proof_boundary)}</p>",
+                "      </div>",
+                f'      <div class="physical-action-grid">{action_cards}</div>',
+                f'      <code>{escape(command)}</code>',
+                "    </section>",
+            ]
+        )
+
+    def _render_physical_action_card(self, action: dict[str, Any]) -> str:
+        family = str(action.get("family", "unknown")).upper()
+        status = str(action.get("status", "unknown"))
+        reason = str(action.get("reason") or "Physical evidence action required.")
+        required = action.get("required_fields")
+        required_text = (
+            ", ".join(str(item) for item in required)
+            if isinstance(required, list)
+            else ""
+        )
+        command = str(action.get("record_command") or "")
+        return "\n".join(
+            [
+                f'        <article class="physical-action physical-action-{_class_name(status)}">',
+                f"          <span>{escape(family)}</span>",
+                f"          <strong>{escape(status)}</strong>",
+                f"          <p>{escape(reason)}</p>",
+                f'          <p class="muted">Required: {escape(required_text or "not recorded")}</p>',
+                f"          <pre><code>{escape(command)}</code></pre>",
                 "        </article>",
             ]
         )
@@ -1449,6 +1526,7 @@ _CSS = """
     }
     .field-grid,
     .run-list,
+    .physical-action-grid,
     .physical-family-grid,
     .readiness-grid {
       display: grid;
@@ -1505,11 +1583,13 @@ _CSS = """
       border-radius: 8px;
       padding: 14px;
     }
-    .physical-gate-panel {
+    .physical-gate-panel,
+    .physical-plan-panel {
       display: grid;
       gap: 14px;
     }
-    .physical-gate-panel code {
+    .physical-gate-panel code,
+    .physical-plan-panel > code {
       background: #f1f5f9;
       border: 1px solid #d9e2ec;
       border-radius: 6px;
@@ -1517,6 +1597,30 @@ _CSS = """
       font-size: 0.9rem;
       overflow-wrap: anywhere;
       padding: 8px 10px;
+    }
+    .physical-action {
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .physical-action span {
+      color: #52606d;
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .physical-action pre {
+      background: #102a43;
+      border-radius: 6px;
+      color: #f0f4f8;
+      font-size: 0.78rem;
+      margin: 10px 0 0;
+      overflow-x: auto;
+      padding: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .physical-family {
       border: 1px solid #d9e2ec;
