@@ -118,3 +118,76 @@ def test_build_run_status_marks_manifest_only_run_as_missing_report(tmp_path: Pa
         "pending": 9,
         "percent": 0,
     }
+
+
+def test_build_run_status_reports_unreadable_external_artifacts_without_crashing(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "part.stl"
+    source.write_text("solid fake\nendsolid fake\n", encoding="utf-8")
+    layout = create_run(source, tmp_path / "runs", run_id="run-external-artifact")
+    external_artifact = tmp_path / "external" / "mesh.stl"
+    external_artifact.parent.mkdir()
+    external_artifact.write_text("solid fake\nendsolid fake\n", encoding="utf-8")
+
+    stages = (
+        StageReceipt(
+            stage="external_mesh",
+            status=StageStatus.SUCCEEDED,
+            message="External mesh recorded.",
+            artifacts=(
+                Artifact(
+                    kind=ArtifactKind.GENERATED_MESH,
+                    path=external_artifact,
+                    label="External generated mesh",
+                ),
+            ),
+        ),
+    )
+    report_dict = build_run_report_dict(layout, stages=stages)
+    write_run_report(layout, stages=stages)
+    write_html_report(layout, report_dict)
+
+    def fake_can_read(path: Path) -> bool:
+        return path != external_artifact.resolve()
+
+    monkeypatch.setattr("printpipe.web.status._can_read_path", fake_can_read)
+
+    status = build_run_status(layout.root)
+
+    artifact = status["artifacts"][0]
+    assert artifact["path"] == str(external_artifact.resolve())
+    assert artifact["present"] is True
+    assert artifact["inside_run_root"] is False
+    assert artifact["readable"] is False
+    assert artifact["state"] == "unreadable"
+    assert status["missing_artifact_count"] == 1
+
+
+def test_build_run_status_marks_unreadable_report_state(
+    monkeypatch,
+    tmp_path: Path,
+):
+    source = tmp_path / "part.stl"
+    source.write_text("solid fake\nendsolid fake\n", encoding="utf-8")
+    layout = create_run(source, tmp_path / "runs", run_id="run-unreadable-report")
+
+    def fake_read_json_document(path: Path):
+        if path.name == "manifest.json":
+            return {
+                "run_id": layout.run_id,
+                "input": {"kind": "mesh"},
+                "stages": {},
+            }, "present"
+        return None, "unreadable"
+
+    monkeypatch.setattr(
+        "printpipe.web.status._read_json_document",
+        fake_read_json_document,
+    )
+
+    status = build_run_status(layout.root)
+
+    assert status["report"]["state"] == "unreadable"
+    assert status["progress"]["state"] == "unreadable_report"

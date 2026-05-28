@@ -277,3 +277,14 @@ Status: complete for local CLI/web affordances. Outputs are covered by `tests/te
 3. Done: run-detail artifacts now include local POST buttons for opening bundle and report folders.
 4. Done: web folder opening uses a safe run-root lookup and injectable opener for tests.
 5. Remaining: direct "send to printer" remains separate from this local folder-opening affordance.
+
+## Wave 26 - Filesystem Readability Receipts
+
+Status: complete for F2 and F12. Outputs are covered by `tests/test_env_doctor.py`, `tests/test_web_status.py`, and `tests/test_cli_doctor.py`.
+
+1. Done: `printpipe doctor` now includes a filesystem section for workspace paths and configured artifact paths.
+2. Done: `PRINTPIPE_ARTIFACT_PATHS` can be used to have doctor check external artifact locations without changing the run pipeline.
+3. Done: unreadable or missing filesystem paths report warning status, path, existence, readability, and a concrete recovery action.
+4. Done: web run status now resolves artifact access into `present`, `inside_run_root`, `readable`, and `state`.
+5. Done: unreadable external artifacts are counted as unusable and reported instead of crashing status generation.
+6. Remaining: F1 still owns any broader macOS Desktop/TCC recovery guidance for the primary checkout.

@@ -52,6 +52,35 @@ def test_environment_report_combines_dependencies_bambu_and_profile_detection(
     assert report["summary"]["dependency_status_counts"]["ok"] == 2
 
 
+def test_environment_report_warns_about_unreadable_workspace_and_artifact_paths(
+    monkeypatch,
+    tmp_path: Path,
+):
+    workspace = tmp_path / "workspace"
+    artifact = tmp_path / "external" / "mesh.stl"
+    workspace.mkdir()
+    artifact.parent.mkdir()
+    artifact.write_text("solid fake\nendsolid fake\n", encoding="utf-8")
+
+    def fake_can_read(path: Path) -> bool:
+        return path != artifact.resolve()
+
+    monkeypatch.setattr("printpipe.env.doctor._can_read_path", fake_can_read)
+
+    report = build_environment_report(
+        platform_name="linux",
+        env={},
+        workspace_paths=[workspace],
+        artifact_paths=[artifact],
+    )
+
+    checks = {check["id"]: check for check in report["filesystem"]["checks"]}
+    assert checks["workspace:0"]["status"] == "ok"
+    assert checks["artifact:0"]["status"] == "warning"
+    assert checks["artifact:0"]["readable"] is False
+    assert report["summary"]["filesystem_status_counts"]["warning"] == 1
+
+
 def test_render_environment_report_is_concise_and_human_readable():
     report = {
         "platform": {"raw": "win32", "normalized": "windows"},
@@ -65,7 +94,19 @@ def test_render_environment_report_is_concise_and_human_readable():
         ],
         "bambu_studio": {"installed_count": 0, "candidate_count": 2},
         "bambu_profiles": {"candidate_count": 0},
-        "summary": {"dependency_status_counts": {"ok": 1}},
+        "filesystem": {
+            "checks": [
+                {
+                    "status": "warning",
+                    "label": "Artifact path",
+                    "action": "Grant access.",
+                }
+            ]
+        },
+        "summary": {
+            "dependency_status_counts": {"ok": 1},
+            "filesystem_status_counts": {"warning": 1},
+        },
     }
 
     text = render_environment_report(report)
@@ -74,3 +115,5 @@ def test_render_environment_report_is_concise_and_human_readable():
     assert "Platform: windows (win32)" in text
     assert "ok: Python - No action needed." in text
     assert "Bambu Studio: 0 installed candidate(s) / 2 checked" in text
+    assert "Filesystem:" in text
+    assert "warning: Artifact path - Grant access." in text

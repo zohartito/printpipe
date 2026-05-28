@@ -103,7 +103,8 @@ these checks to narrow the issue:
 
 - `printpipe --version`: verifies the CLI import path.
 - `printpipe doctor`: checks Python, optional modules, Bambu Studio candidates,
-  and Bambu profile user folders.
+  Bambu profile user folders, workspace readability, and configured external
+  artifact readability.
 - `printpipe status runs/<run-id>`: verifies run/report discovery.
 - `printpipe serve --host 127.0.0.1 --port 8765 --runs-dir runs`: verifies the
   local web server.
@@ -117,6 +118,12 @@ Known missing-dependency cases:
 - Missing Bambu profiles should report the profile name/type and searched roots.
 - Missing run reports or artifacts should appear as `missing` in status and web
   surfaces.
+- Unreadable external artifacts should appear as `unreadable` in status/web
+  surfaces instead of crashing the page.
+
+To make `printpipe doctor` check specific external artifact folders or files,
+set `PRINTPIPE_ARTIFACT_PATHS` with paths separated by the OS path separator
+(`:` on macOS/Linux, `;` on Windows) before running doctor.
 
 ## Packaging State
 

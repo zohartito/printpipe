@@ -23,6 +23,8 @@ def build_environment_report(
     home: str | Path | None = None,
     bambu_studio_roots: Iterable[str | Path] | None = None,
     profile_base_paths: Iterable[str | Path] | None = None,
+    workspace_paths: Iterable[str | Path] | None = None,
+    artifact_paths: Iterable[str | Path] | None = None,
 ) -> dict[str, Any]:
     """Build one JSON-friendly environment report for `printpipe doctor`."""
 
@@ -41,6 +43,11 @@ def build_environment_report(
         env=environment,
         home=home,
     )
+    filesystem_checks = _filesystem_checks(
+        workspace_paths=workspace_paths,
+        artifact_paths=artifact_paths,
+        env=environment,
+    )
 
     return {
         "schema_version": 1,
@@ -56,8 +63,12 @@ def build_environment_report(
             "candidates": studio_candidates,
         },
         "bambu_profiles": profile_report,
+        "filesystem": {"checks": filesystem_checks},
         "summary": {
             "dependency_status_counts": dict(Counter(report["status"] for report in dependencies)),
+            "filesystem_status_counts": dict(
+                Counter(check["status"] for check in filesystem_checks)
+            ),
             "bambu_studio_found": any(candidate["exists"] for candidate in studio_candidates),
             "bambu_profile_user_count": profile_report["candidate_count"],
         },
@@ -72,6 +83,7 @@ def render_environment_report(report: Mapping[str, Any]) -> str:
     studio = _mapping(report.get("bambu_studio"))
     profiles = _mapping(report.get("bambu_profiles"))
     dependencies = _list(report.get("dependencies"))
+    filesystem_checks = _list(_mapping(report.get("filesystem")).get("checks"))
 
     lines = [
         "PrintPipe Doctor",
@@ -86,6 +98,19 @@ def render_environment_report(report: Mapping[str, Any]) -> str:
                 "- "
                 f"{item.get('status', 'unknown')}: "
                 f"{item.get('label', item.get('id', 'dependency'))} - "
+                f"{item.get('action', '')}"
+            )
+    else:
+        lines.append("- none reported")
+
+    lines.extend(["", "Filesystem:"])
+    if filesystem_checks:
+        for check in filesystem_checks:
+            item = _mapping(check)
+            lines.append(
+                "- "
+                f"{item.get('status', 'unknown')}: "
+                f"{item.get('label', item.get('id', 'path'))} - "
                 f"{item.get('action', '')}"
             )
     else:
@@ -144,6 +169,88 @@ def _profile_platform(raw_platform: str, platform_key: str) -> str:
     if platform_key == "windows":
         return "win32"
     return raw_platform
+
+
+def _filesystem_checks(
+    *,
+    workspace_paths: Iterable[str | Path] | None,
+    artifact_paths: Iterable[str | Path] | None,
+    env: Mapping[str, str],
+) -> list[dict[str, Any]]:
+    workspaces = list(workspace_paths) if workspace_paths is not None else [Path.cwd()]
+    artifacts = (
+        list(artifact_paths)
+        if artifact_paths is not None
+        else _paths_from_env(env.get("PRINTPIPE_ARTIFACT_PATHS", ""))
+    )
+
+    checks: list[dict[str, Any]] = []
+    checks.extend(
+        _filesystem_check(kind="workspace", index=index, path=path)
+        for index, path in enumerate(workspaces)
+    )
+    checks.extend(
+        _filesystem_check(kind="artifact", index=index, path=path)
+        for index, path in enumerate(artifacts)
+    )
+    return checks
+
+
+def _paths_from_env(value: str) -> list[Path]:
+    return [Path(item).expanduser() for item in value.split(os.pathsep) if item]
+
+
+def _filesystem_check(
+    *,
+    kind: str,
+    index: int,
+    path: str | Path,
+) -> dict[str, Any]:
+    resolved_path = Path(path).expanduser().resolve()
+    label = "Workspace path" if kind == "workspace" else "Artifact path"
+    exists = _safe_exists(resolved_path)
+    readable = exists and _can_read_path(resolved_path)
+    status = "ok" if exists and readable else "warning"
+
+    if not exists:
+        action = "Confirm the path exists or update the configured location."
+    elif not readable:
+        action = (
+            "Grant filesystem permission or move the path somewhere PrintPipe can read."
+        )
+    else:
+        action = "No action needed."
+
+    return {
+        "id": f"{kind}:{index}",
+        "kind": kind,
+        "label": label,
+        "path": str(resolved_path),
+        "exists": exists,
+        "readable": readable,
+        "status": status,
+        "action": action,
+    }
+
+
+def _safe_exists(path: Path) -> bool:
+    try:
+        return path.exists()
+    except OSError:
+        return False
+
+
+def _can_read_path(path: Path) -> bool:
+    try:
+        if path.is_dir():
+            with os.scandir(path):
+                pass
+        else:
+            with path.open("rb") as handle:
+                handle.read(0)
+    except OSError:
+        return False
+    return True
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:

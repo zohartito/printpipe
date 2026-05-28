@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -60,17 +61,19 @@ def build_run_status(run_root: str | Path) -> dict[str, Any]:
         "artifacts_present": any(artifact["present"] for artifact in artifacts),
         "artifact_count": len(artifacts),
         "missing_artifact_count": sum(
-            1 for artifact in artifacts if not artifact["present"]
+            1 for artifact in artifacts if not _artifact_is_usable(artifact)
         ),
     }
 
 
 def _read_json_document(path: Path) -> tuple[dict[str, Any] | None, str]:
-    if not path.exists():
+    if not _safe_exists(path):
         return None, "missing"
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
+    except OSError:
+        return None, "unreadable"
     except json.JSONDecodeError:
         return None, "invalid"
 
@@ -150,7 +153,7 @@ def _stage_from_report(stage: Mapping[str, Any], *, run_root: Path) -> dict[str,
         "artifacts_present": any(artifact["present"] for artifact in artifacts),
         "artifact_count": len(artifacts),
         "missing_artifact_count": sum(
-            1 for artifact in artifacts if not artifact["present"]
+            1 for artifact in artifacts if not _artifact_is_usable(artifact)
         ),
     }
 
@@ -167,13 +170,13 @@ def _artifact_models(
 
         path_value = artifact.get("path")
         resolved_path = _resolve_run_path(run_root, path_value)
+        access = _artifact_access_model(resolved_path, run_root=run_root)
         models.append(
             {
                 "kind": str(artifact.get("kind", "unknown")),
                 "label": str(artifact.get("label", "")),
                 "path": _optional_string(path_value),
-                "absolute_path": str(resolved_path) if resolved_path else None,
-                "present": resolved_path.exists() if resolved_path else False,
+                **access,
             }
         )
     return models
@@ -249,10 +252,14 @@ def _progress_state(
         return "missing_manifest"
     if manifest_state == "invalid":
         return "invalid_manifest"
+    if manifest_state == "unreadable":
+        return "unreadable_manifest"
     if report_state == "missing":
         return "missing_report"
     if report_state == "invalid":
         return "invalid_report"
+    if report_state == "unreadable":
+        return "unreadable_report"
     if failed:
         return "failed"
     if running:
@@ -272,7 +279,7 @@ def _file_presence(path: Path, *, run_root: Path) -> dict[str, Any]:
     return {
         "path": str(path),
         "relative_path": _relative_to_run(path, run_root=run_root),
-        "present": path.exists(),
+        "present": _safe_exists(path),
     }
 
 
@@ -282,8 +289,76 @@ def _resolve_run_path(run_root: Path, value: Any) -> Path | None:
 
     path = Path(value).expanduser()
     if path.is_absolute():
-        return path
-    return run_root / path
+        return path.resolve()
+    return (run_root / path).resolve()
+
+
+def _artifact_access_model(
+    resolved_path: Path | None,
+    *,
+    run_root: Path,
+) -> dict[str, Any]:
+    if resolved_path is None:
+        return {
+            "absolute_path": None,
+            "present": False,
+            "inside_run_root": False,
+            "readable": False,
+            "state": "unresolved",
+        }
+
+    present = _safe_exists(resolved_path)
+    inside_run_root = _is_relative_to(resolved_path, run_root)
+    readable = present and _can_read_path(resolved_path)
+
+    if not present:
+        state = "missing"
+    elif not readable:
+        state = "unreadable"
+    elif not inside_run_root:
+        state = "outside_run_root"
+    else:
+        state = "present"
+
+    return {
+        "absolute_path": str(resolved_path),
+        "present": present,
+        "inside_run_root": inside_run_root,
+        "readable": readable,
+        "state": state,
+    }
+
+
+def _artifact_is_usable(artifact: Mapping[str, Any]) -> bool:
+    return artifact.get("present") is True and artifact.get("readable") is not False
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _safe_exists(path: Path) -> bool:
+    try:
+        return path.exists()
+    except OSError:
+        return False
+
+
+def _can_read_path(path: Path) -> bool:
+    try:
+        if path.is_dir():
+            with os.scandir(path):
+                pass
+        else:
+            with path.open("rb") as handle:
+                handle.read(0)
+    except OSError:
+        return False
+    return True
 
 
 def _relative_to_run(path: Path, *, run_root: Path) -> str:
