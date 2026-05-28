@@ -164,14 +164,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     package_smoke.add_argument(
         "--platform",
-        choices=("macos",),
+        choices=("macos", "windows"),
         default="macos",
         help="Platform smoke path to run.",
     )
     package_smoke.add_argument(
         "--runs-dir",
         type=Path,
-        default=Path("runs/package-smoke/macos"),
+        default=None,
         help="Directory where package-smoke run folders are created.",
     )
     package_smoke.add_argument(
@@ -352,12 +352,29 @@ def _doctor(*, json_output: bool, platform_name: str | None) -> int:
 def _package_smoke(
     *,
     platform_name: str,
-    runs_dir: Path,
+    runs_dir: Path | None,
     plan_only: bool,
     json_output: bool,
 ) -> int:
+    resolved_runs_dir = runs_dir or Path(f"runs/package-smoke/{platform_name}")
     if platform_name != "macos":
-        raise ValueError(f"unsupported package-smoke platform: {platform_name}")
+        if platform_name != "windows":
+            raise ValueError(f"unsupported package-smoke platform: {platform_name}")
+        from printpipe.packaging.smoke import (
+            build_windows_package_smoke_plan,
+            run_windows_package_smoke,
+        )
+
+        payload = (
+            build_windows_package_smoke_plan(runs_dir=resolved_runs_dir).to_dict()
+            if plan_only
+            else run_windows_package_smoke(runs_dir=resolved_runs_dir).to_dict()
+        )
+        if json_output:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print(_render_package_smoke(payload), end="")
+        return 0 if payload.get("status", "ok") != "failed" else 2
 
     from printpipe.packaging.smoke import (
         build_macos_package_smoke_plan,
@@ -365,9 +382,9 @@ def _package_smoke(
     )
 
     payload = (
-        build_macos_package_smoke_plan(runs_dir=runs_dir).to_dict()
+        build_macos_package_smoke_plan(runs_dir=resolved_runs_dir).to_dict()
         if plan_only
-        else run_macos_package_smoke(runs_dir=runs_dir).to_dict()
+        else run_macos_package_smoke(runs_dir=resolved_runs_dir).to_dict()
     )
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))

@@ -180,3 +180,32 @@ What this does not prove:
 - It does not complete the live Bambu CLI slice gate. That check is recorded as
   `manual_required` in the smoke result while F13 owns the current Bambu Studio
   2.6.00.51 / macOS 26.5 CLI segfault.
+
+## Windows Package Smoke Path
+
+F11 has a matching Windows smoke command:
+
+```powershell
+printpipe package-smoke --platform windows --runs-dir runs/package-smoke/windows --json
+```
+
+On macOS or Linux, the command returns `manual_required` and tells the operator
+to run this command on Windows. That is intentional: the pipeline code is
+cross-platform, but a clean Windows packaging smoke pass needs the target
+Windows shell, paths, permissions, and Bambu Studio install layout.
+
+What the Windows command should prove when run on Windows:
+
+- The installed `printpipe` entry point starts from PowerShell.
+- A generated ASCII STL fixture can be written outside repo test fixtures.
+- The existing-mesh pipeline creates a run folder, reports, and a Bambu `.3mf`.
+- `status` and `open-report` resolve Windows paths cleanly.
+- Missing Bambu Studio or optional dependencies are reported clearly rather
+  than crashing.
+
+What it does not prove yet:
+
+- It is not a signed Windows installer.
+- It has not been executed on a real Windows host from this Mac session.
+- Live Bambu CLI slicing still needs a target-machine check after F13 or a
+  Windows-specific workaround.

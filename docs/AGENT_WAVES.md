@@ -332,3 +332,14 @@ Status: complete for F10. This proves a clean macOS package smoke path around th
 4. Done: the smoke command runs the real existing-mesh pipeline and records run root, reports, bundle paths, and slice-gate status.
 5. Done: updated `docs/PACKAGING.md` and `docs/APP_ROADMAP.md` with the F10 boundary.
 6. Remaining: original item 121 stays partial until there is a signed/notarized macOS app or installer flow; F13 still owns live Bambu CLI slicing.
+
+## Wave 31 - Windows Package Smoke Path
+
+Status: partial for F11. The Windows smoke command and PowerShell-ready plan exist, but the actual clean Windows host execution still needs to happen on Windows.
+
+1. Done: added Windows package smoke plan output alongside the macOS smoke path.
+2. Done: added `printpipe package-smoke --platform windows --runs-dir ... --json`.
+3. Done: non-Windows hosts return `manual_required` with the exact command to run on Windows instead of pretending the smoke passed.
+4. Done: the Windows implementation can run the same generated-STL pipeline when invoked on a real Windows runtime.
+5. Done: updated `docs/PACKAGING.md` and `docs/APP_ROADMAP.md` with the F11 boundary.
+6. Remaining: run the command on a clean Windows host and attach the JSON evidence before marking F11 complete.

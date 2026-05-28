@@ -5,8 +5,12 @@ from printpipe.packaging.smoke import (
     MacOSPackageSmokeResult,
     SmokeCheck,
     SmokeStep,
+    WindowsPackageSmokePlan,
+    WindowsPackageSmokeResult,
     build_macos_package_smoke_plan,
+    build_windows_package_smoke_plan,
     run_macos_package_smoke,
+    run_windows_package_smoke,
 )
 
 __all__ = (
@@ -14,6 +18,10 @@ __all__ = (
     "MacOSPackageSmokeResult",
     "SmokeCheck",
     "SmokeStep",
+    "WindowsPackageSmokePlan",
+    "WindowsPackageSmokeResult",
     "build_macos_package_smoke_plan",
+    "build_windows_package_smoke_plan",
     "run_macos_package_smoke",
+    "run_windows_package_smoke",
 )
