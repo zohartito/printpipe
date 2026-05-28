@@ -1123,3 +1123,14 @@ Status: complete for Phase 16 rule-update evidence. Material, orientation, and r
 4. Done: readiness now includes a `rule_updates` gate that is `not_applicable` with no packets, `action_required` for incomplete packets, and `ready` when all three rule families are verified.
 5. Done: local ignored packets record the Wave 41 PETG/engineering Textured PEI material rule fix, the Wave 100 flat-bracket orientation fix, and the Wave 100 open-rim repair/networkx fix; `rule-update-status --runs-dir runs` reports `passed`.
 6. Boundary: rule-update packets are software evidence. Physical PLA/PETG/TPU validation, trusted-user feedback, and signed distribution credentials remain separate gates.
+
+## Wave 102 - Dogfood Failure Regression Coverage
+
+Status: complete for captured software failures. The real Wave 100 dogfood failures are now failure packets with executable regression coverage.
+
+1. Done: added `build_failure_regression_status()` to compare captured `90_beta/failure_report.json` packets against a regression manifest by `source_run_id`.
+2. Done: added `printpipe failure-regression-status --runs-dir ... --regression-manifest ...`.
+3. Done: readiness now has a `failure_regressions` gate that is not applicable when no failures exist, action-required when failures lack cases, and ready when all captured failures are covered.
+4. Done: recorded ignored failure packets for the networkx repair import failure, the open-rim cup/vase repair failure, and the flat-bracket off-bed slice failure.
+5. Done: committed `regressions/dogfood_failures.json` with three expected-success cases; `run-regressions regressions/dogfood_failures.json --strict` passes all three.
+6. Boundary: this closes software failure capture/regression promotion for current dogfood failures. Real trusted-user beta feedback and physical PLA/PETG/TPU print evidence remain external gates.

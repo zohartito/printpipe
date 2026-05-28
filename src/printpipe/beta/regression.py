@@ -141,6 +141,78 @@ def run_regression_manifest(
     }
 
 
+def build_failure_regression_status(
+    runs_dir: str | Path,
+    *,
+    regression_manifest_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Report whether captured beta failures have matching regression cases."""
+
+    runs_root = Path(runs_dir).expanduser().resolve()
+    failures = _load_failure_report_summaries(runs_root)
+    failure_ids = [failure["run_id"] for failure in failures]
+    if not failures:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "runs_dir": str(runs_root),
+            "regression_manifest_path": (
+                str(Path(regression_manifest_path).expanduser().resolve())
+                if regression_manifest_path is not None
+                else ""
+            ),
+            "overall_status": "no_failures",
+            "failure_report_count": 0,
+            "regression_case_count": 0,
+            "covered_failure_count": 0,
+            "missing_regression_source_run_ids": [],
+            "failure_reports": [],
+        }
+
+    manifest_path = (
+        Path(regression_manifest_path).expanduser().resolve()
+        if regression_manifest_path is not None
+        else None
+    )
+    if manifest_path is None or not manifest_path.exists():
+        return _failure_regression_payload(
+            runs_root=runs_root,
+            manifest_path=manifest_path,
+            failures=failures,
+            case_count=0,
+            covered_ids=[],
+            overall_status="missing_manifest",
+        )
+
+    try:
+        manifest = load_regression_manifest(manifest_path)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        payload = _failure_regression_payload(
+            runs_root=runs_root,
+            manifest_path=manifest_path,
+            failures=failures,
+            case_count=0,
+            covered_ids=[],
+            overall_status="invalid_manifest",
+        )
+        payload["error"] = str(exc)
+        return payload
+
+    case_source_ids = {
+        case.source_run_id
+        for case in manifest.cases
+    }
+    covered_ids = [run_id for run_id in failure_ids if run_id in case_source_ids]
+    missing_ids = [run_id for run_id in failure_ids if run_id not in case_source_ids]
+    return _failure_regression_payload(
+        runs_root=runs_root,
+        manifest_path=manifest_path,
+        failures=failures,
+        case_count=len(manifest.cases),
+        covered_ids=covered_ids,
+        overall_status="passed" if not missing_ids else "missing_regressions",
+    )
+
+
 def case_from_run(
     run_root: str | Path,
     *,
@@ -167,6 +239,54 @@ def case_from_run(
         expected=expected,
         notes=notes,
     )
+
+
+def _failure_regression_payload(
+    *,
+    runs_root: Path,
+    manifest_path: Path | None,
+    failures: Sequence[dict[str, Any]],
+    case_count: int,
+    covered_ids: Sequence[str],
+    overall_status: str,
+) -> dict[str, Any]:
+    covered = set(covered_ids)
+    failure_ids = [failure["run_id"] for failure in failures]
+    missing = [run_id for run_id in failure_ids if run_id not in covered]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "runs_dir": str(runs_root),
+        "regression_manifest_path": str(manifest_path) if manifest_path else "",
+        "overall_status": overall_status,
+        "failure_report_count": len(failures),
+        "regression_case_count": case_count,
+        "covered_failure_count": len(covered_ids),
+        "missing_regression_source_run_ids": missing,
+        "failure_reports": list(failures),
+    }
+
+
+def _load_failure_report_summaries(runs_dir: Path) -> list[dict[str, Any]]:
+    if not runs_dir.exists():
+        return []
+    reports: list[dict[str, Any]] = []
+    for report_path in sorted(runs_dir.glob("**/90_beta/failure_report.json")):
+        try:
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        run_root = report_path.parents[1]
+        reports.append(
+            {
+                "run_id": str(payload.get("run_id") or run_root.name),
+                "run_root": str(run_root),
+                "json_path": str(report_path),
+                "failed_stage": str(payload.get("failed_stage") or ""),
+                "symptom_count": len(_list(payload.get("symptoms"))),
+                "reproduction_command": str(payload.get("reproduction_command") or ""),
+            }
+        )
+    return reports
 
 
 def _manifest_payload(manifest: Any) -> Any:
@@ -360,6 +480,10 @@ def _non_empty_text(value: Any) -> str | None:
     return None
 
 
+def _list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
 def _is_non_empty_string(value: Any) -> bool:
     return isinstance(value, str) and bool(value)
 
@@ -368,6 +492,7 @@ __all__ = [
     "ExpectedOutcome",
     "RegressionCase",
     "RegressionManifest",
+    "build_failure_regression_status",
     "case_from_run",
     "load_regression_manifest",
     "render_command",

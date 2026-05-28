@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "dogfood-cup-vase-networkx",
+      "source_run_id": "20260528-143644-cup-vase-open-frustum",
+      "fixture_path": "tests/fixtures/objects/cup_vase/cup_vase_open_frustum.stl",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_mesh_repair.py::test_repair_mesh_file_to_receipt_records_missing_networkx_from_hole_fill"
+      ],
+      "expected": "success",
+      "notes": "Captured from beta failure at mesh_repair: Mesh repair crashed when trimesh hole filling lazily imported missing networkx."
+    },
+    {
+      "case_id": "dogfood-cup-vase-open-rim-repair",
+      "source_run_id": "20260528-143937-cup-vase-open-frustum",
+      "fixture_path": "tests/fixtures/objects/cup_vase/cup_vase_open_frustum.stl",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_mesh_repair.py::test_repair_mesh_file_allows_non_watertight_when_requested"
+      ],
+      "expected": "success",
+      "notes": "Captured from beta failure at mesh_repair: Intentional open-rim cup/vase retained 6 boundary edges and was treated as a failed repair despite allow_non_watertight."
+    },
+    {
+      "case_id": "dogfood-flat-bracket-bed-fit-rotation",
+      "source_run_id": "20260528-144139-flat-bracket",
+      "fixture_path": "tests/fixtures/objects/flat_bracket/flat_bracket.stl",
+      "command": [
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_pipeline_existing_mesh.py::test_existing_mesh_pipeline_applies_bed_fit_rotation_before_bundle"
+      ],
+      "expected": "success",
+      "notes": "Captured from beta failure at slice: Flat bracket sliced as an empty/off-bed plate because preview found 45 degrees but bundled mesh remained 0 degrees."
+    }
+  ]
+}

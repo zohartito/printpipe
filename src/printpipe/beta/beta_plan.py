@@ -8,7 +8,10 @@ from typing import Any, Mapping
 
 from printpipe.beta.feedback import build_trusted_user_feedback_status
 from printpipe.beta.physical_status import build_physical_validation_status
-from printpipe.beta.regression import run_regression_manifest
+from printpipe.beta.regression import (
+    build_failure_regression_status,
+    run_regression_manifest,
+)
 from printpipe.beta.rule_updates import build_rule_update_status
 
 BETA_PLAN_PROOF_BOUNDARY = (
@@ -24,6 +27,7 @@ def build_beta_action_plan(
     physical_status: Mapping[str, Any] | None = None,
     trusted_feedback_status: Mapping[str, Any] | None = None,
     rule_update_status: Mapping[str, Any] | None = None,
+    failure_regression_status: Mapping[str, Any] | None = None,
     regression_status: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return beta next actions from recorded evidence on disk."""
@@ -38,6 +42,14 @@ def build_beta_action_plan(
     regression = _build_regression_status(
         regression_status=regression_status,
         regression_manifest_path=regression_manifest_path,
+    )
+    failure_regressions = (
+        dict(failure_regression_status)
+        if failure_regression_status is not None
+        else build_failure_regression_status(
+            runs_root,
+            regression_manifest_path=regression_manifest_path,
+        )
     )
     trusted_feedback = (
         dict(trusted_feedback_status)
@@ -58,7 +70,11 @@ def build_beta_action_plan(
         _dogfood_action(),
         _physical_action(physical, runs_dir=runs_root),
         _failure_capture_action(failures),
-        _regression_action(regression, regression_manifest_path=manifest_path),
+        _regression_action(
+            regression,
+            regression_manifest_path=manifest_path,
+            failure_regression_status=failure_regressions,
+        ),
         _trusted_user_action(trusted_feedback),
         _rules_action(failures, rule_updates),
     ]
@@ -74,6 +90,7 @@ def build_beta_action_plan(
         "evidence": {
             "failure_report_count": len(failures),
             "failure_reports": failures,
+            "failure_regression_status": failure_regressions,
             "physical_status": physical,
             "trusted_feedback_status": trusted_feedback,
             "rule_update_status": rule_updates,
@@ -189,7 +206,33 @@ def _regression_action(
     regression_status: Mapping[str, Any],
     *,
     regression_manifest_path: Path | None,
+    failure_regression_status: Mapping[str, Any],
 ) -> dict[str, str]:
+    coverage_status = str(failure_regression_status.get("overall_status") or "")
+    if coverage_status in {"missing_manifest", "missing_regressions", "invalid_manifest"}:
+        failure_count = int(failure_regression_status.get("failure_report_count") or 0)
+        covered_count = int(failure_regression_status.get("covered_failure_count") or 0)
+        missing = ", ".join(
+            _list_of_strings(
+                failure_regression_status.get("missing_regression_source_run_ids")
+            )
+        )
+        detail = f"{covered_count} / {failure_count} captured failures have regression cases."
+        if missing:
+            detail += f" Missing: {missing}."
+        manifest_label = (
+            _quote(str(regression_manifest_path))
+            if regression_manifest_path is not None
+            else '"regressions/beta_regressions.json"'
+        )
+        return {
+            "id": "run_regressions",
+            "label": "Replay captured regressions",
+            "status": "action_required",
+            "detail": detail,
+            "command": f"printpipe run-regressions {manifest_label} --strict",
+        }
+
     overall = str(regression_status.get("overall_status") or "not_configured")
     case_count = int(regression_status.get("case_count") or 0)
     if overall == "passed" and case_count > 0 and regression_manifest_path is not None:
@@ -351,7 +394,7 @@ def _load_failure_reports(runs_dir: Path) -> list[dict[str, Any]]:
     if not runs_dir.exists():
         return []
     reports: list[dict[str, Any]] = []
-    for report_path in sorted(runs_dir.glob("*/90_beta/failure_report.json")):
+    for report_path in sorted(runs_dir.glob("**/90_beta/failure_report.json")):
         try:
             payload = json.loads(report_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):

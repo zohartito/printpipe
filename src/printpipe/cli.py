@@ -874,6 +874,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Return exit code 2 unless every case matches its expected outcome.",
     )
 
+    failure_regression_status = subparsers.add_parser(
+        "failure-regression-status",
+        help="Check whether captured beta failures are covered by regression cases.",
+    )
+    failure_regression_status.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders to scan.",
+    )
+    failure_regression_status.add_argument(
+        "--regression-manifest",
+        type=Path,
+        required=True,
+        help="Regression manifest expected to cover captured failure packets.",
+    )
+    failure_regression_status.add_argument(
+        "--json",
+        action="store_true",
+        help="Print failure-regression coverage as JSON.",
+    )
+    failure_regression_status.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless every captured failure has a regression case.",
+    )
+
     readiness = subparsers.add_parser(
         "readiness",
         help="Summarize combined beta and release readiness gates.",
@@ -1203,6 +1230,14 @@ def main(argv: list[str] | None = None) -> int:
             strict=args.strict,
         )
 
+    if args.command == "failure-regression-status":
+        return _failure_regression_status(
+            runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
+            json_output=args.json,
+            strict=args.strict,
+        )
+
     if args.command == "readiness":
         return _readiness(
             runs_dir=args.runs_dir,
@@ -1335,6 +1370,40 @@ def _rule_update_status(*, runs_dir: Path, json_output: bool, strict: bool) -> i
     else:
         print(render_rule_update_status(status), end="")
     if strict and status["overall_status"] != "passed":
+        return 2
+    return 0
+
+
+def _failure_regression_status(
+    *,
+    runs_dir: Path,
+    regression_manifest_path: Path,
+    json_output: bool,
+    strict: bool,
+) -> int:
+    from printpipe.beta.regression import build_failure_regression_status
+
+    status = build_failure_regression_status(
+        runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
+    if json_output:
+        print(json.dumps(status, indent=2, sort_keys=True))
+    else:
+        print("PrintPipe Failure Regression Status")
+        print(f"runs dir: {status['runs_dir']}")
+        print(f"manifest: {status.get('regression_manifest_path', '')}")
+        print(f"overall: {status['overall_status']}")
+        print(
+            "coverage: "
+            f"{status['covered_failure_count']} / {status['failure_report_count']}"
+        )
+        missing = status.get("missing_regression_source_run_ids") or []
+        if missing:
+            print("missing:")
+            for run_id in missing:
+                print(f"- {run_id}")
+    if strict and status["overall_status"] not in {"passed", "no_failures"}:
         return 2
     return 0
 

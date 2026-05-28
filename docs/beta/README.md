@@ -30,3 +30,5 @@ Start with [onboarding.md](onboarding.md).
   or repair rule changes made after dogfood or beta triage.
 - `printpipe rule-update-status --runs-dir runs`: checks whether material,
   orientation, and repair updates have verified packets.
+- `printpipe failure-regression-status --runs-dir runs --regression-manifest <manifest>`:
+  checks whether every captured failure packet has an executable regression case.

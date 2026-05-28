@@ -57,6 +57,8 @@ stable display text when writing reports or debugging a manifest entry.
   shell-safe display.
 - `run_regression_manifest(path)`: executes every manifest case and returns a
   JSON-friendly status report.
+- `build_failure_regression_status(runs_dir, regression_manifest_path=...)`:
+  checks whether captured failure packets have matching manifest cases.
 
 ## Intended Flow
 
@@ -69,11 +71,13 @@ stable display text when writing reports or debugging a manifest entry.
    command and notes, then write or update a manifest with
    `write_regression_manifest(...)`.
 5. Run `printpipe run-regressions ... --strict` to replay the manifest.
-6. Run `printpipe readiness --regression-manifest ... --strict` when the
+6. Run `printpipe failure-regression-status ... --strict` to make sure every
+   captured failure packet has a manifest case.
+7. Run `printpipe readiness --regression-manifest ... --strict` when the
    manifest should gate local beta/release readiness.
-7. Run `printpipe release-status --regression-manifest ... --strict` when the
+8. Run `printpipe release-status --regression-manifest ... --strict` when the
    manifest should also gate a final release handoff.
-8. When a known failure is fixed intentionally, flip its `expected` value from
+9. When a known failure is fixed intentionally, flip its `expected` value from
    `failure` to `success` so it guards against coming back.
 
 Example:
@@ -95,6 +99,15 @@ Replay the manifest:
 
 ```bash
 printpipe run-regressions tests/fixtures/regression/failure_manifest.json --strict
+```
+
+Check captured-failure coverage:
+
+```bash
+printpipe failure-regression-status \
+  --runs-dir runs \
+  --regression-manifest tests/fixtures/regression/failure_manifest.json \
+  --strict
 ```
 
 Gate readiness with the same manifest:

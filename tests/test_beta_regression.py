@@ -10,6 +10,7 @@ from printpipe.beta.regression import (
     ExpectedOutcome,
     RegressionCase,
     RegressionManifest,
+    build_failure_regression_status,
     case_from_run,
     load_regression_manifest,
     render_command,
@@ -260,3 +261,129 @@ def test_cli_run_regressions_prints_json_and_strict_exit_code(
     assert exit_code == 2
     assert payload["overall_status"] == "failed"
     assert payload["cases"][0]["case_id"] == "unexpected-pass"
+
+
+def test_failure_regression_status_requires_manifest_cases_for_failure_packets(
+    tmp_path: Path,
+) -> None:
+    from printpipe.beta.failures import build_failure_report, write_failure_report_files
+
+    runs_dir = tmp_path / "runs"
+    run_root = runs_dir / "dogfood" / "run-flat-bracket-failed"
+    run_root.mkdir(parents=True)
+    write_failure_report_files(
+        run_root=run_root,
+        report=build_failure_report(
+            run_id="run-flat-bracket-failed",
+            input_type="existing_stl",
+            material="Bambu PETG Basic",
+            printer="Bambu Lab P2S",
+            failed_stage="slice",
+            symptoms=("Plate was empty/off-bed before rotation fix.",),
+            artifacts=(),
+            reproduction_command="python -m pytest tests/test_pipeline_existing_mesh.py",
+            physical_print_status="not_printed",
+        ),
+    )
+
+    missing = build_failure_regression_status(
+        runs_dir,
+        regression_manifest_path=tmp_path / "missing.json",
+    )
+
+    assert missing["overall_status"] == "missing_manifest"
+    assert missing["failure_report_count"] == 1
+    assert missing["covered_failure_count"] == 0
+    assert missing["missing_regression_source_run_ids"] == ["run-flat-bracket-failed"]
+
+    manifest_path = tmp_path / "regressions" / "dogfood.json"
+    manifest_path.parent.mkdir(parents=True)
+    write_regression_manifest(
+        RegressionManifest(
+            cases=(
+                RegressionCase(
+                    case_id="flat-bracket-orientation",
+                    source_run_id="run-flat-bracket-failed",
+                    fixture_path=Path("tests/fixtures/objects/flat_bracket/flat_bracket.stl"),
+                    command=(
+                        sys.executable,
+                        "-m",
+                        "pytest",
+                        "tests/test_pipeline_existing_mesh.py::test_existing_mesh_pipeline_applies_bed_fit_rotation_before_bundle",
+                    ),
+                    expected=ExpectedOutcome.SUCCESS,
+                    notes="Guards the fixed dogfood failure.",
+                ),
+            )
+        ),
+        manifest_path,
+    )
+
+    covered = build_failure_regression_status(
+        runs_dir,
+        regression_manifest_path=manifest_path,
+    )
+
+    assert covered["overall_status"] == "passed"
+    assert covered["failure_report_count"] == 1
+    assert covered["covered_failure_count"] == 1
+    assert covered["missing_regression_source_run_ids"] == []
+
+
+def test_cli_failure_regression_status_reports_coverage(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    from printpipe.beta.failures import build_failure_report, write_failure_report_files
+
+    runs_dir = tmp_path / "runs"
+    run_root = runs_dir / "run-cup-vase-failed"
+    run_root.mkdir(parents=True)
+    write_failure_report_files(
+        run_root=run_root,
+        report=build_failure_report(
+            run_id="run-cup-vase-failed",
+            input_type="existing_stl",
+            material="Bambu PLA Basic",
+            printer="Bambu Lab P2S",
+            failed_stage="mesh_repair",
+            symptoms=("Open rim remained non-watertight.",),
+            artifacts=(),
+            reproduction_command="python -m pytest tests/test_mesh_repair.py",
+            physical_print_status="not_printed",
+        ),
+    )
+    manifest_path = tmp_path / "regressions" / "dogfood.json"
+    manifest_path.parent.mkdir(parents=True)
+    write_regression_manifest(
+        RegressionManifest(
+            cases=(
+                RegressionCase(
+                    case_id="cup-vase-repair",
+                    source_run_id="run-cup-vase-failed",
+                    fixture_path=Path("tests/fixtures/objects/cup_vase/cup_vase_open_frustum.stl"),
+                    command=(sys.executable, "-m", "pytest", "tests/test_mesh_repair.py"),
+                    expected=ExpectedOutcome.SUCCESS,
+                    notes="Guards repaired open-rim behavior.",
+                ),
+            )
+        ),
+        manifest_path,
+    )
+
+    exit_code = main(
+        [
+            "failure-regression-status",
+            "--runs-dir",
+            str(runs_dir),
+            "--regression-manifest",
+            str(manifest_path),
+            "--json",
+            "--strict",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["overall_status"] == "passed"
+    assert payload["covered_failure_count"] == 1

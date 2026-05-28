@@ -353,6 +353,27 @@ The strict status exits nonzero until material, orientation, and repair each
 have a verified packet. A packet proves that a software rule update was recorded
 and tested; it is not physical print evidence.
 
+## Failure Regression Coverage
+
+After failed runs are captured, check that each failure has a regression case:
+
+```bash
+printpipe failure-regression-status \
+  --runs-dir runs \
+  --regression-manifest regressions/dogfood_failures.json
+
+printpipe failure-regression-status \
+  --runs-dir runs \
+  --regression-manifest regressions/dogfood_failures.json \
+  --json \
+  --strict
+
+printpipe run-regressions regressions/dogfood_failures.json --strict
+```
+
+The status command compares `90_beta/failure_report.json` packets to manifest
+cases by `source_run_id`. It does not replace the regression runner; use both.
+
 ## Feedback Expectations
 
 Good beta feedback is short and concrete:

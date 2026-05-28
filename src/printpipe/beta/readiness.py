@@ -7,7 +7,10 @@ from typing import Any, Mapping
 
 from printpipe.beta.feedback import build_trusted_user_feedback_status
 from printpipe.beta.physical_status import build_physical_validation_status
-from printpipe.beta.regression import run_regression_manifest
+from printpipe.beta.regression import (
+    build_failure_regression_status,
+    run_regression_manifest,
+)
 from printpipe.beta.rule_updates import build_rule_update_status
 from printpipe.env.doctor import build_environment_report
 
@@ -22,6 +25,7 @@ def build_beta_readiness_report(
     physical_status: Mapping[str, Any] | None = None,
     trusted_feedback_status: Mapping[str, Any] | None = None,
     rule_update_status: Mapping[str, Any] | None = None,
+    failure_regression_status: Mapping[str, Any] | None = None,
     environment_report: Mapping[str, Any] | None = None,
     regression_status: Mapping[str, Any] | None = None,
     regression_manifest_path: str | Path | None = None,
@@ -42,6 +46,14 @@ def build_beta_readiness_report(
         regression_status=regression_status,
         regression_manifest_path=regression_manifest_path,
     )
+    failure_regressions = (
+        dict(failure_regression_status)
+        if failure_regression_status is not None
+        else build_failure_regression_status(
+            runs_dir,
+            regression_manifest_path=regression_manifest_path,
+        )
+    )
     trusted_feedback = (
         dict(trusted_feedback_status)
         if trusted_feedback_status is not None
@@ -56,6 +68,7 @@ def build_beta_readiness_report(
         _physical_gate(physical),
         _trusted_feedback_gate(trusted_feedback),
         _rule_updates_gate(rule_updates),
+        _failure_regressions_gate(failure_regressions),
         _regression_gate(regression, regression_manifest_path=regression_manifest_path),
         _dependency_gate(environment),
         _filesystem_gate(environment),
@@ -72,6 +85,7 @@ def build_beta_readiness_report(
         "physical_status": physical,
         "trusted_feedback_status": trusted_feedback,
         "rule_update_status": rule_updates,
+        "failure_regression_status": failure_regressions,
         "regression_status": regression,
         "environment_summary": {
             "platform": _dict(environment.get("platform")),
@@ -178,6 +192,43 @@ def _rule_updates_gate(status: Mapping[str, Any]) -> dict[str, Any]:
         ACTION_REQUIRED,
         f"Missing verified rule-update packets for: {missing_label}.",
         "Record verified material/orientation/repair updates with record-rule-update.",
+    )
+
+
+def _failure_regressions_gate(status: Mapping[str, Any]) -> dict[str, Any]:
+    overall = str(status.get("overall_status") or "no_failures")
+    failure_count = int(status.get("failure_report_count") or 0)
+    covered_count = int(status.get("covered_failure_count") or 0)
+    if overall == "no_failures":
+        return _gate(
+            "failure_regressions",
+            "Failure regressions",
+            NOT_APPLICABLE,
+            "No captured beta failure packets are recorded.",
+            "Capture failures with record-beta-failure when they happen.",
+        )
+    if overall == "passed":
+        return _gate(
+            "failure_regressions",
+            "Failure regressions",
+            READY,
+            f"{covered_count} / {failure_count} captured failures have regression cases.",
+            "Run printpipe run-regressions before release claims.",
+        )
+    missing = [
+        str(item)
+        for item in _list(status.get("missing_regression_source_run_ids"))
+        if str(item)
+    ]
+    detail = f"{covered_count} / {failure_count} captured failures have regression cases."
+    if missing:
+        detail += " Missing: " + ", ".join(missing) + "."
+    return _gate(
+        "failure_regressions",
+        "Failure regressions",
+        ACTION_REQUIRED,
+        detail,
+        "Append regression cases for every captured failure with record-beta-failure.",
     )
 
 

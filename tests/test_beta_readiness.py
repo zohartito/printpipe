@@ -173,6 +173,32 @@ def test_beta_readiness_report_blocks_on_regression_manifest_drift(
     assert report["regression_status"]["failed_count"] == 1
 
 
+def test_beta_readiness_report_blocks_when_captured_failures_lack_regressions(
+    tmp_path: Path,
+) -> None:
+    report = build_beta_readiness_report(
+        tmp_path / "runs",
+        physical_status=_passed_physical_status(),
+        trusted_feedback_status=_passed_trusted_feedback_status(),
+        rule_update_status=_passed_rule_update_status(),
+        environment_report=_ready_environment_report(),
+        failure_regression_status={
+            "overall_status": "missing_regressions",
+            "failure_report_count": 2,
+            "covered_failure_count": 1,
+            "missing_regression_source_run_ids": ["run-missing"],
+        },
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    gate = gates["failure_regressions"]
+
+    assert report["overall_status"] == "action_required"
+    assert gate["status"] == "action_required"
+    assert "1 / 2 captured failures" in gate["detail"]
+    assert "run-missing" in gate["detail"]
+
+
 def _passed_physical_status() -> dict[str, object]:
     return {
         "overall_status": "passed",
@@ -194,6 +220,15 @@ def _passed_trusted_feedback_status() -> dict[str, object]:
         "trusted_users": ["Lee", "Maya", "Sam"],
         "packet_count": 3,
         "trusted_user_packet_count": 3,
+    }
+
+
+def _passed_rule_update_status() -> dict[str, object]:
+    return {
+        "overall_status": "passed",
+        "verified_rule_types": ["material", "orientation", "repair"],
+        "missing_rule_types": [],
+        "packet_count": 3,
     }
 
 

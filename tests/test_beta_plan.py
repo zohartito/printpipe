@@ -33,6 +33,7 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert plan["runs_dir"] == str(runs_dir.resolve())
     assert plan["proof_boundary"] == BETA_PLAN_PROOF_BOUNDARY
     assert plan["evidence"]["failure_report_count"] == 0
+    assert plan["evidence"]["failure_regression_status"]["overall_status"] == "no_failures"
     assert plan["evidence"]["rule_update_status"]["overall_status"] == "missing"
     assert plan["evidence"]["trusted_feedback_status"]["unique_trusted_user_count"] == 0
     assert plan["evidence"]["regression_status"]["overall_status"] == "not_configured"
@@ -98,6 +99,7 @@ def test_beta_action_plan_detects_failure_packets_and_regression_manifest(
     assert plan["evidence"]["failure_report_count"] == 1
     assert plan["evidence"]["failure_reports"][0]["run_id"] == "run-beta-001"
     assert plan["evidence"]["regression_status"]["overall_status"] == "passed"
+    assert plan["evidence"]["failure_regression_status"]["overall_status"] == "passed"
     assert plan["evidence"]["regression_status"]["case_count"] == 1
     assert actions["record_beta_failure"]["status"] == "ready"
     assert actions["run_regressions"]["status"] == "ready"
