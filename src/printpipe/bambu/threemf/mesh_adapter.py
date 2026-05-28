@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from .core import BambuProfileIds, GuiSafeTransform, MeshGeometry, write_bundle
 
@@ -90,6 +92,9 @@ def write_bundle_from_ascii_stl(
     profile_ids: BambuProfileIds,
     object_name: str = "printpipe_object",
     transform: GuiSafeTransform | None = None,
+    filament_settings: Mapping[str, Any] | None = None,
+    process_settings: Mapping[str, Any] | None = None,
+    printer_settings: Mapping[str, Any] | None = None,
 ) -> Path:
     """Convert an ASCII STL to `MeshGeometry`, then write a Bambu 3MF bundle."""
 
@@ -100,6 +105,9 @@ def write_bundle_from_ascii_stl(
         profile_ids=profile_ids,
         object_name=object_name,
         transform=transform,
+        filament_settings=filament_settings,
+        process_settings=process_settings,
+        printer_settings=printer_settings,
     )
 
 

@@ -299,3 +299,14 @@ Status: complete for F1. Outputs are covered by `tests/test_troubleshooting_docs
 4. Done: documented the required quit/reopen step after changing macOS privacy grants.
 5. Done: documented `PRINTPIPE_ARTIFACT_PATHS=... printpipe doctor` for checking external artifact readability.
 6. Remaining: real packaged-app permission prompts belong with F10 macOS packaging smoke work.
+
+## Wave 28 - Slipper PrintPipe Dogfood
+
+Status: complete for F8 and original item 103 as software dogfood. Outputs are covered by `tests/test_cli_run.py`, `tests/test_beta_slipper_dogfood_doc.py`, and `tests/test_slipper_manifest.py`.
+
+1. Done: added CLI `--material`, `--printer`, and `--use-case` flags so dogfood reports do not default high-risk TPU slippers to Generic PLA.
+2. Done: wired SUNLU TPU 90A material intent into the Bambu `.3mf` project settings, including slipper filament/process profile IDs and key TPU support/brim/shell/temperature overrides.
+3. Done: ran `/Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_wide_upper_textured.stl` through PrintPipe as `runs/20260528-042826-slipper-size11-v2c-wide-upper-textured`.
+4. Done: verified the run repaired the mesh to watertight output, fit the 256 x 256 mm P2S bed with 21.92 mm minimum XY margin, validated the `.3mf`, and recorded 0 warnings.
+5. Done: verified the TPU flex coupon artifact and checklist requirement are present in the dogfood run.
+6. Remaining: live Bambu CLI slice is still skipped because F13 owns the local Bambu Studio SIGSEGV; physical slipper printing stays under Phase 16 beta/physical validation.

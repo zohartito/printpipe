@@ -1,6 +1,6 @@
 # Slipper Dogfood Validation
 
-Status: software dogfood checklist for the slipper proof-of-concept path. The
+Status: software dogfood pass for the current wide-upper slipper mesh. The
 slipper has not been physically printed by PrintPipe.
 
 Use this page to decide whether the slipper can move from referenced proof of
@@ -35,11 +35,11 @@ pytest tests/test_slipper_manifest.py \
   tests/test_existing_stl_pipeline_bundle.py
 ```
 
-Create a current CLI run folder for the repaired slipper STL when the external
-slipper repo is present:
+Create a current CLI run folder for the wide-upper slipper STL when the
+external slipper repo is present:
 
 ```bash
-printpipe run /Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_repaired_textured.stl --runs-dir runs
+printpipe run /Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_wide_upper_textured.stl --runs-dir runs --material "SUNLU TPU 90A" --printer "Bambu Lab P2S" --use-case "wearable slipper"
 printpipe status runs/<run-id>
 printpipe open-report runs/<run-id>
 ```
@@ -59,6 +59,39 @@ result = run_existing_mesh_pipeline(
 print(result.layout.root)
 PY
 ```
+
+## Current PrintPipe-Owned Software Evidence
+
+Current software dogfood run:
+
+```text
+runs/20260528-042826-slipper-size11-v2c-wide-upper-textured
+```
+
+Command used:
+
+```bash
+printpipe run /Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_wide_upper_textured.stl --runs-dir runs --material "SUNLU TPU 90A" --printer "Bambu Lab P2S" --use-case "wearable slipper"
+```
+
+Observed software receipts:
+
+- Input mesh: wide-upper size-11 STL from the external slipper proof repo.
+- Mesh repair: succeeded; boundary edges went from 364200 to 0, non-manifold
+  edges stayed 0, and watertight changed from false to true.
+- Bed fit: succeeded; bounds are 229.73 x 234.08 x 70.03 mm with 21.92 mm
+  minimum XY margin on the 256 x 256 mm P2S bed.
+- Bambu bundle: succeeded and validates with zero bundle errors.
+- TPU profile IDs in `.3mf`: `SUNLU TPU 90A Slipper @BBL P2S` filament and
+  `0.20mm Slipper TPU 90A @BBL P2S` process.
+- Key TPU settings in `.3mf`: `support_style=snug`, `support_type=normal(auto)`,
+  `brim_object_gap=0.12`, `bottom_shell_layers=10`,
+  `enable_pressure_advance=1`, and initial nozzle temperature 225 C.
+- Flex coupon artifact: generated at
+  `40_geometry/flex_coupon_40x15x3.stl` and marked required in the checklist.
+- Warnings: 0.
+- Slice gate: skipped because this machine still has the tracked Bambu Studio
+  2.6.00.51 / macOS 26.5 CLI SIGSEGV, owned by F13.
 
 ## Artifacts To Inspect
 

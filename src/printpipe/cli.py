@@ -52,6 +52,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory where run folders are created.",
     )
     run.add_argument(
+        "--material",
+        default="Generic PLA",
+        help="Material/filament label for reports and pre-print checklist.",
+    )
+    run.add_argument(
+        "--printer",
+        default="Bambu Lab P2S",
+        help="Printer label for reports and pre-print checklist.",
+    )
+    run.add_argument(
+        "--use-case",
+        default="print",
+        help="Use-case label for reports and pre-print checklist.",
+    )
+    run.add_argument(
         "--slice",
         action="store_true",
         help="Run the Bambu CLI slice gate after bundling when the input is an existing mesh.",
@@ -179,6 +194,9 @@ def main(argv: list[str] | None = None) -> int:
             result = run_existing_mesh_pipeline(
                 args.input,
                 args.runs_dir,
+                material=args.material,
+                printer=args.printer,
+                use_case=args.use_case,
                 run_slice=args.slice,
                 slice_executable=args.bambu_cli,
             )

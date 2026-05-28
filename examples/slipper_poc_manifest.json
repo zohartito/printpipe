@@ -33,6 +33,15 @@
       "purpose": "Current printable size-11 slipper mesh after repair, scaling, sole displacement, second repair, and bed drop."
     },
     {
+      "id": "printable_wide_upper_textured_mesh",
+      "kind": "mesh_final_stl",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_wide_upper_textured.stl",
+      "required": true,
+      "size_bytes": 6070084,
+      "sha256": "166ee1cb79be16afc2d61e164c48f8ac2bf0f48589b301c5c76d04abdd23cbf7",
+      "purpose": "Latest wide-upper size-11 slipper mesh used for the PrintPipe-owned software dogfood run after the original upper was too narrow."
+    },
+    {
       "id": "printable_textured_repair_stats",
       "kind": "repair_receipt_json",
       "path": "/Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_repaired_textured_repair_stats.json",
@@ -49,6 +58,15 @@
       "size_bytes": 1846331,
       "sha256": "b9a4a84001ac2f7e751522eafab075135f8054e16c19b96e16070ed5761ad17e",
       "purpose": "Final GUI-facing Bambu-native project bundle with repaired mesh, bed-center transform, printer profile, filament profile, and process profile."
+    },
+    {
+      "id": "gui_bambu_project_v4_wide_upper",
+      "kind": "bambu_project_3mf",
+      "path": "/Users/zohartito/Desktop/slipper_3d/output/Slipper_TPU90A_P2S_v4_wide_upper.3mf",
+      "required": true,
+      "size_bytes": 1847315,
+      "sha256": "11eb546b59cfbb5c56b5f042ef6fe7ee0a5abad6c0066e3ee00b36b2a70c7f62",
+      "purpose": "External reference Bambu project for the widened-upper slipper variant that fixed the too-narrow opening complaint before PrintPipe dogfood."
     },
     {
       "id": "cli_bambu_project_v3",

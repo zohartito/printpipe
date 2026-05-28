@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -129,6 +130,58 @@ def test_run_existing_stl_writes_bundle_reports_and_checklist(tmp_path: Path, ca
     assert ("bundle", "succeeded") in stages
     assert ("slice", "skipped") in stages
     assert report["pre_print_checklist"]
+
+
+def test_run_existing_stl_accepts_material_printer_and_use_case_flags(
+    tmp_path: Path,
+    capsys,
+):
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    runs_dir = tmp_path / "runs"
+
+    exit_code = main(
+        [
+            "run",
+            str(source),
+            "--runs-dir",
+            str(runs_dir),
+            "--material",
+            "SUNLU TPU 90A",
+            "--printer",
+            "Bambu Lab P2S",
+            "--use-case",
+            "wearable slipper",
+        ]
+    )
+
+    capsys.readouterr()
+    assert exit_code == 0
+    run_root = next(runs_dir.iterdir())
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+
+    stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
+    checklist = {item["id"]: item for item in report["pre_print_checklist"]}
+    assert ("validation.flex_coupon", "succeeded") in stages
+    assert (run_root / "40_geometry" / "flex_coupon_40x15x3.stl").exists()
+    with zipfile.ZipFile(run_root / "60_bundle" / "existing_stl_tiny_tetrahedron.3mf") as archive:
+        project_settings = json.loads(archive.read("Metadata/project_settings.config"))
+
+    assert project_settings["filament_settings_id"] == ["SUNLU TPU 90A Slipper @BBL P2S"]
+    assert project_settings["print_settings_id"] == "0.20mm Slipper TPU 90A @BBL P2S"
+    assert project_settings["support_style"] == ["snug"]
+    assert project_settings["brim_object_gap"] == ["0.12"]
+    assert checklist["dry_filament"]["metadata"]["material"] == "SUNLU TPU 90A"
+    assert checklist["feed_path"]["status"] == "required"
+    assert checklist["flex_coupon_first"]["status"] == "required"
+    assert checklist["flex_coupon_first"]["metadata"]["coupon_artifact"] == (
+        "40_geometry/flex_coupon_40x15x3.stl"
+    )
 
 
 def test_run_slice_failure_prints_report_paths_before_returning_nonzero(

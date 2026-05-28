@@ -61,9 +61,9 @@ Image/GIF/video now uses the same repair/orient/bundle path after the configured
 ```bash
 export PRINTPIPE_HUNYUAN3D_COMMAND="/path/to/hunyuan_adapter"
 printpipe run input.gif \
-  --printer "Bambu Lab P2S 0.4 nozzle" \
-  --filament "SUNLU TPU 90A" \
-  --target-size 295mm
+  --printer "Bambu Lab P2S" \
+  --material "SUNLU TPU 90A" \
+  --use-case "wearable slipper"
 ```
 
 The first real milestone is not a polished UI. It is a reproducible run folder with a slice-verified `.3mf` and receipts.

@@ -216,7 +216,10 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
                 "target_length_mm": 120.0,
             },
         ),
-        warnings=("Support risk is medium around the arch.",),
+        warnings=(
+            "Support risk is medium around the arch.",
+            "Opening too narrow for TPU slipper upper.",
+        ),
     )
     write_run_report(
         layout,
@@ -232,8 +235,13 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert response.status == 200
     assert "Can this run print?" in response.text
     assert 'class="verdict-strip verdict-strip-warn"' in response.text
+    assert "Not yet: rebuild required" in response.text
     assert "Next action" in response.text
-    assert "Choose a support strategy, then rebuild or inspect the slice receipt." in response.text
+    assert (
+        "fix the upper/opening, support policy, and slice handoff before trusting this run"
+        in response.text
+    )
+    assert "Widen the upper/opening and rebuild from edits." in response.text
     assert 'class="run-context"' in response.text
     assert "Warnings" in response.text
     assert "Support risk is medium around the arch." in response.text
@@ -280,6 +288,7 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert "Overall scale" in response.text
     assert "Widen / narrow opening" in response.text
     assert "Raise / lower arch/opening" in response.text
+    assert "TPU-safe snug/tree supports + external spool review" in response.text
     assert "Freeform edit instruction" in response.text
     assert 'action="/runs/run-workbench-001/edits" method="post"' in response.text
     assert 'name="opening_delta_mm"' in response.text
@@ -299,6 +308,8 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert ".next-action" in css
     assert ".run-context" in css
     assert ".verdict-strip-warn" in css
+    assert ".verdict-issue" in css
+    assert ".issue-line" in css
     assert ".workbench-artifacts" in css
     assert ".warning-receipts" in css
     assert ".open-folder-actions" in css
@@ -306,6 +317,80 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert "position: sticky" in css
     assert "bottom:0" in css
     assert "@media (max-width:1180px)" in css
+
+
+def test_run_detail_keeps_generic_verdict_copy_for_non_slipper_runs():
+    html = run_detail.render_run_detail_page(
+        detail={
+            "run_id": "run-flat-bracket-001",
+            "input": {"kind": "mesh"},
+            "printer": {"label": "Bambu Lab P2S"},
+            "material": {"label": "PLA"},
+            "profile": {"label": "0.20mm PLA"},
+            "print_verdict": {
+                "state": "blocked",
+                "label": "Not ready to print",
+                "reason": "One or more validation checks failed.",
+            },
+            "validation": [
+                {
+                    "key": "slice_success",
+                    "label": "Slice success",
+                    "state": "fail",
+                    "detail": "Slice gate failed.",
+                }
+            ],
+        },
+        artifact_links=[],
+    )
+
+    assert "Not ready to print" in html
+    assert "One or more validation checks failed." in html
+    assert "wearable TPU geometry" not in html
+    assert "Not yet: rebuild required" not in html
+
+
+def test_run_detail_does_not_label_slice_only_slipper_review_as_narrow_upper():
+    html = run_detail.render_run_detail_page(
+        detail={
+            "run_id": "run-slipper-wide-upper-001",
+            "input": {"kind": "mesh"},
+            "printer": {"label": "Bambu Lab P2S"},
+            "material": {"label": "SUNLU TPU 90A"},
+            "profile": {"label": "0.20mm Slipper TPU 90A"},
+            "print_verdict": {
+                "state": "review",
+                "label": "Review before print",
+                "reason": "Slice gate has not run.",
+            },
+            "validation": [
+                {
+                    "key": "bed_fit",
+                    "label": "Bed fit",
+                    "state": "pass",
+                    "detail": "Fits the bed.",
+                },
+                {
+                    "key": "support_risk",
+                    "label": "Support risk",
+                    "state": "pass",
+                    "detail": "Support policy recorded.",
+                },
+                {
+                    "key": "slice_success",
+                    "label": "Slice success",
+                    "state": "review",
+                    "detail": "Slice gate skipped.",
+                },
+            ],
+        },
+        artifact_links=[],
+    )
+
+    assert "Slice gate not verified" in html
+    assert "Open the 3MF in Bambu Studio and inspect the slice preview before printing." in html
+    assert "Needs geometry edit: upper/opening too narrow" not in html
+    assert "Not yet: rebuild required" not in html
 
 
 def test_run_detail_response_rejects_unknown_run(tmp_path: Path):

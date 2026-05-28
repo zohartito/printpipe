@@ -24,6 +24,7 @@ from printpipe.geometry import (
     write_scaled_ascii_stl_artifacts,
 )
 from printpipe.inputs import prepare_input
+from printpipe.materials.tpu import TpuMaterialRule, get_tpu_rule
 from printpipe.mesh.repair import repair_mesh_file_to_receipt
 from printpipe.meshgen import (
     ExistingMeshProvider,
@@ -72,6 +73,15 @@ class PipelineError(RuntimeError):
     def __init__(self, message: str, result: PipelineResult) -> None:
         super().__init__(message)
         self.result = result
+
+
+@dataclass(frozen=True)
+class BundleProfileConfig:
+    profile_ids: BambuProfileIds
+    filament_settings: Mapping[str, Any]
+    process_settings: Mapping[str, Any]
+    material_rule_slug: str | None = None
+    material_rule_name: str | None = None
 
 
 def run_existing_mesh_pipeline(
@@ -326,14 +336,26 @@ def run_existing_mesh_pipeline_on_layout(
 
     object_name = _bundle_object_name(mesh_result.provider_id, imported_mesh)
     bundle_path = layout.bundle_dir / f"{object_name}.3mf"
+    bundle_profile = _bundle_profile_config(material)
     write_bundle_from_ascii_stl(
         oriented_mesh,
         bundle_path,
-        DEFAULT_PROFILE_IDS,
+        bundle_profile.profile_ids,
         object_name=object_name,
         transform=GuiSafeTransform.bed_center(DEFAULT_BED.width_mm, DEFAULT_BED.depth_mm),
+        filament_settings=bundle_profile.filament_settings,
+        process_settings=bundle_profile.process_settings,
     )
-    stages.append(_bundle_stage_receipt(bundle_path, oriented_mesh, object_name))
+    stages.append(
+        _bundle_stage_receipt(
+            bundle_path,
+            oriented_mesh,
+            object_name,
+            profile_ids=bundle_profile.profile_ids,
+            material_rule_slug=bundle_profile.material_rule_slug,
+            material_rule_name=bundle_profile.material_rule_name,
+        )
+    )
 
     validation_receipt = _bundle_validation_receipt(
         bundle_path,
@@ -781,7 +803,25 @@ def _can_read_ascii_stl(path: Path) -> bool:
     return True
 
 
-def _bundle_stage_receipt(bundle_path: Path, source_mesh: Path, object_name: str) -> StageReceipt:
+def _bundle_stage_receipt(
+    bundle_path: Path,
+    source_mesh: Path,
+    object_name: str,
+    *,
+    profile_ids: BambuProfileIds,
+    material_rule_slug: str | None = None,
+    material_rule_name: str | None = None,
+) -> StageReceipt:
+    metadata: dict[str, Any] = {
+        "source_mesh": source_mesh,
+        "object_name": object_name,
+        "profile_ids": profile_ids,
+    }
+    if material_rule_slug:
+        metadata["material_rule_slug"] = material_rule_slug
+    if material_rule_name:
+        metadata["material_rule_name"] = material_rule_name
+
     return StageReceipt(
         stage="bundle",
         status=StageStatus.SUCCEEDED,
@@ -791,19 +831,76 @@ def _bundle_stage_receipt(bundle_path: Path, source_mesh: Path, object_name: str
                 kind=ArtifactKind.THREEMF,
                 path=bundle_path,
                 label="Bambu 3MF bundle",
-                metadata={
-                    "source_mesh": source_mesh,
-                    "object_name": object_name,
-                    "profile_ids": DEFAULT_PROFILE_IDS,
-                },
+                metadata=metadata,
             ),
         ),
         metrics={
             "source_mesh": source_mesh,
             "bundle_path": bundle_path,
             "object_name": object_name,
+            "filament_settings_id": profile_ids.filament_settings_id,
+            "print_settings_id": profile_ids.print_settings_id,
         },
     )
+
+
+def _bundle_profile_config(material: str) -> BundleProfileConfig:
+    tpu_rule = _tpu_rule_for_material(material)
+    if tpu_rule is None:
+        return BundleProfileConfig(
+            profile_ids=DEFAULT_PROFILE_IDS,
+            filament_settings={},
+            process_settings={},
+        )
+
+    profile_ids = BambuProfileIds(
+        filament_settings_id=_tpu_filament_settings_id(tpu_rule),
+        print_settings_id=_tpu_print_settings_id(tpu_rule),
+        printer_settings_id=DEFAULT_PROFILE_IDS.printer_settings_id,
+        printer_model=DEFAULT_PROFILE_IDS.printer_model,
+        printer_variant=DEFAULT_PROFILE_IDS.printer_variant,
+        nozzle_diameter=DEFAULT_PROFILE_IDS.nozzle_diameter,
+        printable_height=DEFAULT_PROFILE_IDS.printable_height,
+    )
+    return BundleProfileConfig(
+        profile_ids=profile_ids,
+        filament_settings=tpu_rule.filament_overrides,
+        process_settings=tpu_rule.process_overrides,
+        material_rule_slug=tpu_rule.slug,
+        material_rule_name=tpu_rule.name,
+    )
+
+
+def _tpu_rule_for_material(material: str) -> TpuMaterialRule | None:
+    normalized = material.lower().replace("_", " ").replace("-", " ")
+    if "tpu" not in normalized:
+        return None
+    if "sunlu" in normalized and "90" in normalized:
+        return get_tpu_rule("sunlu-tpu-90a-slipper")
+    if "95" in normalized:
+        return get_tpu_rule("tpu-95a-foundation")
+    return get_tpu_rule("tpu-90a-foundation")
+
+
+def _tpu_filament_settings_id(rule: TpuMaterialRule) -> str:
+    return _first_setting_value(
+        rule.filament_overrides.get("filament_settings_id"),
+        fallback=DEFAULT_PROFILE_IDS.filament_settings_id,
+    )
+
+
+def _tpu_print_settings_id(rule: TpuMaterialRule) -> str:
+    if rule.slug == "sunlu-tpu-90a-slipper":
+        return "0.20mm Slipper TPU 90A @BBL P2S"
+    return DEFAULT_PROFILE_IDS.print_settings_id
+
+
+def _first_setting_value(value: Any, *, fallback: str) -> str:
+    if isinstance(value, (list, tuple)) and value:
+        return str(value[0])
+    if isinstance(value, str) and value:
+        return value
+    return fallback
 
 
 def _bundle_object_name(provider_id: str, imported_mesh: Path) -> str:

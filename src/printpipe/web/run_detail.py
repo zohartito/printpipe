@@ -61,6 +61,7 @@ def _render_run_meta(detail: dict[str, Any]) -> str:
 def _render_verdict_strip(detail: dict[str, Any]) -> str:
     verdict = _mapping(detail.get("print_verdict"))
     tone = _state_tone(str(verdict.get("state", "review")))
+    issue = _fit_issue_label(detail)
     checks = _validation_by_key(detail)
     cards = "\n".join(
         _render_score_card(label, checks.get(key))
@@ -77,9 +78,9 @@ def _render_verdict_strip(detail: dict[str, Any]) -> str:
             f'      <section class="verdict-strip verdict-strip-{escape(tone, quote=True)}" aria-label="Can this run print?">',
             '        <article class="verdict">',
             '          <p class="eyebrow">Can this run print?</p>',
-            f'          <h2>{escape(str(verdict.get("label", "Review before print")))}</h2>',
-            f"          <strong>{escape(_fit_issue_label(detail))}</strong>",
-            f'          <p>{escape(str(verdict.get("reason") or "Print readiness pending."))}</p>',
+            f"          <h2>{escape(_verdict_heading(detail))}</h2>",
+            f'          <strong class="verdict-issue">{escape(issue)}</strong>',
+            f"          <p>{escape(_verdict_reason(detail))}</p>",
             f'          <p class="next-action"><span>Next action</span>{escape(_next_action_label(detail))}</p>',
             "        </article>",
             cards,
@@ -232,7 +233,7 @@ def _render_edit_geometry_panel(run_id: str, detail: dict[str, Any], artifact_li
             f'            <label class="check-row"><input type="checkbox" name="flat_base"{_checked(intent.get("flat_base", True))}> Flat base</label>',
             "            <label><span>Support strategy</span><select name=\"support_strategy\">",
             _support_option(recipe, "auto", "Auto from support risk"),
-            _support_option(recipe, "snug_tree_auto", "TPU-safe snug/tree supports"),
+            _support_option(recipe, "snug_tree_auto", "TPU-safe snug/tree supports + external spool review"),
             _support_option(recipe, "tree", "Tree supports"),
             _support_option(recipe, "minimal", "Minimal supports"),
             _support_option(recipe, "none", "No supports"),
@@ -439,11 +440,64 @@ def _fit_issue_label(detail: dict[str, Any]) -> str:
     warnings = [str(warning).lower() for warning in _as_list(detail.get("warnings"))]
     if any("narrow" in warning or "opening" in warning for warning in warnings):
         return "Needs geometry edit: upper/opening too narrow"
-    for key in ("bed_fit", "support_risk", "slice_success"):
-        check = _validation_by_key(detail).get(key, {})
-        if _state_tone(str(check.get("state", "review"))) != "pass":
-            return "Needs geometry edit: upper/opening too narrow"
+    checks = _validation_by_key(detail)
+    bed_fit = checks.get("bed_fit")
+    if bed_fit and _state_tone(str(bed_fit.get("state", "review"))) != "pass":
+        return "Bed fit needs review"
+    support = checks.get("support_risk")
+    if support and _state_tone(str(support.get("state", "review"))) != "pass":
+        return "Support strategy needs review"
+    slice_success = checks.get("slice_success")
+    if slice_success and _state_tone(str(slice_success.get("state", "review"))) != "pass":
+        return "Slice gate not verified"
     return "None flagged"
+
+
+def _verdict_heading(detail: dict[str, Any]) -> str:
+    tone = _state_tone(str(_mapping(detail.get("print_verdict")).get("state", "review")))
+    issue = _fit_issue_label(detail)
+    if (
+        _is_slipper_context(detail)
+        and issue == "Needs geometry edit: upper/opening too narrow"
+        and tone != "pass"
+    ):
+        return "Not yet: rebuild required"
+    if tone == "pass":
+        return "Ready to inspect in Bambu Studio"
+    return str(_mapping(detail.get("print_verdict")).get("label") or "Review before print")
+
+
+def _verdict_reason(detail: dict[str, Any]) -> str:
+    issue = _fit_issue_label(detail)
+    if _is_slipper_context(detail) and issue == "Needs geometry edit: upper/opening too narrow":
+        return (
+            "Repair and bed-fit checks can pass while the wearable TPU geometry still needs review; "
+            "fix the upper/opening, support policy, and slice handoff before trusting this run."
+        )
+    if _is_slipper_context(detail) and issue == "Slice gate not verified":
+        return (
+            "Repair, bed fit, and bundle validation have receipts, but this run still needs "
+            "Bambu Studio layer-preview or slice verification before printing."
+        )
+    if _is_slipper_context(detail) and issue == "Support strategy needs review":
+        return (
+            "Support settings may be recorded in the bundle, but support risk still needs "
+            "Bambu Studio layer-preview review before printing."
+        )
+    if _is_slipper_context(detail) and issue == "Bed fit needs review":
+        return "Bed fit still needs review before this run can be trusted."
+    return str(_mapping(detail.get("print_verdict")).get("reason") or "Print readiness pending.")
+
+
+def _is_slipper_context(detail: dict[str, Any]) -> bool:
+    parts = [
+        str(detail.get("run_id", "")),
+        _detail_input_summary(detail),
+        _edit_delta_summary(detail),
+        " ".join(str(warning) for warning in _as_list(detail.get("warnings"))),
+    ]
+    blob = " ".join(parts).lower()
+    return any(term in blob for term in ("slipper", "upper", "opening", "sole"))
 
 
 def _next_action_label(detail: dict[str, Any]) -> str:
@@ -456,6 +510,9 @@ def _next_action_label(detail: dict[str, Any]) -> str:
     support = _validation_by_key(detail).get("support_risk", {})
     if _state_tone(str(support.get("state", "review"))) == "warn":
         return "Choose a support strategy, then rebuild or inspect the slice receipt."
+    slice_success = _validation_by_key(detail).get("slice_success", {})
+    if _state_tone(str(slice_success.get("state", "review"))) != "pass":
+        return "Open the 3MF in Bambu Studio and inspect the slice preview before printing."
     if _state_tone(state) == "pass":
         return "Open the 3MF and inspect the slice receipt before printing."
     return "Inspect warnings, then either rebuild or open the current bundle."
@@ -558,8 +615,11 @@ RUN_DETAIL_CSS = """
     .verdict-strip-pass { border-color: #1f8a4c; } .verdict-strip-warn { border-color: #b7791f; } .verdict-strip-fail { border-color: #c23030; }
     .verdict,.score,.model-card,.card,.controls,.run-context { background: rgba(255,255,255,.94); border: 1px solid #cfd8e3; border-radius: 8px; box-shadow: 0 18px 46px rgba(36,47,61,.1); }
     .verdict { background: #17202a; color: #f8fafc; padding: 14px; } .verdict h2 { font-size: clamp(1.35rem,2.1vw,2rem); margin: 0 0 6px; } .verdict p { color: #d8e2ec; }
+    .verdict-issue { color:#fff; display:block; font-size:.98rem; margin: 0 0 8px; overflow-wrap:anywhere; }
     .next-action { background: rgba(255,255,255,.08); border: 1px solid rgba(216,226,236,.22); border-radius: 8px; margin: 12px 0 0; padding: 9px 10px; }
-    .score { padding: 14px; } .score strong,.metric strong { display: block; font-size: 1.18rem; margin-top: 6px; overflow-wrap: anywhere; }
+    .next-action span { color:#9fb3c8; display:block; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.68rem; font-weight:850; letter-spacing:.02em; text-transform:uppercase; }
+    .score { display:grid; min-height:118px; padding: 14px; } .score p { align-self:end; color:#52606d; font-size:.78rem; margin:8px 0 0; overflow-wrap:anywhere; }
+    .score strong,.metric strong { display: block; font-size: 1.18rem; margin-top: 6px; overflow-wrap: anywhere; }
     .score-pass strong { color: #126237; } .score-warn strong { color: #7c4a03; } .score-fail strong { color: #9b1c1c; }
     .run-context { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); overflow: hidden; } .context-item { background: #fff; min-width: 0; padding: 11px 12px; } .context-item strong { display: block; overflow-wrap: anywhere; }
     .workbench { display: grid; gap: clamp(14px,2vw,24px); grid-template-columns: minmax(0,1fr) minmax(330px,410px); }
@@ -581,7 +641,7 @@ RUN_DETAIL_CSS = """
     .badge { align-self:start; border-radius:999px; font-size:.7rem; font-weight:900; padding:4px 8px; text-transform:uppercase; } .badge-pass{background:#e3f8ec;color:#126237}.badge-warn{background:#fff4d6;color:#7c4a03}.badge-fail{background:#fde8e8;color:#9b1c1c}
     .warning-receipts { padding: 0; } .receipt-grid { display:grid; gap:12px; grid-template-columns:1fr 1fr; padding:14px; } .receipt-grid h3{margin:0 0 8px}.receipt-grid ul{margin:0;padding-left:18px}
     input,select,textarea,button{box-sizing:border-box;font:inherit;width:100%} input,select,textarea{border:1px solid #bcccdc;border-radius:6px;padding:8px 10px} button{background:#0b5cad;border:0;border-radius:6px;color:#fff;cursor:pointer;font-weight:700;min-height:40px;padding:8px 14px}
-    .controls { align-self:start; margin:0; overflow:hidden; } .control-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}.input-card{border-left:5px solid #327d9e;padding-left:12px}.input-card p,.muted{color:#52606d}.check-row{align-items:center;background:#f8fafc;border:1px solid #cfd8e3;border-radius:8px;color:#17202a;display:flex;gap:8px;justify-content:space-between;padding:10px;text-transform:none}.check-row input{min-height:auto;width:auto}.primary{background:#327d9e;max-width:none}.edit-actions{background:linear-gradient(rgba(255,255,255,.86),#fff);bottom:0;padding-top:8px;position:sticky;z-index:2}.recipe-preview{background:#eef6f9;border:1px solid #c6dfe9;border-radius:8px;color:#24566d;margin:0;padding:10px}
+    .controls { align-self:start; margin:0; overflow:hidden; } .control-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}.issue-line{background:#eef6f9;border:1px solid #c6dfe9;border-radius:8px;color:#24566d;font-weight:850;margin:0;padding:10px}.input-card{border-left:5px solid #327d9e;padding-left:12px}.input-card p,.muted{color:#52606d}.check-row{align-items:center;background:#f8fafc;border:1px solid #cfd8e3;border-radius:8px;color:#17202a;display:flex;gap:8px;justify-content:space-between;padding:10px;text-transform:none}.check-row input{min-height:auto;width:auto}.primary{background:#327d9e;max-width:none}.edit-actions{background:linear-gradient(rgba(255,255,255,.86),#fff);bottom:0;padding-top:8px;position:sticky;z-index:2}.recipe-preview{background:#eef6f9;border:1px solid #c6dfe9;border-radius:8px;color:#24566d;margin:0;padding:10px}
     .links{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.workbench-artifacts .links{grid-template-columns:repeat(5,minmax(0,1fr))}.links a,.missing-artifact{background:#f8fafc;border:1px solid #cfd8e3;border-radius:8px;display:block;font-weight:850;padding:10px}.links span{color:#52606d;display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.72rem;margin-top:4px;overflow-wrap:anywhere}.open-folder-actions{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
     @media (max-width:1180px){.verdict-strip{grid-template-columns:repeat(3,minmax(0,1fr))}.verdict{grid-column:1/-1}.workbench{grid-template-columns:1fr}.controls{order:-1}}
     @media (max-width:760px){.topbar,.verdict-strip,.lower-grid,.model-footer,.workbench-artifacts .links,.control-grid,.receipt-grid,.open-folder-actions{grid-template-columns:1fr}.status-chip{white-space:normal}.model-card{min-height:430px}.mesh-placeholder,.model-preview-image{width:86vw}}

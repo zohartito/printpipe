@@ -44,6 +44,16 @@ Current input support is intentionally explicit:
 
 Flexible-material runs, including TPU, also emit `40_geometry/flex_coupon_40x15x3.stl` as the first validation print artifact.
 
+Example TPU mesh run:
+
+```bash
+printpipe run input.stl \
+  --runs-dir runs \
+  --material "SUNLU TPU 90A" \
+  --printer "Bambu Lab P2S" \
+  --use-case "wearable slipper"
+```
+
 Local handoff helpers:
 
 ```bash
