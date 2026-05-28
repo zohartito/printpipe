@@ -13,6 +13,8 @@ def test_readiness_parser_accepts_runs_dir_json_and_strict_flags(tmp_path: Path)
             "readiness",
             "--runs-dir",
             str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(tmp_path / "regression_manifest.json"),
             "--json",
             "--strict",
         ]
@@ -20,12 +22,14 @@ def test_readiness_parser_accepts_runs_dir_json_and_strict_flags(tmp_path: Path)
 
     assert args.command == "readiness"
     assert args.runs_dir == tmp_path / "runs"
+    assert args.regression_manifest == tmp_path / "regression_manifest.json"
     assert args.json is True
     assert args.strict is True
 
 
 def test_readiness_prints_json_and_can_gate_strictly(monkeypatch, tmp_path: Path, capsys) -> None:
-    def fake_report(runs_dir):
+    def fake_report(runs_dir, *, regression_manifest_path=None):
+        assert regression_manifest_path == tmp_path / "regression_manifest.json"
         return {
             "schema_version": 1,
             "overall_status": "action_required",
@@ -51,6 +55,8 @@ def test_readiness_prints_json_and_can_gate_strictly(monkeypatch, tmp_path: Path
             "readiness",
             "--runs-dir",
             str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(tmp_path / "regression_manifest.json"),
             "--json",
             "--strict",
         ]
@@ -65,7 +71,7 @@ def test_readiness_prints_json_and_can_gate_strictly(monkeypatch, tmp_path: Path
 def test_readiness_prints_human_gate_summary(monkeypatch, tmp_path: Path, capsys) -> None:
     monkeypatch.setattr(
         "printpipe.beta.readiness.build_beta_readiness_report",
-        lambda runs_dir: {
+        lambda runs_dir, *, regression_manifest_path=None: {
             "schema_version": 1,
             "overall_status": "ready",
             "action_required_count": 0,

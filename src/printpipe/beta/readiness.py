@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from printpipe.beta.physical_status import build_physical_validation_status
+from printpipe.beta.regression import run_regression_manifest
 from printpipe.env.doctor import build_environment_report
 
 READY = "ready"
@@ -18,6 +19,8 @@ def build_beta_readiness_report(
     *,
     physical_status: Mapping[str, Any] | None = None,
     environment_report: Mapping[str, Any] | None = None,
+    regression_status: Mapping[str, Any] | None = None,
+    regression_manifest_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Return a single JSON-friendly readiness report for beta/release gates."""
 
@@ -31,8 +34,13 @@ def build_beta_readiness_report(
         if environment_report is not None
         else build_environment_report()
     )
+    regression = _regression_status(
+        regression_status=regression_status,
+        regression_manifest_path=regression_manifest_path,
+    )
     gates = [
         _physical_gate(physical),
+        _regression_gate(regression, regression_manifest_path=regression_manifest_path),
         _dependency_gate(environment),
         _filesystem_gate(environment),
         _bambu_studio_gate(environment),
@@ -46,6 +54,7 @@ def build_beta_readiness_report(
         "action_required_count": len(actionable),
         "gates": gates,
         "physical_status": physical,
+        "regression_status": regression,
         "environment_summary": {
             "platform": _dict(environment.get("platform")),
             "summary": _dict(environment.get("summary")),
@@ -98,6 +107,52 @@ def _physical_gate(physical_status: Mapping[str, Any]) -> dict[str, Any]:
         ACTION_REQUIRED,
         f"Missing passed physical evidence for: {family_label}.",
         "Print and record passed PLA, PETG, and TPU coupon or small-object evidence.",
+    )
+
+
+def _regression_status(
+    *,
+    regression_status: Mapping[str, Any] | None,
+    regression_manifest_path: str | Path | None,
+) -> dict[str, Any]:
+    if regression_status is not None:
+        return dict(regression_status)
+    if regression_manifest_path is not None:
+        return run_regression_manifest(regression_manifest_path)
+    return {"overall_status": "not_configured"}
+
+
+def _regression_gate(
+    regression_status: Mapping[str, Any],
+    *,
+    regression_manifest_path: str | Path | None,
+) -> dict[str, Any]:
+    overall_status = str(regression_status.get("overall_status") or "not_configured")
+    case_count = int(regression_status.get("case_count") or 0)
+    if overall_status == "passed":
+        return _gate(
+            "beta_regressions",
+            "Beta regressions",
+            READY,
+            f"{case_count} captured regression case(s) matched expected outcomes.",
+            "No action needed.",
+        )
+    if overall_status == "failed":
+        failed_count = int(regression_status.get("failed_count") or 0)
+        manifest_label = _optional_path_label(regression_manifest_path)
+        return _gate(
+            "beta_regressions",
+            "Beta regressions",
+            ACTION_REQUIRED,
+            f"{failed_count} regression case(s) drifted from expected outcomes.",
+            f"Run printpipe run-regressions {manifest_label} --strict and fix the drift.",
+        )
+    return _gate(
+        "beta_regressions",
+        "Beta regressions",
+        NOT_APPLICABLE,
+        "No beta regression manifest configured.",
+        "Capture beta failures with record-beta-failure or pass --regression-manifest.",
     )
 
 
@@ -244,6 +299,12 @@ def _dict(value: Any) -> dict[str, Any]:
 
 def _list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
+
+
+def _optional_path_label(path: str | Path | None) -> str:
+    if path is None:
+        return "<manifest>"
+    return str(Path(path).expanduser())
 
 
 __all__ = ["build_beta_readiness_report", "render_beta_readiness_report"]

@@ -1,8 +1,8 @@
 # Beta Regression Harness Foundation
 
-Status: failure-intake and replay ready. The CLI can append cases while
-recording beta failure packets, then execute the manifest and report expected
-outcome drift.
+Status: failure-intake, replay, and readiness-gate integration ready. The CLI
+can append cases while recording beta failure packets, execute the manifest,
+and promote expected-outcome drift into the combined readiness report.
 
 ## Purpose
 
@@ -68,7 +68,9 @@ stable display text when writing reports or debugging a manifest entry.
    command and notes, then write or update a manifest with
    `write_regression_manifest(...)`.
 5. Run `printpipe run-regressions ... --strict` to replay the manifest.
-6. When a known failure is fixed intentionally, flip its `expected` value from
+6. Run `printpipe readiness --regression-manifest ... --strict` when the
+   manifest should gate local beta/release readiness.
+7. When a known failure is fixed intentionally, flip its `expected` value from
    `failure` to `success` so it guards against coming back.
 
 Example:
@@ -92,6 +94,15 @@ Replay the manifest:
 printpipe run-regressions tests/fixtures/regression/failure_manifest.json --strict
 ```
 
+Gate readiness with the same manifest:
+
+```bash
+printpipe readiness \
+  --runs-dir runs \
+  --regression-manifest tests/fixtures/regression/failure_manifest.json \
+  --strict
+```
+
 Meaning:
 
 - `expected=failure` passes only when the command still fails.
@@ -99,6 +110,10 @@ Meaning:
 - An unexpected pass is useful news: it means the known failure may be fixed and
   should be reviewed before changing the manifest expectation.
 - An unexpected failure means a fixed case regressed.
+- Missing regression manifests are `not_applicable` in readiness so a first
+  local run is not blocked before beta failures exist.
+- Drifted manifests are `action_required` in readiness and should be fixed or
+  intentionally reclassified before release claims.
 
 ## Current Limits
 

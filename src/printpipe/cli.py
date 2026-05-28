@@ -709,6 +709,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory containing PrintPipe run folders to scan for physical evidence.",
     )
     readiness.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Optional beta regression manifest to execute as a readiness gate.",
+    )
+    readiness.add_argument(
         "--json",
         action="store_true",
         help="Print the combined readiness report as JSON.",
@@ -991,6 +997,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "readiness":
         return _readiness(
             runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
             json_output=args.json,
             strict=args.strict,
         )
@@ -1214,13 +1221,22 @@ def _physical_start(
     return 0
 
 
-def _readiness(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
+def _readiness(
+    *,
+    runs_dir: Path,
+    regression_manifest_path: Path | None,
+    json_output: bool,
+    strict: bool,
+) -> int:
     from printpipe.beta.readiness import (
         build_beta_readiness_report,
         render_beta_readiness_report,
     )
 
-    report = build_beta_readiness_report(runs_dir)
+    report = build_beta_readiness_report(
+        runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
     if json_output:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:

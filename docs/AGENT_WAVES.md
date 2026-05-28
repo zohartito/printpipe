@@ -1015,3 +1015,14 @@ Status: complete for replaying captured beta regression cases. Manifests are now
 5. Done: `expected=success` passes only when the command succeeds.
 6. Done: `--strict` returns exit code `2` when any case drifts.
 7. Boundary: real beta failures and rule updates are still needed before Phase 16 can be marked complete.
+
+## Wave 92 - Regression Readiness Gate
+
+Status: complete for beta-readiness visibility. Regression manifests now feed the same readiness surface as physical, dependency, Bambu, filesystem, and signing gates.
+
+1. Done: added a `beta_regressions` gate to `build_beta_readiness_report()`.
+2. Done: missing regression manifests are marked `not_applicable`, so beta readiness stays honest without blocking a first local run.
+3. Done: passing regression manifests report the number of captured cases that still match expected outcomes.
+4. Done: drifted regression manifests mark readiness `action_required` and point back to `printpipe run-regressions ... --strict`.
+5. Done: added `printpipe readiness --regression-manifest <manifest>` so CI, local CLI, or agents can promote captured beta failures into a release gate.
+6. Boundary: this does not create trusted-user beta failures or fix material/orientation/repair rules; it only makes captured regressions visible at the readiness layer.
