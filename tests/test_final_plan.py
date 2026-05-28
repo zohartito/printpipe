@@ -292,6 +292,89 @@ def test_render_final_action_plan_lists_next_action_supporting_paths(
     assert "handoff: runs/pla/90_physical/handoff.md" in rendered
 
 
+def test_render_final_action_plan_lists_section_action_commands_and_files() -> None:
+    rendered = render_final_action_plan(
+        {
+            "overall_status": "action_required",
+            "action_count": 2,
+            "runs_dir": "runs",
+            "release_dir": "dist/release",
+            "proof_boundary": "A final plan is not evidence.",
+            "next_action": {},
+            "sections": [
+                {
+                    "id": "trusted_user_beta",
+                    "label": "Trusted-user beta",
+                    "status": "action_required",
+                    "action_count": 1,
+                    "detail": "Give trusted users real runs to review.",
+                    "proof_boundary": "feedback proof only",
+                    "actions": [
+                        {
+                            "slot": 1,
+                            "status": "action_required",
+                            "detail": "review run, then record",
+                            "start_command": "printpipe beta-feedback-start runs/demo",
+                            "record_command": "printpipe record-beta-feedback runs/demo",
+                            "handoff_markdown_path": (
+                                "runs/demo/90_beta/"
+                                "trusted_user_feedback_handoff_maya.md"
+                            ),
+                            "report_path": "runs/demo/80_reports/run_report.html",
+                            "bundle_path": "runs/demo/60_bundle/demo.3mf",
+                        }
+                    ],
+                },
+                {
+                    "id": "release_distribution",
+                    "label": "Release distribution",
+                    "status": "action_required",
+                    "action_count": 1,
+                    "detail": "Build and sign release artifacts.",
+                    "proof_boundary": "release proof only",
+                    "actions": [
+                        {
+                            "id": "macos_distribution",
+                            "label": "macOS distribution",
+                            "status": "action_required",
+                            "detail": "sign and notarize",
+                            "start_command": "printpipe release-start --release-dir dist/release",
+                            "command": "printpipe build-release --developer-id-identity '<id>'",
+                            "followup_command": "printpipe release-status --strict",
+                            "required_inputs": [
+                                "Developer ID Application certificate",
+                                "notarytool keychain profile",
+                            ],
+                            "handoff_markdown_path": (
+                                "dist/release_handoffs/"
+                                "release_distribution_handoff.md"
+                            ),
+                        }
+                    ],
+                },
+            ],
+        }
+    )
+
+    assert "  - action_required: Trusted tester 1" in rendered
+    assert "    detail: review run, then record" in rendered
+    assert "    start: printpipe beta-feedback-start runs/demo" in rendered
+    assert "    record after review: printpipe record-beta-feedback runs/demo" in rendered
+    assert "    report: runs/demo/80_reports/run_report.html" in rendered
+    assert "    bundle: runs/demo/60_bundle/demo.3mf" in rendered
+    assert "  - action_required: macOS distribution" in rendered
+    assert (
+        "    required inputs: Developer ID Application certificate, "
+        "notarytool keychain profile"
+    ) in rendered
+    assert "    start: printpipe release-start --release-dir dist/release" in rendered
+    assert (
+        "    command: printpipe build-release --developer-id-identity '<id>'"
+    ) in rendered
+    assert "    follow-up check: printpipe release-status --strict" in rendered
+    assert "    handoff: dist/release_handoffs/release_distribution_handoff.md" in rendered
+
+
 def test_render_final_next_action_shows_only_immediate_action() -> None:
     plan = {
         "overall_status": "action_required",

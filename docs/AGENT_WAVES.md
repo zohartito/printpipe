@@ -1472,3 +1472,13 @@ Status: partial progress for release distribution execution UX. This makes the f
 3. Done: the web final-readiness top next-action callout renders release required inputs, run-after-prerequisites command, follow-up check command, and handoff path.
 4. Done: trusted-user top next-action record commands now use the contextual `record after review` label when present, matching row behavior.
 5. Boundary: a richer next-action payload is still instructions only. Signed distribution gates remain open until verified signed/notarized macOS and signed Windows artifacts exist.
+
+## Wave 134 - Terminal Final Plan Action Details
+
+Status: partial progress for endgame execution UX. This makes the complete terminal final-plan checklist operational, not only the top next action.
+
+1. Done: terminal `final-plan` section action rows now render action details instead of only `status: label`.
+2. Done: action rows render required inputs, start/setup/build commands, follow-up checks, and contextual record commands.
+3. Done: trusted-user action rows use `record after review`; physical action rows use `record after print`.
+4. Done: action rows render supporting artifact, sidecar, handoff, report, bundle, bundle-validation, and slice paths when present.
+5. Boundary: richer terminal checklist rows are instructions only. Physical, trusted-user, and signed-distribution gates still require their real external evidence.

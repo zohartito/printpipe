@@ -151,9 +151,8 @@ def render_final_action_plan(plan: Mapping[str, Any]) -> str:
         if command:
             lines.append(f"  command: {command}")
         for action in _list(section.get("actions")):
-            summary = _action_summary(_dict(action))
-            if summary:
-                lines.append(f"  - {summary}")
+            for action_line in _section_action_lines(_dict(action), section):
+                lines.append(f"  {action_line}")
     return "\n".join(lines) + "\n"
 
 
@@ -299,15 +298,66 @@ def _release_plan_command(
 
 
 def _action_summary(action: Mapping[str, Any]) -> str:
-    label = action.get("label") or action.get("id") or action.get("family")
-    if label is None and action.get("slot") is not None:
-        label = f"tester slot {action.get('slot')}"
+    label = _action_label(action)
     status = action.get("status")
     if label is None and status is None:
         return ""
     if status is None:
         return str(label)
     return f"{status}: {label}"
+
+
+def _section_action_lines(
+    action: Mapping[str, Any],
+    section: Mapping[str, Any],
+) -> list[str]:
+    summary = _action_summary(action)
+    if not summary:
+        return []
+    lines = [f"- {summary}"]
+    detail = _action_detail(action, section)
+    if detail:
+        lines.append(f"  detail: {detail}")
+    for label, value in _supporting_info_lines(action):
+        lines.append(f"  {label}: {value}")
+    for label, value in _section_action_command_lines(action, section):
+        lines.append(f"  {label}: {value}")
+    for label, value in _supporting_path_lines(action):
+        lines.append(f"  {label}: {value}")
+    return lines
+
+
+def _section_action_command_lines(
+    action: Mapping[str, Any],
+    section: Mapping[str, Any],
+) -> list[tuple[str, str]]:
+    section_id = str(section.get("id") or "")
+    lines: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for key, label in (
+        ("start_command", "start"),
+        ("setup_command", "setup"),
+        ("command", "command"),
+        ("followup_command", "follow-up check"),
+    ):
+        command = str(action.get(key) or "")
+        if command and command not in seen:
+            lines.append((label, command))
+            seen.add(command)
+    record = str(action.get("record_command") or "")
+    if record and record not in seen:
+        if (
+            section_id != "trusted_user_beta"
+            and (action.get("start_command") or action.get("setup_command"))
+        ):
+            return lines
+        label = (
+            "record after review"
+            if section_id == "trusted_user_beta"
+            else "record after print"
+        )
+        lines.append((label, record))
+    return lines
 
 
 def _next_action(sections: list[dict[str, Any]]) -> dict[str, Any]:
