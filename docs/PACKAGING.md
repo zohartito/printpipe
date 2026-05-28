@@ -236,3 +236,27 @@ What this does not prove:
 - It is not a signed Windows installer.
 - It does not install shell shortcuts, file associations, or Start Menu/Finder
   launcher integration.
+
+## Windows Zipapp Smoke Evidence
+
+Wave 44 ran the same `printpipe.pyz` artifact on the Windows host over SSH:
+
+```cmd
+python %TEMP%\printpipe-zipapp\printpipe.pyz --version
+python %TEMP%\printpipe-zipapp\printpipe.pyz package-smoke --platform windows --runs-dir %TEMP%\printpipe-zipapp\runs --json
+```
+
+Observed:
+
+- `printpipe 0.1.0`
+- `status=ok`
+- Windows runtime check: `win32`
+- generated fixture:
+  `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-zipapp\package_smoke_tiny_tetrahedron.stl`
+- run root:
+  `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-zipapp\runs\20260528-063417-package-smoke-tiny-tetrahedron`
+- bundle:
+  `60_bundle\existing_stl_package_smoke_tiny_tetrahedron.3mf`
+
+This upgrades the Windows packaging evidence from source-export smoke to actual
+zipapp-artifact smoke. It still does not replace signed installer work.

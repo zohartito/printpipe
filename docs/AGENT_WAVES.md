@@ -474,3 +474,14 @@ Status: partial progress for original items 121 and 122. PrintPipe now has a rea
 4. Done: verified the generated `.pyz` can run `package-smoke --platform macos` and produce reports plus a Bambu `.3mf`.
 5. Done: removed stale package-smoke wording that still described the old Bambu CLI segfault boundary.
 6. Remaining: signed/notarized macOS app, signed Windows installer, bundled Python runtime, shell shortcuts, and launcher/file-association polish remain separate packaging gates.
+
+## Wave 44 - Windows Zipapp Artifact Smoke
+
+Status: partial progress for original item 122. The portable zipapp artifact runs on Windows, but this is still not a signed installer.
+
+1. Done: verified `desktop-zt` was reachable over SSH with Python `3.13.7` and PowerShell `5.1.26100.8521`.
+2. Done: copied the generated `printpipe.pyz` artifact to `%TEMP%\printpipe-zipapp\printpipe.pyz`.
+3. Done: ran `python %TEMP%\printpipe-zipapp\printpipe.pyz --version` on Windows and got `printpipe 0.1.0`.
+4. Done: ran `python %TEMP%\printpipe-zipapp\printpipe.pyz package-smoke --platform windows --runs-dir %TEMP%\printpipe-zipapp\runs --json`.
+5. Done: Windows zipapp smoke returned `status=ok`, `windows_runtime=ok`, report artifacts, and `existing_stl_package_smoke_tiny_tetrahedron.3mf`.
+6. Remaining: signed Windows installer, bundled runtime, Start Menu/shortcut integration, and live Windows+Bambu Studio slice check are still separate gates.
