@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -220,6 +221,35 @@ def build_parser() -> argparse.ArgumentParser:
         "--adhoc-sign",
         action="store_true",
         help="Apply a local ad-hoc codesign signature; this is not notarization.",
+    )
+
+    build_macos_standalone = subparsers.add_parser(
+        "build-macos-standalone",
+        help="Build a PyInstaller macOS app with a bundled Python runtime.",
+    )
+    build_macos_standalone.add_argument(
+        "--output",
+        type=Path,
+        default=Path("dist/PrintPipeStandalone.app"),
+        help="Path for the generated standalone .app bundle.",
+    )
+    build_macos_standalone.add_argument(
+        "--pyinstaller",
+        default=os.environ.get("PRINTPIPE_PYINSTALLER", "pyinstaller"),
+        help=(
+            "PyInstaller command to run. Use "
+            "'uvx --from pyinstaller pyinstaller' when pyinstaller is not on PATH."
+        ),
+    )
+    build_macos_standalone.add_argument(
+        "--json",
+        action="store_true",
+        help="Print standalone app build output as JSON.",
+    )
+    build_macos_standalone.add_argument(
+        "--adhoc-sign",
+        action="store_true",
+        help="Ad-hoc sign the PyInstaller app; this is not Developer ID notarization.",
     )
 
     build_macos_dmg = subparsers.add_parser(
@@ -509,6 +539,14 @@ def main(argv: list[str] | None = None) -> int:
             adhoc_sign=args.adhoc_sign,
         )
 
+    if args.command == "build-macos-standalone":
+        return _build_macos_standalone(
+            output_path=args.output,
+            json_output=args.json,
+            pyinstaller_command=args.pyinstaller,
+            adhoc_sign=args.adhoc_sign,
+        )
+
     if args.command == "build-macos-dmg":
         return _build_macos_dmg(
             output_path=args.output,
@@ -625,6 +663,31 @@ def _build_macos_app(*, output_path: Path, json_output: bool, adhoc_sign: bool) 
     else:
         print(f"macOS app: {payload['app_path']}")
         print(f"executable: {payload['executable_path']}")
+        print(f"signed: {str(payload['signed']).lower()}")
+        print("notarized: false")
+    return 0
+
+
+def _build_macos_standalone(
+    *,
+    output_path: Path,
+    json_output: bool,
+    pyinstaller_command: str,
+    adhoc_sign: bool,
+) -> int:
+    from printpipe.packaging.macos_standalone import build_macos_standalone_app
+
+    payload = build_macos_standalone_app(
+        app_path=output_path,
+        pyinstaller_command=pyinstaller_command,
+        adhoc_sign=adhoc_sign,
+    )
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"macOS standalone app: {payload['app_path']}")
+        print(f"executable: {payload['executable_path']}")
+        print(f"bundles Python runtime: {str(payload['bundles_python_runtime']).lower()}")
         print(f"signed: {str(payload['signed']).lower()}")
         print("notarized: false")
     return 0

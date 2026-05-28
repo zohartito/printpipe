@@ -422,6 +422,44 @@ Observed live:
 This is useful local packaging hygiene, but it is not Developer ID signing and
 does not replace notarization.
 
+## macOS Standalone Runtime App
+
+Wave 57 adds a PyInstaller-backed app build that bundles a Python runtime:
+
+```bash
+printpipe build-macos-standalone --output dist/PrintPipeStandalone.app --pyinstaller "uvx --from pyinstaller pyinstaller" --json
+dist/PrintPipeStandalone.app/Contents/MacOS/PrintPipeStandalone --version
+PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipeStandalone.app/Contents/MacOS/PrintPipeStandalone
+```
+
+What this proves:
+
+- `PrintPipeStandalone.app` is a macOS app bundle produced by PyInstaller.
+- `Contents/MacOS/PrintPipeStandalone` runs the PrintPipe CLI entrypoint.
+- `Contents/Resources/Python.framework` or an equivalent PyInstaller internal
+  Python runtime is present.
+- The human CLI output reports whether the app bundles Python runtime.
+- The no-argument app path starts the same local web UI flow as the zipapp
+  wrapper.
+- Supported mesh/media extensions are written into `CFBundleDocumentTypes`.
+
+Observed live on this Mac:
+
+- `bundles_python_runtime=true`
+- bundled runtime path:
+  `/tmp/.../PrintPipeStandalone.app/Contents/Resources/Python.framework`
+- `PrintPipeStandalone --version` returned `printpipe 0.1.0`
+- dry-run launch printed the local web UI command for
+  `http://127.0.0.1:8765/`
+- app size was about `75M`
+
+What this does not prove:
+
+- It is still not Developer ID signed or notarized.
+- It does not bundle Bambu Studio.
+- It is not yet the default release-bundle artifact.
+- It does not install itself as the default handler for mesh/media files.
+
 ## macOS DMG Distribution Artifact
 
 Wave 50 adds a drag-install DMG builder around the generated app:

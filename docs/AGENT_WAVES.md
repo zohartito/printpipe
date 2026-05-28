@@ -619,3 +619,15 @@ Status: partial progress for original item 121. PrintPipe now distinguishes loca
 5. Done: `printpipe doctor --json` includes the signing readiness packet under `system.signing`.
 6. Boundary on this Mac: signing tools are present, but no valid Developer ID identities are installed.
 7. Remaining: install Apple Developer certificates, perform real Developer ID signing/notarization, signed Windows installer, bundled Python runtime, live Windows+Bambu slice evidence, and physical print validation stay open.
+
+## Wave 57 - macOS Standalone Runtime App
+
+Status: partial progress for original item 121. PrintPipe can now build a macOS `.app` that includes a Python runtime through PyInstaller, but it is not Developer ID signed/notarized and is not yet the default release artifact.
+
+1. Done: added `printpipe.packaging.macos_standalone.build_macos_standalone_app()`.
+2. Done: added `printpipe build-macos-standalone --output dist/PrintPipeStandalone.app`.
+3. Done: standalone entrypoint preserves CLI passthrough, no-arg local web UI launch, and one-file document launch behavior.
+4. Done: generated app metadata includes alternate document types for supported mesh/media inputs.
+5. Done: live-built with `uvx --from pyinstaller pyinstaller`; resulting app reported `bundles_python_runtime=true`.
+6. Done: live executable returned `printpipe 0.1.0`; dry-run launch printed the `http://127.0.0.1:8765/` local web UI command.
+7. Remaining: Developer ID signing/notarization, making the standalone app part of the release bundle, signed Windows installer, Windows bundled runtime, live Windows+Bambu slice evidence, and physical print validation stay open.

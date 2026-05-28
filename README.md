@@ -90,8 +90,10 @@ printpipe verify-release dist/release --json
 
 printpipe build-macos-app --output dist/PrintPipe.app
 printpipe build-macos-app --output dist/PrintPipe.app --adhoc-sign
+printpipe build-macos-standalone --output dist/PrintPipeStandalone.app --pyinstaller "uvx --from pyinstaller pyinstaller"
 printpipe build-macos-dmg --output dist/PrintPipe.dmg --adhoc-sign
 PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipe.app/Contents/MacOS/printpipe
+PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipeStandalone.app/Contents/MacOS/PrintPipeStandalone
 PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipe.app/Contents/MacOS/printpipe path/to/input.stl
 dist/PrintPipe.app/Contents/MacOS/printpipe --version
 ```
