@@ -936,3 +936,15 @@ Status: complete for final-release gate visibility. `release-status` now disting
 4. Done: the Windows distribution gate only passes when the manifest records a `windows_installer` with `signed=true`.
 5. Done: release-status now reads release artifacts from injected verification payloads or from `release_manifest.json`.
 6. Boundary: these gates report final distribution completeness; they do not create certificates, notarize a DMG, or sign a Windows installer.
+
+## Wave 85 - Release Status in Local Web UI
+
+Status: complete for local web parity. The stronger release-status gates are now visible in the browser, not only through the CLI.
+
+1. Done: added `GET /release-status.json`.
+2. Done: the endpoint returns `build_release_status_report(release_dir=..., runs_dir=...)`.
+3. Done: added a home-page `Release status` panel before the older readiness panel.
+4. Done: the panel renders release bundle, macOS distribution, Windows distribution, physical, dependency, Bambu, filesystem, and signing gates from the combined report.
+5. Done: added `Release status JSON` to the home page service links.
+6. Done: browser smoke on `http://127.0.0.1:8895/` showed `Release status`, `macOS distribution`, `Windows distribution`, and `Release status JSON`; `/release-status.json` returned the expected action-required gates.
+7. Boundary: this is read-only UI visibility; it does not build releases, sign packages, install tools, or record physical evidence.

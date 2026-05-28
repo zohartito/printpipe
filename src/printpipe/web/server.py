@@ -21,6 +21,7 @@ from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.env.doctor import build_environment_report
 from printpipe.local_open import open_run_folder
+from printpipe.packaging.release_status import build_release_status_report
 from printpipe.pipeline import (
     PipelineError,
     run_edit_recipe_pipeline,
@@ -156,10 +157,12 @@ class PrintPipeWebApp:
         static_roots: Iterable[str | Path] = (),
         *,
         runs_dir: str | Path | None = None,
+        release_dir: str | Path | None = Path("dist/release"),
         path_opener: Callable[[Path], object] | None = None,
     ) -> None:
         self.static_roots = tuple(Path(root) for root in static_roots)
         self.runs_dir = Path(runs_dir) if runs_dir is not None else None
+        self.release_dir = Path(release_dir) if release_dir is not None else None
         self.path_opener = path_opener
 
     def handle(
@@ -200,6 +203,8 @@ class PrintPipeWebApp:
             return self.doctor_response()
         if path == "/readiness.json":
             return self.readiness_response()
+        if path == "/release-status.json":
+            return self.release_status_response()
         if path == "/physical-status.json":
             return self.physical_status_response()
         if path.startswith(_STATIC_PREFIX):
@@ -329,6 +334,27 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
+    def release_status_response(self) -> WebResponse:
+        if self.runs_dir is None or self.release_dir is None:
+            return WebResponse.from_text(
+                "Runs directory or release directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            return WebResponse.json(
+                build_release_status_report(
+                    release_dir=self.release_dir,
+                    runs_dir=self.runs_dir,
+                )
+            )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
     def physical_status_response(self) -> WebResponse:
         if self.runs_dir is None:
             return WebResponse.from_text(
@@ -444,12 +470,14 @@ class PrintPipeWebApp:
                 "      <h1>PrintPipe</h1>",
                 "    </header>",
                 self._render_create_run_panel(),
+                self._render_release_status_panel(),
                 self._render_readiness_panel(),
                 self._render_physical_beta_gate_panel(),
                 self._render_recent_runs_panel(),
                 '    <section class="panel">',
                 "      <h2>Service</h2>",
                 '      <p><a href="/health">Health check</a></p>',
+                '      <p><a href="/release-status.json">Release status JSON</a></p>',
                 '      <p><a href="/readiness.json">Readiness JSON</a></p>',
                 '      <p><a href="/doctor.json">Environment doctor JSON</a></p>',
                 "    </section>",
@@ -569,6 +597,32 @@ class PrintPipeWebApp:
                 '    <section class="panel readiness-panel">',
                 "      <div>",
                 "        <h2>Readiness gates</h2>",
+                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
+                "      </div>",
+                f'      <div class="readiness-grid">{gate_cards}</div>',
+                "    </section>",
+            ]
+        )
+
+    def _render_release_status_panel(self) -> str:
+        if self.runs_dir is None or self.release_dir is None:
+            return ""
+        try:
+            report = build_release_status_report(
+                release_dir=self.release_dir,
+                runs_dir=self.runs_dir,
+            )
+        except (OSError, ValueError):
+            return ""
+        overall = str(report.get("overall_status", "unknown"))
+        action_count = str(report.get("action_required_count", 0))
+        gates = _as_dicts(report.get("gates"))
+        gate_cards = "\n".join(self._render_readiness_gate(gate) for gate in gates)
+        return "\n".join(
+            [
+                '    <section class="panel readiness-panel">',
+                "      <div>",
+                "        <h2>Release status</h2>",
                 f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
                 "      </div>",
                 f'      <div class="readiness-grid">{gate_cards}</div>',
@@ -834,6 +888,7 @@ def create_app(
     static_roots: Iterable[str | Path] = (),
     *,
     runs_dir: str | Path | None = None,
+    release_dir: str | Path | None = Path("dist/release"),
     path_opener: Callable[[Path], object] | None = None,
 ) -> PrintPipeWebApp:
     """Create the local web app without binding a socket."""
@@ -841,7 +896,12 @@ def create_app(
     roots = [Path(root) for root in static_roots]
     if runs_dir is not None:
         roots.append(Path(runs_dir))
-    return PrintPipeWebApp(static_roots=roots, runs_dir=runs_dir, path_opener=path_opener)
+    return PrintPipeWebApp(
+        static_roots=roots,
+        runs_dir=runs_dir,
+        release_dir=release_dir,
+        path_opener=path_opener,
+    )
 
 
 def create_server(

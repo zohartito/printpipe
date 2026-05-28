@@ -133,6 +133,7 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert "Open workbench" in response.text
     assert 'href="/runs/run-ui-001/artifacts/60_bundle/ready.3mf"' in response.text
     assert 'href="/readiness.json"' in response.text
+    assert 'href="/release-status.json"' in response.text
     assert 'href="/doctor.json"' in response.text
 
 
@@ -274,6 +275,91 @@ def test_home_response_renders_combined_readiness_summary(monkeypatch, tmp_path:
     assert "Release signing" in response.text
     assert "Missing signing requirements: Developer ID Application." in response.text
     assert "Print and record passed coupons." in response.text
+
+
+def test_home_response_renders_release_status_summary(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_status_report",
+        lambda *, release_dir, runs_dir: {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_required_count": 2,
+            "gates": [
+                {
+                    "id": "release_bundle",
+                    "label": "Release bundle",
+                    "status": "ready",
+                    "detail": "Release manifest and 4 artifact(s) verify.",
+                    "action": "No action needed.",
+                },
+                {
+                    "id": "macos_distribution",
+                    "label": "macOS distribution",
+                    "status": "action_required",
+                    "detail": "macOS release artifact is not Developer ID signed and notarized.",
+                    "action": "Install Developer ID identities.",
+                },
+                {
+                    "id": "windows_distribution",
+                    "label": "Windows distribution",
+                    "status": "action_required",
+                    "detail": "No signed Windows installer artifact is recorded in the manifest.",
+                    "action": "Build and include a signed PrintPipeSetup.exe.",
+                },
+            ],
+            "next_actions": [
+                "Install Developer ID identities.",
+                "Build and include a signed PrintPipeSetup.exe.",
+            ],
+        },
+    )
+    app = create_app(runs_dir=tmp_path / "runs", release_dir=tmp_path / "release")
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Release status" in response.text
+    assert "2 action required" in response.text
+    assert "Release bundle" in response.text
+    assert "macOS distribution" in response.text
+    assert "Windows distribution" in response.text
+    assert "macOS release artifact is not Developer ID signed and notarized." in response.text
+    assert "Build and include a signed PrintPipeSetup.exe." in response.text
+
+
+def test_release_status_json_endpoint_returns_combined_release_report(
+    monkeypatch,
+    tmp_path: Path,
+):
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_status_report",
+        lambda *, release_dir, runs_dir: {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "release_dir": str(release_dir),
+            "runs_dir": str(runs_dir),
+            "gates": [
+                {
+                    "id": "macos_distribution",
+                    "status": "action_required",
+                    "detail": "macOS release artifact is not Developer ID signed and notarized.",
+                }
+            ],
+        },
+    )
+    runs_dir = tmp_path / "runs"
+    release_dir = tmp_path / "release"
+    app = create_app(runs_dir=runs_dir, release_dir=release_dir)
+
+    response = app.handle("/release-status.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "action_required"
+    assert payload["release_dir"] == str(release_dir)
+    assert payload["runs_dir"] == str(runs_dir)
+    assert payload["gates"][0]["id"] == "macos_distribution"
 
 
 def test_doctor_json_endpoint_returns_environment_report(monkeypatch, tmp_path: Path):
