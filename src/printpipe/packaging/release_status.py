@@ -18,6 +18,7 @@ def build_release_status_report(
     *,
     release_dir: str | Path,
     runs_dir: str | Path,
+    regression_manifest_path: str | Path | None = None,
     release_verification: Mapping[str, Any] | None = None,
     readiness_report: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -33,7 +34,10 @@ def build_release_status_report(
     readiness = (
         dict(readiness_report)
         if readiness_report is not None
-        else build_beta_readiness_report(runs_path)
+        else build_beta_readiness_report(
+            runs_path,
+            regression_manifest_path=regression_manifest_path,
+        )
     )
     release_artifacts = _release_artifacts(release_path, verification)
     gates = [_release_bundle_gate(release_path, verification)]

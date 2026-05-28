@@ -43,6 +43,58 @@ def test_release_status_report_combines_release_and_readiness_gates(tmp_path: Pa
     assert report["next_actions"] == ["Print and record TPU evidence."]
 
 
+def test_release_status_report_passes_regression_manifest_to_readiness(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "regression_manifest.json"
+    observed: dict[str, Path | None] = {}
+
+    def fake_readiness_report(runs_dir, *, regression_manifest_path=None):
+        observed["runs_dir"] = Path(runs_dir)
+        observed["regression_manifest_path"] = regression_manifest_path
+        return {
+            "overall_status": "action_required",
+            "action_required_count": 1,
+            "gates": [
+                {
+                    "id": "beta_regressions",
+                    "label": "Beta regressions",
+                    "status": "action_required",
+                    "detail": "1 regression case(s) drifted from expected outcomes.",
+                    "action": "Run printpipe run-regressions manifest --strict.",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.packaging.release_status.build_beta_readiness_report",
+        fake_readiness_report,
+    )
+
+    report = build_release_status_report(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+        release_verification={
+            "status": "ok",
+            "artifact_count": 1,
+            "checks": [],
+            "failures": [],
+            "artifacts": [],
+        },
+        regression_manifest_path=manifest_path,
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    assert observed == {
+        "runs_dir": tmp_path / "runs",
+        "regression_manifest_path": manifest_path,
+    }
+    assert report["overall_status"] == "action_required"
+    assert gates["beta_regressions"]["status"] == "action_required"
+    assert report["next_actions"] == ["Run printpipe run-regressions manifest --strict."]
+
+
 def test_release_status_report_blocks_on_failed_release_verification(tmp_path: Path) -> None:
     report = build_release_status_report(
         release_dir=tmp_path / "release",
@@ -170,6 +222,8 @@ def test_release_status_parser_accepts_dirs_json_and_strict_flags(tmp_path: Path
             str(tmp_path / "release"),
             "--runs-dir",
             str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(tmp_path / "regression_manifest.json"),
             "--json",
             "--strict",
         ]
@@ -178,6 +232,7 @@ def test_release_status_parser_accepts_dirs_json_and_strict_flags(tmp_path: Path
     assert args.command == "release-status"
     assert args.release_dir == tmp_path / "release"
     assert args.runs_dir == tmp_path / "runs"
+    assert args.regression_manifest == tmp_path / "regression_manifest.json"
     assert args.json is True
     assert args.strict is True
 
@@ -187,9 +242,11 @@ def test_cli_release_status_json_returns_two_when_strict_and_action_required(
     tmp_path: Path,
     capsys,
 ) -> None:
-    monkeypatch.setattr(
-        "printpipe.packaging.release_status.build_release_status_report",
-        lambda *, release_dir, runs_dir: {
+    manifest_path = tmp_path / "regression_manifest.json"
+
+    def fake_release_status_report(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
             "schema_version": 1,
             "overall_status": "action_required",
             "action_required_count": 1,
@@ -205,7 +262,11 @@ def test_cli_release_status_json_returns_two_when_strict_and_action_required(
                 }
             ],
             "next_actions": ["Build and verify a release bundle."],
-        },
+        }
+
+    monkeypatch.setattr(
+        "printpipe.packaging.release_status.build_release_status_report",
+        fake_release_status_report,
     )
 
     exit_code = main(
@@ -215,6 +276,8 @@ def test_cli_release_status_json_returns_two_when_strict_and_action_required(
             str(tmp_path / "release"),
             "--runs-dir",
             str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(manifest_path),
             "--json",
             "--strict",
         ]

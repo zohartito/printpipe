@@ -468,6 +468,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Directory where physical evidence run folders are stored.",
     )
     release_status.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Optional beta regression manifest to execute as a release gate.",
+    )
+    release_status.add_argument(
         "--json",
         action="store_true",
         help="Print the combined release status report as JSON.",
@@ -952,6 +958,7 @@ def main(argv: list[str] | None = None) -> int:
         return _release_status(
             release_dir=args.release_dir,
             runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
             json_output=args.json,
             strict=args.strict,
         )
@@ -1250,6 +1257,7 @@ def _release_status(
     *,
     release_dir: Path,
     runs_dir: Path,
+    regression_manifest_path: Path | None,
     json_output: bool,
     strict: bool,
 ) -> int:
@@ -1258,7 +1266,11 @@ def _release_status(
         render_release_status_report,
     )
 
-    report = build_release_status_report(release_dir=release_dir, runs_dir=runs_dir)
+    report = build_release_status_report(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
     if json_output:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:

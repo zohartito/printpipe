@@ -1026,3 +1026,14 @@ Status: complete for beta-readiness visibility. Regression manifests now feed th
 4. Done: drifted regression manifests mark readiness `action_required` and point back to `printpipe run-regressions ... --strict`.
 5. Done: added `printpipe readiness --regression-manifest <manifest>` so CI, local CLI, or agents can promote captured beta failures into a release gate.
 6. Boundary: this does not create trusted-user beta failures or fix material/orientation/repair rules; it only makes captured regressions visible at the readiness layer.
+
+## Wave 93 - Release Regression Gate
+
+Status: complete for final-release gate plumbing. Release status can now include captured beta regression drift, not just release-folder integrity and static readiness.
+
+1. Done: added `regression_manifest_path` to `build_release_status_report()`.
+2. Done: release status passes the optional manifest through to `build_beta_readiness_report()`.
+3. Done: added `printpipe release-status --regression-manifest <manifest>`.
+4. Done: strict release status now returns exit code `2` when the regression manifest drifts.
+5. Done: release-status next actions include the regression runner action when beta regression drift blocks the handoff.
+6. Boundary: this still does not create real trusted-user failures, physical print evidence, or signed distribution credentials; it only lets final release gating consume those regression manifests when they exist.

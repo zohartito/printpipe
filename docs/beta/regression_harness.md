@@ -1,8 +1,9 @@
 # Beta Regression Harness Foundation
 
-Status: failure-intake, replay, and readiness-gate integration ready. The CLI
-can append cases while recording beta failure packets, execute the manifest,
-and promote expected-outcome drift into the combined readiness report.
+Status: failure-intake, replay, readiness-gate, and release-gate integration
+ready. The CLI can append cases while recording beta failure packets, execute
+the manifest, and promote expected-outcome drift into readiness and release
+status reports.
 
 ## Purpose
 
@@ -70,7 +71,9 @@ stable display text when writing reports or debugging a manifest entry.
 5. Run `printpipe run-regressions ... --strict` to replay the manifest.
 6. Run `printpipe readiness --regression-manifest ... --strict` when the
    manifest should gate local beta/release readiness.
-7. When a known failure is fixed intentionally, flip its `expected` value from
+7. Run `printpipe release-status --regression-manifest ... --strict` when the
+   manifest should also gate a final release handoff.
+8. When a known failure is fixed intentionally, flip its `expected` value from
    `failure` to `success` so it guards against coming back.
 
 Example:
@@ -103,6 +106,16 @@ printpipe readiness \
   --strict
 ```
 
+Gate release status with the same manifest:
+
+```bash
+printpipe release-status \
+  --release-dir dist/release \
+  --runs-dir runs \
+  --regression-manifest tests/fixtures/regression/failure_manifest.json \
+  --strict
+```
+
 Meaning:
 
 - `expected=failure` passes only when the command still fails.
@@ -114,6 +127,8 @@ Meaning:
   local run is not blocked before beta failures exist.
 - Drifted manifests are `action_required` in readiness and should be fixed or
   intentionally reclassified before release claims.
+- Release status consumes the same regression gate when `--regression-manifest`
+  is provided, so final handoff checks can fail on beta drift too.
 
 ## Current Limits
 

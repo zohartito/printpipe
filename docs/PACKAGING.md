@@ -635,6 +635,7 @@ printpipe build-release --output-dir dist/release --windows-installer-exe dist/P
 printpipe build-release --output-dir dist/release --developer-id-identity "Developer ID Application: Your Name (TEAMID)" --notary-profile printpipe-notary --json
 printpipe verify-release dist/release --json
 printpipe release-status --release-dir dist/release --runs-dir runs --strict
+printpipe release-status --release-dir dist/release --runs-dir runs --regression-manifest tests/fixtures/regression/failure_manifest.json --strict
 ```
 
 The release folder contains:
@@ -699,10 +700,12 @@ runtime-bundled artifact without `bundles_python_runtime=true`, or a notarized
 macOS DMG without `signed=true`.
 
 `release-status` combines `verify-release` with release-distribution checks and
-the beta/release readiness gates from `printpipe readiness`. It reports the
-release bundle gate first, then macOS distribution, Windows distribution,
-physical, dependency, Bambu, filesystem, and signing gates, and lists the next
-actions that still block a strict release handoff.
+the beta/release readiness gates from `printpipe readiness`. When
+`--regression-manifest` is provided, it also executes that beta regression
+manifest and includes regression drift as a release gate. It reports the release
+bundle gate first, then macOS distribution, Windows distribution, physical,
+beta regression, dependency, Bambu, filesystem, and signing gates, and lists the
+next actions that still block a strict release handoff.
 
 Local smoke evidence: Wave 82 built the default ignored `dist/release` folder
 with ad-hoc macOS signing. `verify-release` returned `0`; `release-status
