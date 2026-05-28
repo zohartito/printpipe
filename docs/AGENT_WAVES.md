@@ -1760,3 +1760,14 @@ Status: complete for three audit punch-list UI/report honesty gaps.
 4. Done: static HTML reports now mark missing artifact files as `Artifact file missing` instead of rendering clickable links to files that do not exist.
 5. Done: regression coverage proves the home-card verdict appears before bundle downloads, zero-outcome feedback is not recorded as evidence, missing report artifacts are not linked, and existing physical-evidence packet files still render as links.
 6. Boundary: this does not create physical, trusted-user, or slice evidence. It only prevents the UI/report surfaces from implying missing evidence is present.
+
+## Wave 161 - Run-Detail Preview Tab Anchors
+
+Status: complete for the run-detail static-tab UX audit item.
+
+1. Done: the run-detail preview mode chips are now real in-page anchors instead of inert `<span>` elements.
+2. Done: `Model` links to the model preview, `Upper Fit` links to edit geometry, and `Bed Fit`/`Support Risk`/`Slice` link to validation results.
+3. Done: model preview, validation results, pipeline stages, and edit geometry now have stable IDs for in-page navigation.
+4. Done: tab styling still reads as compact chips, but anchors now have real `href` targets and no JavaScript dependency.
+5. Done: regression coverage proves the run-detail response includes the anchor targets and no longer renders the inert `Bed Fit` span.
+6. Boundary: this does not add multi-state tab content or a 3D viewer. It makes the existing server-rendered workbench navigation honest and usable.

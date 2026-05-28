@@ -1365,6 +1365,13 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert "Upper Fit" in response.text
     assert "Support Risk" in response.text
     assert '<button class="tab"' not in response.text
+    assert 'href="#model-preview"' in response.text
+    assert 'href="#validation-results"' in response.text
+    assert 'href="#edit-geometry"' in response.text
+    assert '<span class="tab">Bed Fit</span>' not in response.text
+    assert 'id="model-preview"' in response.text
+    assert 'id="validation-results"' in response.text
+    assert 'id="edit-geometry"' in response.text
     assert 'class="model-preview-image"' in response.text
     assert 'src="/runs/run-workbench-001/artifacts/40_geometry/run_detail_model_preview.svg"' in (
         response.text

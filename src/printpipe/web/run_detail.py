@@ -217,8 +217,16 @@ def _render_model_workbench(detail: dict[str, Any], artifact_links: list[Any]) -
             '        <div class="canvas-zone">',
             _render_model_card(detail, artifact_links),
             '          <div class="lower-grid">',
-            _render_stage_panel("Pipeline Stages", _as_dicts(detail.get("pipeline"))),
-            _render_stage_panel("Validation Results", _as_dicts(detail.get("validation"))),
+            _render_stage_panel(
+                "Pipeline Stages",
+                _as_dicts(detail.get("pipeline")),
+                panel_id="pipeline-stages",
+            ),
+            _render_stage_panel(
+                "Validation Results",
+                _as_dicts(detail.get("validation")),
+                panel_id="validation-results",
+            ),
             "          </div>",
             _render_warning_receipts(detail),
             "        </div>",
@@ -236,7 +244,7 @@ def _render_model_card(detail: dict[str, Any], artifact_links: list[Any]) -> str
         [
             '          <article class="model-card" aria-label="Model workbench">',
             '            <div class="toolbar"><div class="view-tabs" aria-label="Preview modes">',
-            '              <span class="tab active" aria-current="true">Model</span><span class="tab">Bed Fit</span><span class="tab">Upper Fit</span><span class="tab">Support Risk</span><span class="tab">Slice</span>',
+            '              <a class="tab active" href="#model-preview" aria-current="page">Model</a><a class="tab" href="#validation-results">Bed Fit</a><a class="tab" href="#edit-geometry">Upper Fit</a><a class="tab" href="#validation-results">Support Risk</a><a class="tab" href="#validation-results">Slice</a>',
             f'            </div><p class="eyebrow">{escape(_artifact_primary_label(artifact_links))}</p></div>',
             _render_preview(preview_links, detail),
             '            <div class="model-footer">',
@@ -266,7 +274,7 @@ def _render_preview(preview_links: list[Any], detail: dict[str, Any]) -> str:
     )
     return "\n".join(
         [
-            '            <figure class="model-view" aria-label="Model preview">',
+            '            <figure id="model-preview" class="model-view" aria-label="Model preview">',
             '              <div class="bed"></div>',
             visual,
             f'              <figcaption class="preview-title">{escape(title)}</figcaption>',
@@ -299,7 +307,7 @@ def _render_edit_geometry_panel(run_id: str, detail: dict[str, Any], artifact_li
     geometry = _mapping(detail.get("geometry"))
     return "\n".join(
         [
-            f'        <form class="controls" action="/runs/{quote(run_id, safe="")}/edits" method="post">',
+            f'        <form id="edit-geometry" class="controls" action="/runs/{quote(run_id, safe="")}/edits" method="post">',
             "          <h2>Edit Geometry</h2>",
             '          <div class="controls-body">',
             f'            <p class="issue-line">{escape(_fit_issue_label(detail))}</p>',
@@ -355,11 +363,16 @@ def _render_edit_geometry_panel(run_id: str, detail: dict[str, Any], artifact_li
     )
 
 
-def _render_stage_panel(title: str, stages: list[dict[str, Any]]) -> str:
+def _render_stage_panel(
+    title: str,
+    stages: list[dict[str, Any]],
+    *,
+    panel_id: str,
+) -> str:
     rows = "\n".join(_render_stage_row(stage) for stage in stages) or '<p class="muted">No stage data yet.</p>'
     return "\n".join(
         [
-            '            <article class="card stage-card">',
+            f'            <article id="{escape(panel_id, quote=True)}" class="card stage-card">',
             f"              <h2>{escape(title)}</h2>",
             f'              <div class="card-body stage-rail">{rows}</div>',
             "            </article>",
@@ -915,7 +928,7 @@ RUN_DETAIL_CSS = """
     .canvas-zone { display: grid; gap: 14px; grid-template-rows: minmax(420px,auto) auto auto; min-width: 0; }
     .model-card { display: grid; grid-template-rows: auto minmax(420px,1fr) auto auto; min-height: 520px; overflow: hidden; }
     .toolbar { align-items: center; border-bottom: 1px solid #cfd8e3; display: flex; gap: 10px; justify-content: space-between; padding: 12px 14px; }
-    .view-tabs { display: flex; flex-wrap: wrap; gap: 6px; } .tab { background: #f8fafc; border: 1px solid #cfd8e3; border-radius: 999px; color: #52606d; font-size: .84rem; font-weight: 750; padding: 7px 10px; } .tab.active { background: #17202a; color: #fff; }
+    .view-tabs { display: flex; flex-wrap: wrap; gap: 6px; } .tab { background: #f8fafc; border: 1px solid #cfd8e3; border-radius: 999px; color: #52606d; display: inline-flex; font-size: .84rem; font-weight: 750; padding: 7px 10px; text-decoration: none; } .tab.active { background: #17202a; color: #fff; }
     .model-view { align-items: center; background: linear-gradient(90deg,rgba(50,125,158,.12) 1px,transparent 1px),linear-gradient(rgba(50,125,158,.1) 1px,transparent 1px),radial-gradient(circle at 50% 44%,rgba(50,125,158,.13),transparent 34%),#f7fafc; background-size:42px 42px,42px 42px,auto,auto; display:grid; justify-items:center; margin:0; overflow:hidden; position:relative; }
     .bed { background: rgba(255,255,255,.3); border: 2px solid rgba(50,125,158,.42); border-radius: 8px; bottom: 8%; height: min(48%,430px); position: absolute; transform: perspective(920px) rotateX(62deg); width: min(82%,860px); }
     .mesh-placeholder { aspect-ratio: 2.1; background: linear-gradient(90deg,rgba(255,255,255,.72) 0 1px,transparent 1px 22px),linear-gradient(rgba(255,255,255,.65) 0 1px,transparent 1px 22px),linear-gradient(135deg,rgba(50,125,158,.26),rgba(255,255,255,.54)); border: 3px solid rgba(23,32,42,.68); border-radius: 14px; width: min(54vw,650px); z-index: 1; }
