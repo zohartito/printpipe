@@ -981,3 +981,14 @@ Status: complete for print-day command usability. Missing physical-validation fa
 4. Done: incomplete existing evidence packets still target the existing packet run and do not emit a setup command.
 5. Done: the local web action cards render setup commands above the record commands.
 6. Boundary: the command still needs real photo paths and real print observations after Zohar physically prints the sample.
+
+## Wave 89 - Physical Validation Starter Packets
+
+Status: complete for pre-print evidence setup. PrintPipe can now create an honest starter packet before a physical validation print.
+
+1. Done: added `printpipe.beta.physical_start.start_physical_validation()`.
+2. Done: added `printpipe physical-start --family pla|petg|tpu --runs-dir runs --operator ...`.
+3. Done: the command creates `runs/physical-<family>-validation/90_physical/physical_evidence.json` and `.md`.
+4. Done: starter packets use `print_status=not_printed`, carry the operator/material/object context, and include notes saying this is not passed evidence.
+5. Done: `physical-plan` and the local web action cards now show a `physical-start` command before the later `record-physical-evidence` command.
+6. Boundary: starter packets keep `physical-status --strict` failing until a real print is recorded with credible passed evidence and photos.

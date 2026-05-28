@@ -760,6 +760,12 @@ class PrintPipeWebApp:
             if setup_command
             else ""
         )
+        start_command = str(action.get("start_command") or "")
+        start_markup = (
+            f"          <pre><code>{escape(start_command)}</code></pre>"
+            if start_command
+            else ""
+        )
         command = str(action.get("record_command") or "")
         return "\n".join(
             [
@@ -769,6 +775,7 @@ class PrintPipeWebApp:
                 f"          <p>{escape(reason)}</p>",
                 f'          <p class="muted">Required: {escape(required_text or "not recorded")}</p>',
                 setup_markup,
+                start_markup,
                 f"          <pre><code>{escape(command)}</code></pre>",
                 "        </article>",
             ]

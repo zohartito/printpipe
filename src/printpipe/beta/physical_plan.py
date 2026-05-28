@@ -126,6 +126,9 @@ def render_physical_validation_plan(plan: dict[str, Any]) -> str:
         setup_command = str(action.get("setup_command", ""))
         if setup_command:
             lines.append(f"   setup: {setup_command}")
+        start_command = str(action.get("start_command", ""))
+        if start_command:
+            lines.append(f"   start: {start_command}")
         lines.append(f"   command: {action.get('record_command', '')}")
     lines.append("")
     return "\n".join(lines)
@@ -145,6 +148,14 @@ def _action_for_family(
         (runs_dir / f"physical-{family}-validation").resolve()
     )
     setup_command = "" if existing_run_root else f"mkdir -p {_quote(run_root)}"
+    start_command = (
+        ""
+        if existing_run_root
+        else (
+            f"printpipe physical-start --family {family} "
+            f"--runs-dir {_quote(str(runs_dir))} --operator {_quote('Zohar')}"
+        )
+    )
     missing = best_evidence.get("missing_required_evidence")
     required_fields = (
         [str(item) for item in missing]
@@ -157,6 +168,7 @@ def _action_for_family(
         "reason": payload.get("missing_reason", ""),
         "run_root": run_root,
         "setup_command": setup_command,
+        "start_command": start_command,
         "material_hint": profile["material"],
         "object_label": profile["object_label"],
         "print_type": "coupon",

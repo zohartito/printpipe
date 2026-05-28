@@ -23,6 +23,7 @@ from printpipe.beta.physical_status import (
     build_physical_validation_status,
     render_physical_validation_status,
 )
+from printpipe.beta.physical_start import start_physical_validation
 from printpipe.beta.physical_plan import (
     PROOF_BOUNDARY,
     build_physical_validation_plan,
@@ -67,6 +68,7 @@ __all__ = (
     "render_physical_validation_plan",
     "render_physical_validation_status",
     "render_beta_readiness_report",
+    "start_physical_validation",
     "render_command",
     "validate_regression_manifest",
     "write_physical_evidence_files",

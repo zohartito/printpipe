@@ -560,6 +560,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Return exit code 2 unless all required material families have passed evidence.",
     )
 
+    physical_start = subparsers.add_parser(
+        "physical-start",
+        help="Create an honest not-yet-printed starter packet for a material validation print.",
+    )
+    physical_start.add_argument(
+        "--family",
+        required=True,
+        choices=("pla", "petg", "tpu"),
+        help="Material family to prepare for physical validation.",
+    )
+    physical_start.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders.",
+    )
+    physical_start.add_argument(
+        "--operator",
+        default="",
+        help="Person preparing or later inspecting the print.",
+    )
+    physical_start.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the starter packet paths and next record command as JSON.",
+    )
+
     physical_plan = subparsers.add_parser(
         "physical-plan",
         help="Turn missing PLA/PETG/TPU physical validation gates into exact next actions.",
@@ -843,6 +870,14 @@ def main(argv: list[str] | None = None) -> int:
             strict=args.strict,
         )
 
+    if args.command == "physical-start":
+        return _physical_start(
+            runs_dir=args.runs_dir,
+            family=args.family,
+            operator=args.operator,
+            json_output=args.json,
+        )
+
     if args.command == "physical-plan":
         return _physical_plan(runs_dir=args.runs_dir, json_output=args.json)
 
@@ -901,6 +936,36 @@ def _physical_plan(*, runs_dir: Path, json_output: bool) -> int:
         print(json.dumps(plan, indent=2, sort_keys=True))
     else:
         print(render_physical_validation_plan(plan), end="")
+    return 0
+
+
+def _physical_start(
+    *,
+    runs_dir: Path,
+    family: str,
+    operator: str,
+    json_output: bool,
+) -> int:
+    from printpipe.beta.physical_start import start_physical_validation
+
+    payload = start_physical_validation(
+        runs_dir,
+        family=family,
+        operator=operator,
+    )
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"status: {payload['status']}")
+        print(f"family: {payload['family']}")
+        if payload.get("run_root"):
+            print(f"run root: {payload['run_root']}")
+        if payload.get("json_path"):
+            print(f"physical evidence json: {payload['json_path']}")
+        if payload.get("markdown_path"):
+            print(f"physical evidence markdown: {payload['markdown_path']}")
+        if payload.get("record_command"):
+            print(f"record after print: {payload['record_command']}")
     return 0
 
 
