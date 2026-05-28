@@ -147,6 +147,7 @@ def _action_for_family(
     run_root = existing_run_root or str(
         (runs_dir / f"physical-{family}-validation").resolve()
     )
+    coupon_paths = _coupon_paths(Path(run_root))
     setup_command = "" if existing_run_root else f"mkdir -p {_quote(run_root)}"
     start_command = (
         ""
@@ -173,6 +174,8 @@ def _action_for_family(
         "object_label": profile["object_label"],
         "print_type": "coupon",
         "required_fields": required_fields,
+        "coupon_stl_path": coupon_paths["stl"],
+        "coupon_json_path": coupon_paths["json"],
         "record_command": _record_command(family=family, run_root=run_root),
     }
 
@@ -213,6 +216,16 @@ def _profile_for_family(family: str) -> dict[str, Any]:
             "flags": (),
         },
     )
+
+
+def _coupon_paths(run_root: Path) -> dict[str, str]:
+    geometry_dir = run_root / "40_geometry"
+    stl_path = geometry_dir / "physical_validation_coupon_40x15x3.stl"
+    json_path = geometry_dir / "physical_validation_coupon_40x15x3.json"
+    return {
+        "stl": str(stl_path.resolve()) if stl_path.exists() else "",
+        "json": str(json_path.resolve()) if json_path.exists() else "",
+    }
 
 
 def _quote(value: str) -> str:

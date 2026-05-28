@@ -5,11 +5,33 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from printpipe.calibration.flex_coupon import write_flex_coupon_artifacts
 from printpipe.beta.physical import (
     build_physical_print_evidence,
     write_physical_evidence_files,
 )
 from printpipe.beta.physical_plan import PROOF_BOUNDARY, build_physical_validation_plan
+
+_VALIDATION_POINTS = {
+    "pla": (
+        "bed adhesion",
+        "first layer continuity",
+        "dimension check",
+        "release after cooling",
+    ),
+    "petg": (
+        "bed adhesion",
+        "first layer continuity",
+        "warping check",
+        "stringing check",
+    ),
+    "tpu": (
+        "bed adhesion",
+        "flex recovery",
+        "interlayer bonding",
+        "support/brim removability",
+    ),
+}
 
 
 def start_physical_validation(
@@ -38,6 +60,13 @@ def start_physical_validation(
     action = plan["actions"][0]
     run_root = Path(str(action["run_root"])).expanduser().resolve()
     run_root.mkdir(parents=True, exist_ok=True)
+    coupon_receipt = write_flex_coupon_artifacts(
+        run_root / "40_geometry",
+        material=str(action["material_hint"]),
+        use_case=f"{normalized_family.upper()} physical validation",
+        print_validation_points=_validation_points(normalized_family),
+        stem="physical_validation_coupon_40x15x3",
+    )
     evidence = build_physical_print_evidence(
         run_id=run_root.name,
         material=str(action["material_hint"]),
@@ -62,8 +91,29 @@ def start_physical_validation(
         "json_path": written["json_path"],
         "markdown_path": written["markdown_path"],
         "missing_required_evidence": written["missing_required_evidence"],
+        "coupon_stl_path": _artifact_path(coupon_receipt, suffix=".stl"),
+        "coupon_json_path": _artifact_path(coupon_receipt, suffix=".json"),
         "record_command": action["record_command"],
     }
+
+
+def _artifact_path(receipt: Any, *, suffix: str) -> str:
+    for artifact in getattr(receipt, "artifacts", ()):
+        path = Path(artifact.path)
+        if path.suffix == suffix:
+            return str(path.resolve())
+    return ""
+
+
+def _validation_points(family: str) -> tuple[str, ...]:
+    return _VALIDATION_POINTS.get(
+        family,
+        (
+            "bed adhesion",
+            "first layer continuity",
+            "dimension check",
+        ),
+    )
 
 
 __all__ = ["start_physical_validation"]

@@ -1255,3 +1255,15 @@ Status: partial progress for physical validation. This creates local starter pac
 5. Done: hardened physical-evidence Markdown so `not_printed` packets list `Physical print not recorded yet` under Open Issues.
 6. Current local result: `physical-status --runs-dir runs --json` reports all three families as `recorded_but_not_passed`; `final-plan` still reports nine actions and now points to the PLA `record-physical-evidence` command as the next action.
 7. Boundary: the starter packets are local handoff files in ignored `runs/`; they do not satisfy F9 or the physical validation gate until real prints, observations, and photo artifacts are recorded.
+
+## Wave 114 - Physical Validation Coupon Artifacts
+
+Status: partial progress for physical validation. This creates printable local coupon artifacts for the physical handoff, not passed physical evidence.
+
+1. Done: `physical-start` now writes a deterministic `40_geometry/physical_validation_coupon_40x15x3.stl` and JSON sidecar beside each starter evidence packet.
+2. Done: the coupon JSON sidecar is material-family-specific: PLA records bed adhesion, first-layer continuity, dimension, and release checks; PETG records adhesion, first-layer continuity, warping, and stringing checks; TPU records adhesion, flex recovery, interlayer bonding, and support/brim removability checks.
+3. Done: `physical-start --json` returns `coupon_stl_path` and `coupon_json_path` so the CLI handoff has direct printable artifact paths.
+4. Done: `physical-plan --runs-dir runs --json` surfaces existing starter coupon paths for `recorded_but_not_passed` families, so final action planning can point to the actual artifacts on disk.
+5. Done: the home-page final-readiness panel renders coupon artifact paths in the remaining physical-validation action rows.
+6. Current local result: the ignored PLA, PETG, and TPU starter folders each contain `90_physical/` not-printed packets plus `40_geometry/` coupon STL/JSON artifacts; `physical-status --runs-dir runs --json` still reports all three families as `recorded_but_not_passed`.
+7. Boundary: generated coupon files are print inputs only. They do not satisfy F9 or the physical validation gate until the coupons are physically printed, observed, photographed, and recorded as credible evidence packets.

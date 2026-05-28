@@ -28,6 +28,7 @@ def write_flex_coupon_artifacts(
     *,
     material: str,
     use_case: str,
+    print_validation_points: tuple[str, ...] = PRINT_VALIDATION_POINTS,
     length_mm: float = DEFAULT_LENGTH_MM,
     width_mm: float = DEFAULT_WIDTH_MM,
     height_mm: float = DEFAULT_HEIGHT_MM,
@@ -65,7 +66,7 @@ def write_flex_coupon_artifacts(
         },
         "format": "ascii_stl",
         "material": material,
-        "print_validation": list(PRINT_VALIDATION_POINTS),
+        "print_validation": [str(point) for point in print_validation_points],
         "stage": "validation.flex_coupon",
         "use_case": use_case,
     }

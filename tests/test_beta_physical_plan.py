@@ -126,6 +126,34 @@ def test_cli_physical_plan_prints_json(
     assert "record-physical-evidence" in payload["actions"][0]["record_command"]
 
 
+def test_physical_validation_plan_surfaces_started_coupon_artifacts(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    start_physical_validation(
+        runs_dir,
+        family="pla",
+        operator="Zohar",
+    )
+
+    plan = build_physical_validation_plan(runs_dir)
+
+    pla_action = plan["actions"][0]
+    coupon_sidecar = json.loads(
+        Path(pla_action["coupon_json_path"]).read_text(encoding="utf-8")
+    )
+    assert pla_action["family"] == "pla"
+    assert pla_action["status"] == "recorded_but_not_passed"
+    assert pla_action["coupon_stl_path"].endswith(
+        "40_geometry/physical_validation_coupon_40x15x3.stl"
+    )
+    assert pla_action["coupon_json_path"].endswith(
+        "40_geometry/physical_validation_coupon_40x15x3.json"
+    )
+    assert "first layer continuity" in coupon_sidecar["print_validation"]
+    assert "flex recovery" not in coupon_sidecar["print_validation"]
+
+
 def test_start_physical_validation_writes_not_printed_starter_packet(
     tmp_path: Path,
 ) -> None:
@@ -139,13 +167,24 @@ def test_start_physical_validation_writes_not_printed_starter_packet(
 
     run_root = runs_dir / "physical-tpu-validation"
     evidence_path = run_root / "90_physical" / "physical_evidence.json"
+    coupon_path = run_root / "40_geometry" / "physical_validation_coupon_40x15x3.stl"
+    coupon_sidecar_path = (
+        run_root / "40_geometry" / "physical_validation_coupon_40x15x3.json"
+    )
     evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    coupon_sidecar = json.loads(coupon_sidecar_path.read_text(encoding="utf-8"))
     status = build_physical_validation_status(runs_dir, required_families=("tpu",))
 
     assert result["status"] == "started"
     assert result["family"] == "tpu"
     assert result["run_root"] == str(run_root.resolve())
     assert result["json_path"] == str(evidence_path.resolve())
+    assert result["coupon_stl_path"] == str(coupon_path.resolve())
+    assert result["coupon_json_path"] == str(coupon_sidecar_path.resolve())
+    assert coupon_path.exists()
+    assert coupon_sidecar["material"] == "SUNLU TPU 90A"
+    assert coupon_sidecar["use_case"] == "TPU physical validation"
+    assert "flex recovery" in coupon_sidecar["print_validation"]
     assert result["record_command"].startswith(
         f'printpipe record-physical-evidence "{run_root.resolve()}"'
     )
@@ -185,6 +224,12 @@ def test_cli_physical_start_prints_json_and_does_not_pass_gate(
     assert payload["status"] == "started"
     assert payload["family"] == "pla"
     assert payload["json_path"].endswith("90_physical/physical_evidence.json")
+    assert payload["coupon_stl_path"].endswith(
+        "40_geometry/physical_validation_coupon_40x15x3.stl"
+    )
+    assert payload["coupon_json_path"].endswith(
+        "40_geometry/physical_validation_coupon_40x15x3.json"
+    )
     assert "record-physical-evidence" in payload["record_command"]
     assert status["family_status"]["pla"]["status"] == "recorded_but_not_passed"
 

@@ -36,6 +36,10 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
                             "reason": "no physical evidence packet found",
                             "start_command": "printpipe physical-start --family pla",
                             "record_command": "printpipe record-physical-evidence runs/pla",
+                            "coupon_stl_path": (
+                                "runs/pla/40_geometry/"
+                                "physical_validation_coupon_40x15x3.stl"
+                            ),
                         }
                     ],
                 },
@@ -69,6 +73,9 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
     assert view["next_action"]["command"] == "printpipe physical-start --family pla"
     assert len(view["actions"]) == 3
     assert view["actions"][0]["command"] == "printpipe physical-start --family pla"
+    assert view["actions"][0]["coupon_stl_path"].endswith(
+        "physical_validation_coupon_40x15x3.stl"
+    )
     assert view["pillars"][0]["headline"].startswith("0/3 material families")
     assert "0/3 trusted users" in view["pillars"][1]["headline"]
     assert "not-run packet" in view["pillars"][1]["headline"]
@@ -105,6 +112,10 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                     "detail": "no physical evidence packet found",
                     "status": "missing",
                     "command": "printpipe record-physical-evidence runs/pla",
+                    "coupon_stl_path": (
+                        "runs/pla/40_geometry/"
+                        "physical_validation_coupon_40x15x3.stl"
+                    ),
                 }
             ],
         }
@@ -115,5 +126,7 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "Digital coupons are not physical proof." in html
     assert "Next action:" in html
     assert "printpipe physical-start --family pla" in html
+    assert "Coupon artifact:" in html
+    assert "physical_validation_coupon_40x15x3.stl" in html
     assert "PLA physical validation" in html
     assert "final-readiness-checklist" in html

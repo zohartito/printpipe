@@ -213,6 +213,8 @@ def _action_item(
         "label": _action_label(action),
         "detail": _action_detail(action),
         "command": _action_command(action),
+        "coupon_stl_path": str(action.get("coupon_stl_path") or ""),
+        "coupon_json_path": str(action.get("coupon_json_path") or ""),
     }
 
 
@@ -286,9 +288,16 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     label = str(action.get("label") or "Remaining action")
     detail = str(action.get("detail") or "")
     command = str(action.get("command") or "")
+    coupon_stl_path = str(action.get("coupon_stl_path") or "")
     command_markup = (
         f'            <pre><code>{escape(command)}</code></pre>'
         if command
+        else ""
+    )
+    coupon_markup = (
+        "            <p class=\"muted\">Coupon artifact: "
+        f"<code>{escape(coupon_stl_path)}</code></p>"
+        if coupon_stl_path
         else ""
     )
     return "\n".join(
@@ -296,6 +305,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
             f'          <li class="final-readiness-action final-readiness-action-{_class_name(status)}">',
             f'            <p class="action-title"><strong>{escape(section_label)}</strong> · {escape(label)}</p>',
             f'            <p class="muted">{escape(detail)}</p>',
+            coupon_markup,
             command_markup,
             "          </li>",
         ]
