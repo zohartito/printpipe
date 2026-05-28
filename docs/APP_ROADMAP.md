@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 158: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 159: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 158 made no-op media preprocessing receipts more honest. Background removal and lighting normalization now report `skipped` when no configured command runs, while configured command stages still report `succeeded`. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
+Latest status: Wave 159 closed the last backend item from the Opus audit punch-list. Mesh repair now catches loader/format exceptions such as legacy/corrupt GLB `NotImplementedError` and records a failed `mesh_repair` receipt with stats JSON instead of throwing a raw traceback. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
 
 ## Goal
 

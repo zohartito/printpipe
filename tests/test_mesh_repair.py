@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from printpipe.contracts import ArtifactKind, MeshStats, StageStatus
+from printpipe.contracts import Artifact, ArtifactKind, MeshStats, StageStatus
 from printpipe.mesh import repair
 from printpipe.mesh.repair import (
     MeshRepairError,
@@ -157,6 +157,36 @@ def test_repair_mesh_file_to_receipt_writes_success_receipt_without_real_trimesh
     assert stats["status"] == StageStatus.SUCCEEDED.value
     assert stats["before"]["boundary_edges"] == 4
     assert stats["after"]["boundary_edges"] == 0
+
+
+def test_repair_mesh_file_to_receipt_records_mesh_loader_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def raise_loader_error(trimesh, path):
+        del trimesh, path
+        raise NotImplementedError("file is not GLTF2")
+
+    monkeypatch.setattr(repair, "_import_trimesh", lambda: object())
+    monkeypatch.setattr(repair, "_load_mesh", raise_loader_error)
+
+    stats_path = tmp_path / "repair_stats.json"
+    receipt = repair.repair_mesh_file_to_receipt(
+        tmp_path / "legacy.glb",
+        tmp_path / "legacy_repaired.stl",
+        stats_path=stats_path,
+    )
+
+    assert receipt.status is StageStatus.FAILED
+    assert "could not load mesh" in receipt.message
+    assert "file is not GLTF2" in receipt.message
+    assert receipt.artifacts == (Artifact(kind=ArtifactKind.REPORT, path=stats_path, label="Mesh repair stats JSON"),)
+    assert receipt.metrics["error_type"] == "NotImplementedError"
+
+    stats = json.loads(stats_path.read_text())
+    assert stats["status"] == StageStatus.FAILED.value
+    assert stats["error_type"] == "NotImplementedError"
+    assert "file is not GLTF2" in stats["message"]
 
 
 def test_repair_mesh_file_allows_non_watertight_when_requested(

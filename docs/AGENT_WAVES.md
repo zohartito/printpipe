@@ -1739,3 +1739,13 @@ Status: complete for media-preprocessing receipt honesty. This closes the Opus a
 3. Done: configured background-removal and lighting-normalization commands still return `succeeded`.
 4. Done: regression coverage now expects skipped no-op receipts for still image, GIF, and video preparation.
 5. Boundary: this does not implement semantic background removal or lighting normalization; it prevents no-op copies from being counted as successful preprocessing.
+
+## Wave 159 - Mesh Repair Loader Errors Become Receipts
+
+Status: complete for backend audit punch-list repair error handling. This closes the Opus audit S3 gap where corrupt or legacy GLB files could raise raw loader exceptions through mesh repair.
+
+1. Done: `repair_mesh_file_to_receipt()` now catches `NotImplementedError`, `ValueError`, and `TypeError` from mesh loading/repair.
+2. Done: those exceptions now produce a failed `mesh_repair` receipt and stats JSON with `error_type`, input path, output path, and the loader message.
+3. Done: pipeline callers receive a normal failed stage receipt instead of an uncaught traceback.
+4. Done: regression coverage proves a simulated legacy GLB loader `NotImplementedError` returns `StageStatus.FAILED`.
+5. Boundary: this does not make corrupt/legacy GLB files repairable; it makes the failure artifact-backed and user-readable.

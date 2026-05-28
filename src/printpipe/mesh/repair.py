@@ -160,6 +160,29 @@ def repair_mesh_file_to_receipt(
         )
     except MeshRepairError as exc:
         result = exc.result
+    except (NotImplementedError, ValueError, TypeError) as exc:
+        message = f"mesh repair could not load mesh {input_path}: {exc}"
+        payload = {
+            "stage": stage,
+            "status": StageStatus.FAILED.value,
+            "message": message,
+            "error_type": type(exc).__name__,
+            "input_path": str(input_path),
+            "output_path": str(output_path),
+        }
+        _write_json(stats_path, payload)
+        return StageReceipt(
+            stage=stage,
+            status=StageStatus.FAILED,
+            message=message,
+            artifacts=(_stats_artifact(stats_path),),
+            metrics={
+                "error_type": type(exc).__name__,
+                "input_path": str(input_path),
+                "output_path": str(output_path),
+                "stats_path": str(stats_path),
+            },
+        )
 
     payload = {"stage": stage, **result.to_dict()}
     _write_json(stats_path, payload)
