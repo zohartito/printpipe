@@ -116,6 +116,48 @@ def test_trusted_user_feedback_status_does_not_count_not_run_as_completed_feedba
     assert status["not_run_trusted_users"] == ["Lee"]
 
 
+def test_trusted_user_feedback_status_does_not_count_incomplete_raw_packets(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_feedback(runs_dir / "run-maya", tester="Maya")
+    incomplete = runs_dir / "run-raw-bad" / "90_beta" / "trusted_user_feedback.json"
+    incomplete.parent.mkdir(parents=True)
+    incomplete.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": "run-raw-bad",
+                "tester": "Taylor",
+                "tester_type": "trusted_user",
+                "input_type": "existing_stl",
+                "material": "Bambu PLA Basic",
+                "printer": "Bambu Lab P2S",
+                "outcome": "passed",
+                "summary": "",
+                "would_print": "no",
+                "recommendation": "needs_review",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    status = build_trusted_user_feedback_status(runs_dir)
+
+    assert status["overall_status"] == "insufficient_feedback"
+    assert status["trusted_user_packet_count"] == 2
+    assert status["completed_trusted_user_packet_count"] == 1
+    assert status["incomplete_trusted_user_packet_count"] == 1
+    assert status["unique_trusted_user_count"] == 1
+    assert status["trusted_users"] == ["Maya"]
+    assert status["missing_trusted_user_count"] == 2
+    assert status["incomplete_trusted_user_packets"][0]["tester"] == "Taylor"
+    assert status["incomplete_trusted_user_packets"][0]["missing_required_fields"] == [
+        "summary"
+    ]
+
+
 def test_render_trusted_user_feedback_status_names_missing_count(tmp_path: Path) -> None:
     status = build_trusted_user_feedback_status(tmp_path / "runs")
 
@@ -142,6 +184,40 @@ def test_render_trusted_user_feedback_status_names_not_run_trusted_users(
     assert "- Maya" in text
     assert "Not-run trusted users:" in text
     assert "- Lee" in text
+
+
+def test_render_trusted_user_feedback_status_names_incomplete_packets(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    incomplete = runs_dir / "run-raw-bad" / "90_beta" / "trusted_user_feedback.json"
+    incomplete.parent.mkdir(parents=True)
+    incomplete.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": "run-raw-bad",
+                "tester": "Taylor",
+                "tester_type": "trusted_user",
+                "input_type": "existing_stl",
+                "material": "Bambu PLA Basic",
+                "printer": "Bambu Lab P2S",
+                "outcome": "passed",
+                "summary": "",
+                "would_print": "no",
+                "recommendation": "needs_review",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    text = render_trusted_user_feedback_status(
+        build_trusted_user_feedback_status(runs_dir)
+    )
+
+    assert "Incomplete trusted-user packets:" in text
+    assert "- Taylor: missing summary" in text
 
 
 def test_trusted_user_feedback_plan_lists_missing_tester_actions(tmp_path: Path) -> None:

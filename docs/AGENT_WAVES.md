@@ -1220,3 +1220,14 @@ Status: complete for trusted-user beta wording consistency. This does not create
 4. Done: updated beta-plan trusted-user action detail from `recorded feedback` to `completed feedback`.
 5. Done: updated CLI help and beta documentation to use completed-feedback wording.
 6. Boundary: this is wording hardening only; the trusted-user beta gate still requires three unique trusted users with completed `passed`, `failed`, or `partial` feedback packets.
+
+## Wave 111 - Trusted-User Raw Packet Completeness Gate
+
+Status: complete for trusted-user beta scanner hardening. This does not create tester feedback evidence.
+
+1. Root cause: the trusted-feedback status scanner counted raw `trusted_user_feedback.json` packets with blank required fields as completed feedback if the packet said `outcome=passed`.
+2. Done: added regression coverage for a hand-written incomplete trusted-user packet with a blank summary.
+3. Done: completed trusted-user counts now require a completed outcome (`passed`, `failed`, or `partial`) and no missing required fields.
+4. Done: incomplete trusted-user packets stay visible through `incomplete_trusted_user_packet_count` and `incomplete_trusted_user_packets`.
+5. Done: the terminal trusted-feedback summary lists incomplete packets and their missing fields.
+6. Boundary: generated or hand-edited incomplete packets are audit records only; they do not satisfy trusted-user beta completion.

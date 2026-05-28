@@ -23,8 +23,20 @@ TRUSTED_FEEDBACK_REQUIRED_HEADINGS = (
 )
 
 OUTCOMES = ("passed", "failed", "partial", "not_run")
+COMPLETED_OUTCOMES = ("passed", "failed", "partial")
 TESTER_TYPES = ("trusted_user", "internal", "coordinator")
 WOULD_PRINT_VALUES = ("yes", "no", "unknown")
+TRUSTED_FEEDBACK_REQUIRED_FIELDS = (
+    "tester",
+    "tester_type",
+    "input_type",
+    "material",
+    "printer",
+    "outcome",
+    "summary",
+    "would_print",
+    "recommendation",
+)
 TRUSTED_FEEDBACK_PLAN_PROOF_BOUNDARY = (
     "A generated feedback plan is not trusted-user evidence. Only recorded "
     "trusted-user feedback packets count toward the beta gate."
@@ -240,7 +252,16 @@ def build_trusted_user_feedback_status(
         packet for packet in packets if packet["tester_type"] == "trusted_user"
     ]
     completed_trusted_packets = [
-        packet for packet in trusted_packets if packet["outcome"] != "not_run"
+        packet
+        for packet in trusted_packets
+        if packet["outcome"] in COMPLETED_OUTCOMES
+        and not packet["missing_required_fields"]
+    ]
+    incomplete_trusted_packets = [
+        packet
+        for packet in trusted_packets
+        if packet["missing_required_fields"]
+        or packet["outcome"] not in OUTCOMES
     ]
     trusted_users = sorted({packet["tester"] for packet in completed_trusted_packets})
     not_run_trusted_users = sorted(
@@ -268,6 +289,8 @@ def build_trusted_user_feedback_status(
         "packet_count": len(packets),
         "trusted_user_packet_count": len(trusted_packets),
         "completed_trusted_user_packet_count": len(completed_trusted_packets),
+        "incomplete_trusted_user_packet_count": len(incomplete_trusted_packets),
+        "incomplete_trusted_user_packets": incomplete_trusted_packets,
         "outcome_counts": outcome_counts,
         "packets": packets,
     }
@@ -295,6 +318,15 @@ def render_trusted_user_feedback_status(status: Mapping[str, Any]) -> str:
     if isinstance(not_run_users, list) and not_run_users:
         lines.append("Not-run trusted users:")
         lines.extend(f"- {user}" for user in not_run_users)
+        lines.append("")
+    incomplete_packets = status.get("incomplete_trusted_user_packets")
+    if isinstance(incomplete_packets, list) and incomplete_packets:
+        lines.append("Incomplete trusted-user packets:")
+        for packet in incomplete_packets:
+            item = packet if isinstance(packet, Mapping) else {}
+            tester = str(item.get("tester") or item.get("run_id") or "unknown")
+            missing = _comma_list(item.get("missing_required_fields"))
+            lines.append(f"- {tester}: missing {missing}")
         lines.append("")
     return "\n".join(lines)
 
@@ -420,19 +452,29 @@ def _packet_summary(
 ) -> dict[str, Any]:
     run_root = feedback_path.parents[1]
     markdown_path = feedback_path.with_suffix(".md")
+    packet = {
+        field: str(payload.get(field) or "")
+        for field in TRUSTED_FEEDBACK_REQUIRED_FIELDS
+    }
+    missing_required = [
+        field
+        for field, value in packet.items()
+        if not value.strip()
+    ]
     return {
         "run_id": str(payload.get("run_id") or run_root.name),
         "run_root": str(run_root),
         "json_path": str(feedback_path),
         "markdown_path": str(markdown_path) if markdown_path.exists() else "",
-        "tester": str(payload.get("tester") or ""),
-        "tester_type": str(payload.get("tester_type") or ""),
-        "input_type": str(payload.get("input_type") or ""),
-        "material": str(payload.get("material") or ""),
-        "printer": str(payload.get("printer") or ""),
-        "outcome": str(payload.get("outcome") or ""),
-        "would_print": str(payload.get("would_print") or ""),
-        "recommendation": str(payload.get("recommendation") or ""),
+        "tester": packet["tester"],
+        "tester_type": packet["tester_type"],
+        "input_type": packet["input_type"],
+        "material": packet["material"],
+        "printer": packet["printer"],
+        "outcome": packet["outcome"],
+        "would_print": packet["would_print"],
+        "recommendation": packet["recommendation"],
+        "missing_required_fields": missing_required,
         "issue_count": len(_list(payload.get("issues"))),
         "artifact_count": len(_list(payload.get("artifacts"))),
     }
@@ -548,8 +590,15 @@ def _list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
+def _comma_list(value: Any) -> str:
+    if not isinstance(value, list) or not value:
+        return "none"
+    return ", ".join(str(item) for item in value)
+
+
 __all__ = [
     "DEFAULT_REQUIRED_TRUSTED_USERS",
+    "COMPLETED_OUTCOMES",
     "OUTCOMES",
     "TESTER_TYPES",
     "TRUSTED_FEEDBACK_REQUIRED_HEADINGS",
