@@ -209,3 +209,30 @@ What it does not prove yet:
 - It has not been executed on a real Windows host from this Mac session.
 - Live Bambu CLI slicing still needs a target-machine check after F13 or a
   Windows-specific workaround.
+
+## Portable Zipapp Artifact
+
+Wave 43 adds a concrete cross-platform Python artifact:
+
+```bash
+printpipe build-zipapp --output dist/printpipe.pyz --json
+python dist/printpipe.pyz --version
+python dist/printpipe.pyz package-smoke --platform macos --runs-dir runs/package-smoke/zipapp --json
+```
+
+What this proves:
+
+- The source package can be bundled into one executable `.pyz` file with the
+  `printpipe.cli:main` entrypoint.
+- The artifact runs outside editable-install console scripts.
+- The artifact can run the package-smoke pipeline and produce reports plus a
+  Bambu `.3mf`.
+
+What this does not prove:
+
+- It does not bundle Python itself.
+- It does not bundle Bambu Studio.
+- It is not a signed/notarized macOS `.app`.
+- It is not a signed Windows installer.
+- It does not install shell shortcuts, file associations, or Start Menu/Finder
+  launcher integration.

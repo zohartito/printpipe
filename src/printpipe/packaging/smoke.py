@@ -269,8 +269,8 @@ def run_macos_package_smoke(
                 details={
                     "reason": (
                         "The package smoke path verifies bundle/report creation. "
-                        "Live Bambu CLI slicing remains F13 because Bambu Studio "
-                        "2.6.00.51 segfaults on this macOS 26.5 host."
+                        "Run a separate slice gate with Bambu Studio installed "
+                        "when the package artifact is being release-tested."
                     )
                 },
             ),

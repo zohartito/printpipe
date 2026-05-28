@@ -185,6 +185,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print package-smoke output as JSON.",
     )
 
+    build_zipapp = subparsers.add_parser(
+        "build-zipapp",
+        help="Build a portable printpipe.pyz artifact.",
+    )
+    build_zipapp.add_argument(
+        "--output",
+        type=Path,
+        default=Path("dist/printpipe.pyz"),
+        help="Path for the generated zipapp artifact.",
+    )
+    build_zipapp.add_argument(
+        "--json",
+        action="store_true",
+        help="Print zipapp build output as JSON.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -389,6 +405,9 @@ def main(argv: list[str] | None = None) -> int:
             json_output=args.json,
         )
 
+    if args.command == "build-zipapp":
+        return _build_zipapp(output_path=args.output, json_output=args.json)
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -461,6 +480,19 @@ def _package_smoke(
     else:
         print(_render_package_smoke(payload), end="")
     return 0 if payload.get("status", "ok") != "failed" else 2
+
+
+def _build_zipapp(*, output_path: Path, json_output: bool) -> int:
+    from printpipe.packaging.zipapp import build_zipapp_package
+
+    payload = build_zipapp_package(output_path=output_path)
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"zipapp: {payload['artifact_path']}")
+        print(f"entrypoint: {payload['entrypoint']}")
+        print(f"size bytes: {payload['size_bytes']}")
+    return 0
 
 
 def _render_package_smoke(payload: dict[str, Any]) -> str:

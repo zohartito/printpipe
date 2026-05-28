@@ -12,6 +12,7 @@ from printpipe.packaging.smoke import (
     run_macos_package_smoke,
     run_windows_package_smoke,
 )
+from printpipe.packaging.zipapp import build_zipapp_package
 
 __all__ = (
     "MacOSPackageSmokePlan",
@@ -22,6 +23,7 @@ __all__ = (
     "WindowsPackageSmokeResult",
     "build_macos_package_smoke_plan",
     "build_windows_package_smoke_plan",
+    "build_zipapp_package",
     "run_macos_package_smoke",
     "run_windows_package_smoke",
 )

@@ -77,6 +77,14 @@ printpipe open-folder runs/<run-id> --target bundle
 printpipe open-folder runs/<run-id> --target report
 ```
 
+Portable Python package artifact:
+
+```bash
+printpipe build-zipapp --output dist/printpipe.pyz
+python dist/printpipe.pyz --version
+python dist/printpipe.pyz package-smoke --platform macos --runs-dir runs/package-smoke/zipapp --json
+```
+
 ## Development
 
 ```bash

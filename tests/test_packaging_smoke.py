@@ -73,6 +73,8 @@ def test_run_macos_package_smoke_creates_bundle_and_report_receipts(tmp_path: Pa
     assert checks["reports"]["status"] == "ok"
     assert checks["bundle"]["status"] == "ok"
     assert checks["slice_gate"]["status"] == "manual_required"
+    assert "separate slice gate" in checks["slice_gate"]["details"]["reason"]
+    assert "segfault" not in checks["slice_gate"]["details"]["reason"].lower()
 
     report_paths = checks["reports"]["details"]["paths"]
     assert (Path(payload["run_root"]) / "manifest.json").exists()
@@ -145,6 +147,8 @@ def test_packaging_doc_names_macos_package_smoke_command() -> None:
         "generated ascii stl",
         "manual_required",
         "run this command on windows",
+        "printpipe build-zipapp --output dist/printpipe.pyz --json",
+        "python dist/printpipe.pyz --version",
         "not a signed or notarized .app",
         "f10",
         "f11",

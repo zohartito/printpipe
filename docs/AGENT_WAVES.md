@@ -463,3 +463,14 @@ Status: complete as software/slice coverage for ABS, ASA, PC, PA, and PA-CF. Phy
 4. Done: live-sliced tiny-tetrahedron ABS, ASA, PC, PA, and PA-CF bundles with Bambu Studio `02.06.00.51` on macOS; all returned code 0, wrote G-code, and reported zero warnings/errors.
 5. Boundary: this is software/slicer evidence only; real material-rule hardening still needs physical failed/successful prints through beta evidence packets.
 6. Roadmap count remains 132 done / 10 partial because the remaining beta and packaging items are still physical/user/installer gates.
+
+## Wave 43 - Portable Zipapp Package Artifact
+
+Status: partial progress for original items 121 and 122. PrintPipe now has a real portable Python artifact, but not signed OS-native installers.
+
+1. Done: added `printpipe.packaging.zipapp.build_zipapp_package()`.
+2. Done: added `printpipe build-zipapp --output dist/printpipe.pyz`.
+3. Done: verified the generated `.pyz` runs `--version` through `python printpipe.pyz`.
+4. Done: verified the generated `.pyz` can run `package-smoke --platform macos` and produce reports plus a Bambu `.3mf`.
+5. Done: removed stale package-smoke wording that still described the old Bambu CLI segfault boundary.
+6. Remaining: signed/notarized macOS app, signed Windows installer, bundled Python runtime, shell shortcuts, and launcher/file-association polish remain separate packaging gates.
