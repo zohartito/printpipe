@@ -1144,6 +1144,12 @@ class PrintPipeWebApp:
         missing = str(status.get("missing_trusted_user_count", 0))
         users = status.get("trusted_users")
         user_names = ", ".join(str(user) for user in users) if isinstance(users, list) else ""
+        not_run_users = status.get("not_run_trusted_users")
+        not_run_names = (
+            ", ".join(str(user) for user in not_run_users)
+            if isinstance(not_run_users, list)
+            else ""
+        )
         outcome_counts = status.get("outcome_counts")
         outcome_text = (
             ", ".join(
@@ -1167,6 +1173,12 @@ class PrintPipeWebApp:
                     status="recorded" if user_names else "missing",
                     detail=user_names or "No trusted users recorded.",
                     note="Internal and coordinator notes do not count toward this gate.",
+                ),
+                self._render_trusted_feedback_card(
+                    label="Not-run testers",
+                    status="audit_only" if not_run_names else "none",
+                    detail=not_run_names or "No trusted users recorded as not-run.",
+                    note="Not-run packets are audit records, not completed beta feedback.",
                 ),
                 self._render_trusted_feedback_card(
                     label="Outcomes",

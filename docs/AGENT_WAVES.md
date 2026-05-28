@@ -1198,3 +1198,14 @@ Status: complete for trusted-user beta evidence semantics. This does not create 
 4. Done: `not_run_trusted_users` remains visible for auditability, but `unique_trusted_user_count` and `trusted_users` only include completed feedback outcomes.
 5. Done: `beta-feedback-plan`, `beta-plan`, `final-plan`, readiness, and local web surfaces inherit the stricter count from the shared status builder.
 6. Boundary: failed and partial feedback still count as real feedback because they are completed reviews; only `not_run` is excluded from gate completion.
+
+## Wave 109 - Trusted-User Not-Run Visibility
+
+Status: complete for human-facing beta audit visibility. This does not create tester feedback evidence.
+
+1. Done: added terminal-renderer coverage proving `render_trusted_user_feedback_status()` lists not-run trusted users.
+2. Done: added local-web coverage proving the home dashboard shows not-run testers without counting them toward the trusted-user total.
+3. Done: the CLI human summary now includes a `Not-run trusted users` section when those packets exist.
+4. Done: the local web trusted-user feedback panel now includes a `Not-run testers` card.
+5. Done: the card copy states that not-run packets are audit records, not completed beta feedback.
+6. Boundary: this is visibility only; completed trusted-user beta still requires three unique trusted users with `passed`, `failed`, or `partial` feedback.

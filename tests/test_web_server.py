@@ -563,6 +563,24 @@ def test_home_response_renders_trusted_user_feedback_gate(tmp_path: Path):
     assert 'href="/beta-feedback-status.json"' in response.text
 
 
+def test_home_response_renders_not_run_trusted_users_without_counting_them(
+    tmp_path: Path,
+):
+    runs_dir = tmp_path / "runs"
+    _write_trusted_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_trusted_feedback(runs_dir / "run-lee-not-run", tester="Lee", outcome="not_run")
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Trusted-user feedback" in response.text
+    assert "1 / 3 trusted users" in response.text
+    assert "Not-run testers" in response.text
+    assert "Lee" in response.text
+    assert "Not-run packets are audit records, not completed beta feedback." in response.text
+
+
 def test_beta_plan_json_endpoint_accepts_regression_manifest_query(
     monkeypatch,
     tmp_path: Path,

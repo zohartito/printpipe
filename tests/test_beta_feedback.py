@@ -126,6 +126,24 @@ def test_render_trusted_user_feedback_status_names_missing_count(tmp_path: Path)
     assert "trusted users: 0 / 3" in text
 
 
+def test_render_trusted_user_feedback_status_names_not_run_trusted_users(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_feedback(runs_dir / "run-lee-not-run", tester="Lee", outcome="not_run")
+
+    text = render_trusted_user_feedback_status(
+        build_trusted_user_feedback_status(runs_dir)
+    )
+
+    assert "trusted users: 1 / 3" in text
+    assert "Trusted users:" in text
+    assert "- Maya" in text
+    assert "Not-run trusted users:" in text
+    assert "- Lee" in text
+
+
 def test_trusted_user_feedback_plan_lists_missing_tester_actions(tmp_path: Path) -> None:
     runs_dir = tmp_path / "runs"
     _write_feedback(runs_dir / "run-maya", tester="Maya")

@@ -291,6 +291,11 @@ def render_trusted_user_feedback_status(status: Mapping[str, Any]) -> str:
         lines.append("Trusted users:")
         lines.extend(f"- {user}" for user in users)
         lines.append("")
+    not_run_users = status.get("not_run_trusted_users")
+    if isinstance(not_run_users, list) and not_run_users:
+        lines.append("Not-run trusted users:")
+        lines.extend(f"- {user}" for user in not_run_users)
+        lines.append("")
     return "\n".join(lines)
 
 
