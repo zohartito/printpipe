@@ -280,6 +280,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print release build output as JSON.",
     )
 
+    verify_release = subparsers.add_parser(
+        "verify-release",
+        help="Verify a release folder against release_manifest.json.",
+    )
+    verify_release.add_argument(
+        "release_dir",
+        type=Path,
+        help="Release folder containing release_manifest.json.",
+    )
+    verify_release.add_argument(
+        "--json",
+        action="store_true",
+        help="Print release verification output as JSON.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -511,6 +526,9 @@ def main(argv: list[str] | None = None) -> int:
             adhoc_sign=args.adhoc_sign,
         )
 
+    if args.command == "verify-release":
+        return _verify_release(release_dir=args.release_dir, json_output=args.json)
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -653,6 +671,24 @@ def _build_release(*, output_dir: Path, json_output: bool, adhoc_sign: bool) -> 
         print(f"manifest: {payload['manifest_path']}")
         print(f"artifacts: {payload['artifact_count']}")
     return 0
+
+
+def _verify_release(*, release_dir: Path, json_output: bool) -> int:
+    from printpipe.packaging.release import verify_release_bundle
+
+    payload = verify_release_bundle(release_dir)
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"release dir: {payload['release_dir']}")
+        print(f"manifest: {payload['manifest_path']}")
+        print(f"status: {payload['status']}")
+        print(f"checks: {len(payload['checks'])}")
+        if payload["failures"]:
+            print("failures:")
+            for failure in payload["failures"]:
+                print(f"- {failure['id']}: {failure['message']}")
+    return 0 if payload["status"] == "ok" else 2
 
 
 def _render_package_smoke(payload: dict[str, Any]) -> str:

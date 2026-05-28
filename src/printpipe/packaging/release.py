@@ -97,6 +97,83 @@ def build_release_bundle(
     }
 
 
+def verify_release_bundle(release_dir: str | Path) -> dict[str, Any]:
+    """Verify a release folder against its checksum manifest."""
+
+    root = Path(release_dir).expanduser()
+    if not root.is_absolute():
+        root = Path.cwd() / root
+    root = root.resolve()
+    manifest_path = root / "release_manifest.json"
+    checks: list[dict[str, Any]] = []
+
+    _append_check(
+        checks,
+        check_id="manifest_exists",
+        ok=manifest_path.exists(),
+        message="release_manifest.json exists",
+        path=str(manifest_path),
+    )
+    if not manifest_path.exists():
+        return _verification_payload(root=root, manifest_path=manifest_path, checks=checks)
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        _append_check(
+            checks,
+            check_id="manifest_json",
+            ok=False,
+            message=f"manifest is not valid JSON: {exc.msg}",
+            path=str(manifest_path),
+        )
+        return _verification_payload(root=root, manifest_path=manifest_path, checks=checks)
+
+    _append_check(
+        checks,
+        check_id="manifest_json",
+        ok=True,
+        message="manifest is valid JSON",
+        path=str(manifest_path),
+    )
+    _append_check(
+        checks,
+        check_id="boundaries",
+        ok=manifest.get("boundaries") == RELEASE_BOUNDARIES,
+        message="release boundaries match current PrintPipe boundary claims",
+        expected=RELEASE_BOUNDARIES,
+        actual=manifest.get("boundaries"),
+    )
+
+    artifacts = manifest.get("artifacts")
+    _append_check(
+        checks,
+        check_id="artifacts_list",
+        ok=isinstance(artifacts, list),
+        message="manifest artifacts is a list",
+    )
+    if not isinstance(artifacts, list):
+        return _verification_payload(root=root, manifest_path=manifest_path, checks=checks)
+
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, dict):
+            _append_check(
+                checks,
+                check_id=f"artifact_entry:{index}",
+                ok=False,
+                message="artifact entry is not an object",
+            )
+            continue
+        _verify_artifact(root=root, artifact=artifact, index=index, checks=checks)
+
+    return _verification_payload(
+        root=root,
+        manifest_path=manifest_path,
+        checks=checks,
+        artifact_count=len(artifacts),
+    )
+
+
 def _artifact_manifest(
     *,
     kind: str,
@@ -117,6 +194,125 @@ def _artifact_manifest(
     }
 
 
+def _verify_artifact(
+    *,
+    root: Path,
+    artifact: dict[str, Any],
+    index: int,
+    checks: list[dict[str, Any]],
+) -> None:
+    kind = str(artifact.get("kind") or f"artifact_{index}")
+    rel_path = artifact.get("path")
+    path_check_id = f"artifact_path:{kind}"
+    if not isinstance(rel_path, str) or not rel_path:
+        _append_check(
+            checks,
+            check_id=path_check_id,
+            ok=False,
+            message="artifact path is missing or not a string",
+        )
+        return
+    if Path(rel_path).is_absolute():
+        _append_check(
+            checks,
+            check_id=path_check_id,
+            ok=False,
+            message="artifact path must be relative to the release folder",
+            path=rel_path,
+        )
+        return
+
+    artifact_path = (root / rel_path).resolve()
+    try:
+        artifact_path.relative_to(root)
+    except ValueError:
+        _append_check(
+            checks,
+            check_id=path_check_id,
+            ok=False,
+            message="artifact path escapes the release folder",
+            path=rel_path,
+        )
+        return
+
+    _append_check(
+        checks,
+        check_id=path_check_id,
+        ok=True,
+        message="artifact path is inside the release folder",
+        path=rel_path,
+    )
+    exists = artifact_path.exists()
+    _append_check(
+        checks,
+        check_id=f"artifact_exists:{kind}",
+        ok=exists,
+        message="artifact exists",
+        path=str(artifact_path),
+    )
+    if not exists:
+        return
+
+    expected_size = artifact.get("size_bytes")
+    actual_size = artifact_path.stat().st_size
+    _append_check(
+        checks,
+        check_id=f"artifact_size:{kind}",
+        ok=expected_size == actual_size,
+        message="artifact size matches manifest",
+        expected=expected_size,
+        actual=actual_size,
+        path=str(artifact_path),
+    )
+
+    expected_sha = artifact.get("sha256")
+    actual_sha = _sha256(artifact_path)
+    _append_check(
+        checks,
+        check_id=f"artifact_sha256:{kind}",
+        ok=expected_sha == actual_sha,
+        message="artifact sha256 matches manifest",
+        expected=expected_sha,
+        actual=actual_sha,
+        path=str(artifact_path),
+    )
+
+
+def _append_check(
+    checks: list[dict[str, Any]],
+    *,
+    check_id: str,
+    ok: bool,
+    message: str,
+    **extra: Any,
+) -> None:
+    check = {
+        "id": check_id,
+        "status": "ok" if ok else "failed",
+        "message": message,
+    }
+    check.update(extra)
+    checks.append(check)
+
+
+def _verification_payload(
+    *,
+    root: Path,
+    manifest_path: Path,
+    checks: list[dict[str, Any]],
+    artifact_count: int = 0,
+) -> dict[str, Any]:
+    failures = [check for check in checks if check["status"] != "ok"]
+    return {
+        "status": "failed" if failures else "ok",
+        "release_dir": str(root),
+        "manifest_path": str(manifest_path),
+        "artifact_count": artifact_count,
+        "checks": checks,
+        "failures": failures,
+    }
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -125,4 +321,4 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-__all__ = ["RELEASE_BOUNDARIES", "build_release_bundle"]
+__all__ = ["RELEASE_BOUNDARIES", "build_release_bundle", "verify_release_bundle"]

@@ -595,3 +595,15 @@ Status: partial progress for original items 121 and 122. PrintPipe can now build
 4. Done: release output includes `release_manifest.json`.
 5. Done: manifest records `sha256`, size, signing/notarization, Python-runtime, and Bambu-bundling metadata per artifact.
 6. Remaining: Developer ID notarization, signed Windows installer, bundled Python runtime, live Windows+Bambu slice evidence, and physical print validation stay open.
+
+## Wave 55 - Release Bundle Verifier
+
+Status: partial progress for original items 121 and 122. PrintPipe can now verify that a release handoff folder still matches its manifest before sharing or archiving it.
+
+1. Done: added `printpipe.packaging.release.verify_release_bundle()`.
+2. Done: added `printpipe verify-release dist/release --json`.
+3. Done: verifier checks `release_manifest.json` exists and parses as JSON.
+4. Done: verifier checks release boundary claims match current PrintPipe boundary text.
+5. Done: verifier checks every manifest artifact exists, stays inside the release folder, and matches recorded size plus SHA-256.
+6. Done: verifier exits `0` for intact folders and `2` for failed verification.
+7. Remaining: Developer ID notarization, signed Windows installer, bundled Python runtime, live Windows+Bambu slice evidence, and physical print validation stay open.

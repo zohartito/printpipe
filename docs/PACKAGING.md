@@ -441,6 +441,7 @@ writes checksums:
 
 ```bash
 printpipe build-release --output-dir dist/release --adhoc-sign --json
+printpipe verify-release dist/release --json
 ```
 
 The release folder contains:
@@ -456,3 +457,9 @@ confidence local handoff state currently available. It is still honest about the
 remaining gates: no bundled Python, no bundled Bambu Studio, no Developer ID
 notarization, no signed Windows installer, and physical print validation living
 in separate run evidence packets.
+
+`verify-release` re-reads that manifest and checks that each artifact still
+exists, has the recorded byte size, has the recorded SHA-256, and carries the
+current boundary claims. It exits `0` when the folder matches the manifest and
+`2` when any check fails, including missing artifacts, a sha256 mismatch from
+tampered bytes, or boundary drift.

@@ -2,7 +2,7 @@
 
 from printpipe.packaging.macos_app import build_macos_app_bundle
 from printpipe.packaging.macos_dmg import build_macos_dmg_package
-from printpipe.packaging.release import build_release_bundle
+from printpipe.packaging.release import build_release_bundle, verify_release_bundle
 from printpipe.packaging.smoke import (
     MacOSPackageSmokePlan,
     MacOSPackageSmokeResult,
@@ -34,4 +34,5 @@ __all__ = (
     "build_zipapp_package",
     "run_macos_package_smoke",
     "run_windows_package_smoke",
+    "verify_release_bundle",
 )
