@@ -270,3 +270,28 @@ matches.
 
 Windows live slicing remains pending until Bambu Studio is installed on that
 host or an explicit executable path is provided.
+
+## Unsigned macOS App Bundle
+
+Wave 46 adds an unsigned `.app` wrapper around the zipapp:
+
+```bash
+printpipe build-macos-app --output dist/PrintPipe.app --json
+dist/PrintPipe.app/Contents/MacOS/printpipe --version
+dist/PrintPipe.app/Contents/MacOS/printpipe package-smoke --platform macos --runs-dir runs/package-smoke/macos-app --json
+```
+
+What this proves:
+
+- `PrintPipe.app` has a valid `Contents/Info.plist`.
+- `Contents/MacOS/printpipe` is executable.
+- `Contents/Resources/printpipe.pyz` is embedded.
+- The app-bundle launcher runs the same CLI entrypoint as the source checkout.
+- The launcher can run package-smoke and produce reports plus a Bambu `.3mf`.
+
+What this does not prove:
+
+- It is unsigned and not notarized.
+- It uses `/usr/bin/env python3`; it does not bundle Python.
+- It is a CLI launcher bundle, not a polished double-click GUI app.
+- It does not bundle Bambu Studio.

@@ -496,3 +496,14 @@ Status: boundary recorded for Windows live slicing. Packaging artifact smoke pas
 4. Boundary: Windows live Bambu CLI slicing cannot be verified on that host until Bambu Studio is installed or an explicit path is provided.
 5. Current evidence still stands: the same `printpipe.pyz` artifact runs on Windows and creates reports plus a `.3mf`.
 6. Remaining: signed installer and Windows+Bambu slice evidence stay open packaging gates.
+
+## Wave 46 - Unsigned macOS App Bundle
+
+Status: partial progress for original item 121. PrintPipe now builds a launchable `.app` wrapper, but it is unsigned and not notarized.
+
+1. Done: added `printpipe.packaging.macos_app.build_macos_app_bundle()`.
+2. Done: added `printpipe build-macos-app --output dist/PrintPipe.app`.
+3. Done: the app bundle embeds `Contents/Resources/printpipe.pyz`, writes `Contents/Info.plist`, and exposes `Contents/MacOS/printpipe`.
+4. Done: verified `Contents/MacOS/printpipe --version` returns `printpipe 0.1.0`.
+5. Done: verified the app-bundle launcher can run `package-smoke --platform macos`, returning `status=ok` with reports and a Bambu `.3mf`.
+6. Remaining: signing, notarization, bundled Python runtime, and polished double-click GUI/launcher behavior are separate gates.

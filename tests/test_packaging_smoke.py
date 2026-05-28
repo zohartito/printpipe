@@ -149,6 +149,8 @@ def test_packaging_doc_names_macos_package_smoke_command() -> None:
         "run this command on windows",
         "printpipe build-zipapp --output dist/printpipe.pyz --json",
         "python dist/printpipe.pyz --version",
+        "printpipe build-macos-app --output dist/printpipe.app --json",
+        "contents/macos/printpipe --version",
         "windows zipapp smoke evidence",
         "printpipe-zipapp",
         "not a signed or notarized .app",

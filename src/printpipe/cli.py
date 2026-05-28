@@ -201,6 +201,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print zipapp build output as JSON.",
     )
 
+    build_macos_app = subparsers.add_parser(
+        "build-macos-app",
+        help="Build an unsigned PrintPipe.app wrapper around the zipapp.",
+    )
+    build_macos_app.add_argument(
+        "--output",
+        type=Path,
+        default=Path("dist/PrintPipe.app"),
+        help="Path for the generated .app bundle.",
+    )
+    build_macos_app.add_argument(
+        "--json",
+        action="store_true",
+        help="Print app bundle build output as JSON.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -408,6 +424,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "build-zipapp":
         return _build_zipapp(output_path=args.output, json_output=args.json)
 
+    if args.command == "build-macos-app":
+        return _build_macos_app(output_path=args.output, json_output=args.json)
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -492,6 +511,20 @@ def _build_zipapp(*, output_path: Path, json_output: bool) -> int:
         print(f"zipapp: {payload['artifact_path']}")
         print(f"entrypoint: {payload['entrypoint']}")
         print(f"size bytes: {payload['size_bytes']}")
+    return 0
+
+
+def _build_macos_app(*, output_path: Path, json_output: bool) -> int:
+    from printpipe.packaging.macos_app import build_macos_app_bundle
+
+    payload = build_macos_app_bundle(app_path=output_path)
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"macOS app: {payload['app_path']}")
+        print(f"executable: {payload['executable_path']}")
+        print("signed: false")
+        print("notarized: false")
     return 0
 
 
