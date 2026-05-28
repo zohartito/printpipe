@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 120: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 121: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 120 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
+Wave 121 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
 
-The latest completed wave added `printpipe final-next`, a narrow command that renders only the immediate endgame action plus its supporting files and proof boundary. It uses the same `final-plan` data, so `final-next --json` returns `overall_status`, `action_count`, `proof_boundary`, `next_action`, and `next_command` without requiring agents or users to parse the full section checklist.
+The latest completed wave added `/final-next.json` to the local web app and moved the focused next-action JSON into a shared helper used by both the CLI and web endpoint. Agents, Cursor, Claude, and UI clients can now read the immediate final action without parsing full section data.
+
+Wave 120 added `printpipe final-next`, a narrow command that renders only the immediate endgame action plus its supporting files and proof boundary. It uses the same `final-plan` data, so `final-next --json` returns `overall_status`, `action_count`, `proof_boundary`, `next_action`, and `next_command` without requiring agents or users to parse the full section checklist.
 
 Wave 119 aligned the terminal `final-plan` renderer with the JSON contract and home-page callout. The human CLI output now prints next-action supporting files (`artifact`, `sidecar`, `handoff`, `report`, `bundle`) directly under the immediate command, so the current PLA physical-validation action includes the coupon STL, coupon JSON, and print handoff in all three surfaces: terminal, JSON, and web.
 

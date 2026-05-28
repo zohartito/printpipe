@@ -6,6 +6,7 @@ from pathlib import Path
 from printpipe.cli import build_parser, main
 from printpipe.final_plan import (
     build_final_action_plan,
+    build_final_next_action_payload,
     render_final_action_plan,
     render_final_next_action,
 )
@@ -237,6 +238,34 @@ def test_render_final_next_action_shows_only_immediate_action() -> None:
     assert "sidecar: runs/pla/40_geometry/coupon.json" in rendered
     assert "handoff: runs/pla/90_physical/handoff.md" in rendered
     assert "trusted_user_beta" not in rendered
+
+
+def test_build_final_next_action_payload_keeps_only_next_action() -> None:
+    payload = build_final_next_action_payload(
+        {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 2,
+            "proof_boundary": "A final plan is not evidence.",
+            "next_action": {
+                "action_id": "pla",
+                "command": "printpipe record-physical-evidence runs/pla",
+            },
+            "sections": [{"id": "physical_validation"}],
+        }
+    )
+
+    assert payload == {
+        "schema_version": 1,
+        "overall_status": "action_required",
+        "action_count": 2,
+        "proof_boundary": "A final plan is not evidence.",
+        "next_action": {
+            "action_id": "pla",
+            "command": "printpipe record-physical-evidence runs/pla",
+        },
+        "next_command": "printpipe record-physical-evidence runs/pla",
+    }
 
 
 def test_final_plan_parser_accepts_dirs_json_and_regression_manifest(

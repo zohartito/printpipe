@@ -1986,22 +1986,18 @@ def _final_next(
     regression_manifest_path: Path | None,
     json_output: bool,
 ) -> int:
-    from printpipe.final_plan import build_final_action_plan, render_final_next_action
+    from printpipe.final_plan import (
+        build_final_action_plan,
+        build_final_next_action_payload,
+        render_final_next_action,
+    )
 
     plan = build_final_action_plan(
         release_dir=release_dir,
         runs_dir=runs_dir,
         regression_manifest_path=regression_manifest_path,
     )
-    next_action = plan.get("next_action") if isinstance(plan.get("next_action"), dict) else {}
-    payload = {
-        "schema_version": int(plan.get("schema_version") or 1),
-        "overall_status": str(plan.get("overall_status") or "unknown"),
-        "action_count": int(plan.get("action_count") or 0),
-        "proof_boundary": str(plan.get("proof_boundary") or ""),
-        "next_action": next_action,
-        "next_command": str(plan.get("next_command") or next_action.get("command") or ""),
-    }
+    payload = build_final_next_action_payload(plan)
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:

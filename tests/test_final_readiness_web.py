@@ -161,3 +161,4 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "physical_print_handoff.md" in html
     assert "PLA physical validation" in html
     assert "final-readiness-checklist" in html
+    assert 'href="/final-next.json"' in html

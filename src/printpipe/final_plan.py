@@ -153,6 +153,20 @@ def render_final_action_plan(plan: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def build_final_next_action_payload(plan: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the focused next-action payload from a full final action plan."""
+
+    next_action = _dict(plan.get("next_action"))
+    return {
+        "schema_version": int(plan.get("schema_version") or 1),
+        "overall_status": str(plan.get("overall_status") or "unknown"),
+        "action_count": int(plan.get("action_count") or 0),
+        "proof_boundary": str(plan.get("proof_boundary") or FINAL_PLAN_PROOF_BOUNDARY),
+        "next_action": next_action,
+        "next_command": str(plan.get("next_command") or next_action.get("command") or ""),
+    }
+
+
 def render_final_next_action(plan: Mapping[str, Any]) -> str:
     """Render only the immediate next action from a final action plan."""
 
@@ -377,6 +391,7 @@ def _list(value: Any) -> list[Any]:
 __all__ = [
     "FINAL_PLAN_PROOF_BOUNDARY",
     "build_final_action_plan",
+    "build_final_next_action_payload",
     "render_final_action_plan",
     "render_final_next_action",
 ]

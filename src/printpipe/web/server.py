@@ -27,7 +27,7 @@ from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.env.doctor import build_environment_report
-from printpipe.final_plan import build_final_action_plan
+from printpipe.final_plan import build_final_action_plan, build_final_next_action_payload
 from printpipe.web.final_readiness import (
     build_final_readiness_view,
     render_final_readiness_panel,
@@ -236,6 +236,10 @@ class PrintPipeWebApp:
             )
         if path == "/final-plan.json":
             return self.final_plan_response(
+                regression_manifest_path=self._regression_manifest_for_query(query)
+            )
+        if path == "/final-next.json":
+            return self.final_next_response(
                 regression_manifest_path=self._regression_manifest_for_query(query)
             )
         if path == "/beta-plan.json":
@@ -481,6 +485,36 @@ class PrintPipeWebApp:
                     regression_manifest_path=manifest_path,
                 )
             )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+    def final_next_response(
+        self,
+        *,
+        regression_manifest_path: Path | None = None,
+    ) -> WebResponse:
+        if self.release_dir is None or self.runs_dir is None:
+            return WebResponse.from_text(
+                "Release and runs directories are not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            manifest_path = (
+                regression_manifest_path
+                if regression_manifest_path is not None
+                else self.regression_manifest_path
+            )
+            plan = build_final_action_plan(
+                release_dir=self.release_dir,
+                runs_dir=self.runs_dir,
+                regression_manifest_path=manifest_path,
+            )
+            return WebResponse.json(build_final_next_action_payload(plan))
         except (OSError, ValueError) as exc:
             return WebResponse.from_text(
                 f"{exc}\n",

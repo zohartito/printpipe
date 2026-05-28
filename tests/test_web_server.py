@@ -441,6 +441,46 @@ def test_final_plan_json_endpoint_returns_ordered_endgame_plan(monkeypatch, tmp_
     assert payload["action_count"] == 7
 
 
+def test_final_next_json_endpoint_returns_focused_next_action(monkeypatch, tmp_path: Path):
+    def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert release_dir == tmp_path / "release"
+        assert runs_dir == tmp_path / "runs"
+        assert regression_manifest_path == tmp_path / "regressions.json"
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 7,
+            "proof_boundary": "A final plan is not evidence.",
+            "next_action": {
+                "section_label": "Physical validation",
+                "action_id": "pla",
+                "label": "PLA",
+                "command": "printpipe record-physical-evidence runs/pla",
+                "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+            },
+            "sections": [{"id": "physical_validation"}],
+        }
+
+    monkeypatch.setattr("printpipe.web.server.build_final_action_plan", fake_final_plan)
+    app = create_app(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+    )
+
+    response = app.handle(
+        f"/final-next.json?regression_manifest={tmp_path / 'regressions.json'}"
+    )
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "action_required"
+    assert payload["action_count"] == 7
+    assert payload["next_action"]["action_id"] == "pla"
+    assert payload["next_command"] == "printpipe record-physical-evidence runs/pla"
+    assert "sections" not in payload
+
+
 def test_home_response_renders_final_action_plan(monkeypatch, tmp_path: Path):
     def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
         return {
@@ -497,6 +537,7 @@ def test_home_response_renders_final_action_plan(monkeypatch, tmp_path: Path):
     assert "printpipe physical-plan --runs-dir runs" in response.text
     assert "printpipe beta-feedback-plan --runs-dir runs" in response.text
     assert 'href="/final-plan.json"' in response.text
+    assert 'href="/final-next.json"' in response.text
     assert 'href="/physical-plan.json"' in response.text
 
 

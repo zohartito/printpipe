@@ -1336,3 +1336,14 @@ Status: partial progress for endgame command-line UX. This adds a focused immedi
 4. Done: regression coverage verifies parser support, JSON output, and the human renderer's supporting files.
 5. Current local result: `printpipe final-next --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json` points directly at the PLA physical-validation record command plus the coupon STL, coupon JSON, and physical handoff paths.
 6. Boundary: this command is an execution shortcut for the current plan. It does not create photo evidence, print evidence packets, tester feedback, or signed distribution artifacts.
+
+## Wave 121 - Final Next Web Endpoint
+
+Status: partial progress for endgame web/API coordination. This exposes the same focused immediate-next-action payload to local web clients and agents.
+
+1. Done: added shared `build_final_next_action_payload()` so CLI and web use the same narrow JSON contract.
+2. Done: updated `printpipe final-next` to use the shared payload builder.
+3. Done: added `/final-next.json` to the local web app with regression-manifest query support.
+4. Done: linked `Final next JSON` from the final-readiness panel beside the full final plan and pillar plans.
+5. Done: regression coverage verifies the web endpoint omits full section data and returns `next_action` plus `next_command`.
+6. Boundary: `/final-next.json` is read-only coordination output. It does not close physical validation, trusted-user beta, or signed distribution gates.

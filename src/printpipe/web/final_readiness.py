@@ -104,6 +104,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
             "      </div>",
             '      <p class="muted final-readiness-links">'
             '        <a href="/final-plan.json">Final plan JSON</a> · '
+            '        <a href="/final-next.json">Final next JSON</a> · '
             '        <a href="/physical-plan.json">Physical plan</a> · '
             '        <a href="/beta-feedback-plan.json">Trusted-user feedback plan</a> · '
             '        <a href="/release-plan.json">Release plan</a>',
