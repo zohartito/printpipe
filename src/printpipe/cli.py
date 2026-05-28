@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -603,6 +604,68 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the physical validation action plan as JSON.",
     )
 
+    beta_failure = subparsers.add_parser(
+        "record-beta-failure",
+        help="Write a beta failure packet and optionally append a regression case.",
+    )
+    beta_failure.add_argument("run_root", type=Path, help="Run folder that failed.")
+    beta_failure.add_argument("--run-id", help="Override run id; defaults to run folder name.")
+    beta_failure.add_argument("--input-type", required=True, help="Input category for the failed run.")
+    beta_failure.add_argument("--material", required=True, help="Material or filament label.")
+    beta_failure.add_argument("--printer", required=True, help="Printer/profile used for the run.")
+    beta_failure.add_argument("--failed-stage", required=True, help="Pipeline or print stage that failed.")
+    beta_failure.add_argument(
+        "--symptom",
+        action="append",
+        default=[],
+        required=True,
+        help="Observed failure symptom; may be repeated.",
+    )
+    beta_failure.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help=(
+            "Failure artifact as 'label|kind|path|notes'; notes may be omitted "
+            "and the artifact is copied into 90_beta/artifacts. May be repeated."
+        ),
+    )
+    beta_failure.add_argument(
+        "--reproduction-command",
+        required=True,
+        help="Command that should reproduce or exercise the failed run.",
+    )
+    beta_failure.add_argument(
+        "--physical-print-status",
+        default="not_printed",
+        choices=("not_printed", "passed", "failed", "partial"),
+        help="Physical print status when the failure came from printer-side evidence.",
+    )
+    beta_failure.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Append a regression case to this manifest after writing the packet.",
+    )
+    beta_failure.add_argument("--case-id", default=None, help="Regression case id override.")
+    beta_failure.add_argument(
+        "--fixture-path",
+        type=Path,
+        default=None,
+        help="Regression fixture path override; defaults to the run manifest input.",
+    )
+    beta_failure.add_argument(
+        "--expected",
+        choices=("failure", "success"),
+        default="failure",
+        help="Expected regression outcome.",
+    )
+    beta_failure.add_argument(
+        "--json",
+        action="store_true",
+        help="Print written failure packet and regression paths as JSON.",
+    )
+
     readiness = subparsers.add_parser(
         "readiness",
         help="Summarize combined beta and release readiness gates.",
@@ -881,6 +944,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "physical-plan":
         return _physical_plan(runs_dir=args.runs_dir, json_output=args.json)
 
+    if args.command == "record-beta-failure":
+        return _record_beta_failure(args)
+
     if args.command == "readiness":
         return _readiness(
             runs_dir=args.runs_dir,
@@ -937,6 +1003,106 @@ def _physical_plan(*, runs_dir: Path, json_output: bool) -> int:
     else:
         print(render_physical_validation_plan(plan), end="")
     return 0
+
+
+def _record_beta_failure(args: argparse.Namespace) -> int:
+    from printpipe.beta.failures import (
+        build_failure_report,
+        write_failure_report_files,
+    )
+
+    run_root = args.run_root.expanduser().resolve()
+    if not run_root.exists():
+        raise FileNotFoundError(run_root)
+
+    report = build_failure_report(
+        run_id=args.run_id or run_root.name,
+        input_type=args.input_type,
+        material=args.material,
+        printer=args.printer,
+        failed_stage=args.failed_stage,
+        symptoms=tuple(args.symptom),
+        artifacts=tuple(_parse_failure_artifact(value) for value in args.artifact),
+        reproduction_command=args.reproduction_command,
+        physical_print_status=args.physical_print_status,
+    )
+    result = write_failure_report_files(
+        run_root=run_root,
+        report=report,
+        copy_artifacts=True,
+    )
+
+    if args.regression_manifest is not None:
+        result.update(
+            _append_failure_regression_case(
+                run_root=run_root,
+                manifest_path=args.regression_manifest,
+                reproduction_command=args.reproduction_command,
+                case_id=args.case_id,
+                fixture_path=args.fixture_path,
+                expected=args.expected,
+                failed_stage=args.failed_stage,
+                symptoms=tuple(args.symptom),
+            )
+        )
+
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(f"failure report json: {result['json_path']}")
+        print(f"failure report markdown: {result['markdown_path']}")
+        if result.get("regression_manifest_path"):
+            print(f"regression manifest: {result['regression_manifest_path']}")
+            print(f"regression case: {result['regression_case_id']}")
+    return 0
+
+
+def _append_failure_regression_case(
+    *,
+    run_root: Path,
+    manifest_path: Path,
+    reproduction_command: str,
+    case_id: str | None,
+    fixture_path: Path | None,
+    expected: str,
+    failed_stage: str,
+    symptoms: tuple[str, ...],
+) -> dict[str, str]:
+    from printpipe.beta.regression import (
+        RegressionManifest,
+        case_from_run,
+        load_regression_manifest,
+        write_regression_manifest,
+    )
+
+    case = case_from_run(
+        run_root,
+        command=tuple(shlex.split(reproduction_command)),
+        case_id=case_id,
+        expected=expected,
+        fixture_path=fixture_path,
+        notes=_failure_regression_notes(
+            failed_stage=failed_stage,
+            symptoms=symptoms,
+        ),
+    )
+    manifest = (
+        load_regression_manifest(manifest_path)
+        if manifest_path.exists()
+        else RegressionManifest(cases=())
+    )
+    updated_manifest = RegressionManifest(cases=(*manifest.cases, case))
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    write_regression_manifest(updated_manifest, manifest_path)
+    return {
+        "regression_manifest_path": str(manifest_path),
+        "regression_case_id": case.case_id,
+    }
+
+
+def _failure_regression_notes(*, failed_stage: str, symptoms: tuple[str, ...]) -> str:
+    symptom_text = "; ".join(symptoms) if symptoms else "no symptoms recorded"
+    return f"Captured from beta failure at {failed_stage}: {symptom_text}"
 
 
 def _physical_start(
@@ -1408,6 +1574,21 @@ def _parse_physical_artifact(value: str) -> Any:
     if not label or not kind or not path:
         raise ValueError("--artifact label, kind, and path are required")
     return PhysicalArtifact(label=label, path=Path(path), kind=kind, notes=notes)
+
+
+def _parse_failure_artifact(value: str) -> Any:
+    from printpipe.beta.failures import FailureArtifact
+
+    parts = value.split("|", 3)
+    if len(parts) < 3:
+        raise ValueError(
+            "--artifact must use 'label|kind|path|notes' with notes optional"
+        )
+    label, kind, path = (part.strip() for part in parts[:3])
+    notes = parts[3].strip() if len(parts) == 4 else ""
+    if not label or not kind or not path:
+        raise ValueError("--artifact label, kind, and path are required")
+    return FailureArtifact(label=label, path=Path(path), kind=kind, notes=notes)
 
 
 def _print_pipeline_error(error: PipelineError) -> None:

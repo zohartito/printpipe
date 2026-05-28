@@ -8,6 +8,8 @@ from printpipe.beta.failures import (
     build_failure_report,
     missing_required_headings,
     parse_failure_report_sections,
+    render_failure_report_markdown,
+    write_failure_report_files,
 )
 from printpipe.beta.physical import (
     PHYSICAL_EVIDENCE_REQUIRED_HEADINGS,
@@ -64,6 +66,7 @@ __all__ = (
     "missing_required_evidence",
     "missing_required_headings",
     "parse_failure_report_sections",
+    "render_failure_report_markdown",
     "render_physical_evidence_markdown",
     "render_physical_validation_plan",
     "render_physical_validation_status",
@@ -72,5 +75,6 @@ __all__ = (
     "render_command",
     "validate_regression_manifest",
     "write_physical_evidence_files",
+    "write_failure_report_files",
     "write_regression_manifest",
 )

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import os
+import json
+import shutil
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
 FAILURE_REPORT_SCHEMA_VERSION = 1
@@ -132,6 +135,115 @@ def missing_required_headings(markdown: str) -> list[str]:
     ]
 
 
+def render_failure_report_markdown(report: FailureReport) -> str:
+    """Render a beta failure report as Markdown."""
+
+    symptoms = _list_lines(report.symptoms) or "- None recorded"
+    artifacts = _artifact_lines(report.artifacts)
+
+    return f"""# PrintPipe Beta Failure Report
+
+## Run Context
+- Run ID: {report.run_id}
+- Input type: {report.input_type}
+- Material: {report.material}
+- Printer: {report.printer}
+
+## Failure Details
+- Failed stage: {report.failed_stage}
+
+## Symptoms
+{symptoms}
+
+## Artifacts
+{artifacts}
+
+## Reproduction
+```bash
+{report.reproduction_command}
+```
+
+## Physical Print Status
+- {report.physical_print_status}
+
+## Triage Notes
+- Add triage owner, root cause, and rule updates after review.
+"""
+
+
+def write_failure_report_files(
+    *,
+    run_root: str | os.PathLike[str],
+    report: FailureReport,
+    directory_name: str = "90_beta",
+    copy_artifacts: bool = False,
+) -> dict[str, Any]:
+    """Write beta failure JSON and Markdown into a run folder."""
+
+    root = Path(run_root).expanduser().resolve()
+    if not root.exists():
+        raise FileNotFoundError(root)
+    output_dir = root / directory_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if copy_artifacts:
+        report = replace(
+            report,
+            artifacts=_copy_artifacts_into_packet(
+                root=root,
+                output_dir=output_dir,
+                artifacts=report.artifacts,
+            ),
+        )
+
+    json_path = output_dir / "failure_report.json"
+    markdown_path = output_dir / "failure_report.md"
+    markdown = render_failure_report_markdown(report)
+    json_path.write_text(
+        json.dumps(report.to_dict(), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    markdown_path.write_text(markdown, encoding="utf-8")
+    return {
+        "directory": str(output_dir),
+        "json_path": str(json_path),
+        "markdown_path": str(markdown_path),
+        "missing_required_headings": missing_required_headings(markdown),
+    }
+
+
+def _copy_artifacts_into_packet(
+    *,
+    root: Path,
+    output_dir: Path,
+    artifacts: Sequence[FailureArtifact],
+) -> tuple[FailureArtifact, ...]:
+    copied: list[FailureArtifact] = []
+    artifact_dir = output_dir / "artifacts"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    used_names: set[str] = set()
+
+    for artifact in artifacts:
+        source = Path(os.fspath(artifact.path)).expanduser()
+        if not source.is_absolute():
+            source = root / source
+        source = source.resolve()
+        if not source.is_file():
+            raise FileNotFoundError(source)
+
+        destination = _unique_destination(
+            artifact_dir,
+            _safe_artifact_name(source.name),
+            used_names,
+        )
+        if source != destination.resolve():
+            shutil.copy2(source, destination)
+        relative_path = destination.relative_to(root).as_posix()
+        copied.append(replace(artifact, path=relative_path))
+
+    return tuple(copied)
+
+
 def _coerce_artifact(artifact: FailureArtifact | Mapping[str, object]) -> FailureArtifact:
     if isinstance(artifact, FailureArtifact):
         return artifact
@@ -157,6 +269,44 @@ def _optional_text(value: object) -> str:
     return str(value)
 
 
+def _safe_artifact_name(name: str) -> str:
+    stem = Path(name).stem.lower()
+    suffix = Path(name).suffix.lower()
+    safe_stem = "".join(
+        character if character.isalnum() or character in {"-", "_"} else "-"
+        for character in stem
+    ).strip("-")
+    while "--" in safe_stem:
+        safe_stem = safe_stem.replace("--", "-")
+    return f"{safe_stem or 'artifact'}{suffix}"
+
+
+def _unique_destination(directory: Path, name: str, used_names: set[str]) -> Path:
+    candidate = directory / name
+    stem = candidate.stem
+    suffix = candidate.suffix
+    counter = 2
+    while candidate.name in used_names or candidate.exists():
+        candidate = directory / f"{stem}-{counter}{suffix}"
+        counter += 1
+    used_names.add(candidate.name)
+    return candidate
+
+
+def _artifact_lines(artifacts: Sequence[FailureArtifact]) -> str:
+    if not artifacts:
+        return "- None recorded"
+    return "\n".join(
+        f"- {artifact.label}: {os.fspath(artifact.path)}"
+        + (f" ({artifact.notes})" if artifact.notes else "")
+        for artifact in artifacts
+    )
+
+
+def _list_lines(values: Sequence[str]) -> str:
+    return "\n".join(f"- {value}" for value in values)
+
+
 def _second_level_heading(line: str) -> str | None:
     stripped = line.strip()
     if not stripped.startswith("## ") or stripped.startswith("### "):
@@ -172,4 +322,6 @@ __all__ = [
     "build_failure_report",
     "missing_required_headings",
     "parse_failure_report_sections",
+    "render_failure_report_markdown",
+    "write_failure_report_files",
 ]

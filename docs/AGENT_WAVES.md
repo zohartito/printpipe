@@ -992,3 +992,14 @@ Status: complete for pre-print evidence setup. PrintPipe can now create an hones
 4. Done: starter packets use `print_status=not_printed`, carry the operator/material/object context, and include notes saying this is not passed evidence.
 5. Done: `physical-plan` and the local web action cards now show a `physical-start` command before the later `record-physical-evidence` command.
 6. Boundary: starter packets keep `physical-status --strict` failing until a real print is recorded with credible passed evidence and photos.
+
+## Wave 90 - Beta Failure Intake
+
+Status: complete for failure capture plumbing. PrintPipe can now preserve failed beta runs as evidence packets and seed regression manifests.
+
+1. Done: added `printpipe.beta.failures.render_failure_report_markdown()`.
+2. Done: added `printpipe.beta.failures.write_failure_report_files()`.
+3. Done: added `printpipe record-beta-failure <run-root>` with structured run/material/printer/stage/symptom fields.
+4. Done: the command writes `90_beta/failure_report.json` and `.md`, and copies attached artifacts into `90_beta/artifacts/`.
+5. Done: `--regression-manifest` appends a `RegressionCase` seeded from the run manifest and the reproduction command.
+6. Boundary: this only records failures after they happen; real trusted-user beta runs, physical print failures, and material/orientation/repair rule updates remain open.
