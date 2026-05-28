@@ -485,3 +485,14 @@ Status: partial progress for original item 122. The portable zipapp artifact run
 4. Done: ran `python %TEMP%\printpipe-zipapp\printpipe.pyz package-smoke --platform windows --runs-dir %TEMP%\printpipe-zipapp\runs --json`.
 5. Done: Windows zipapp smoke returned `status=ok`, `windows_runtime=ok`, report artifacts, and `existing_stl_package_smoke_tiny_tetrahedron.3mf`.
 6. Remaining: signed Windows installer, bundled runtime, Start Menu/shortcut integration, and live Windows+Bambu Studio slice check are still separate gates.
+
+## Wave 45 - Windows Bambu CLI Boundary Check
+
+Status: boundary recorded for Windows live slicing. Packaging artifact smoke passed; Windows+Bambu slicing is waiting on an installed Bambu Studio path.
+
+1. Done: checked common Windows install candidates under Program Files and LocalAppData for Bambu Studio.
+2. Done: ran a broader PowerShell search for `BambuStudio.exe`.
+3. Result: no Bambu Studio executable was found on `desktop-zt`.
+4. Boundary: Windows live Bambu CLI slicing cannot be verified on that host until Bambu Studio is installed or an explicit path is provided.
+5. Current evidence still stands: the same `printpipe.pyz` artifact runs on Windows and creates reports plus a `.3mf`.
+6. Remaining: signed installer and Windows+Bambu slice evidence stay open packaging gates.

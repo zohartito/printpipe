@@ -260,3 +260,13 @@ Observed:
 
 This upgrades the Windows packaging evidence from source-export smoke to actual
 zipapp-artifact smoke. It still does not replace signed installer work.
+
+## Windows Bambu CLI Boundary
+
+Wave 45 checked `desktop-zt` for a callable Bambu Studio executable after the
+zipapp smoke passed. No executable was found in the common Program Files or
+LocalAppData locations, and a broader search for `BambuStudio.exe` returned no
+matches.
+
+Windows live slicing remains pending until Bambu Studio is installed on that
+host or an explicit executable path is provided.
