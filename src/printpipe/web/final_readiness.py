@@ -228,8 +228,11 @@ def _action_item(
         "label": _action_label(action),
         "detail": _action_detail(action),
         "command": _action_command(action),
+        "run_command": _action_run_command(action),
+        "followup_command": str(action.get("followup_command") or ""),
         "record_command": _action_record_command(action, section_id=section_id),
         "record_label": _action_record_label(section_id),
+        "required_inputs": _string_list(action.get("required_inputs")),
         "coupon_stl_path": str(action.get("coupon_stl_path") or ""),
         "coupon_json_path": str(action.get("coupon_json_path") or ""),
         "bundle_path": str(action.get("bundle_path") or ""),
@@ -302,6 +305,15 @@ def _action_command(action: Mapping[str, Any]) -> str:
     return ""
 
 
+def _action_run_command(action: Mapping[str, Any]) -> str:
+    command = str(action.get("command") or "")
+    if not command:
+        return ""
+    if command == _action_command(action):
+        return ""
+    return command
+
+
 def _action_record_command(action: Mapping[str, Any], *, section_id: str) -> str:
     command = _action_command(action)
     record_command = str(action.get("record_command") or "")
@@ -350,11 +362,14 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     label = str(action.get("label") or "Remaining action")
     detail = str(action.get("detail") or "")
     command = str(action.get("command") or "")
+    run_command = str(action.get("run_command") or "")
+    followup_command = str(action.get("followup_command") or "")
     record_command = str(action.get("record_command") or "")
     record_label = str(
         action.get("record_label")
         or _action_record_label(str(action.get("section_id") or ""))
     )
+    required_inputs = _string_list(action.get("required_inputs"))
     coupon_stl_path = str(action.get("coupon_stl_path") or "")
     report_path = str(action.get("report_path") or "")
     bundle_path = str(action.get("bundle_path") or "")
@@ -364,6 +379,26 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     command_markup = (
         f'            <pre><code>{escape(command)}</code></pre>'
         if command
+        else ""
+    )
+    run_markup = (
+        "\n".join(
+            [
+                '            <p class="muted"><strong>Run after prerequisites:</strong></p>',
+                f'            <pre><code>{escape(run_command)}</code></pre>',
+            ]
+        )
+        if run_command and run_command != command
+        else ""
+    )
+    followup_markup = (
+        "\n".join(
+            [
+                '            <p class="muted"><strong>Follow-up check:</strong></p>',
+                f'            <pre><code>{escape(followup_command)}</code></pre>',
+            ]
+        )
+        if followup_command and followup_command not in {command, run_command}
         else ""
     )
     record_markup = (
@@ -392,11 +427,13 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     bundle_markup = _file_row("Bundle", bundle_path)
     bundle_validation_markup = _file_row("Bundle validation", bundle_validation_path)
     slice_markup = _file_row("Slice receipt", slice_result_path)
+    required_markup = _required_inputs_row(required_inputs)
     return "\n".join(
         [
             f'          <li class="final-readiness-action final-readiness-action-{_class_name(status)}">',
             f'            <p class="action-title"><strong>{escape(section_label)}</strong> · {escape(label)}</p>',
             f'            <p class="muted">{escape(detail)}</p>',
+            required_markup,
             coupon_markup,
             report_markup,
             bundle_markup,
@@ -404,6 +441,8 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
             slice_markup,
             handoff_markup,
             command_markup,
+            run_markup,
+            followup_markup,
             record_markup,
             "          </li>",
         ]
@@ -414,6 +453,13 @@ def _file_row(label: str, value: str) -> str:
     if not value:
         return ""
     return f'            <p class="muted">{escape(label)}: <code>{escape(value)}</code></p>'
+
+
+def _required_inputs_row(values: list[str]) -> str:
+    if not values:
+        return ""
+    text = ", ".join(values)
+    return f'            <p class="muted">Required inputs: {escape(text)}</p>'
 
 
 def _class_name(value: str) -> str:
@@ -428,6 +474,12 @@ def _as_dicts(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item)]
 
 
 __all__ = ["build_final_readiness_view", "render_final_readiness_panel"]

@@ -182,6 +182,57 @@ def test_build_final_readiness_view_keeps_trusted_user_supporting_paths_and_reco
     assert action["bundle_path"] == "runs/demo/60_bundle/demo.3mf"
 
 
+def test_build_final_readiness_view_keeps_release_commands_and_required_inputs() -> None:
+    view = build_final_readiness_view(
+        {
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "sections": [
+                {
+                    "id": "release_distribution",
+                    "label": "Release distribution",
+                    "status": "action_required",
+                    "action_count": 1,
+                    "actions": [
+                        {
+                            "id": "macos_distribution",
+                            "label": "macOS distribution",
+                            "status": "action_required",
+                            "detail": "sign and notarize",
+                            "start_command": "printpipe release-start --release-dir dist/release",
+                            "command": "printpipe build-release --developer-id-identity '<id>'",
+                            "followup_command": "printpipe release-status --strict",
+                            "handoff_markdown_path": (
+                                "dist/release_handoffs/"
+                                "release_distribution_handoff.md"
+                            ),
+                            "required_inputs": [
+                                "Developer ID Application certificate",
+                                "notarytool keychain profile",
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    action = view["actions"][0]
+    assert action["command"] == "printpipe release-start --release-dir dist/release"
+    assert action["run_command"] == (
+        "printpipe build-release --developer-id-identity '<id>'"
+    )
+    assert action["followup_command"] == "printpipe release-status --strict"
+    assert action["required_inputs"] == [
+        "Developer ID Application certificate",
+        "notarytool keychain profile",
+    ]
+    assert action["handoff_markdown_path"].endswith(
+        "release_distribution_handoff.md"
+    )
+
+
 def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     html = render_final_readiness_panel(
         {
@@ -300,3 +351,44 @@ def test_render_final_readiness_panel_labels_trusted_user_record_command_after_r
     assert "Record after review:" in html
     assert "printpipe record-beta-feedback runs/demo" in html
     assert "Record after print:" not in html
+
+
+def test_render_final_readiness_panel_shows_release_commands_and_required_inputs() -> None:
+    html = render_final_readiness_panel(
+        {
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "pillars": [],
+            "actions": [
+                {
+                    "section_id": "release_distribution",
+                    "section_label": "Release distribution",
+                    "label": "macOS distribution",
+                    "detail": "sign and notarize",
+                    "status": "action_required",
+                    "command": "printpipe release-start --release-dir dist/release",
+                    "run_command": "printpipe build-release --developer-id-identity '<id>'",
+                    "followup_command": "printpipe release-status --strict",
+                    "handoff_markdown_path": (
+                        "dist/release_handoffs/"
+                        "release_distribution_handoff.md"
+                    ),
+                    "required_inputs": [
+                        "Developer ID Application certificate",
+                        "notarytool keychain profile",
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert "Required inputs:" in html
+    assert "Developer ID Application certificate" in html
+    assert "notarytool keychain profile" in html
+    assert "Run after prerequisites:" in html
+    assert "printpipe build-release --developer-id-identity" in html
+    assert "Follow-up check:" in html
+    assert "printpipe release-status --strict" in html
+    assert "Handoff:" in html
+    assert "release_distribution_handoff.md" in html

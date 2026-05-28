@@ -1452,3 +1452,13 @@ Status: partial progress for trusted-user beta execution UX. This makes each tru
 3. Done: final-readiness web action rows now preserve `report_path` and render row-level Report links.
 4. Done: trusted-user beta rows can show the later `record-beta-feedback` command as `Record after review`, while physical validation rows continue to use `Record after print`.
 5. Boundary: review handoffs, reports, bundles, and record commands are instructions and supporting files only. The trusted-user beta gate still requires three unique completed feedback packets with supporting evidence.
+
+## Wave 132 - Release Final Readiness Handoff Commands
+
+Status: partial progress for release distribution execution UX. This makes each release checklist row self-contained for signing and packaging handoff without claiming signed artifacts exist.
+
+1. Done: final-readiness action rows now preserve release `required_inputs`, the action's actual `command`, and its `followup_command` even when an immediate `release-start` handoff command is present.
+2. Done: the web checklist renders Required inputs, Run after prerequisites, and Follow-up check rows for release distribution actions.
+3. Done: release rows still show the release handoff Markdown path and immediate handoff command.
+4. Done: regression coverage verifies the row view model and rendered HTML include required inputs, build/check commands, follow-up commands, and handoff links.
+5. Boundary: release handoffs and commands are instructions only. The distribution gates still require Developer ID/notary credentials and signed/notarized macOS plus signed Windows artifacts.
