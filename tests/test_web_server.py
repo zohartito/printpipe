@@ -233,6 +233,9 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert 'class="verdict-strip"' in response.text
     assert "Next action" in response.text
     assert "Choose a support strategy, then rebuild or inspect the slice receipt." in response.text
+    assert 'class="run-context"' in response.text
+    assert "Warnings" in response.text
+    assert "Support risk is medium around the arch." in response.text
     assert "Needs geometry edit: upper/opening too narrow" in response.text
     assert "Model workbench" in response.text
     assert "Edit Geometry" in response.text
@@ -283,6 +286,7 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert "mesh-placeholder" in css
     assert ".model-preview-image" in css
     assert ".next-action" in css
+    assert ".run-context" in css
     assert ".edit-actions" in css
     assert "position: sticky" in css
     assert "bottom: 0" in css
@@ -343,6 +347,14 @@ def test_post_run_edit_creates_non_destructive_edit_run(tmp_path: Path):
     assert recipe.geometry_intent.flat_base is True
     assert recipe.support_strategy == "snug_tree_auto"
     assert recipe.instruction == "Widen the upper without changing sole length"
+
+    detail_response = app.handle("/runs/run-edit-001_edit_001")
+    assert detail_response.status == 200
+    assert "Parent run" in detail_response.text
+    assert "run-edit-001" in detail_response.text
+    assert "Edit delta" in detail_response.text
+    assert "opening +14 mm" in detail_response.text
+    assert "support snug_tree_auto" in detail_response.text
 
 
 def test_post_run_edit_redirects_to_failed_child_rebuild_report(tmp_path: Path):
@@ -485,7 +497,10 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(t
     assert ("select_references", "succeeded") in stages
     assert ("contact_sheet", "succeeded") in stages
     assert ("meshgen", "failed") in stages
-    assert report["warnings"] == ["image/video meshgen is not wired into the orchestrator yet"]
+    assert report["warnings"] == [
+        "Hunyuan3D local command is not configured; set "
+        "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
+    ]
 
 
 def test_post_runs_existing_stl_creates_bundle_and_report(tmp_path: Path):

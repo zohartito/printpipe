@@ -35,7 +35,7 @@ Local CLI / local app
 | Input | Pipeline status | Receipt behavior |
 | --- | --- | --- |
 | Existing mesh | Production spine for v1 foundation. | Imports existing geometry, repairs it, writes oriented STL, preview artifacts, Bambu `.3mf`, validation report, and optional slice receipt. |
-| Image/GIF/video | Reference prep only until F4 wires real media meshgen. | Writes extracted/selected references and contact sheet artifacts, then fails `meshgen` with `image/video meshgen is not wired into the orchestrator yet`. |
+| Image/GIF/video | Wired through the configured local Hunyuan3D adapter. | Writes extracted/selected references and contact sheet artifacts, then either generates a mesh and continues through repair/orient/bundle/report, or fails `meshgen` with a provider-configuration receipt when `PRINTPIPE_HUNYUAN3D_COMMAND` is unset. |
 | Prompt + image | Provider contract only. | `MeshGenRequest.prompt_hint` can reach configured providers, but CLI/web do not persist or route prompt hints yet. |
 | Prompt only | Unsupported. | No run mode exists because the pipeline still needs concrete source geometry or visual references. |
 
@@ -55,9 +55,10 @@ The current end-to-end command target uses an existing mesh:
 printpipe run input.stl --slice
 ```
 
-Image/GIF/video is the product target, but it remains gated by F4 until media meshgen is wired through the same repair/orient/bundle path:
+Image/GIF/video now uses the same repair/orient/bundle path after the configured Hunyuan3D command writes a mesh:
 
 ```bash
+export PRINTPIPE_HUNYUAN3D_COMMAND="/path/to/hunyuan_adapter"
 printpipe run input.gif \
   --printer "Bambu Lab P2S 0.4 nozzle" \
   --filament "SUNLU TPU 90A" \

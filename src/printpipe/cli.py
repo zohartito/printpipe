@@ -156,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.slice and input_kind != InputKind.MESH:
                 parser.error(
                     "--slice currently requires an existing mesh input; "
-                    "image/GIF/video meshgen is not wired into the orchestrator yet"
+                    "run image/GIF/video through meshgen first, then slice the generated bundle"
                 )
             result = run_existing_mesh_pipeline(
                 args.input,

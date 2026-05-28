@@ -1008,6 +1008,7 @@ def _render_run_detail_page(
             "    </header>",
             '    <section class="shell">',
             _render_verdict_strip(detail=detail),
+            _render_run_context_strip(detail=detail),
             _render_model_workbench(detail=detail, artifact_links=artifact_links),
             "    </section>",
             "  </main>",
@@ -1073,6 +1074,39 @@ def _render_score_card(label: str, check: dict[str, Any] | None) -> str:
             f"          <strong>{escape(_state_label(state))}</strong>",
             f"          <p>{escape(detail)}</p>",
             "        </article>",
+        ]
+    )
+
+
+def _render_run_context_strip(*, detail: dict[str, Any]) -> str:
+    parent_run = _mapping(detail.get("parent_run"))
+    items = [
+        ("Input", str(_mapping(detail.get("input")).get("kind", "unknown"))),
+        ("Bounds", _format_bounds(_mapping(detail.get("geometry")).get("bounds_mm"))),
+        ("Warnings", str(len(_as_list(detail.get("warnings"))))),
+    ]
+    if parent_run:
+        items.insert(0, ("Parent run", str(parent_run.get("run_id", "unknown"))))
+        items.append(("Edit delta", _edit_delta_summary(detail)))
+    first_warning = _first_warning(detail)
+    if first_warning:
+        items.append(("First warning", first_warning))
+    rendered = "\n".join(
+        "\n".join(
+            [
+                '        <div class="context-item">',
+                f"          <span>{escape(label)}</span>",
+                f"          <strong>{escape(value)}</strong>",
+                "        </div>",
+            ]
+        )
+        for label, value in items
+    )
+    return "\n".join(
+        [
+            '      <section class="run-context" aria-label="Run context">',
+            rendered,
+            "      </section>",
         ]
     )
 
@@ -1460,6 +1494,34 @@ def _next_action_label(detail: dict[str, Any]) -> str:
     if _state_tone(state) == "pass":
         return "Open the 3MF and inspect the slice receipt before printing."
     return "Inspect warnings, then either rebuild or open the current bundle."
+
+
+def _edit_delta_summary(detail: dict[str, Any]) -> str:
+    recipe = _mapping(detail.get("edit_recipe"))
+    scale = _mapping(recipe.get("scale"))
+    intent = _mapping(recipe.get("geometry_intent"))
+    deltas = []
+    y_scale = _field_value(scale, "y", "1.0")
+    if y_scale not in {"", "1", "1.0", "1.00"}:
+        deltas.append(f"Y scale {y_scale}")
+    opening = intent.get("opening_width_delta_mm")
+    if opening not in {None, "", 0, 0.0}:
+        deltas.append(f"opening {_signed_mm(opening)}")
+    arch = intent.get("arch_height_delta_mm")
+    if arch not in {None, "", 0, 0.0}:
+        deltas.append(f"arch {_signed_mm(arch)}")
+    support = str(recipe.get("support_strategy", "auto"))
+    if support and support != "auto":
+        deltas.append(f"support {support}")
+    return ", ".join(deltas) if deltas else "No geometry delta recorded"
+
+
+def _first_warning(detail: dict[str, Any]) -> str:
+    warnings = [str(warning) for warning in _as_list(detail.get("warnings")) if str(warning)]
+    if not warnings:
+        return "None"
+    first = warnings[0]
+    return first if len(first) <= 96 else f"{first[:93]}..."
 
 
 def _signed_mm(value: Any) -> str:
@@ -2070,6 +2132,35 @@ _CSS = """
     }
     .score-fail strong {
       color: #9b1c1c;
+    }
+    .run-context {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid #cfd8e3;
+      border-radius: 8px;
+      box-shadow: 0 12px 30px rgba(36, 47, 61, 0.08);
+      display: grid;
+      gap: 1px;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      overflow: hidden;
+    }
+    .context-item {
+      background: #ffffff;
+      min-width: 0;
+      padding: 11px 12px;
+    }
+    .context-item span {
+      color: #607080;
+      display: block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.7rem;
+      font-weight: 850;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    .context-item strong {
+      display: block;
+      font-size: 0.92rem;
+      overflow-wrap: anywhere;
     }
     .workbench {
       display: grid;

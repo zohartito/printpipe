@@ -45,9 +45,9 @@ printpipe status runs/<run-id>
 printpipe open-report runs/<run-id>
 ```
 
-If `printpipe run` reports that image/video mesh generation is not wired yet,
-use an existing mesh input for the current foundation path. This is expected
-until the full provider pipeline is connected.
+If `printpipe run` reports that the Hunyuan3D local command is not configured,
+set `PRINTPIPE_HUNYUAN3D_COMMAND` to the local adapter command before running
+image/GIF/video inputs. Existing mesh inputs do not need that provider.
 
 ## `printpipe serve`
 

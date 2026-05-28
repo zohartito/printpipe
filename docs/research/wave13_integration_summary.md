@@ -20,7 +20,7 @@ Wave 13 connected the existing-STL path into the normal CLI and local web flow. 
 ## What still has to stay partial
 
 - Live Bambu CLI slicing remains partial until a real Bambu Studio executable is deliberately invoked and the resulting slice logs are captured.
-- Image/GIF/video mesh generation is still not wired through Hunyuan3D in the normal orchestrator.
+- Superseded by Wave 23: image/GIF/video mesh generation is now wired through the configured Hunyuan3D adapter in the normal orchestrator.
 - Physical slipper, TPU, PLA, PETG, and beta-user validation remain partial until there are printed parts, photos, measurements, and failure notes.
 - The web app can download `.3mf`; one-click opening in Bambu Studio is not implemented.
 

@@ -26,6 +26,8 @@ from printpipe.inputs import prepare_input
 from printpipe.mesh.repair import repair_mesh_file_to_receipt
 from printpipe.meshgen import (
     ExistingMeshProvider,
+    Hunyuan3DProvider,
+    MeshGenProvider,
     MeshGenRequest,
     MeshGenResult,
     generate_with_retries,
@@ -42,7 +44,10 @@ from printpipe.runs import (
 )
 
 
-NON_MESH_MESHGEN_MESSAGE = "image/video meshgen is not wired into the orchestrator yet"
+NON_MESH_MESHGEN_MESSAGE = (
+    "media meshgen requires a configured provider; set PRINTPIPE_HUNYUAN3D_COMMAND "
+    "for the local Hunyuan3D adapter"
+)
 DEFAULT_BED = BedSize(width_mm=256.0, depth_mm=256.0)
 DEFAULT_PROFILE_IDS = BambuProfileIds(
     filament_settings_id="Generic PLA",
@@ -78,8 +83,9 @@ def run_existing_mesh_pipeline(
     settings_changes: Sequence[Mapping[str, Any] | str] = (),
     run_slice: bool = False,
     slice_executable: str | Path | None = None,
+    meshgen_provider: MeshGenProvider | None = None,
 ) -> PipelineResult:
-    """Run the currently wired pipeline spine for an existing mesh input."""
+    """Run the currently wired pipeline spine for mesh or media input."""
 
     layout = create_run(input_path, runs_dir)
     return run_existing_mesh_pipeline_on_layout(
@@ -90,6 +96,7 @@ def run_existing_mesh_pipeline(
         settings_changes=settings_changes,
         run_slice=run_slice,
         slice_executable=slice_executable,
+        meshgen_provider=meshgen_provider,
     )
 
 
@@ -105,15 +112,18 @@ def run_existing_mesh_pipeline_on_layout(
     settings_changes: Sequence[Mapping[str, Any] | str] = (),
     run_slice: bool = False,
     slice_executable: str | Path | None = None,
+    meshgen_provider: MeshGenProvider | None = None,
 ) -> PipelineResult:
-    """Run the existing-mesh pipeline inside a pre-created run layout."""
+    """Run the mesh pipeline inside a pre-created run layout."""
 
     source_mesh = Path(source_mesh_path) if source_mesh_path is not None else layout.original_input
+    selected_reference_artifacts: tuple[Artifact, ...] = ()
     if source_mesh_path is None:
         input_result = prepare_input(layout.original_input, layout.frames_dir)
         stages = [*initial_stages, *input_result.receipts]
         input_kind = input_result.kind
         source_artifact = input_result.mesh_artifact
+        selected_reference_artifacts = input_result.selected_references
     else:
         stages = list(initial_stages)
         input_kind = InputKind.MESH
@@ -124,26 +134,7 @@ def run_existing_mesh_pipeline_on_layout(
             metadata={"source": "layout_override"},
         )
 
-    if input_kind != InputKind.MESH:
-        failure = StageReceipt(
-            stage="meshgen",
-            status=StageStatus.FAILED,
-            message=NON_MESH_MESHGEN_MESSAGE,
-            metrics={"input_kind": input_kind.value},
-        )
-        stages.append(failure)
-        result = _write_pipeline_reports(
-            layout,
-            stages=tuple(stages),
-            warnings=(NON_MESH_MESHGEN_MESSAGE,),
-            material=material,
-            printer=printer,
-            use_case=use_case,
-            settings_changes=settings_changes,
-        )
-        raise PipelineError(NON_MESH_MESHGEN_MESSAGE, result)
-
-    if source_artifact is None:
+    if input_kind == InputKind.MESH and source_artifact is None:
         message = "existing mesh input did not produce a mesh artifact"
         stages.append(
             StageReceipt(
@@ -164,13 +155,47 @@ def run_existing_mesh_pipeline_on_layout(
         )
         raise PipelineError(message, result)
 
-    provider = ExistingMeshProvider()
-    request = MeshGenRequest(
-        input_kind=InputKind.MESH,
-        source_paths=(Path(source_artifact.path),),
-        output_formats=(_mesh_output_format(Path(source_artifact.path)),),
-        max_attempts=1,
-    )
+    provider: MeshGenProvider
+    if input_kind == InputKind.MESH:
+        provider = ExistingMeshProvider()
+        request = MeshGenRequest(
+            input_kind=InputKind.MESH,
+            source_paths=(Path(source_artifact.path),),
+            output_formats=(_mesh_output_format(Path(source_artifact.path)),),
+            max_attempts=1,
+        )
+    else:
+        reference_paths = tuple(Path(artifact.path) for artifact in selected_reference_artifacts)
+        if not reference_paths:
+            message = f"{input_kind.value} input did not produce selected references for meshgen"
+            stages.append(
+                StageReceipt(
+                    stage="meshgen",
+                    status=StageStatus.FAILED,
+                    message=message,
+                    metrics={"input_kind": input_kind.value},
+                )
+            )
+            result = _write_pipeline_reports(
+                layout,
+                stages=tuple(stages),
+                warnings=(message,),
+                material=material,
+                printer=printer,
+                use_case=use_case,
+                settings_changes=settings_changes,
+            )
+            raise PipelineError(message, result)
+
+        provider = meshgen_provider or Hunyuan3DProvider()
+        request = MeshGenRequest(
+            input_kind=input_kind,
+            source_paths=reference_paths,
+            reference_images=reference_paths,
+            output_formats=("stl", "glb", "obj"),
+            provider_params={"original_input": str(layout.original_input)},
+        )
+
     mesh_result = generate_with_retries(provider, request, layout)
     stages.append(_meshgen_stage_receipt(mesh_result))
 
@@ -298,7 +323,7 @@ def run_existing_mesh_pipeline_on_layout(
     )
     stages.append(model_preview_receipt)
 
-    object_name = f"existing_stl_{imported_mesh.stem}"
+    object_name = _bundle_object_name(mesh_result.provider_id, imported_mesh)
     bundle_path = layout.bundle_dir / f"{object_name}.3mf"
     write_bundle_from_ascii_stl(
         oriented_mesh,
@@ -565,7 +590,10 @@ def _nonzero_or_present(value: Any) -> bool:
 
 def _meshgen_stage_receipt(result: MeshGenResult) -> StageReceipt:
     artifacts = (result.artifact,) if result.artifact is not None else ()
-    message = "imported existing mesh with ExistingMeshProvider"
+    if result.provider_id == "existing_mesh":
+        message = "imported existing mesh with ExistingMeshProvider"
+    else:
+        message = f"generated mesh with {result.provider_id}"
     if result.status != StageStatus.SUCCEEDED and result.error is not None:
         message = result.error.message
 
@@ -628,7 +656,9 @@ def _warnings_for_mesh_result(result: MeshGenResult) -> tuple[str, ...]:
     if result.status == StageStatus.SUCCEEDED:
         return ()
     if result.error is None:
-        return ("existing mesh import failed",)
+        if result.provider_id == "existing_mesh":
+            return ("existing mesh import failed",)
+        return (f"mesh generation failed with {result.provider_id}",)
     return (result.error.message,)
 
 
@@ -701,6 +731,12 @@ def _bundle_stage_receipt(bundle_path: Path, source_mesh: Path, object_name: str
             "object_name": object_name,
         },
     )
+
+
+def _bundle_object_name(provider_id: str, imported_mesh: Path) -> str:
+    if provider_id == "existing_mesh":
+        return f"existing_stl_{imported_mesh.stem}"
+    return f"generated_mesh_{imported_mesh.stem}"
 
 
 def _bundle_validation_receipt(bundle_path: Path, validation_path: Path) -> StageReceipt:

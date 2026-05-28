@@ -7,6 +7,7 @@ import pytest
 
 import printpipe.pipeline as pipeline_module
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
+from printpipe.meshgen import MeshGenCost, MeshGenResult, MeshGenTiming
 from printpipe.pipeline import PipelineError, run_edit_recipe_pipeline, run_existing_mesh_pipeline
 from printpipe.runs.editing import EditRecipe, EditScale, EditTargets, GeometryIntent, create_edit_run
 
@@ -285,7 +286,7 @@ def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_p
 
     with pytest.raises(
         PipelineError,
-        match="image/video meshgen is not wired into the orchestrator yet",
+        match="Hunyuan3D local command is not configured",
     ) as raised:
         run_existing_mesh_pipeline(source, runs_dir)
 
@@ -298,8 +299,12 @@ def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_p
     assert stages["classify_input"].status == StageStatus.SUCCEEDED
     assert stages["extract_references"].status == StageStatus.SUCCEEDED
     assert stages["meshgen"].status == StageStatus.FAILED
-    assert stages["meshgen"].message == "image/video meshgen is not wired into the orchestrator yet"
-    assert stages["meshgen"].metrics == {"input_kind": "image"}
+    assert stages["meshgen"].message == (
+        "Hunyuan3D local command is not configured; set "
+        "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
+    )
+    assert stages["meshgen"].metrics["provider_id"] == "hunyuan3d"
+    assert stages["meshgen"].metrics["attempt_count"] == 1
     assert "mesh_repair" not in stages
     assert "bundle" not in stages
 
@@ -309,8 +314,104 @@ def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_p
     assert ("meshgen", "failed") in {
         (stage["stage"], stage["status"]) for stage in report["stages"]
     }
-    assert report["warnings"] == ["image/video meshgen is not wired into the orchestrator yet"]
+    assert report["warnings"] == [
+        "Hunyuan3D local command is not configured; set "
+        "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
+    ]
     assert (result.layout.reports_dir / "run_report.html").exists()
+
+
+def test_media_pipeline_uses_configured_meshgen_then_repairs_orients_and_bundles(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    class FakeMediaMeshProvider:
+        provider_id = "hunyuan3d"
+        display_name = "Fake Hunyuan3D"
+
+        def generate(self, request, run) -> MeshGenResult:
+            assert request.input_kind.value == "image"
+            assert tuple(path.name for path in request.source_paths) == ("reference.png",)
+            assert tuple(path.name for path in request.reference_images) == ("reference.png",)
+            assert request.output_formats[0] == "stl"
+
+            output = run.meshgen_dir / "hunyuan3d.stl"
+            output.write_text(STL_FIXTURE.read_text(encoding="ascii"), encoding="ascii")
+            return MeshGenResult(
+                status=StageStatus.SUCCEEDED,
+                provider_id=self.provider_id,
+                timing=MeshGenTiming(wall_seconds=3.5),
+                cost=MeshGenCost(currency="USD", amount=0.0, estimated=False),
+                artifact=Artifact(
+                    kind=ArtifactKind.GENERATED_MESH,
+                    path=output,
+                    label="Generated mesh from Hunyuan3D",
+                ),
+                normalized_mesh_path=output,
+            )
+
+    def fake_repair_mesh_file_to_receipt(
+        input_path: Path | str,
+        output_path: Path | str,
+        *,
+        stats_path: Path | str | None = None,
+        allow_non_watertight: bool = False,
+        stage: str = "mesh_repair",
+    ) -> StageReceipt:
+        del allow_non_watertight
+        output = Path(output_path)
+        stats = Path(stats_path) if stats_path is not None else output.with_suffix(".json")
+        output.write_text(Path(input_path).read_text(encoding="ascii"), encoding="ascii")
+        stats.write_text(
+            json.dumps({"stage": stage, "status": "succeeded"}) + "\n",
+            encoding="utf-8",
+        )
+        return StageReceipt(
+            stage=stage,
+            status=StageStatus.SUCCEEDED,
+            message="fake repair succeeded",
+            artifacts=(
+                Artifact(ArtifactKind.REPAIRED_MESH, output, "Repaired mesh"),
+                Artifact(ArtifactKind.REPORT, stats, "Mesh repair stats JSON"),
+            ),
+            metrics={"watertight_after": True},
+        )
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "repair_mesh_file_to_receipt",
+        fake_repair_mesh_file_to_receipt,
+        raising=False,
+    )
+
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"not a real image yet")
+
+    result = run_existing_mesh_pipeline(
+        source,
+        tmp_path / "runs",
+        meshgen_provider=FakeMediaMeshProvider(),
+    )
+
+    stages = {receipt.stage: receipt for receipt in result.stages}
+    assert stages["classify_input"].status == StageStatus.SUCCEEDED
+    assert stages["extract_references"].status == StageStatus.SUCCEEDED
+    assert stages["select_references"].status == StageStatus.SUCCEEDED
+    assert stages["contact_sheet"].status == StageStatus.SUCCEEDED
+    assert stages["meshgen"].status == StageStatus.SUCCEEDED
+    assert stages["meshgen"].metrics["provider_id"] == "hunyuan3d"
+    assert stages["mesh_repair"].status == StageStatus.SUCCEEDED
+    assert stages["geometry.write_oriented_ascii_stl_artifacts"].status == StageStatus.SUCCEEDED
+    assert stages["bundle"].status == StageStatus.SUCCEEDED
+    assert stages["bundle_validation"].status == StageStatus.SUCCEEDED
+
+    report = json.loads(
+        (result.layout.reports_dir / "run_report.json").read_text(encoding="utf-8")
+    )
+    report_artifacts = {(artifact["kind"], artifact["path"]) for artifact in report["artifacts"]}
+    assert ("generated_mesh", "20_meshgen/hunyuan3d.stl") in report_artifacts
+    assert ("repaired_mesh", "30_repair/hunyuan3d_repaired.stl") in report_artifacts
+    assert ("3mf", "60_bundle/generated_mesh_hunyuan3d.3mf") in report_artifacts
 
 
 def test_existing_mesh_pipeline_fails_before_orientation_when_repair_fails(

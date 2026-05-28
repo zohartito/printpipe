@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 22: 122 done, 20 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 23: 122 done, 20 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,7 +206,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 22 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs create reference artifacts but now fail `meshgen` explicitly until F4 wires real media-to-mesh orchestration. Bambu Studio 2.6.00.51 on this macOS 26.5 machine still segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
+Wave 23 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs now prepare references, call the configured Hunyuan3D local adapter, and then continue through the same repair/orient/bundle/report spine. If `PRINTPIPE_HUNYUAN3D_COMMAND` is unset, media runs fail at `meshgen` with a provider-configuration receipt instead of silently pretending to generate geometry. Bambu Studio 2.6.00.51 on this macOS 26.5 machine still segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
 
 ## Post-Wave 13 Findings Backlog
 
@@ -215,7 +215,7 @@ These items are not part of the original 142 count. They come from Wave 13 verif
 - [ ] F1. Fix or document macOS Desktop/TCC permission recovery for the primary checkout.
 - [ ] F2. Add a `printpipe doctor` check that warns when the current workspace or external artifact paths are unreadable.
 - [x] F3. Add a run option that deliberately invokes live Bambu CLI slicing against the generated `.3mf` and records the real receipt.
-- [ ] F4. Wire image/GIF/video runs through Hunyuan3D meshgen, repair, orientation, bundle, and report.
+- [x] F4. Wire image/GIF/video runs through Hunyuan3D meshgen, repair, orientation, bundle, and report.
 - [x] F5. Add real mesh preview screenshots or deterministic rendered previews, not only SVG/contact-sheet previews.
 - [ ] F6. Add one-click "open bundle/report folder" affordance for local macOS/Windows flows.
 - [ ] F7. Create a flex-coupon generator and include it as the first TPU validation artifact.

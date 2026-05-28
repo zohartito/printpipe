@@ -246,3 +246,14 @@ Status: complete for this pass once the orchestrator commit is pushed. Outputs a
 4. Done: left Bambu CLI segfault as an explicit open frontier, not a hidden failure.
 5. Done: prepared all current work for a single GitHub commit.
 6. Next: continue with F4/F13 or physical/beta validation after this push.
+
+## Wave 23 - Configured Media Meshgen Spine
+
+Status: complete for the software path. Outputs are covered by `tests/test_pipeline_existing_mesh.py`, `tests/test_cli_run.py`, and `tests/test_web_server.py`.
+
+1. Done: image/GIF/video inputs no longer hard-stop before meshgen.
+2. Done: media runs use selected reference artifacts as Hunyuan3D `source_paths` and `reference_images`.
+3. Done: configured Hunyuan3D output continues through repair, orientation, preview generation, Bambu `.3mf` bundle, validation, reports, and optional slice gate.
+4. Done: missing `PRINTPIPE_HUNYUAN3D_COMMAND` now produces a failed `meshgen` receipt with provider id `hunyuan3d`.
+5. Done: CLI coverage proves a fake configured Hunyuan command can turn a PNG input into `generated_mesh_hunyuan3d.3mf`.
+6. Remaining: real local Hunyuan runtime configuration and F13 Bambu CLI SIGSEGV isolation are still outside this wave.

@@ -38,7 +38,7 @@ Current input support is intentionally explicit:
 | Input mode | Current behavior |
 | --- | --- |
 | Existing STL/OBJ/3MF mesh | Runs end-to-end through import, repair, orientation, Bambu 3MF bundling, reports, and optional slice gate. |
-| Image, GIF, video | Prepares references/contact sheets, then records a failed `meshgen` receipt because media-to-mesh orchestration is not wired yet. |
+| Image, GIF, video | Prepares references/contact sheets, then runs the configured Hunyuan3D local adapter through repair, orientation, Bambu 3MF bundling, and reports. If `PRINTPIPE_HUNYUAN3D_COMMAND` is not set, the run fails honestly at `meshgen` with provider-configuration receipts. |
 | Prompt plus image | Supported only at the provider-contract level as an optional `prompt_hint`; not wired through CLI/web runs yet. |
 | Prompt only | Not supported yet. The pipeline needs an image/video/mesh source before it can produce geometry. |
 

@@ -41,7 +41,7 @@ The new backlog lives in `docs/APP_ROADMAP.md` under "Post-Wave 13 Findings Back
 F3 is complete as a PrintPipe feature:
 
 - `--bambu-cli` is rejected unless `--slice` is also set.
-- `--slice` is rejected for image/GIF/video inputs until F4 wires meshgen into the orchestrator.
+- `--slice` is rejected for direct image/GIF/video inputs; Wave 23 now wires those inputs through configured Hunyuan3D meshgen before bundling.
 - Missing Bambu CLI is now a failed requested slice gate, not a skipped not-requested gate.
 - CLI pipeline failures print the run folder and report paths before returning nonzero.
 - Slice receipts include `slice_requested=true`, command, executable, checked candidates, logs, return code, warnings, errors, and parsed estimates when G-code is produced.

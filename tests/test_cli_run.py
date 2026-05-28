@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -36,7 +37,7 @@ def test_run_media_input_writes_failed_meshgen_report_and_returns_nonzero(
     assert f"report markdown: {run_root / '80_reports' / 'run_report.md'}" in captured.out
     assert f"report html: {run_root / '80_reports' / 'run_report.html'}" in captured.out
     assert "failed stage: meshgen" in captured.out
-    assert "error: image/video meshgen is not wired into the orchestrator yet" in captured.err
+    assert "error: Hunyuan3D local command is not configured" in captured.err
 
     report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
     stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
@@ -45,7 +46,62 @@ def test_run_media_input_writes_failed_meshgen_report_and_returns_nonzero(
     assert ("select_references", "succeeded") in stages
     assert ("contact_sheet", "succeeded") in stages
     assert ("meshgen", "failed") in stages
-    assert report["warnings"] == ["image/video meshgen is not wired into the orchestrator yet"]
+    assert report["warnings"] == [
+        "Hunyuan3D local command is not configured; set "
+        "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
+    ]
+
+
+def test_run_media_input_with_configured_hunyuan_command_writes_bundle(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source_mesh = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    fake_hunyuan = tmp_path / "fake_hunyuan.py"
+    fake_hunyuan.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--output', required=True)",
+                "args, _ = parser.parse_known_args()",
+                f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRINTPIPE_HUNYUAN3D_COMMAND", f"{sys.executable} {fake_hunyuan}")
+
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+
+    exit_code = main(["run", str(source), "--runs-dir", str(runs_dir)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    run_root = next(runs_dir.iterdir())
+    assert f"run root: {run_root}" in captured.out
+    assert (run_root / "20_meshgen" / "hunyuan3d.stl").exists()
+    assert (run_root / "60_bundle" / "generated_mesh_hunyuan3d.3mf").exists()
+
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
+    assert ("meshgen", "succeeded") in stages
+    assert ("mesh_repair", "succeeded") in stages
+    assert ("bundle", "succeeded") in stages
+    assert ("3mf", "60_bundle/generated_mesh_hunyuan3d.3mf") in {
+        (artifact["kind"], artifact["path"]) for artifact in report["artifacts"]
+    }
 
 
 def test_run_existing_stl_writes_bundle_reports_and_checklist(tmp_path: Path, capsys):
@@ -122,7 +178,7 @@ def test_run_bambu_cli_requires_slice_flag(tmp_path: Path):
     assert raised.value.code == 2
 
 
-def test_run_slice_requires_existing_mesh_until_meshgen_is_wired(tmp_path: Path):
+def test_run_slice_requires_existing_mesh_or_prebuilt_bundle_for_now(tmp_path: Path):
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")
 
