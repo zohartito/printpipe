@@ -107,6 +107,13 @@ def test_render_environment_report_is_concise_and_human_readable():
             "dependency_status_counts": {"ok": 1},
             "filesystem_status_counts": {"warning": 1},
         },
+        "system": {
+            "signing": {
+                "status": "missing_tools",
+                "missing_tools": ["signtool"],
+                "missing_identities": ["Code Signing Certificate"],
+            }
+        },
     }
 
     text = render_environment_report(report)
@@ -117,3 +124,6 @@ def test_render_environment_report_is_concise_and_human_readable():
     assert "Bambu Studio: 0 installed candidate(s) / 2 checked" in text
     assert "Filesystem:" in text
     assert "warning: Artifact path - Grant access." in text
+    assert "Windows installer signing: missing_tools" in text
+    assert "Missing signing tools: signtool" in text
+    assert "Missing signing identities: Code Signing Certificate" in text

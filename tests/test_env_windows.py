@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
 
 from printpipe.env.windows import (
     is_windows_platform,
     python_runtime_summary,
+    windows_installer_signing_readiness,
     windows_appdata_candidates,
     windows_environment_report,
     windows_program_files_candidates,
@@ -123,4 +125,55 @@ def test_windows_environment_report_is_json_friendly_and_uses_injections():
             "source": "ProgramFiles",
             "exists": True,
         }
+    ]
+
+
+def test_windows_installer_signing_readiness_reports_missing_tools_and_certificates():
+    summary = windows_installer_signing_readiness(which=lambda _name: None)
+    data = summary.as_dict()
+
+    assert data["status"] == "missing_tools"
+    assert data["missing_tools"] == ["signtool", "powershell", "wix/iscc/makensis"]
+    assert data["missing_identities"] == ["Code Signing Certificate"]
+    assert data["tools"]["signtool"] == {"path": None, "available": False}
+    assert data["installer_tool_available"] is False
+    assert data["identities"]["code_signing_certificates"] == []
+
+
+def test_windows_installer_signing_readiness_parses_code_signing_certificates():
+    tool_paths = {
+        "signtool": r"C:\Program Files (x86)\Windows Kits\10\bin\signtool.exe",
+        "powershell": r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+        "wix": r"C:\Program Files\WiX Toolset\bin\wix.exe",
+    }
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        assert args == [
+            tool_paths["powershell"],
+            "-NoProfile",
+            "-Command",
+            (
+                "Get-ChildItem Cert:\\CurrentUser\\My -CodeSigningCert | "
+                "Select-Object -ExpandProperty Subject"
+            ),
+        ]
+        return subprocess.CompletedProcess(
+            args,
+            0,
+            stdout="CN=Zohar Tito Code Signing, O=PrintPipe\n",
+            stderr="",
+        )
+
+    summary = windows_installer_signing_readiness(
+        which=tool_paths.get,
+        run_command=fake_run,
+    )
+    data = summary.as_dict()
+
+    assert data["status"] == "ready"
+    assert data["missing_tools"] == []
+    assert data["missing_identities"] == []
+    assert data["installer_tool_available"] is True
+    assert data["identities"]["code_signing_certificates"] == [
+        "CN=Zohar Tito Code Signing, O=PrintPipe"
     ]

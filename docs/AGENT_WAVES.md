@@ -681,3 +681,15 @@ Status: partial progress for original item 122. The Windows standalone runtime Z
 6. Done: live-verified a throwaway `.printpipestandtest` HKCU association installs with the expected command and uninstalls cleanly.
 7. Done: rebuilt standalone `PrintPipe.exe package-smoke --platform windows ... --json` returned `status=ok` with reports and a Bambu `.3mf`.
 8. Remaining: signed Windows installer, live Windows+Bambu slice evidence, Developer ID notarization, and physical print validation stay open.
+
+## Wave 62 - Windows Installer Signing Readiness Doctor
+
+Status: partial progress for original item 122. PrintPipe now reports whether a Windows host is ready to build/sign a native installer, but the required signing tools and certificate are not present on `desktop-zt`.
+
+1. Done: added `printpipe.env.windows.windows_installer_signing_readiness()`.
+2. Done: readiness checks for `signtool`, `powershell`, and at least one installer tool from `wix/iscc/makensis`.
+3. Done: readiness queries `Cert:\CurrentUser\My -CodeSigningCert` for code-signing certificate subjects.
+4. Done: `printpipe doctor --json` includes the packet under `system.signing` on Windows.
+5. Done: human doctor output labels the section `Windows installer signing` instead of macOS signing on Windows reports.
+6. Boundary on `desktop-zt`: PowerShell is present, but `signtool`, `wix/iscc/makensis`, and a `Code Signing Certificate` are missing; status is `missing_tools`.
+7. Remaining: install Windows signing/installer tools and certificate, build a signed native installer, install Bambu Studio on Windows for live slice evidence, complete physical print validation.

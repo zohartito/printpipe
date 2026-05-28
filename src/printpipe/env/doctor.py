@@ -139,10 +139,15 @@ def render_environment_report(report: Mapping[str, Any]) -> str:
         ]
     )
     if signing:
+        signing_label = (
+            "Windows installer signing"
+            if platform_info.get("normalized") == "windows"
+            else "macOS signing"
+        )
         lines.extend(
             [
                 "",
-                f"macOS signing: {signing.get('status', 'unknown')}",
+                f"{signing_label}: {signing.get('status', 'unknown')}",
                 "Missing signing tools: "
                 + _join_or_none(_list(signing.get("missing_tools"))),
                 "Missing signing identities: "

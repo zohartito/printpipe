@@ -118,6 +118,18 @@ Expected preset subdirectories are `filament\`, `process\`, and `machine\`.
 The exact Windows profile tree should be confirmed during the Windows packaging
 smoke test before any installer writes presets automatically.
 
+`printpipe doctor` reports Windows installer signing readiness separately from
+portable/standalone ZIP building. It checks for:
+
+- `signtool`
+- `powershell`, used to inspect the current user's certificate store
+- at least one installer tool from `wix/iscc/makensis`
+- at least one `Code Signing Certificate` in `Cert:\CurrentUser\My`
+
+Missing tools or a missing code signing certificate mean PrintPipe can still
+build unsigned portable/standalone ZIP artifacts for smoke testing, but a signed
+Windows installer is not ready.
+
 ## Missing Dependency Handling
 
 The base CLI should stay importable even when optional media, mesh repair, mesh
