@@ -1062,6 +1062,12 @@ def _bundle_profile_config(material: str) -> BundleProfileConfig:
     )
 
 
+def bundle_profile_config_for_material(material: str) -> BundleProfileConfig:
+    """Return the Bambu bundle profile config for a material label."""
+
+    return _bundle_profile_config(material)
+
+
 def _generic_material_bundle_profile_config(
     *,
     profile_ids: BambuProfileIds,
@@ -1293,6 +1299,7 @@ __all__ = [
     "NON_MESH_MESHGEN_MESSAGE",
     "PipelineError",
     "PipelineResult",
+    "bundle_profile_config_for_material",
     "run_edit_recipe_pipeline",
     "run_existing_mesh_pipeline",
     "run_existing_mesh_pipeline_on_layout",

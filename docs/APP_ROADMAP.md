@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 122: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 123: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 122 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
+Wave 123 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
 
-The latest completed wave tightened physical next-action honesty. Started but not printed physical-validation starter packets now make `final-next` point at `printpipe open-folder "<run>" --target run` so the user sees the coupon STL and physical handoff first. The post-print `record-physical-evidence ... --print-status passed ... --photo ...` command remains present as `record_command`, but is no longer treated as the immediate command before a real print exists.
+The latest completed wave made `physical-start` produce Bambu-ready coupon `.3mf` bundles in addition to STL/JSON sidecars and physical handoffs. The coupon bundle uses the same material-aware Bambu profile resolution path as normal runs, writes a bundle-validation JSON receipt, and is surfaced through physical plans as `bundle_path`.
+
+Wave 122 tightened physical next-action honesty. Started but not printed physical-validation starter packets now make `final-next` point at `printpipe open-folder "<run>" --target run` so the user sees the coupon STL and physical handoff first. The post-print `record-physical-evidence ... --print-status passed ... --photo ...` command remains present as `record_command`, but is no longer treated as the immediate command before a real print exists.
 
 Wave 121 added `/final-next.json` to the local web app and moved the focused next-action JSON into a shared helper used by both the CLI and web endpoint. Agents, Cursor, Claude, and UI clients can now read the immediate final action without parsing full section data.
 

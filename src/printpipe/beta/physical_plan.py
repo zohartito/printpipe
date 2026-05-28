@@ -138,6 +138,9 @@ def render_physical_validation_plan(plan: dict[str, Any]) -> str:
         handoff_path = str(action.get("handoff_markdown_path", ""))
         if handoff_path:
             lines.append(f"   handoff: {handoff_path}")
+        bundle_path = str(action.get("bundle_path", ""))
+        if bundle_path:
+            lines.append(f"   bundle: {bundle_path}")
         lines.append(f"   record after print: {action.get('record_command', '')}")
     lines.append("")
     return "\n".join(lines)
@@ -157,6 +160,7 @@ def _action_for_family(
         (runs_dir / f"physical-{family}-validation").resolve()
     )
     coupon_paths = _coupon_paths(Path(run_root))
+    bundle_paths = _bundle_paths(Path(run_root))
     setup_command = "" if existing_run_root else f"mkdir -p {_quote(run_root)}"
     start_command = (
         ""
@@ -186,6 +190,8 @@ def _action_for_family(
         "required_fields": required_fields,
         "coupon_stl_path": coupon_paths["stl"],
         "coupon_json_path": coupon_paths["json"],
+        "bundle_path": bundle_paths["bundle"],
+        "bundle_validation_path": bundle_paths["validation"],
         "handoff_markdown_path": _handoff_path(Path(run_root)),
         "record_command": _record_command(family=family, run_root=run_root),
     }
@@ -267,6 +273,16 @@ def _coupon_paths(run_root: Path) -> dict[str, str]:
     return {
         "stl": str(stl_path.resolve()) if stl_path.exists() else "",
         "json": str(json_path.resolve()) if json_path.exists() else "",
+    }
+
+
+def _bundle_paths(run_root: Path) -> dict[str, str]:
+    bundle_dir = run_root / "60_bundle"
+    bundle_path = bundle_dir / "physical_validation_coupon_40x15x3.3mf"
+    validation_path = bundle_dir / "physical_validation_coupon_40x15x3_bundle_validation.json"
+    return {
+        "bundle": str(bundle_path.resolve()) if bundle_path.exists() else "",
+        "validation": str(validation_path.resolve()) if validation_path.exists() else "",
     }
 
 

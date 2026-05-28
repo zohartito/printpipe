@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
+from printpipe.bambu.threemf import GuiSafeTransform, validate_bundle
+from printpipe.bambu.threemf.mesh_adapter import write_bundle_from_ascii_stl
 from printpipe.calibration.flex_coupon import write_flex_coupon_artifacts
 from printpipe.beta.physical import (
     build_physical_print_evidence,
@@ -71,6 +74,11 @@ def start_physical_validation(
         "stl": _artifact_path(coupon_receipt, suffix=".stl"),
         "json": _artifact_path(coupon_receipt, suffix=".json"),
     }
+    bundle_paths = _write_coupon_bundle(
+        run_root=run_root,
+        coupon_stl_path=Path(coupon_paths["stl"]),
+        material=str(action["material_hint"]),
+    )
     evidence = build_physical_print_evidence(
         run_id=run_root.name,
         material=str(action["material_hint"]),
@@ -91,6 +99,7 @@ def start_physical_validation(
         family=normalized_family,
         action=action,
         coupon_paths=coupon_paths,
+        bundle_paths=bundle_paths,
         validation_points=_validation_points(normalized_family),
     )
     return {
@@ -104,6 +113,8 @@ def start_physical_validation(
         "missing_required_evidence": written["missing_required_evidence"],
         "coupon_stl_path": coupon_paths["stl"],
         "coupon_json_path": coupon_paths["json"],
+        "bundle_path": bundle_paths["bundle"],
+        "bundle_validation_path": bundle_paths["validation"],
         "handoff_markdown_path": str(handoff_path),
         "record_command": action["record_command"],
     }
@@ -128,12 +139,61 @@ def _validation_points(family: str) -> tuple[str, ...]:
     )
 
 
+def _write_coupon_bundle(
+    *,
+    run_root: Path,
+    coupon_stl_path: Path,
+    material: str,
+) -> dict[str, str]:
+    from printpipe.pipeline import DEFAULT_BED, bundle_profile_config_for_material
+
+    bundle_dir = run_root / "60_bundle"
+    bundle_path = bundle_dir / "physical_validation_coupon_40x15x3.3mf"
+    validation_path = bundle_dir / "physical_validation_coupon_40x15x3_bundle_validation.json"
+    profile = bundle_profile_config_for_material(material)
+    write_bundle_from_ascii_stl(
+        coupon_stl_path,
+        bundle_path,
+        profile.profile_ids,
+        object_name="physical_validation_coupon_40x15x3",
+        transform=GuiSafeTransform.bed_center(DEFAULT_BED.width_mm, DEFAULT_BED.depth_mm),
+        filament_settings=profile.filament_settings,
+        process_settings=profile.process_settings,
+        printer_settings=profile.printer_settings,
+    )
+    validation = validate_bundle(bundle_path)
+    validation_path.write_text(
+        json.dumps(
+            {
+                "application": validation.application,
+                "bundle_path": str(bundle_path.resolve()),
+                "errors": list(validation.errors),
+                "ok": validation.ok,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    if not validation.ok:
+        raise ValueError(
+            "physical validation coupon bundle failed validation: "
+            + "; ".join(validation.errors)
+        )
+    return {
+        "bundle": str(bundle_path.resolve()),
+        "validation": str(validation_path.resolve()),
+    }
+
+
 def _write_handoff_markdown(
     *,
     run_root: Path,
     family: str,
     action: dict[str, Any],
     coupon_paths: dict[str, str],
+    bundle_paths: dict[str, str],
     validation_points: tuple[str, ...],
 ) -> Path:
     handoff_path = run_root / "90_physical" / "physical_print_handoff.md"
@@ -155,6 +215,10 @@ def _write_handoff_markdown(
                 "## Printable Coupon",
                 f"- STL: {coupon_paths.get('stl') or 'not generated'}",
                 f"- JSON sidecar: {coupon_paths.get('json') or 'not generated'}",
+                "",
+                "## Bambu Bundle",
+                f"- 3MF: {bundle_paths.get('bundle') or 'not generated'}",
+                f"- Validation JSON: {bundle_paths.get('validation') or 'not generated'}",
                 "",
                 "## Validate During The Print",
                 validation_lines,

@@ -1358,3 +1358,14 @@ Status: partial progress for physical-validation UX. This makes the current PLA 
 4. Done: terminal physical-plan output now labels the immediate folder-opening command as `next` and the evidence command as `record after print`.
 5. Done: final-readiness web action command selection now prefers explicit `command` before `record_command`, matching the final-plan contract.
 6. Boundary: opening a run folder and printing a coupon are not physical proof. The gate still requires real photo-backed evidence packets for PLA, PETG, and TPU.
+
+## Wave 123 - Physical Coupon 3MF Bundles
+
+Status: partial progress for physical-validation execution. This makes `physical-start` generate a Bambu-ready coupon bundle, not only an STL.
+
+1. Done: `physical-start` now writes `60_bundle/physical_validation_coupon_40x15x3.3mf` beside the coupon STL.
+2. Done: the coupon bundle uses the same material-aware Bambu profile resolution path as normal PrintPipe runs.
+3. Done: `physical-start` writes `physical_validation_coupon_40x15x3_bundle_validation.json` and fails if required Bambu 3MF members or signature metadata are missing.
+4. Done: physical plans surface `bundle_path` and `bundle_validation_path` for started coupon packets.
+5. Done: terminal `physical-start` output prints the bundle and bundle-validation paths, and the physical handoff includes the Bambu bundle section.
+6. Boundary: the generated `.3mf` is printable software evidence, not physical proof. The physical gate still requires a real coupon print, real observations, and an existing photo artifact.

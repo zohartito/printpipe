@@ -157,12 +157,19 @@ def test_physical_validation_plan_surfaces_started_coupon_artifacts(
     assert pla_action["coupon_json_path"].endswith(
         "40_geometry/physical_validation_coupon_40x15x3.json"
     )
+    assert pla_action["bundle_path"].endswith(
+        "60_bundle/physical_validation_coupon_40x15x3.3mf"
+    )
+    assert pla_action["bundle_validation_path"].endswith(
+        "60_bundle/physical_validation_coupon_40x15x3_bundle_validation.json"
+    )
     assert pla_action["handoff_markdown_path"].endswith(
         "90_physical/physical_print_handoff.md"
     )
     assert "first layer continuity" in coupon_sidecar["print_validation"]
     assert "flex recovery" not in coupon_sidecar["print_validation"]
     assert "handoff: " in render_physical_validation_plan(plan)
+    assert "bundle: " in render_physical_validation_plan(plan)
     assert "next: printpipe open-folder" in render_physical_validation_plan(plan)
 
 
@@ -184,8 +191,13 @@ def test_start_physical_validation_writes_not_printed_starter_packet(
     coupon_sidecar_path = (
         run_root / "40_geometry" / "physical_validation_coupon_40x15x3.json"
     )
+    bundle_path = run_root / "60_bundle" / "physical_validation_coupon_40x15x3.3mf"
+    bundle_validation_path = (
+        run_root / "60_bundle" / "physical_validation_coupon_40x15x3_bundle_validation.json"
+    )
     evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
     coupon_sidecar = json.loads(coupon_sidecar_path.read_text(encoding="utf-8"))
+    bundle_validation = json.loads(bundle_validation_path.read_text(encoding="utf-8"))
     status = build_physical_validation_status(runs_dir, required_families=("tpu",))
 
     assert result["status"] == "started"
@@ -195,13 +207,19 @@ def test_start_physical_validation_writes_not_printed_starter_packet(
     assert result["handoff_markdown_path"] == str(handoff_path.resolve())
     assert result["coupon_stl_path"] == str(coupon_path.resolve())
     assert result["coupon_json_path"] == str(coupon_sidecar_path.resolve())
+    assert result["bundle_path"] == str(bundle_path.resolve())
+    assert result["bundle_validation_path"] == str(bundle_validation_path.resolve())
     assert coupon_path.exists()
+    assert bundle_path.exists()
+    assert bundle_validation["ok"] is True
+    assert bundle_validation["bundle_path"] == str(bundle_path.resolve())
     assert coupon_sidecar["material"] == "SUNLU TPU 90A"
     assert coupon_sidecar["use_case"] == "TPU physical validation"
     assert "flex recovery" in coupon_sidecar["print_validation"]
     handoff_text = handoff_path.read_text(encoding="utf-8")
     assert "PrintPipe Physical Validation Print Handoff" in handoff_text
     assert str(coupon_path.resolve()) in handoff_text
+    assert str(bundle_path.resolve()) in handoff_text
     assert "flex recovery" in handoff_text
     assert "Digital artifacts, generated coupons, and slice receipts" in handoff_text
     assert result["record_command"] in handoff_text
@@ -253,6 +271,12 @@ def test_cli_physical_start_prints_json_and_does_not_pass_gate(
     assert payload["coupon_json_path"].endswith(
         "40_geometry/physical_validation_coupon_40x15x3.json"
     )
+    assert payload["bundle_path"].endswith(
+        "60_bundle/physical_validation_coupon_40x15x3.3mf"
+    )
+    assert payload["bundle_validation_path"].endswith(
+        "60_bundle/physical_validation_coupon_40x15x3_bundle_validation.json"
+    )
     assert "record-physical-evidence" in payload["record_command"]
     assert status["family_status"]["pla"]["status"] == "recorded_but_not_passed"
 
@@ -280,6 +304,8 @@ def test_cli_physical_start_text_prints_coupon_and_handoff_paths(
     assert exit_code == 0
     assert "coupon stl:" in captured.out
     assert "physical_validation_coupon_40x15x3.stl" in captured.out
+    assert "bundle 3mf:" in captured.out
+    assert "physical_validation_coupon_40x15x3.3mf" in captured.out
     assert "print handoff:" in captured.out
     assert "physical_print_handoff.md" in captured.out
 
