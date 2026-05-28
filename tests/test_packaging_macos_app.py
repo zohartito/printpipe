@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import plistlib
 import shutil
 import subprocess
@@ -66,6 +67,33 @@ def test_build_macos_app_bundle_wraps_zipapp_executable(tmp_path: Path) -> None:
     assert smoke_proc.returncode == 0
     assert smoke_payload["status"] == "ok"
     assert Path(smoke_payload["run_root"]).exists()
+
+
+def test_macos_app_default_launch_opens_local_web_ui(tmp_path: Path) -> None:
+    app_path = tmp_path / "PrintPipe.app"
+
+    result = build_macos_app_bundle(project_root=REPO_ROOT, app_path=app_path)
+    executable = Path(result["executable_path"])
+    home = tmp_path / "home"
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        "PRINTPIPE_APP_DRY_RUN": "1",
+    }
+
+    proc = subprocess.run(
+        [str(executable)],
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+
+    assert proc.returncode == 0
+    assert "PrintPipe app launcher" in proc.stdout
+    assert "http://127.0.0.1:8765/" in proc.stdout
+    assert f"--runs-dir {home / 'PrintPipe' / 'runs'}" in proc.stdout
+    assert result["default_launch_mode"] == "web-ui"
 
 
 def test_cli_build_macos_app_json_reports_bundle(tmp_path: Path, capsys) -> None:

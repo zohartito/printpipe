@@ -63,6 +63,9 @@ def build_macos_app_bundle(
         "info_plist_path": str(plist_path),
         "bundle_identifier": "com.zohartito.printpipe",
         "version": __version__,
+        "default_launch_mode": "web-ui",
+        "default_url": "http://127.0.0.1:8765/",
+        "default_runs_dir": "~/PrintPipe/runs",
         "signed": adhoc_sign,
         "signing_identity": signing_identity,
         "notarized": False,
@@ -90,6 +93,24 @@ def _launcher_script() -> str:
     return """#!/bin/sh
 set -eu
 APP_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ "$#" -eq 0 ]; then
+  HOST="${PRINTPIPE_HOST:-127.0.0.1}"
+  PORT="${PRINTPIPE_PORT:-8765}"
+  RUNS_DIR="${PRINTPIPE_RUNS_DIR:-$HOME/PrintPipe/runs}"
+  URL="${PRINTPIPE_APP_URL:-http://$HOST:$PORT/}"
+  if [ "${PRINTPIPE_APP_DRY_RUN:-0}" = "1" ]; then
+    printf 'PrintPipe app launcher\\n'
+    printf 'url: %s\\n' "$URL"
+    printf 'command: python3 %s serve --host %s --port %s --runs-dir %s\\n' "$APP_DIR/Resources/printpipe.pyz" "$HOST" "$PORT" "$RUNS_DIR"
+    exit 0
+  fi
+  mkdir -p "$RUNS_DIR"
+  (
+    sleep 1
+    /usr/bin/open "$URL" >/dev/null 2>&1 || true
+  ) &
+  exec /usr/bin/env python3 "$APP_DIR/Resources/printpipe.pyz" serve --host "$HOST" --port "$PORT" --runs-dir "$RUNS_DIR"
+fi
 exec /usr/bin/env python3 "$APP_DIR/Resources/printpipe.pyz" "$@"
 """
 

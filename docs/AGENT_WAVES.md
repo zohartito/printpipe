@@ -518,3 +518,14 @@ Status: partial progress for original item 121. The app bundle can now be locall
 4. Done: verified `codesign --verify --deep --strict PrintPipe.app` returned `0`.
 5. Done: verified the signed app launcher still returns `printpipe 0.1.0`.
 6. Remaining: Developer ID signing, notarization, bundled runtime, and release packaging stay open.
+
+## Wave 48 - macOS App Web Launcher
+
+Status: partial progress for original item 121. The `.app` bundle now has a useful default launch path, but it is still not a signed/notarized native installer.
+
+1. Done: changed the no-argument app launcher path to start `printpipe serve`.
+2. Done: the default URL is `http://127.0.0.1:8765/`.
+3. Done: the default app-run folder is `~/PrintPipe/runs`, avoiding accidental `/runs` writes from Finder launch context.
+4. Done: the launcher opens the local URL after startup while preserving CLI pass-through for `--version` and `package-smoke`.
+5. Done: added `PRINTPIPE_APP_DRY_RUN=1` smoke coverage for the no-arg launcher path.
+6. Remaining: Developer ID signing, notarization, bundled Python runtime, file associations, and release installer packaging stay open.

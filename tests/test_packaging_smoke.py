@@ -152,6 +152,7 @@ def test_packaging_doc_names_macos_package_smoke_command() -> None:
         "printpipe build-macos-app --output dist/printpipe.app --json",
         "printpipe build-macos-app --output dist/printpipe.app --adhoc-sign --json",
         "codesign --verify --deep --strict dist/printpipe.app",
+        "printpipe_app_dry_run=1 dist/printpipe.app/contents/macos/printpipe",
         "contents/macos/printpipe --version",
         "windows zipapp smoke evidence",
         "printpipe-zipapp",

@@ -86,6 +86,7 @@ python dist/printpipe.pyz package-smoke --platform macos --runs-dir runs/package
 
 printpipe build-macos-app --output dist/PrintPipe.app
 printpipe build-macos-app --output dist/PrintPipe.app --adhoc-sign
+PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipe.app/Contents/MacOS/printpipe
 dist/PrintPipe.app/Contents/MacOS/printpipe --version
 ```
 
