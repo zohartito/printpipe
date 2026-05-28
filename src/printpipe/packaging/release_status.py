@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -34,7 +35,9 @@ def build_release_status_report(
         if readiness_report is not None
         else build_beta_readiness_report(runs_path)
     )
+    release_artifacts = _release_artifacts(release_path, verification)
     gates = [_release_bundle_gate(release_path, verification)]
+    gates.extend(_distribution_gates(release_artifacts))
     gates.extend(_dict(gate) for gate in _list(readiness.get("gates")))
     actionable = [gate for gate in gates if gate.get("status") == ACTION_REQUIRED]
     return {
@@ -45,6 +48,7 @@ def build_release_status_report(
         "runs_dir": str(runs_path),
         "gates": gates,
         "next_actions": _next_actions(actionable),
+        "release_artifacts": release_artifacts,
         "release_verification": verification,
         "readiness": readiness,
     }
@@ -107,6 +111,88 @@ def _release_bundle_gate(
         detail,
         f"Run printpipe verify-release {release_dir} --json and rebuild or repair the release bundle.",
     )
+
+
+def _distribution_gates(artifacts: list[dict[str, Any]]) -> list[dict[str, str]]:
+    if not artifacts:
+        return []
+    return [
+        _macos_distribution_gate(artifacts),
+        _windows_distribution_gate(artifacts),
+    ]
+
+
+def _macos_distribution_gate(artifacts: list[dict[str, Any]]) -> dict[str, str]:
+    macos_artifacts = [
+        artifact
+        for artifact in artifacts
+        if str(artifact.get("kind", "")).startswith("macos_")
+    ]
+    if not macos_artifacts:
+        return _gate(
+            "macos_distribution",
+            "macOS distribution",
+            ACTION_REQUIRED,
+            "No macOS release artifact is recorded in the manifest.",
+            "Build a macOS release artifact before a strict release handoff.",
+        )
+    if any(
+        artifact.get("kind") == "macos_dmg"
+        and artifact.get("signed") is True
+        and artifact.get("notarized") is True
+        for artifact in macos_artifacts
+    ):
+        return _gate(
+            "macos_distribution",
+            "macOS distribution",
+            READY,
+            "A Developer ID signed and notarized macOS DMG is recorded.",
+            "No action needed.",
+        )
+    return _gate(
+        "macos_distribution",
+        "macOS distribution",
+        ACTION_REQUIRED,
+        "macOS release artifact is not Developer ID signed and notarized.",
+        "Install Developer ID identities, configure notarytool, and rebuild the release DMG.",
+    )
+
+
+def _windows_distribution_gate(artifacts: list[dict[str, Any]]) -> dict[str, str]:
+    if any(
+        artifact.get("kind") == "windows_installer"
+        and artifact.get("signed") is True
+        for artifact in artifacts
+    ):
+        return _gate(
+            "windows_distribution",
+            "Windows distribution",
+            READY,
+            "A signed Windows installer artifact is recorded.",
+            "No action needed.",
+        )
+    return _gate(
+        "windows_distribution",
+        "Windows distribution",
+        ACTION_REQUIRED,
+        "No signed Windows installer artifact is recorded in the manifest.",
+        "Build and include a signed PrintPipeSetup.exe before a strict release handoff.",
+    )
+
+
+def _release_artifacts(
+    release_dir: Path,
+    verification: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    artifacts = [_dict(artifact) for artifact in _list(verification.get("artifacts"))]
+    if artifacts:
+        return artifacts
+    manifest_path = release_dir / "release_manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [_dict(artifact) for artifact in _list(_dict(manifest).get("artifacts"))]
 
 
 def _gate(

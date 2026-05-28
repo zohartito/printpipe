@@ -925,3 +925,14 @@ Status: partial progress for original item 121. The local release smoke now cove
 4. Done: `printpipe verify-release dist/release --json` returned exit code `0` across 4 artifacts.
 5. Done: `printpipe release-status --release-dir dist/release --runs-dir runs --json --strict` reported the release bundle gate as `ready` with 4 verified artifacts.
 6. Remaining: final macOS distribution still needs Developer ID signing/notarization; final beta/release still needs physical PLA/PETG/TPU evidence.
+
+## Wave 84 - Release Distribution Gates
+
+Status: complete for final-release gate visibility. `release-status` now distinguishes an intact release folder from a final signed Mac/Windows distribution.
+
+1. Done: added `macos_distribution` gate to `printpipe release-status`.
+2. Done: the macOS distribution gate only passes when the manifest records a `macos_dmg` with `signed=true` and `notarized=true`.
+3. Done: added `windows_distribution` gate to `printpipe release-status`.
+4. Done: the Windows distribution gate only passes when the manifest records a `windows_installer` with `signed=true`.
+5. Done: release-status now reads release artifacts from injected verification payloads or from `release_manifest.json`.
+6. Boundary: these gates report final distribution completeness; they do not create certificates, notarize a DMG, or sign a Windows installer.

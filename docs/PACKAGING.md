@@ -698,10 +698,11 @@ drift, a Windows installer that is not an `.exe` or not marked signed, a
 runtime-bundled artifact without `bundles_python_runtime=true`, or a notarized
 macOS DMG without `signed=true`.
 
-`release-status` combines `verify-release` with the beta/release readiness
-gates from `printpipe readiness`. It reports the release bundle gate first,
-then physical, dependency, Bambu, filesystem, and signing gates, and lists the
-next actions that still block a strict release handoff.
+`release-status` combines `verify-release` with release-distribution checks and
+the beta/release readiness gates from `printpipe readiness`. It reports the
+release bundle gate first, then macOS distribution, Windows distribution,
+physical, dependency, Bambu, filesystem, and signing gates, and lists the next
+actions that still block a strict release handoff.
 
 Local smoke evidence: Wave 82 built the default ignored `dist/release` folder
 with ad-hoc macOS signing. `verify-release` returned `0`; `release-status

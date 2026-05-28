@@ -71,6 +71,69 @@ def test_release_status_report_blocks_on_failed_release_verification(tmp_path: P
     assert "Run printpipe verify-release" in gates["release_bundle"]["action"]
 
 
+def test_release_status_report_blocks_on_unsigned_distribution_artifacts(
+    tmp_path: Path,
+) -> None:
+    report = build_release_status_report(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+        release_verification={
+            "status": "ok",
+            "artifact_count": 3,
+            "checks": [],
+            "failures": [],
+            "artifacts": [
+                {"kind": "macos_dmg", "signed": True, "notarized": False},
+                {"kind": "windows_portable", "signed": False},
+            ],
+        },
+        readiness_report={
+            "overall_status": "ready",
+            "action_required_count": 0,
+            "gates": [],
+        },
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    assert report["overall_status"] == "action_required"
+    assert gates["macos_distribution"]["status"] == "action_required"
+    assert "not Developer ID signed and notarized" in gates["macos_distribution"]["detail"]
+    assert gates["windows_distribution"]["status"] == "action_required"
+    assert "No signed Windows installer artifact" in gates["windows_distribution"]["detail"]
+
+
+def test_release_status_report_accepts_final_distribution_artifacts(tmp_path: Path) -> None:
+    report = build_release_status_report(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+        release_verification={
+            "status": "ok",
+            "artifact_count": 5,
+            "checks": [],
+            "failures": [],
+            "artifacts": [
+                {
+                    "kind": "macos_dmg",
+                    "signed": True,
+                    "notarized": True,
+                    "signing_kind": "developer_id_application",
+                },
+                {"kind": "windows_installer", "signed": True},
+            ],
+        },
+        readiness_report={
+            "overall_status": "ready",
+            "action_required_count": 0,
+            "gates": [],
+        },
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    assert report["overall_status"] == "ready"
+    assert gates["macos_distribution"]["status"] == "ready"
+    assert gates["windows_distribution"]["status"] == "ready"
+
+
 def test_render_release_status_report_lists_next_actions(tmp_path: Path) -> None:
     rendered = render_release_status_report(
         {
