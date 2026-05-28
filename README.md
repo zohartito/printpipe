@@ -53,7 +53,7 @@ When unset, those stages stay as explicit no-op/copy receipts.
 
 Flexible-material runs, including TPU, also emit `40_geometry/flex_coupon_40x15x3.stl` as the first validation print artifact.
 
-Example TPU mesh run:
+Example material slice runs:
 
 ```bash
 printpipe run input.stl \
@@ -62,7 +62,12 @@ printpipe run input.stl \
   --printer "Bambu Lab P2S" \
   --use-case "wearable slipper" \
   --slice
+
+printpipe run input.stl --runs-dir runs --material "PLA" --slice
+printpipe run input.stl --runs-dir runs --material "PETG" --slice
 ```
+
+PETG bundles select Textured PEI in project settings so Bambu Studio does not treat them as Cool Plate jobs.
 
 Local handoff helpers:
 

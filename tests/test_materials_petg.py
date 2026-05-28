@@ -22,6 +22,7 @@ def test_petg_overrides_cover_foundation_categories_with_reasons():
     assert result["filament_overrides"]["fan_max_speed"] == ["60"]
     assert result["filament_overrides"]["filament_max_volumetric_speed"] == ["8"]
     assert result["process_overrides"]["reduce_crossing_wall"] == "1"
+    assert result["process_overrides"]["curr_bed_type"] == "Textured PEI Plate"
 
     custom_keys = set(result["filament_overrides"]) | set(result["process_overrides"])
 

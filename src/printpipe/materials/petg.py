@@ -52,6 +52,7 @@ _FILAMENT_OVERRIDES: dict[str, Any] = {
 }
 
 _PROCESS_OVERRIDES: dict[str, Any] = {
+    "curr_bed_type": "Textured PEI Plate",
     "brim_width": "5",
     "brim_object_gap": "0.1",
     "initial_layer_speed": ["30"],
@@ -123,6 +124,9 @@ _REASONS = {
     "filament_wipe_distance": (
         f"{_DEFAULTS_NOTE}: use the PETG Basic P2S 1 mm wipe distance as a cautious starting point."
     ),
+    "curr_bed_type": (
+        f"{_DEFAULTS_NOTE}: select Textured PEI so Bambu validation does not default PETG jobs to Cool Plate."
+    ),
     "brim_width": (
         f"{_DEFAULTS_NOTE}: keep the common 5 mm brim foundation for PETG adhesion-sensitive jobs."
     ),
@@ -182,6 +186,7 @@ _CATEGORIES = {
     "filament_z_hop_types": "stringing_retraction",
     "filament_wipe": "stringing_retraction",
     "filament_wipe_distance": "stringing_retraction",
+    "curr_bed_type": "bed_adhesion",
     "brim_width": "bed_adhesion",
     "brim_object_gap": "bed_adhesion",
     "initial_layer_speed": "bed_adhesion",

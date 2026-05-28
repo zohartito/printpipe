@@ -26,6 +26,8 @@ from printpipe.geometry import (
     write_scaled_ascii_stl_artifacts,
 )
 from printpipe.inputs import prepare_input
+from printpipe.materials.petg import build_petg_overrides
+from printpipe.materials.pla import build_pla_overrides
 from printpipe.materials.tpu import TpuMaterialRule, get_tpu_rule
 from printpipe.mesh.repair import repair_mesh_file_to_receipt
 from printpipe.meshgen import (
@@ -68,6 +70,17 @@ GENERIC_PLA_FILAMENT_PROFILE_FALLBACKS = (
     "Generic PLA @BBL P2S",
     "Bambu PLA Basic @BBL P2S",
     "Bambu PLA Basic @base",
+)
+GENERIC_PLA_PLUS_FILAMENT_PROFILE_FALLBACKS = (
+    "Generic PLA+ @BBL P2S",
+    "Bambu PLA Tough @BBL P2S",
+    *GENERIC_PLA_FILAMENT_PROFILE_FALLBACKS,
+)
+GENERIC_PETG_FILAMENT_PROFILE_FALLBACKS = (
+    "Generic PETG @BBL P2S",
+    "Bambu PETG Basic @BBL P2S",
+    "Generic PETG @base",
+    "Bambu PETG Basic @base",
 )
 
 
@@ -862,34 +875,100 @@ def _bundle_profile_config(material: str) -> BundleProfileConfig:
         profiles=profiles,
     )
     tpu_rule = _tpu_rule_for_material(material)
-    if tpu_rule is None:
+    if tpu_rule is not None:
+        profile_ids = BambuProfileIds(
+            filament_settings_id=_tpu_filament_settings_id(tpu_rule),
+            print_settings_id=_tpu_print_settings_id(tpu_rule),
+            printer_settings_id=DEFAULT_PROFILE_IDS.printer_settings_id,
+            printer_model=DEFAULT_PROFILE_IDS.printer_model,
+            printer_variant=DEFAULT_PROFILE_IDS.printer_variant,
+            nozzle_diameter=DEFAULT_PROFILE_IDS.nozzle_diameter,
+            printable_height=DEFAULT_PROFILE_IDS.printable_height,
+        )
+        base_filament_settings = _resolved_bambu_profile_settings(
+            profile_ids.filament_settings_id,
+            BAMBU_TPU_90A_FILAMENT_PROFILE,
+            profiles=profiles,
+        )
+        base_process_settings = _resolved_bambu_profile_settings(
+            profile_ids.print_settings_id,
+            DEFAULT_BBL_P2S_PROCESS_PROFILE,
+            DEFAULT_PROFILE_IDS.print_settings_id,
+            profiles=profiles,
+        )
         return BundleProfileConfig(
-            profile_ids=DEFAULT_PROFILE_IDS,
-            filament_settings=_resolved_bambu_profile_settings(
-                DEFAULT_PROFILE_IDS.filament_settings_id,
-                *GENERIC_PLA_FILAMENT_PROFILE_FALLBACKS,
-                profiles=profiles,
-            ),
-            process_settings=_resolved_bambu_profile_settings(
-                DEFAULT_PROFILE_IDS.print_settings_id,
-                DEFAULT_BBL_P2S_PROCESS_PROFILE,
-                profiles=profiles,
-            ),
+            profile_ids=profile_ids,
+            filament_settings={**base_filament_settings, **tpu_rule.filament_overrides},
+            process_settings={**base_process_settings, **tpu_rule.process_overrides},
             printer_settings=printer_settings,
+            material_rule_slug=tpu_rule.slug,
+            material_rule_name=tpu_rule.name,
         )
 
-    profile_ids = BambuProfileIds(
-        filament_settings_id=_tpu_filament_settings_id(tpu_rule),
-        print_settings_id=_tpu_print_settings_id(tpu_rule),
-        printer_settings_id=DEFAULT_PROFILE_IDS.printer_settings_id,
-        printer_model=DEFAULT_PROFILE_IDS.printer_model,
-        printer_variant=DEFAULT_PROFILE_IDS.printer_variant,
-        nozzle_diameter=DEFAULT_PROFILE_IDS.nozzle_diameter,
-        printable_height=DEFAULT_PROFILE_IDS.printable_height,
+    petg_overrides = _petg_overrides_for_material(material)
+    if petg_overrides is not None:
+        return _generic_material_bundle_profile_config(
+            profile_ids=_profile_ids_with_filament("Generic PETG"),
+            filament_profile_fallbacks=GENERIC_PETG_FILAMENT_PROFILE_FALLBACKS,
+            material_overrides=petg_overrides,
+            printer_settings=printer_settings,
+            profiles=profiles,
+            material_rule_slug=str(petg_overrides["material_id"]),
+            material_rule_name=str(petg_overrides["display_name"]),
+        )
+
+    pla_overrides = _pla_overrides_for_material(material)
+    if pla_overrides is not None:
+        filament_settings_id = (
+            "Generic PLA+"
+            if pla_overrides["variant"] == "pla_plus"
+            else DEFAULT_PROFILE_IDS.filament_settings_id
+        )
+        return _generic_material_bundle_profile_config(
+            profile_ids=_profile_ids_with_filament(filament_settings_id),
+            filament_profile_fallbacks=(
+                GENERIC_PLA_PLUS_FILAMENT_PROFILE_FALLBACKS
+                if pla_overrides["variant"] == "pla_plus"
+                else GENERIC_PLA_FILAMENT_PROFILE_FALLBACKS
+            ),
+            material_overrides=pla_overrides,
+            printer_settings=printer_settings,
+            profiles=profiles,
+            material_rule_slug=str(pla_overrides["variant"]),
+            material_rule_name=(
+                "PLA+" if pla_overrides["variant"] == "pla_plus" else "PLA"
+            ),
+        )
+
+    return BundleProfileConfig(
+        profile_ids=DEFAULT_PROFILE_IDS,
+        filament_settings=_resolved_bambu_profile_settings(
+            DEFAULT_PROFILE_IDS.filament_settings_id,
+            *GENERIC_PLA_FILAMENT_PROFILE_FALLBACKS,
+            profiles=profiles,
+        ),
+        process_settings=_resolved_bambu_profile_settings(
+            DEFAULT_PROFILE_IDS.print_settings_id,
+            DEFAULT_BBL_P2S_PROCESS_PROFILE,
+            profiles=profiles,
+        ),
+        printer_settings=printer_settings,
     )
+
+
+def _generic_material_bundle_profile_config(
+    *,
+    profile_ids: BambuProfileIds,
+    filament_profile_fallbacks: Sequence[str],
+    material_overrides: Mapping[str, Any],
+    printer_settings: Mapping[str, Any],
+    profiles: Mapping[str, Mapping[str, Any]],
+    material_rule_slug: str,
+    material_rule_name: str,
+) -> BundleProfileConfig:
     base_filament_settings = _resolved_bambu_profile_settings(
         profile_ids.filament_settings_id,
-        BAMBU_TPU_90A_FILAMENT_PROFILE,
+        *filament_profile_fallbacks,
         profiles=profiles,
     )
     base_process_settings = _resolved_bambu_profile_settings(
@@ -900,11 +979,29 @@ def _bundle_profile_config(material: str) -> BundleProfileConfig:
     )
     return BundleProfileConfig(
         profile_ids=profile_ids,
-        filament_settings={**base_filament_settings, **tpu_rule.filament_overrides},
-        process_settings={**base_process_settings, **tpu_rule.process_overrides},
+        filament_settings={
+            **base_filament_settings,
+            **dict(material_overrides["filament_overrides"]),
+        },
+        process_settings={
+            **base_process_settings,
+            **dict(material_overrides["process_overrides"]),
+        },
         printer_settings=printer_settings,
-        material_rule_slug=tpu_rule.slug,
-        material_rule_name=tpu_rule.name,
+        material_rule_slug=material_rule_slug,
+        material_rule_name=material_rule_name,
+    )
+
+
+def _profile_ids_with_filament(filament_settings_id: str) -> BambuProfileIds:
+    return BambuProfileIds(
+        filament_settings_id=filament_settings_id,
+        print_settings_id=DEFAULT_PROFILE_IDS.print_settings_id,
+        printer_settings_id=DEFAULT_PROFILE_IDS.printer_settings_id,
+        printer_model=DEFAULT_PROFILE_IDS.printer_model,
+        printer_variant=DEFAULT_PROFILE_IDS.printer_variant,
+        nozzle_diameter=DEFAULT_PROFILE_IDS.nozzle_diameter,
+        printable_height=DEFAULT_PROFILE_IDS.printable_height,
     )
 
 
@@ -949,6 +1046,22 @@ def _tpu_rule_for_material(material: str) -> TpuMaterialRule | None:
     if "95" in normalized:
         return get_tpu_rule("tpu-95a-foundation")
     return get_tpu_rule("tpu-90a-foundation")
+
+
+def _petg_overrides_for_material(material: str) -> Mapping[str, Any] | None:
+    normalized = material.lower().replace("_", " ").replace("-", " ")
+    if "petg" not in normalized:
+        return None
+    return build_petg_overrides("petg")
+
+
+def _pla_overrides_for_material(material: str) -> Mapping[str, Any] | None:
+    normalized = material.lower().replace("_", " ").replace("-", " ")
+    if "pla" not in normalized:
+        return None
+    if "plus" in normalized or "+" in material:
+        return build_pla_overrides("pla+")
+    return build_pla_overrides("pla")
 
 
 def _tpu_filament_settings_id(rule: TpuMaterialRule) -> str:

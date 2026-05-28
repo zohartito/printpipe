@@ -177,6 +177,135 @@ def test_tpu_bundle_embeds_resolved_bambu_profile_settings_for_cli(
     assert project_settings["brim_object_gap"] == ["0.12"]
 
 
+def test_pla_bundle_merges_pla_material_overrides_with_resolved_profiles(
+    tmp_path: Path,
+    monkeypatch,
+):
+    profile_root = tmp_path / "profiles" / "BBL"
+    _write_minimal_p2s_profiles(profile_root)
+    _write_profile(
+        profile_root / "filament" / "Generic PLA @BBL P2S.json",
+        {
+            "name": "Generic PLA @BBL P2S",
+            "type": "filament",
+            "filament_type": ["ABS"],
+            "filament_vendor": ["Unknown"],
+        },
+    )
+    monkeypatch.setenv("PRINTPIPE_BAMBU_PROFILE_ROOTS", str(profile_root))
+
+    result = run_existing_mesh_pipeline(
+        STL_FIXTURE,
+        tmp_path / "runs",
+        material="PLA+",
+    )
+    bundle_path = next(
+        artifact.path
+        for artifact in result.artifacts
+        if artifact.kind == ArtifactKind.THREEMF
+    )
+
+    with zipfile.ZipFile(bundle_path) as archive:
+        project_settings = json.loads(archive.read("Metadata/project_settings.config"))
+
+    assert project_settings["filament_type"] == ["PLA"]
+    assert project_settings["filament_vendor"] == ["Generic PLA+"]
+    assert project_settings["base_process_marker"] == "from-base-process"
+    assert project_settings["wall_loops"] == ["2"]
+    assert project_settings["filament_settings_id"] == ["Generic PLA+"]
+
+
+def test_petg_bundle_merges_petg_material_overrides_with_resolved_profiles(
+    tmp_path: Path,
+    monkeypatch,
+):
+    profile_root = tmp_path / "profiles" / "BBL"
+    _write_minimal_p2s_profiles(profile_root)
+    _write_profile(
+        profile_root / "filament" / "Generic PLA @BBL P2S.json",
+        {
+            "name": "Generic PLA @BBL P2S",
+            "type": "filament",
+            "filament_type": ["PLA"],
+            "nozzle_temperature": ["220"],
+        },
+    )
+    _write_profile(
+        profile_root / "filament" / "Generic PETG @BBL P2S.json",
+        {
+            "name": "Generic PETG @BBL P2S",
+            "type": "filament",
+            "filament_type": ["PETG"],
+            "nozzle_temperature": ["240"],
+            "textured_plate_temp": ["65"],
+        },
+    )
+    monkeypatch.setenv("PRINTPIPE_BAMBU_PROFILE_ROOTS", str(profile_root))
+
+    result = run_existing_mesh_pipeline(
+        STL_FIXTURE,
+        tmp_path / "runs",
+        material="PETG",
+    )
+    bundle_path = next(
+        artifact.path
+        for artifact in result.artifacts
+        if artifact.kind == ArtifactKind.THREEMF
+    )
+
+    with zipfile.ZipFile(bundle_path) as archive:
+        project_settings = json.loads(archive.read("Metadata/project_settings.config"))
+
+    assert project_settings["filament_type"] == ["PETG"]
+    assert project_settings["filament_vendor"] == ["Generic"]
+    assert project_settings["nozzle_temperature"] == ["250"]
+    assert project_settings["textured_plate_temp"] == ["70"]
+    assert project_settings["filament_max_volumetric_speed"] == ["8"]
+    assert project_settings["brim_object_gap"] == "0.1"
+    assert project_settings["curr_bed_type"] == "Textured PEI Plate"
+    assert project_settings["filament_settings_id"] == ["Generic PETG"]
+
+
+def _write_minimal_p2s_profiles(profile_root: Path) -> None:
+    _write_profile(
+        profile_root / "machine" / "fdm_bbl_3dp_001_common.json",
+        {
+            "name": "fdm_bbl_3dp_001_common",
+            "type": "machine",
+            "printer_model": "Bambu Lab P2S",
+            "printable_area": ["0x0", "256x0", "256x256", "0x256"],
+            "machine_start_gcode": "G28 ; home from base machine",
+        },
+    )
+    _write_profile(
+        profile_root / "machine" / "Bambu Lab P2S 0.4 nozzle.json",
+        {
+            "name": "Bambu Lab P2S 0.4 nozzle",
+            "type": "machine",
+            "inherits": "fdm_bbl_3dp_001_common",
+            "nozzle_type": ["hardened_steel"],
+        },
+    )
+    _write_profile(
+        profile_root / "process" / "fdm_process_single_0.20.json",
+        {
+            "name": "fdm_process_single_0.20",
+            "type": "process",
+            "wall_loops": "5",
+            "base_process_marker": "from-base-process",
+        },
+    )
+    _write_profile(
+        profile_root / "process" / "0.20mm Standard @BBL P2S.json",
+        {
+            "name": "0.20mm Standard @BBL P2S",
+            "type": "process",
+            "inherits": "fdm_process_single_0.20",
+            "compatible_printers": ["Bambu Lab P2S 0.4 nozzle"],
+        },
+    )
+
+
 def _write_profile(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")

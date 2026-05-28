@@ -441,3 +441,14 @@ Status: complete for original items 40 and 41. Background removal and lighting n
 4. Done: cleanup receipts record `command_configured`, operation, and frame counts.
 5. Done: no configured command still yields honest no-op/copy receipts instead of pretending.
 6. Done: updated the roadmap count to 129 done / 13 partial.
+
+## Wave 41 - PLA/PETG Material Bundle Dogfood
+
+Status: complete for original items 109, 110, and 111 as software/slice tests. Physical material validation remains tracked under F9.
+
+1. Done: added regression tests proving PLA/PLA+ material rules are merged into generated Bambu `.3mf` project settings instead of only changing the material label.
+2. Done: added regression tests proving PETG material rules use the Generic PETG profile intent, PETG temperatures/MVS/brim settings, and `curr_bed_type=Textured PEI Plate`.
+3. Done: wired PLA and PETG material overrides into the same full-settings bundle path used by TPU.
+4. Done: reproduced the live PETG Bambu CLI failure `Plate 1: Cool Plate does not support filament 1`, then fixed it by carrying the PETG bed-type setting into the bundle.
+5. Done: live-sliced tiny-tetrahedron PLA and PETG PrintPipe bundles with Bambu Studio `02.06.00.51` on macOS; both returned code 0, wrote G-code, and reported zero warnings/errors.
+6. Done: updated the roadmap count to 132 done / 10 partial.
