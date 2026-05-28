@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from printpipe.beta.feedback import build_trusted_user_feedback_status
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.beta.regression import run_regression_manifest
 from printpipe.env.doctor import build_environment_report
@@ -18,6 +19,7 @@ def build_beta_readiness_report(
     runs_dir: str | Path,
     *,
     physical_status: Mapping[str, Any] | None = None,
+    trusted_feedback_status: Mapping[str, Any] | None = None,
     environment_report: Mapping[str, Any] | None = None,
     regression_status: Mapping[str, Any] | None = None,
     regression_manifest_path: str | Path | None = None,
@@ -38,8 +40,14 @@ def build_beta_readiness_report(
         regression_status=regression_status,
         regression_manifest_path=regression_manifest_path,
     )
+    trusted_feedback = (
+        dict(trusted_feedback_status)
+        if trusted_feedback_status is not None
+        else build_trusted_user_feedback_status(runs_dir)
+    )
     gates = [
         _physical_gate(physical),
+        _trusted_feedback_gate(trusted_feedback),
         _regression_gate(regression, regression_manifest_path=regression_manifest_path),
         _dependency_gate(environment),
         _filesystem_gate(environment),
@@ -54,6 +62,7 @@ def build_beta_readiness_report(
         "action_required_count": len(actionable),
         "gates": gates,
         "physical_status": physical,
+        "trusted_feedback_status": trusted_feedback,
         "regression_status": regression,
         "environment_summary": {
             "platform": _dict(environment.get("platform")),
@@ -107,6 +116,26 @@ def _physical_gate(physical_status: Mapping[str, Any]) -> dict[str, Any]:
         ACTION_REQUIRED,
         f"Missing passed physical evidence for: {family_label}.",
         "Print and record passed PLA, PETG, and TPU coupon or small-object evidence.",
+    )
+
+
+def _trusted_feedback_gate(status: Mapping[str, Any]) -> dict[str, Any]:
+    current = int(status.get("unique_trusted_user_count") or 0)
+    required = int(status.get("required_trusted_user_count") or 3)
+    if status.get("overall_status") == "passed":
+        return _gate(
+            "trusted_user_beta",
+            "Trusted-user beta",
+            READY,
+            f"{current} / {required} trusted users recorded feedback.",
+            "No action needed.",
+        )
+    return _gate(
+        "trusted_user_beta",
+        "Trusted-user beta",
+        ACTION_REQUIRED,
+        f"{current} / {required} trusted users recorded feedback.",
+        "Give the app to 3 trusted users and record each packet with record-beta-feedback.",
     )
 
 

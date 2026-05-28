@@ -22,3 +22,7 @@ Start with [onboarding.md](onboarding.md).
   boundaries, privacy notes, and feedback expectations.
 - `printpipe beta-plan --runs-dir runs`: local command for turning the remaining
   beta evidence gaps into concrete next actions.
+- `printpipe record-beta-feedback runs/<run-id>`: writes a structured
+  trusted-user feedback packet without claiming physical print proof.
+- `printpipe beta-feedback-status --runs-dir runs`: summarizes whether three
+  unique trusted users have recorded feedback.

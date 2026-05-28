@@ -1080,3 +1080,14 @@ Status: complete for local web parity. The browser home page and JSON API now ex
 4. Done: the home page renders a `Beta action plan` panel with action cards, commands, and the proof boundary.
 5. Done: web tests prove the endpoint, home panel, service link, and configured manifest propagation.
 6. Boundary: this is visibility only; it does not create beta failures, physical print evidence, signed packages, or trusted-user feedback.
+
+## Wave 98 - Trusted-User Feedback Packets
+
+Status: complete for trusted-user beta evidence plumbing. PrintPipe can now record successful, partial, failed, or not-run trusted-user feedback separately from failure reports.
+
+1. Done: added `printpipe.beta.feedback` with trusted-user feedback JSON/Markdown packets.
+2. Done: added `printpipe record-beta-feedback <run-root>` with tester, outcome, would-print, recommendation, issue, and artifact fields.
+3. Done: added `printpipe beta-feedback-status --runs-dir runs --strict`.
+4. Done: `build_beta_readiness_report()` now includes a `trusted_user_beta` gate that requires three unique trusted users.
+5. Done: `build_beta_action_plan()` now reads trusted feedback status and marks the trusted-user action ready only after that gate passes.
+6. Boundary: this records and gates feedback packets; it does not create real trusted-user feedback or close Phase 16 without actual tester evidence.

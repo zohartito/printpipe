@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from printpipe.beta.feedback import build_trusted_user_feedback_status
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.beta.regression import run_regression_manifest
 
@@ -20,6 +21,7 @@ def build_beta_action_plan(
     *,
     regression_manifest_path: str | Path | None = None,
     physical_status: Mapping[str, Any] | None = None,
+    trusted_feedback_status: Mapping[str, Any] | None = None,
     regression_status: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return beta next actions from recorded evidence on disk."""
@@ -35,6 +37,11 @@ def build_beta_action_plan(
         regression_status=regression_status,
         regression_manifest_path=regression_manifest_path,
     )
+    trusted_feedback = (
+        dict(trusted_feedback_status)
+        if trusted_feedback_status is not None
+        else build_trusted_user_feedback_status(runs_root)
+    )
     manifest_path = (
         Path(regression_manifest_path).expanduser().resolve()
         if regression_manifest_path is not None
@@ -45,7 +52,7 @@ def build_beta_action_plan(
         _physical_action(physical, runs_dir=runs_root),
         _failure_capture_action(failures),
         _regression_action(regression, regression_manifest_path=manifest_path),
-        _trusted_user_action(),
+        _trusted_user_action(trusted_feedback),
         _rules_action(failures),
     ]
     action_required_count = sum(
@@ -61,6 +68,7 @@ def build_beta_action_plan(
             "failure_report_count": len(failures),
             "failure_reports": failures,
             "physical_status": physical,
+            "trusted_feedback_status": trusted_feedback,
             "regression_manifest_path": str(manifest_path) if manifest_path else "",
             "regression_status": regression,
         },
@@ -217,16 +225,32 @@ def _regression_action(
     }
 
 
-def _trusted_user_action() -> dict[str, str]:
+def _trusted_user_action(status: Mapping[str, Any]) -> dict[str, str]:
+    current = int(status.get("unique_trusted_user_count") or 0)
+    required = int(status.get("required_trusted_user_count") or 3)
+    if status.get("overall_status") == "passed":
+        return {
+            "id": "trusted_user_beta",
+            "label": "Trusted-user beta",
+            "status": "ready",
+            "detail": f"{current} / {required} trusted users recorded feedback.",
+            "command": "",
+        }
     return {
         "id": "trusted_user_beta",
         "label": "Trusted-user beta",
         "status": "action_required",
         "detail": (
-            "Give the app to 3 to 5 trusted users and collect their successful "
-            "and failed run packets before calling beta complete."
+            f"{current} / {required} trusted users recorded feedback; collect "
+            "successful and failed run packets before calling beta complete."
         ),
-        "command": "",
+        "command": (
+            'printpipe record-beta-feedback "<run-root>" --tester "<name>" '
+            '--input-type existing_stl --material "<material>" '
+            '--printer "Bambu Lab P2S" --outcome passed '
+            '--summary "<what happened>" --would-print no '
+            '--recommendation needs_review'
+        ),
     }
 
 

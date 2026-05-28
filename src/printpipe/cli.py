@@ -638,6 +638,82 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the beta action plan as JSON.",
     )
 
+    beta_feedback = subparsers.add_parser(
+        "record-beta-feedback",
+        help="Write a trusted-user beta feedback packet into a run folder.",
+    )
+    beta_feedback.add_argument("run_root", type=Path, help="Run folder that was tested.")
+    beta_feedback.add_argument("--run-id", help="Override run id; defaults to run folder name.")
+    beta_feedback.add_argument("--tester", required=True, help="Trusted tester name.")
+    beta_feedback.add_argument(
+        "--tester-type",
+        choices=("trusted_user", "internal", "coordinator"),
+        default="trusted_user",
+        help="Who provided this feedback.",
+    )
+    beta_feedback.add_argument("--input-type", required=True, help="Input category for the run.")
+    beta_feedback.add_argument("--material", required=True, help="Material or filament label.")
+    beta_feedback.add_argument("--printer", required=True, help="Printer/profile used for the run.")
+    beta_feedback.add_argument(
+        "--outcome",
+        required=True,
+        choices=("passed", "failed", "partial", "not_run"),
+        help="Trusted-user observed outcome.",
+    )
+    beta_feedback.add_argument("--summary", required=True, help="Short tester summary.")
+    beta_feedback.add_argument(
+        "--issue",
+        action="append",
+        default=[],
+        help="Observed issue; may be repeated.",
+    )
+    beta_feedback.add_argument(
+        "--would-print",
+        required=True,
+        choices=("yes", "no", "unknown"),
+        help="Whether the tester would send the generated output to a printer.",
+    )
+    beta_feedback.add_argument(
+        "--recommendation",
+        required=True,
+        help="Tester or coordinator recommendation after reviewing the run.",
+    )
+    beta_feedback.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help=(
+            "Feedback artifact as 'label|kind|path|notes'; notes may be omitted "
+            "and the artifact is copied into 90_beta/artifacts. May be repeated."
+        ),
+    )
+    beta_feedback.add_argument(
+        "--json",
+        action="store_true",
+        help="Print written feedback packet paths as JSON.",
+    )
+
+    beta_feedback_status = subparsers.add_parser(
+        "beta-feedback-status",
+        help="Summarize trusted-user beta feedback packets across run folders.",
+    )
+    beta_feedback_status.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders to scan.",
+    )
+    beta_feedback_status.add_argument(
+        "--json",
+        action="store_true",
+        help="Print trusted-user beta feedback status as JSON.",
+    )
+    beta_feedback_status.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless at least three trusted users recorded feedback.",
+    )
+
     beta_failure = subparsers.add_parser(
         "record-beta-failure",
         help="Write a beta failure packet and optionally append a regression case.",
@@ -1029,6 +1105,16 @@ def main(argv: list[str] | None = None) -> int:
             json_output=args.json,
         )
 
+    if args.command == "record-beta-feedback":
+        return _record_beta_feedback(args)
+
+    if args.command == "beta-feedback-status":
+        return _beta_feedback_status(
+            runs_dir=args.runs_dir,
+            json_output=args.json,
+            strict=args.strict,
+        )
+
     if args.command == "record-beta-failure":
         return _record_beta_failure(args)
 
@@ -1130,6 +1216,58 @@ def _beta_plan(
         print(json.dumps(plan, indent=2, sort_keys=True))
     else:
         print(render_beta_action_plan(plan), end="")
+    return 0
+
+
+def _record_beta_feedback(args: argparse.Namespace) -> int:
+    from printpipe.beta.feedback import (
+        build_trusted_user_feedback,
+        write_trusted_user_feedback_files,
+    )
+
+    run_root = args.run_root.expanduser().resolve()
+    if not run_root.exists():
+        raise FileNotFoundError(run_root)
+    feedback = build_trusted_user_feedback(
+        run_id=args.run_id or run_root.name,
+        tester=args.tester,
+        tester_type=args.tester_type,
+        input_type=args.input_type,
+        material=args.material,
+        printer=args.printer,
+        outcome=args.outcome,
+        summary=args.summary,
+        issues=tuple(args.issue),
+        would_print=args.would_print,
+        recommendation=args.recommendation,
+        artifacts=tuple(_parse_feedback_artifact(value) for value in args.artifact),
+    )
+    result = write_trusted_user_feedback_files(
+        run_root=run_root,
+        feedback=feedback,
+        copy_artifacts=True,
+    )
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(f"trusted feedback json: {result['json_path']}")
+        print(f"trusted feedback markdown: {result['markdown_path']}")
+    return 0
+
+
+def _beta_feedback_status(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
+    from printpipe.beta.feedback import (
+        build_trusted_user_feedback_status,
+        render_trusted_user_feedback_status,
+    )
+
+    status = build_trusted_user_feedback_status(runs_dir)
+    if json_output:
+        print(json.dumps(status, indent=2, sort_keys=True))
+    else:
+        print(render_trusted_user_feedback_status(status), end="")
+    if strict and status["overall_status"] != "passed":
+        return 2
     return 0
 
 
@@ -1769,6 +1907,21 @@ def _parse_failure_artifact(value: str) -> Any:
     if not label or not kind or not path:
         raise ValueError("--artifact label, kind, and path are required")
     return FailureArtifact(label=label, path=Path(path), kind=kind, notes=notes)
+
+
+def _parse_feedback_artifact(value: str) -> Any:
+    from printpipe.beta.feedback import FeedbackArtifact
+
+    parts = value.split("|", 3)
+    if len(parts) < 3:
+        raise ValueError(
+            "--artifact must use 'label|kind|path|notes' with notes optional"
+        )
+    label, kind, path = (part.strip() for part in parts[:3])
+    notes = parts[3].strip() if len(parts) == 4 else ""
+    if not label or not kind or not path:
+        raise ValueError("--artifact label, kind, and path are required")
+    return FeedbackArtifact(label=label, path=Path(path), kind=kind, notes=notes)
 
 
 def _print_pipeline_error(error: PipelineError) -> None:

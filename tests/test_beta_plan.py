@@ -5,6 +5,10 @@ import sys
 from pathlib import Path
 
 from printpipe.beta.failures import build_failure_report, write_failure_report_files
+from printpipe.beta.feedback import (
+    build_trusted_user_feedback,
+    write_trusted_user_feedback_files,
+)
 from printpipe.beta.regression import (
     ExpectedOutcome,
     RegressionCase,
@@ -28,6 +32,7 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert plan["runs_dir"] == str(runs_dir.resolve())
     assert plan["proof_boundary"] == BETA_PLAN_PROOF_BOUNDARY
     assert plan["evidence"]["failure_report_count"] == 0
+    assert plan["evidence"]["trusted_feedback_status"]["unique_trusted_user_count"] == 0
     assert plan["evidence"]["regression_status"]["overall_status"] == "not_configured"
     actions = {action["id"]: action for action in plan["actions"]}
     assert actions["run_beta_dogfood"]["status"] == "action_required"
@@ -42,6 +47,7 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert "record-beta-failure" in actions["run_regressions"]["detail"]
     assert actions["update_rules"]["status"] == "waiting_for_evidence"
     assert actions["trusted_user_beta"]["status"] == "action_required"
+    assert "0 / 3 trusted users" in actions["trusted_user_beta"]["detail"]
 
 
 def test_beta_action_plan_detects_failure_packets_and_regression_manifest(
@@ -99,6 +105,24 @@ def test_beta_action_plan_detects_failure_packets_and_regression_manifest(
     assert "material/orientation/repair" in actions["update_rules"]["detail"]
 
 
+def test_beta_action_plan_marks_trusted_user_beta_ready_after_three_users(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_feedback(runs_dir / "run-sam", tester="Sam", outcome="failed")
+    _write_feedback(runs_dir / "run-lee", tester="Lee", outcome="partial")
+
+    plan = build_beta_action_plan(runs_dir)
+
+    actions = {action["id"]: action for action in plan["actions"]}
+    status = plan["evidence"]["trusted_feedback_status"]
+    assert status["overall_status"] == "passed"
+    assert status["trusted_users"] == ["Lee", "Maya", "Sam"]
+    assert actions["trusted_user_beta"]["status"] == "ready"
+    assert "3 / 3 trusted users" in actions["trusted_user_beta"]["detail"]
+
+
 def test_render_beta_action_plan_lists_actions_and_boundary(tmp_path: Path) -> None:
     plan = build_beta_action_plan(tmp_path / "runs")
 
@@ -125,3 +149,27 @@ def test_cli_beta_plan_prints_json(tmp_path: Path, capsys) -> None:
     assert actions["physical_validation"]["command"] == (
         f'printpipe physical-plan --runs-dir "{runs_dir.resolve()}"'
     )
+
+
+def _write_feedback(
+    run_root: Path,
+    *,
+    tester: str,
+    outcome: str = "passed",
+) -> None:
+    run_root.mkdir(parents=True)
+    feedback = build_trusted_user_feedback(
+        run_id=run_root.name,
+        tester=tester,
+        tester_type="trusted_user",
+        input_type="existing_stl",
+        material="Bambu PLA Basic",
+        printer="Bambu Lab P2S",
+        outcome=outcome,
+        summary=f"{tester} completed a beta run.",
+        issues=(),
+        would_print="no",
+        recommendation="needs_review",
+        artifacts=(),
+    )
+    write_trusted_user_feedback_files(run_root=run_root, feedback=feedback)

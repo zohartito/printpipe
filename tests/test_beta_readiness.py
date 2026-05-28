@@ -36,8 +36,10 @@ def test_beta_readiness_report_blocks_on_missing_physical_and_signing(
     gates = {gate["id"]: gate for gate in report["gates"]}
     assert report["overall_status"] == "action_required"
     assert gates["physical_validation"]["status"] == "action_required"
+    assert gates["trusted_user_beta"]["status"] == "action_required"
     assert gates["signing"]["status"] == "action_required"
     assert "PLA, PETG, and TPU" in gates["physical_validation"]["action"]
+    assert "3 trusted users" in gates["trusted_user_beta"]["action"]
     assert "Developer ID Application" in gates["signing"]["detail"]
 
 
@@ -63,6 +65,7 @@ def test_beta_readiness_report_passes_when_all_gates_are_ready(tmp_path: Path) -
     report = build_beta_readiness_report(
         tmp_path / "runs",
         physical_status=physical_status,
+        trusted_feedback_status=_passed_trusted_feedback_status(),
         environment_report=environment_report,
     )
 
@@ -79,6 +82,7 @@ def test_beta_readiness_report_marks_missing_regression_manifest_not_applicable(
     report = build_beta_readiness_report(
         tmp_path / "runs",
         physical_status=_passed_physical_status(),
+        trusted_feedback_status=_passed_trusted_feedback_status(),
         environment_report=_ready_environment_report(),
     )
 
@@ -89,6 +93,24 @@ def test_beta_readiness_report_marks_missing_regression_manifest_not_applicable(
     assert regression_gate["status"] == "not_applicable"
     assert "No beta regression manifest configured" in regression_gate["detail"]
     assert report["regression_status"]["overall_status"] == "not_configured"
+
+
+def test_beta_readiness_report_blocks_on_missing_trusted_user_feedback(
+    tmp_path: Path,
+) -> None:
+    report = build_beta_readiness_report(
+        tmp_path / "runs",
+        physical_status=_passed_physical_status(),
+        environment_report=_ready_environment_report(),
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    trusted_gate = gates["trusted_user_beta"]
+
+    assert report["overall_status"] == "action_required"
+    assert trusted_gate["status"] == "action_required"
+    assert "0 / 3 trusted users" in trusted_gate["detail"]
+    assert "record-beta-feedback" in trusted_gate["action"]
 
 
 def test_beta_readiness_report_blocks_on_regression_manifest_drift(
@@ -112,6 +134,7 @@ def test_beta_readiness_report_blocks_on_regression_manifest_drift(
     report = build_beta_readiness_report(
         tmp_path / "runs",
         physical_status=_passed_physical_status(),
+        trusted_feedback_status=_passed_trusted_feedback_status(),
         environment_report=_ready_environment_report(),
         regression_manifest_path=manifest_path,
     )
@@ -135,6 +158,18 @@ def _passed_physical_status() -> dict[str, object]:
             "petg": {"status": "passed"},
             "tpu": {"status": "passed"},
         },
+    }
+
+
+def _passed_trusted_feedback_status() -> dict[str, object]:
+    return {
+        "overall_status": "passed",
+        "required_trusted_user_count": 3,
+        "unique_trusted_user_count": 3,
+        "missing_trusted_user_count": 0,
+        "trusted_users": ["Lee", "Maya", "Sam"],
+        "packet_count": 3,
+        "trusted_user_packet_count": 3,
     }
 
 

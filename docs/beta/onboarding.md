@@ -253,6 +253,60 @@ physical evidence packet with the required fields for that material family. A
 digital coupon artifact, `.3mf`, or slice receipt is useful software evidence,
 but it is not physical validation by itself.
 
+## Trusted-User Feedback Packet
+
+After a fixture run, record the tester's beta feedback as its own packet. This
+is for setup, report clarity, confusing warnings, and whether the tester would
+trust the generated artifacts after manual review. It is separate from physical
+print proof.
+
+```bash
+printpipe record-beta-feedback runs/<run-id> \
+  --tester "Maya" \
+  --input-type existing_stl \
+  --material "Bambu PLA Basic" \
+  --printer "Bambu Lab P2S" \
+  --outcome passed \
+  --summary "Run completed and the report made sense." \
+  --would-print no \
+  --recommendation needs_review
+```
+
+Use `--issue` for each concrete problem and `--artifact` for files that support
+the feedback:
+
+```bash
+printpipe record-beta-feedback runs/<run-id> \
+  --tester "Maya" \
+  --input-type existing_stl \
+  --material "Bambu PLA Basic" \
+  --printer "Bambu Lab P2S" \
+  --outcome partial \
+  --summary "The run completed, but the report warning was unclear." \
+  --would-print unknown \
+  --recommendation revise_copy \
+  --issue "Warning did not explain whether printing was safe." \
+  --artifact "Report screenshot|image|/path/to/report.png|warning area"
+```
+
+The command writes:
+
+- `90_beta/trusted_user_feedback.json`
+- `90_beta/trusted_user_feedback.md`
+- copied attachments under `90_beta/artifacts/`
+
+To summarize whether enough trusted-user feedback has been recorded, run:
+
+```bash
+printpipe beta-feedback-status --runs-dir runs
+printpipe beta-feedback-status --runs-dir runs --json
+printpipe beta-feedback-status --runs-dir runs --strict
+```
+
+The strict form exits nonzero until three unique testers with
+`tester_type=trusted_user` have recorded packets. Internal and coordinator
+notes can be useful, but they do not count toward the trusted-user beta gate.
+
 ## Beta Action Plan
 
 To see the remaining beta work as an action list, run:
