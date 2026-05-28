@@ -1558,3 +1558,14 @@ Status: partial progress for physical-validation evidence honesty. This applies 
 4. Done: `physical-start` handoff sheets inherit the same non-passing record command, so starter packets cannot quietly create fake-positive print proof.
 5. Current local result: PLA, PETG, and TPU physical rows point at their existing validation coupon runs but require replacing the print-status placeholder before evidence can be recorded.
 6. Boundary: placeholder honesty still does not create physical evidence. The physical gate remains open until real coupons are printed, observed, photographed, and recorded.
+
+## Wave 142 - Physical Handoff and Doc Placeholder Sync
+
+Status: partial progress for physical-validation evidence honesty. This removes stale copy-paste examples that contradicted Wave 141.
+
+1. Done: beta onboarding docs now show `--print-status "<passed|failed|partial>"` for real post-print evidence commands.
+2. Done: slipper dogfood docs now require replacing the status placeholder with the observed outcome instead of showing a preselected passed result.
+3. Done: doc tests guard both guides against reintroducing `--print-status passed` examples.
+4. Done: the existing local PLA, PETG, and TPU physical handoff Markdown sheets were refreshed to show the placeholder outcome in their record-after-print commands.
+5. Current local result: `runs/physical-*/90_physical/physical_print_handoff.md` agrees with `/physical-plan.json` and `final-next`.
+6. Boundary: synchronized docs and handoff sheets still do not create physical evidence. Real printed coupons, observations, photos, and explicit outcomes remain required.

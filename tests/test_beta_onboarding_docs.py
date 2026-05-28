@@ -102,3 +102,10 @@ def test_onboarding_doc_names_physical_evidence_packet_requirements() -> None:
         "stringing",
     ):
         assert expected in content
+
+
+def test_onboarding_doc_does_not_preselect_passed_physical_evidence() -> None:
+    content = _read(ONBOARDING_DOC)
+
+    assert '--print-status "<passed|failed|partial>"' in content
+    assert "--print-status passed" not in content

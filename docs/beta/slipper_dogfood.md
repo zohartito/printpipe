@@ -180,7 +180,7 @@ printpipe record-physical-evidence runs/<run-id> \
 ```
 
 After the coupon is actually printed, rerun the command with the observed status
-and attach the photo evidence:
+in place of the placeholder and attach the photo evidence:
 
 ```bash
 printpipe record-physical-evidence runs/<run-id> \
@@ -188,7 +188,7 @@ printpipe record-physical-evidence runs/<run-id> \
   --printer "Bambu Lab P2S" \
   --object-label "flex coupon" \
   --print-type coupon \
-  --print-status passed \
+  --print-status "<passed|failed|partial>" \
   --operator "Zohar" \
   --filament-drying "50 C for 6 h" \
   --layer-bonding "no splits after repeated bending" \

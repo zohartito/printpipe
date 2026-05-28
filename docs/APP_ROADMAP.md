@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 141: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 142: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 141 tightened physical-validation honesty. Generated `record-physical-evidence` commands now preserve the concrete run folder, printer, material, object, and observation prompts, but require the operator to replace `--print-status "<passed|failed|partial>"` after the coupon is actually printed. The plan no longer emits a copy-pasteable `--print-status passed` command before physical evidence exists.
+Latest status: Wave 142 aligned the beta docs and local physical handoff sheets with Wave 141's placeholder-outcome rule. Generated `record-physical-evidence` commands now preserve the concrete run folder, printer, material, object, and observation prompts, but require the operator to replace `--print-status "<passed|failed|partial>"` after the coupon is actually printed. The tracked beta docs and current local PLA/PETG/TPU handoff sheets no longer present a copy-pasteable passing physical record before evidence exists.
 
 ## Goal
 
@@ -246,7 +246,7 @@ Wave 124 added an explicit `physical-start --slice` path for validation coupons.
 
 Wave 123 made `physical-start` produce Bambu-ready coupon `.3mf` bundles in addition to STL/JSON sidecars and physical handoffs. The coupon bundle uses the same material-aware Bambu profile resolution path as normal runs, writes a bundle-validation JSON receipt, and is surfaced through physical plans as `bundle_path`.
 
-Wave 122 tightened physical next-action honesty. Started but not printed physical-validation starter packets now make `final-next` point at `printpipe open-folder "<run>" --target run` so the user sees the coupon STL and physical handoff first. The post-print `record-physical-evidence ... --print-status passed ... --photo ...` command remains present as `record_command`, but is no longer treated as the immediate command before a real print exists.
+Wave 122 tightened physical next-action honesty. Started but not printed physical-validation starter packets now make `final-next` point at `printpipe open-folder "<run>" --target run` so the user sees the coupon STL and physical handoff first. The post-print `record-physical-evidence ... --print-status "<passed|failed|partial>" ... --photo ...` command remains present as `record_command`, but is no longer treated as the immediate command before a real print exists and no longer preselects a passing result.
 
 Wave 121 added `/final-next.json` to the local web app and moved the focused next-action JSON into a shared helper used by both the CLI and web endpoint. Agents, Cursor, Claude, and UI clients can now read the immediate final action without parsing full section data.
 

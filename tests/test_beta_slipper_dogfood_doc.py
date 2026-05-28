@@ -39,3 +39,10 @@ def test_slipper_dogfood_doc_covers_validation_gates() -> None:
         "fail:",
     ):
         assert expected in content
+
+
+def test_slipper_dogfood_doc_requires_explicit_physical_outcome() -> None:
+    content = DOC_PATH.read_text(encoding="utf-8").lower()
+
+    assert '--print-status "<passed|failed|partial>"' in content
+    assert "--print-status passed" not in content

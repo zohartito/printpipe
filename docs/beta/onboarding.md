@@ -199,8 +199,9 @@ The command writes:
 - `90_physical/physical_evidence.json`
 - `90_physical/physical_evidence.md`
 
-For a real passed, failed, or partial print, attach photo and inspection
-artifacts directly to the packet:
+For a real passed, failed, or partial print, replace the print-status placeholder
+with the observed result and attach photo and inspection artifacts directly to
+the packet:
 
 ```bash
 printpipe record-physical-evidence runs/<run-id> \
@@ -208,7 +209,7 @@ printpipe record-physical-evidence runs/<run-id> \
   --printer "Bambu Lab P2S" \
   --object-label "flex coupon" \
   --print-type coupon \
-  --print-status passed \
+  --print-status "<passed|failed|partial>" \
   --operator "Zohar" \
   --filament-drying "50 C for 6 h" \
   --layer-bonding "no splits after repeated bending" \

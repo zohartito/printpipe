@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`final-next` was technically correct but too easy to misuse after a physical starter packet existed: it selected the `record-physical-evidence --print-status passed` command even when the packet still said `not_printed` and the photo path was a placeholder.
+`final-next` was technically correct but too easy to misuse after a physical starter packet existed: it selected the post-print `record-physical-evidence` command even when the packet still said `not_printed` and the photo path was a placeholder. At the time, that command also preselected `--print-status passed`; Wave 141 later replaced that with the explicit `--print-status "<passed|failed|partial>"` placeholder.
 
 The real next action in that state is to open the run folder, print the coupon STL, follow the handoff, take a real photo, and only then record evidence.
 
