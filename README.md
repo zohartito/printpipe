@@ -46,6 +46,13 @@ Current input support is intentionally explicit:
 upfront, so image/GIF/video/prompt runs show an action-required setup gate when
 no live provider is configured.
 
+Generate a starter script for the generic media meshgen hook:
+
+```bash
+printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
+export PRINTPIPE_MEDIA_MESHGEN_COMMAND="$(pwd)/scripts/media_meshgen_adapter.py"
+```
+
 Optional media cleanup hooks:
 
 ```bash

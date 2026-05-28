@@ -55,6 +55,17 @@ mesh inputs do not need either provider.
 `printpipe doctor` and `printpipe readiness --strict` show the same provider
 gap before you start a media run.
 
+To scaffold the generic adapter protocol instead of starting from a blank file:
+
+```bash
+printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
+export PRINTPIPE_MEDIA_MESHGEN_COMMAND="$(pwd)/scripts/media_meshgen_adapter.py"
+```
+
+The generated script is executable and intentionally exits with an adapter
+placeholder error until `generate_mesh()` is replaced with a real local model,
+hosted wrapper, or provider API call.
+
 If an OBJ, GLB, GLTF, or 3MF input fails at `mesh_repair` with a
 `printpipe[mesh-repair]` message, install the optional mesh repair dependencies
 or convert the model to ASCII STL before importing it.

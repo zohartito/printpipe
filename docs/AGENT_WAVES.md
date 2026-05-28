@@ -1782,3 +1782,14 @@ Status: partial progress for the remaining live media-meshgen gate.
 4. Done: `printpipe doctor`/readiness now count the generic media command as a live media provider when configured, and missing-provider actions name both generic and Hunyuan hooks.
 5. Done: regression coverage proves generic command generation writes receipts, environment doctor counts it as live, and the normal media pipeline can build a Bambu bundle from a generic command output.
 6. Boundary: this still does not install or configure a real mesh model/provider on Zohar's machine. The readiness gate stays action-required until `PRINTPIPE_MEDIA_MESHGEN_COMMAND` or `PRINTPIPE_HUNYUAN3D_COMMAND` points at a working adapter.
+
+## Wave 163 - Media Meshgen Adapter Template
+
+Status: partial progress for making the generic media-meshgen hook usable by future provider experiments.
+
+1. Done: added `printpipe media-meshgen-template`, which prints a starter Python adapter or writes it to `--output`.
+2. Done: the generated adapter accepts PrintPipe's command protocol arguments: `--input-kind`, `--source`, `--reference-image`, `--output`, `--output-format`, `--target-use`, `--quality`, optional `--prompt`, optional `--seed`, and optional `--params-json`.
+3. Done: `--output` creates parent folders, writes an executable script, and prints the exact `PRINTPIPE_MEDIA_MESHGEN_COMMAND` export hint.
+4. Done: the template exits with an explicit placeholder error until `generate_mesh()` is replaced with a real local model, hosted wrapper, or provider API call.
+5. Done: README and troubleshooting docs now show the template command next to the generic media meshgen env hook.
+6. Boundary: this still does not provide the model itself. It gives Cursor/Codex/Claude or a human a concrete adapter file to fill in.

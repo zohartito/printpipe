@@ -59,6 +59,7 @@ printpipe run input.stl --slice
 Image/GIF/video now uses the same repair/orient/bundle path after a configured media meshgen command writes a mesh. Use the generic hook for any adapter that accepts PrintPipe's command arguments, or the Hunyuan-specific hook for that local adapter:
 
 ```bash
+printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
 export PRINTPIPE_MEDIA_MESHGEN_COMMAND="/path/to/media_meshgen_adapter"
 export PRINTPIPE_HUNYUAN3D_COMMAND="/path/to/hunyuan_adapter"
 export PRINTPIPE_PROMPT_IMAGE_COMMAND="/path/to/image_adapter --prompt-file {prompt_file} --output {output}"

@@ -189,6 +189,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override platform detection for diagnostics and tests.",
     )
 
+    media_template = subparsers.add_parser(
+        "media-meshgen-template",
+        help="Print or write a starter PRINTPIPE_MEDIA_MESHGEN_COMMAND adapter.",
+    )
+    media_template.add_argument(
+        "--output",
+        type=Path,
+        help="Write the executable Python adapter template to this path instead of stdout.",
+    )
+
     package_smoke = subparsers.add_parser(
         "package-smoke",
         help="Run or describe local packaging smoke checks.",
@@ -1275,6 +1285,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "doctor":
         return _doctor(json_output=args.json, platform_name=args.platform)
 
+    if args.command == "media-meshgen-template":
+        return _media_meshgen_template(output_path=args.output)
+
     if args.command == "package-smoke":
         return _package_smoke(
             platform_name=args.platform,
@@ -2148,6 +2161,22 @@ def _doctor(*, json_output: bool, platform_name: str | None) -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(render_environment_report(report), end="")
+    return 0
+
+
+def _media_meshgen_template(*, output_path: Path | None) -> int:
+    from printpipe.meshgen.command_template import (
+        render_media_meshgen_command_template,
+        write_media_meshgen_command_template,
+    )
+
+    if output_path is None:
+        print(render_media_meshgen_command_template(), end="")
+        return 0
+
+    written = write_media_meshgen_command_template(output_path)
+    print(f"wrote media meshgen adapter template: {written}")
+    print(f"export PRINTPIPE_MEDIA_MESHGEN_COMMAND={shlex.quote(str(written))}")
     return 0
 
 
