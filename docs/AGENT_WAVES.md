@@ -1267,3 +1267,15 @@ Status: partial progress for physical validation. This creates printable local c
 5. Done: the home-page final-readiness panel renders coupon artifact paths in the remaining physical-validation action rows.
 6. Current local result: the ignored PLA, PETG, and TPU starter folders each contain `90_physical/` not-printed packets plus `40_geometry/` coupon STL/JSON artifacts; `physical-status --runs-dir runs --json` still reports all three families as `recorded_but_not_passed`.
 7. Boundary: generated coupon files are print inputs only. They do not satisfy F9 or the physical validation gate until the coupons are physically printed, observed, photographed, and recorded as credible evidence packets.
+
+## Wave 115 - Physical Print Handoff Sheets
+
+Status: partial progress for physical validation. This makes the physical starter folders self-contained for a human print day, not passed physical evidence.
+
+1. Done: `physical-start` now writes `90_physical/physical_print_handoff.md` beside each starter evidence packet.
+2. Done: the handoff sheet includes the material family, material, object label, run folder, coupon STL path, coupon JSON sidecar path, material-specific validation checks, exact `record-physical-evidence` command, and proof boundary.
+3. Done: `physical-start --json` returns `handoff_markdown_path`; non-JSON `physical-start` prints both the coupon STL path and print handoff path.
+4. Done: `physical-plan --runs-dir runs` and `--json` surface existing handoff paths for `recorded_but_not_passed` families.
+5. Done: the home-page final-readiness panel renders handoff paths beside coupon paths in physical-validation action rows.
+6. Current local result: the ignored PLA, PETG, and TPU starter folders each contain `90_physical/physical_print_handoff.md`; `physical-status --runs-dir runs --json` still reports all three families as `recorded_but_not_passed`.
+7. Boundary: handoff sheets are instructions and file pointers only. They do not satisfy F9 or the physical validation gate until the coupons are physically printed, observed, photographed, and recorded as credible evidence packets.

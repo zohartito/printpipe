@@ -40,6 +40,10 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
                                 "runs/pla/40_geometry/"
                                 "physical_validation_coupon_40x15x3.stl"
                             ),
+                            "handoff_markdown_path": (
+                                "runs/pla/90_physical/"
+                                "physical_print_handoff.md"
+                            ),
                         }
                     ],
                 },
@@ -75,6 +79,9 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
     assert view["actions"][0]["command"] == "printpipe physical-start --family pla"
     assert view["actions"][0]["coupon_stl_path"].endswith(
         "physical_validation_coupon_40x15x3.stl"
+    )
+    assert view["actions"][0]["handoff_markdown_path"].endswith(
+        "physical_print_handoff.md"
     )
     assert view["pillars"][0]["headline"].startswith("0/3 material families")
     assert "0/3 trusted users" in view["pillars"][1]["headline"]
@@ -116,6 +123,10 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                         "runs/pla/40_geometry/"
                         "physical_validation_coupon_40x15x3.stl"
                     ),
+                    "handoff_markdown_path": (
+                        "runs/pla/90_physical/"
+                        "physical_print_handoff.md"
+                    ),
                 }
             ],
         }
@@ -128,5 +139,7 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "printpipe physical-start --family pla" in html
     assert "Coupon artifact:" in html
     assert "physical_validation_coupon_40x15x3.stl" in html
+    assert "Handoff:" in html
+    assert "physical_print_handoff.md" in html
     assert "PLA physical validation" in html
     assert "final-readiness-checklist" in html

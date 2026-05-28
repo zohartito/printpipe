@@ -129,6 +129,9 @@ def render_physical_validation_plan(plan: dict[str, Any]) -> str:
         start_command = str(action.get("start_command", ""))
         if start_command:
             lines.append(f"   start: {start_command}")
+        handoff_path = str(action.get("handoff_markdown_path", ""))
+        if handoff_path:
+            lines.append(f"   handoff: {handoff_path}")
         lines.append(f"   command: {action.get('record_command', '')}")
     lines.append("")
     return "\n".join(lines)
@@ -176,6 +179,7 @@ def _action_for_family(
         "required_fields": required_fields,
         "coupon_stl_path": coupon_paths["stl"],
         "coupon_json_path": coupon_paths["json"],
+        "handoff_markdown_path": _handoff_path(Path(run_root)),
         "record_command": _record_command(family=family, run_root=run_root),
     }
 
@@ -226,6 +230,11 @@ def _coupon_paths(run_root: Path) -> dict[str, str]:
         "stl": str(stl_path.resolve()) if stl_path.exists() else "",
         "json": str(json_path.resolve()) if json_path.exists() else "",
     }
+
+
+def _handoff_path(run_root: Path) -> str:
+    path = run_root / "90_physical" / "physical_print_handoff.md"
+    return str(path.resolve()) if path.exists() else ""
 
 
 def _quote(value: str) -> str:

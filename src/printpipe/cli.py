@@ -1728,6 +1728,10 @@ def _physical_start(
             print(f"physical evidence json: {payload['json_path']}")
         if payload.get("markdown_path"):
             print(f"physical evidence markdown: {payload['markdown_path']}")
+        if payload.get("coupon_stl_path"):
+            print(f"coupon stl: {payload['coupon_stl_path']}")
+        if payload.get("handoff_markdown_path"):
+            print(f"print handoff: {payload['handoff_markdown_path']}")
         if payload.get("record_command"):
             print(f"record after print: {payload['record_command']}")
     return 0

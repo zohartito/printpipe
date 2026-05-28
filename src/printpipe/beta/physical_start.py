@@ -67,6 +67,10 @@ def start_physical_validation(
         print_validation_points=_validation_points(normalized_family),
         stem="physical_validation_coupon_40x15x3",
     )
+    coupon_paths = {
+        "stl": _artifact_path(coupon_receipt, suffix=".stl"),
+        "json": _artifact_path(coupon_receipt, suffix=".json"),
+    }
     evidence = build_physical_print_evidence(
         run_id=run_root.name,
         material=str(action["material_hint"]),
@@ -82,6 +86,13 @@ def start_physical_validation(
         ),
     )
     written = write_physical_evidence_files(run_root=run_root, evidence=evidence)
+    handoff_path = _write_handoff_markdown(
+        run_root=run_root,
+        family=normalized_family,
+        action=action,
+        coupon_paths=coupon_paths,
+        validation_points=_validation_points(normalized_family),
+    )
     return {
         "status": "started",
         "family": normalized_family,
@@ -91,8 +102,9 @@ def start_physical_validation(
         "json_path": written["json_path"],
         "markdown_path": written["markdown_path"],
         "missing_required_evidence": written["missing_required_evidence"],
-        "coupon_stl_path": _artifact_path(coupon_receipt, suffix=".stl"),
-        "coupon_json_path": _artifact_path(coupon_receipt, suffix=".json"),
+        "coupon_stl_path": coupon_paths["stl"],
+        "coupon_json_path": coupon_paths["json"],
+        "handoff_markdown_path": str(handoff_path),
         "record_command": action["record_command"],
     }
 
@@ -114,6 +126,54 @@ def _validation_points(family: str) -> tuple[str, ...]:
             "dimension check",
         ),
     )
+
+
+def _write_handoff_markdown(
+    *,
+    run_root: Path,
+    family: str,
+    action: dict[str, Any],
+    coupon_paths: dict[str, str],
+    validation_points: tuple[str, ...],
+) -> Path:
+    handoff_path = run_root / "90_physical" / "physical_print_handoff.md"
+    record_command = str(action.get("record_command", ""))
+    material = str(action.get("material_hint", "unknown"))
+    object_label = str(action.get("object_label", "validation coupon"))
+    validation_lines = "\n".join(f"- {point}" for point in validation_points)
+    handoff_path.write_text(
+        "\n".join(
+            [
+                "# PrintPipe Physical Validation Print Handoff",
+                "",
+                "## Run Context",
+                f"- Family: {family.upper()}",
+                f"- Material: {material}",
+                f"- Object: {object_label}",
+                f"- Run folder: {run_root}",
+                "",
+                "## Printable Coupon",
+                f"- STL: {coupon_paths.get('stl') or 'not generated'}",
+                f"- JSON sidecar: {coupon_paths.get('json') or 'not generated'}",
+                "",
+                "## Validate During The Print",
+                validation_lines,
+                "",
+                "## Record Evidence After Printing",
+                "Replace the placeholder photo path with the real coupon photo path, then run:",
+                "",
+                "```bash",
+                record_command,
+                "```",
+                "",
+                "## Proof Boundary",
+                PROOF_BOUNDARY,
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return handoff_path.resolve()
 
 
 __all__ = ["start_physical_validation"]

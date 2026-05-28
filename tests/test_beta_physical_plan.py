@@ -150,8 +150,12 @@ def test_physical_validation_plan_surfaces_started_coupon_artifacts(
     assert pla_action["coupon_json_path"].endswith(
         "40_geometry/physical_validation_coupon_40x15x3.json"
     )
+    assert pla_action["handoff_markdown_path"].endswith(
+        "90_physical/physical_print_handoff.md"
+    )
     assert "first layer continuity" in coupon_sidecar["print_validation"]
     assert "flex recovery" not in coupon_sidecar["print_validation"]
+    assert "handoff: " in render_physical_validation_plan(plan)
 
 
 def test_start_physical_validation_writes_not_printed_starter_packet(
@@ -167,6 +171,7 @@ def test_start_physical_validation_writes_not_printed_starter_packet(
 
     run_root = runs_dir / "physical-tpu-validation"
     evidence_path = run_root / "90_physical" / "physical_evidence.json"
+    handoff_path = run_root / "90_physical" / "physical_print_handoff.md"
     coupon_path = run_root / "40_geometry" / "physical_validation_coupon_40x15x3.stl"
     coupon_sidecar_path = (
         run_root / "40_geometry" / "physical_validation_coupon_40x15x3.json"
@@ -179,12 +184,19 @@ def test_start_physical_validation_writes_not_printed_starter_packet(
     assert result["family"] == "tpu"
     assert result["run_root"] == str(run_root.resolve())
     assert result["json_path"] == str(evidence_path.resolve())
+    assert result["handoff_markdown_path"] == str(handoff_path.resolve())
     assert result["coupon_stl_path"] == str(coupon_path.resolve())
     assert result["coupon_json_path"] == str(coupon_sidecar_path.resolve())
     assert coupon_path.exists()
     assert coupon_sidecar["material"] == "SUNLU TPU 90A"
     assert coupon_sidecar["use_case"] == "TPU physical validation"
     assert "flex recovery" in coupon_sidecar["print_validation"]
+    handoff_text = handoff_path.read_text(encoding="utf-8")
+    assert "PrintPipe Physical Validation Print Handoff" in handoff_text
+    assert str(coupon_path.resolve()) in handoff_text
+    assert "flex recovery" in handoff_text
+    assert "Digital artifacts, generated coupons, and slice receipts" in handoff_text
+    assert result["record_command"] in handoff_text
     assert result["record_command"].startswith(
         f'printpipe record-physical-evidence "{run_root.resolve()}"'
     )
@@ -224,6 +236,9 @@ def test_cli_physical_start_prints_json_and_does_not_pass_gate(
     assert payload["status"] == "started"
     assert payload["family"] == "pla"
     assert payload["json_path"].endswith("90_physical/physical_evidence.json")
+    assert payload["handoff_markdown_path"].endswith(
+        "90_physical/physical_print_handoff.md"
+    )
     assert payload["coupon_stl_path"].endswith(
         "40_geometry/physical_validation_coupon_40x15x3.stl"
     )
@@ -232,6 +247,33 @@ def test_cli_physical_start_prints_json_and_does_not_pass_gate(
     )
     assert "record-physical-evidence" in payload["record_command"]
     assert status["family_status"]["pla"]["status"] == "recorded_but_not_passed"
+
+
+def test_cli_physical_start_text_prints_coupon_and_handoff_paths(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    runs_dir = tmp_path / "runs"
+
+    exit_code = main(
+        [
+            "physical-start",
+            "--family",
+            "petg",
+            "--runs-dir",
+            str(runs_dir),
+            "--operator",
+            "Zohar",
+        ]
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "coupon stl:" in captured.out
+    assert "physical_validation_coupon_40x15x3.stl" in captured.out
+    assert "print handoff:" in captured.out
+    assert "physical_print_handoff.md" in captured.out
 
 
 def _write_evidence(

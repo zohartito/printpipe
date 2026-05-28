@@ -215,6 +215,7 @@ def _action_item(
         "command": _action_command(action),
         "coupon_stl_path": str(action.get("coupon_stl_path") or ""),
         "coupon_json_path": str(action.get("coupon_json_path") or ""),
+        "handoff_markdown_path": str(action.get("handoff_markdown_path") or ""),
     }
 
 
@@ -289,6 +290,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     detail = str(action.get("detail") or "")
     command = str(action.get("command") or "")
     coupon_stl_path = str(action.get("coupon_stl_path") or "")
+    handoff_markdown_path = str(action.get("handoff_markdown_path") or "")
     command_markup = (
         f'            <pre><code>{escape(command)}</code></pre>'
         if command
@@ -300,12 +302,19 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
         if coupon_stl_path
         else ""
     )
+    handoff_markup = (
+        "            <p class=\"muted\">Handoff: "
+        f"<code>{escape(handoff_markdown_path)}</code></p>"
+        if handoff_markdown_path
+        else ""
+    )
     return "\n".join(
         [
             f'          <li class="final-readiness-action final-readiness-action-{_class_name(status)}">',
             f'            <p class="action-title"><strong>{escape(section_label)}</strong> · {escape(label)}</p>',
             f'            <p class="muted">{escape(detail)}</p>',
             coupon_markup,
+            handoff_markup,
             command_markup,
             "          </li>",
         ]
