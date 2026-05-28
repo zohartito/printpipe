@@ -707,3 +707,9 @@ Local smoke evidence: Wave 82 built the default ignored `dist/release` folder
 with ad-hoc macOS signing. `verify-release` returned `0`; `release-status
 --strict` returned `2` only because physical PLA/PETG/TPU evidence and
 Developer ID identities are still missing.
+
+Standalone release smoke evidence: Wave 83 rebuilt ignored `dist/release` with
+`--include-standalone` and `uvx --from pyinstaller pyinstaller`. The manifest
+included `PrintPipeStandalone-macOS.zip` as `macos_standalone_zip` with
+`bundles_python_runtime=true`, and `verify-release` returned `0` across 4
+artifacts.

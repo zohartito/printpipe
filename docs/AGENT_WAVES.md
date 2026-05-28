@@ -914,3 +914,14 @@ Status: partial progress for original items 121 and 122. A local ignored release
 4. Done: `printpipe release-status --release-dir dist/release --runs-dir runs --json --strict` reported the `release_bundle` gate as `ready`.
 5. Remaining: `release-status --strict` still returns exit code `2` because PLA/PETG/TPU physical evidence is missing and Developer ID Application/Installer identities are not installed.
 6. Boundary: generated files stay ignored under `dist/`; this wave records smoke evidence, not a committed binary release or final signed/notarized distribution.
+
+## Wave 83 - Standalone Runtime Release Smoke Evidence
+
+Status: partial progress for original item 121. The local release smoke now covers the macOS standalone runtime ZIP shape, not only the default zipapp/DMG/Windows-portable shape.
+
+1. Done: ran `printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller" --json`.
+2. Done: generated `PrintPipeStandalone-macOS.zip` in ignored `dist/release`.
+3. Done: manifest records `macos_standalone_zip` with `bundles_python_runtime=true`, `bundles_bambu_studio=false`, and `signed=true`.
+4. Done: `printpipe verify-release dist/release --json` returned exit code `0` across 4 artifacts.
+5. Done: `printpipe release-status --release-dir dist/release --runs-dir runs --json --strict` reported the release bundle gate as `ready` with 4 verified artifacts.
+6. Remaining: final macOS distribution still needs Developer ID signing/notarization; final beta/release still needs physical PLA/PETG/TPU evidence.
