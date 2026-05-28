@@ -881,3 +881,14 @@ Status: partial progress for original item 122. PrintPipe now has native Windows
 4. Done: added `printpipe build-windows-installer --standalone-zip ... --output ...`.
 5. Done: `build-release --windows-installer-exe ...` can copy a prebuilt signed installer into the checksummed release manifest.
 6. Boundary: no Windows signing certificate, `signtool`, or Inno/WiX/NSIS installer tool was installed by this wave; the Windows readiness gate remains action-required on `desktop-zt`.
+
+## Wave 80 - Release Verifier Metadata Hardening
+
+Status: complete for release-trust hardening. `verify-release` now rejects internally inconsistent native-artifact metadata instead of only checking bytes and boundary text.
+
+1. Done: added regression coverage for a `windows_installer` artifact that is present and hash-correct but carries `signed=false`.
+2. Done: added regression coverage for a `windows_installer` artifact with a non-`.exe` path.
+3. Done: added regression coverage for a `macos_dmg` artifact claiming `notarized=true` while `signed=false`.
+4. Done: added type-specific verifier checks for zipapp, macOS DMG, macOS standalone ZIP, Windows portable ZIP, Windows standalone ZIP, and Windows installer artifacts.
+5. Done: `verify-release` now reports explicit `artifact_metadata:*` failures alongside existence, size, SHA-256, and boundary checks.
+6. Boundary: this hardens manifest verification; it does not create Apple Developer certificates, a notary profile, Windows signing tools, a Windows signing certificate, or physical print evidence.

@@ -689,7 +689,10 @@ verified `codesign --verify --deep --strict`, `PrintPipeStandalone --version`,
 and the dry-run web launcher after extraction.
 
 `verify-release` re-reads that manifest and checks that each artifact still
-exists, has the recorded byte size, has the recorded SHA-256, and carries the
-current boundary claims. It exits `0` when the folder matches the manifest and
-`2` when any check fails, including missing artifacts, a sha256 mismatch from
-tampered bytes, or boundary drift.
+exists, has the recorded byte size, has the recorded SHA-256, carries the
+current boundary claims, and satisfies type-specific metadata invariants. It
+exits `0` when the folder matches the manifest and `2` when any check fails,
+including missing artifacts, a sha256 mismatch from tampered bytes, boundary
+drift, a Windows installer that is not an `.exe` or not marked signed, a
+runtime-bundled artifact without `bundles_python_runtime=true`, or a notarized
+macOS DMG without `signed=true`.

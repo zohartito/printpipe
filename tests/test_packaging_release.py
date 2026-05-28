@@ -451,6 +451,97 @@ def test_verify_release_bundle_rejects_boundary_drift(tmp_path: Path) -> None:
     assert "boundaries" in {failure["id"] for failure in result["failures"]}
 
 
+def test_verify_release_bundle_rejects_unsigned_windows_installer_metadata(
+    tmp_path: Path,
+) -> None:
+    import printpipe.packaging.release as release
+
+    release_dir = _write_fake_release(tmp_path)
+    installer = release_dir / "PrintPipeSetup.exe"
+    installer.write_bytes(b"installer")
+    manifest_path = release_dir / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"].append(
+        {
+            "kind": "windows_installer",
+            "path": installer.name,
+            "size_bytes": installer.stat().st_size,
+            "sha256": hashlib.sha256(installer.read_bytes()).hexdigest(),
+            "signed": False,
+            "notarized": False,
+            "bundles_python_runtime": True,
+            "bundles_bambu_studio": False,
+        }
+    )
+    manifest["boundaries"] = release._release_boundaries(manifest["artifacts"])
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+
+    result = release.verify_release_bundle(release_dir)
+
+    assert result["status"] == "failed"
+    assert "artifact_metadata:windows_installer:signed" in {
+        failure["id"] for failure in result["failures"]
+    }
+
+
+def test_verify_release_bundle_rejects_windows_installer_wrong_extension(
+    tmp_path: Path,
+) -> None:
+    import printpipe.packaging.release as release
+
+    release_dir = _write_fake_release(tmp_path)
+    installer = release_dir / "PrintPipeSetup.zip"
+    installer.write_bytes(b"installer")
+    manifest_path = release_dir / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"].append(
+        {
+            "kind": "windows_installer",
+            "path": installer.name,
+            "size_bytes": installer.stat().st_size,
+            "sha256": hashlib.sha256(installer.read_bytes()).hexdigest(),
+            "signed": True,
+            "notarized": False,
+            "bundles_python_runtime": True,
+            "bundles_bambu_studio": False,
+        }
+    )
+    manifest["boundaries"] = release._release_boundaries(manifest["artifacts"])
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+
+    result = release.verify_release_bundle(release_dir)
+
+    assert result["status"] == "failed"
+    assert "artifact_metadata:windows_installer:path" in {
+        failure["id"] for failure in result["failures"]
+    }
+
+
+def test_verify_release_bundle_rejects_notarized_macos_dmg_without_signed_flag(
+    tmp_path: Path,
+) -> None:
+    import printpipe.packaging.release as release
+
+    release_dir = _write_fake_release(tmp_path)
+    manifest_path = release_dir / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    macos_dmg = next(
+        artifact for artifact in manifest["artifacts"] if artifact["kind"] == "macos_dmg"
+    )
+    macos_dmg["signed"] = False
+    macos_dmg["notarized"] = True
+    macos_dmg["signing_kind"] = "developer_id_application"
+    manifest["boundaries"] = release._release_boundaries(manifest["artifacts"])
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+
+    result = release.verify_release_bundle(release_dir)
+
+    assert result["status"] == "failed"
+    assert "artifact_metadata:macos_dmg:notarized_signed" in {
+        failure["id"] for failure in result["failures"]
+    }
+
+
 def test_cli_verify_release_json_reports_ok(tmp_path: Path, capsys) -> None:
     release_dir = _write_fake_release(tmp_path)
 

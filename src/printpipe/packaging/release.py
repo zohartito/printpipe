@@ -423,6 +423,12 @@ def _verify_artifact(
         message="artifact path is inside the release folder",
         path=rel_path,
     )
+    _verify_artifact_metadata(
+        artifact=artifact,
+        kind=kind,
+        rel_path=rel_path,
+        checks=checks,
+    )
     exists = artifact_path.exists()
     _append_check(
         checks,
@@ -457,6 +463,169 @@ def _verify_artifact(
         actual=actual_sha,
         path=str(artifact_path),
     )
+
+
+def _verify_artifact_metadata(
+    *,
+    artifact: dict[str, Any],
+    kind: str,
+    rel_path: str,
+    checks: list[dict[str, Any]],
+) -> None:
+    suffix = Path(rel_path).suffix.lower()
+    if kind == "zipapp":
+        _append_check(
+            checks,
+            check_id="artifact_metadata:zipapp:path",
+            ok=suffix == ".pyz",
+            message="zipapp release artifact path ends with .pyz",
+            path=rel_path,
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:zipapp:runtime",
+            ok=artifact.get("bundles_python_runtime") is False,
+            message="zipapp artifact does not claim to bundle Python",
+            actual=artifact.get("bundles_python_runtime"),
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:zipapp:bambu",
+            ok=artifact.get("bundles_bambu_studio") is False,
+            message="zipapp artifact does not claim to bundle Bambu Studio",
+            actual=artifact.get("bundles_bambu_studio"),
+        )
+        return
+
+    if kind == "macos_dmg":
+        _append_check(
+            checks,
+            check_id="artifact_metadata:macos_dmg:path",
+            ok=suffix == ".dmg",
+            message="macOS DMG release artifact path ends with .dmg",
+            path=rel_path,
+        )
+        notarized = artifact.get("notarized") is True
+        _append_check(
+            checks,
+            check_id="artifact_metadata:macos_dmg:notarized_signed",
+            ok=not notarized or artifact.get("signed") is True,
+            message="notarized macOS DMG also carries signed=true",
+            actual={
+                "signed": artifact.get("signed"),
+                "notarized": artifact.get("notarized"),
+            },
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:macos_dmg:bambu",
+            ok=artifact.get("bundles_bambu_studio") is False,
+            message="macOS DMG does not claim to bundle Bambu Studio",
+            actual=artifact.get("bundles_bambu_studio"),
+        )
+        return
+
+    if kind == "macos_standalone_zip":
+        _append_check(
+            checks,
+            check_id="artifact_metadata:macos_standalone_zip:path",
+            ok=suffix == ".zip",
+            message="macOS standalone release artifact path ends with .zip",
+            path=rel_path,
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:macos_standalone_zip:runtime",
+            ok=artifact.get("bundles_python_runtime") is True,
+            message="macOS standalone ZIP claims to bundle Python",
+            actual=artifact.get("bundles_python_runtime"),
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:macos_standalone_zip:bambu",
+            ok=artifact.get("bundles_bambu_studio") is False,
+            message="macOS standalone ZIP does not claim to bundle Bambu Studio",
+            actual=artifact.get("bundles_bambu_studio"),
+        )
+        return
+
+    if kind == "windows_portable":
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_portable:path",
+            ok=suffix == ".zip",
+            message="Windows portable release artifact path ends with .zip",
+            path=rel_path,
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_portable:runtime",
+            ok=artifact.get("bundles_python_runtime") is False,
+            message="Windows portable artifact does not claim to bundle Python",
+            actual=artifact.get("bundles_python_runtime"),
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_portable:bambu",
+            ok=artifact.get("bundles_bambu_studio") is False,
+            message="Windows portable artifact does not claim to bundle Bambu Studio",
+            actual=artifact.get("bundles_bambu_studio"),
+        )
+        return
+
+    if kind == "windows_standalone_zip":
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_standalone_zip:path",
+            ok=suffix == ".zip",
+            message="Windows standalone release artifact path ends with .zip",
+            path=rel_path,
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_standalone_zip:runtime",
+            ok=artifact.get("bundles_python_runtime") is True,
+            message="Windows standalone ZIP claims to bundle Python",
+            actual=artifact.get("bundles_python_runtime"),
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_standalone_zip:bambu",
+            ok=artifact.get("bundles_bambu_studio") is False,
+            message="Windows standalone ZIP does not claim to bundle Bambu Studio",
+            actual=artifact.get("bundles_bambu_studio"),
+        )
+        return
+
+    if kind == "windows_installer":
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_installer:path",
+            ok=suffix == ".exe",
+            message="Windows installer release artifact path ends with .exe",
+            path=rel_path,
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_installer:signed",
+            ok=artifact.get("signed") is True,
+            message="Windows installer release artifact carries signed=true",
+            actual=artifact.get("signed"),
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_installer:runtime",
+            ok=artifact.get("bundles_python_runtime") is True,
+            message="Windows installer claims to bundle Python runtime",
+            actual=artifact.get("bundles_python_runtime"),
+        )
+        _append_check(
+            checks,
+            check_id="artifact_metadata:windows_installer:bambu",
+            ok=artifact.get("bundles_bambu_studio") is False,
+            message="Windows installer does not claim to bundle Bambu Studio",
+            actual=artifact.get("bundles_bambu_studio"),
+        )
 
 
 def _append_check(
