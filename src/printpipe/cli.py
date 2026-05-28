@@ -1949,6 +1949,8 @@ def _physical_slice(
         print(f"slice message: {payload['slice_message']}")
         if payload.get("slice_result_path"):
             print(f"slice result: {payload['slice_result_path']}")
+        if payload.get("handoff_markdown_path"):
+            print(f"print handoff: {payload['handoff_markdown_path']}")
     return 0
 
 

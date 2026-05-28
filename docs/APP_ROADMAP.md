@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 125: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 126: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 125 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
+Wave 126 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
 
-The latest completed wave added `physical-slice`, a non-destructive way to slice an existing validation coupon bundle without recreating the starter packet or rewriting its not-yet-printed physical evidence packet. Physical plans now show a `slice:` command whenever a coupon bundle exists but no slice receipt exists yet.
+The latest completed wave tightened physical print handoff truth. `physical-slice` now refreshes only the `## Slice Receipt` section inside `90_physical/physical_print_handoff.md`, so the handoff file Zohar opens before printing agrees with the available `70_slice/slice_result.json` receipt while leaving `90_physical/physical_evidence.json` untouched.
+
+Wave 125 added `physical-slice`, a non-destructive way to slice an existing validation coupon bundle without recreating the starter packet or rewriting its not-yet-printed physical evidence packet. Physical plans now show a `slice:` command whenever a coupon bundle exists but no slice receipt exists yet.
 
 Wave 124 added an explicit `physical-start --slice` path for validation coupons. Starter packets remain usable without Bambu Studio, but when slicing is requested they now write a `70_slice/slice_result.json` receipt through the existing Bambu CLI slice wrapper and surface that path through physical plans and `final-next`.
 

@@ -39,6 +39,10 @@ def slice_physical_validation_coupon(
         executable=executable,
         slice_runner=slice_runner,
     )
+    handoff_payload = refresh_handoff_slice_receipt(
+        run_root=run_root,
+        slice_payload=payload,
+    )
     return {
         "status": "sliced",
         "family": normalized_family,
@@ -47,6 +51,7 @@ def slice_physical_validation_coupon(
         "bundle_path": str(bundle_path.resolve()),
         "bundle_validation_path": _bundle_validation_path(run_root),
         **payload,
+        **handoff_payload,
     }
 
 
@@ -85,9 +90,80 @@ def _bundle_validation_path(run_root: Path) -> str:
     return str(path.resolve()) if path.exists() else ""
 
 
+def refresh_handoff_slice_receipt(
+    *,
+    run_root: Path,
+    slice_payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Refresh only the slice section in the physical print handoff."""
+
+    handoff_path = run_root / "90_physical" / "physical_print_handoff.md"
+    if not handoff_path.exists():
+        return {
+            "handoff_markdown_path": "",
+            "handoff_updated": False,
+        }
+
+    original = handoff_path.read_text(encoding="utf-8")
+    updated = _replace_or_insert_slice_section(original, _slice_section(slice_payload))
+    changed = updated != original
+    if changed:
+        handoff_path.write_text(updated, encoding="utf-8")
+    return {
+        "handoff_markdown_path": str(handoff_path.resolve()),
+        "handoff_updated": changed,
+    }
+
+
+def _slice_section(slice_payload: dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            "## Slice Receipt",
+            f"- Requested: {slice_payload.get('slice_requested', False)}",
+            f"- Status: {slice_payload.get('slice_status', 'not_requested')}",
+            f"- Message: {slice_payload.get('slice_message', '')}",
+            f"- Result JSON: {slice_payload.get('slice_result_path') or 'not generated'}",
+            "",
+        ]
+    )
+
+
+def _replace_or_insert_slice_section(text: str, section: str) -> str:
+    lines = text.splitlines()
+    slice_start = _heading_index(lines, "## Slice Receipt")
+    if slice_start is not None:
+        slice_end = _next_heading_index(lines, slice_start + 1)
+        replacement = section.splitlines()
+        updated = lines[:slice_start] + replacement + lines[slice_end:]
+        return "\n".join(updated).rstrip() + "\n"
+
+    validate_start = _heading_index(lines, "## Validate During The Print")
+    insertion = section.splitlines()
+    if validate_start is not None:
+        updated = lines[:validate_start] + insertion + lines[validate_start:]
+        return "\n".join(updated).rstrip() + "\n"
+
+    return text.rstrip() + "\n\n" + section
+
+
+def _heading_index(lines: list[str], heading: str) -> int | None:
+    for index, line in enumerate(lines):
+        if line == heading:
+            return index
+    return None
+
+
+def _next_heading_index(lines: list[str], start: int) -> int:
+    for index in range(start, len(lines)):
+        if lines[index].startswith("## "):
+            return index
+    return len(lines)
+
+
 __all__ = [
     "COUPON_BUNDLE_NAME",
     "COUPON_BUNDLE_VALIDATION_NAME",
+    "refresh_handoff_slice_receipt",
     "slice_coupon_bundle",
     "slice_physical_validation_coupon",
 ]

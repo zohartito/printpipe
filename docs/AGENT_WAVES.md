@@ -1391,3 +1391,14 @@ Status: partial progress for physical-validation execution. This makes coupon sl
 4. Done: physical plans now show a `slice:` command when a bundle exists and `70_slice/slice_result.json` does not.
 5. Done: regression coverage verifies slicing an existing coupon does not rewrite the not-yet-printed physical evidence packet.
 6. Boundary: a sliced coupon bundle is still software evidence only. The gate still requires a real printed coupon, real observations, and an existing photo artifact.
+
+## Wave 126 - Physical Handoff Slice Receipt Sync
+
+Status: partial progress for physical-validation execution. This makes the Markdown handoff sheets agree with slice receipts produced after the starter packet was created.
+
+1. Done: `physical-slice` now refreshes the `## Slice Receipt` section inside `90_physical/physical_print_handoff.md`.
+2. Done: the refresh is targeted; it replaces or inserts only the slice receipt block.
+3. Done: `90_physical/physical_evidence.json` remains byte-for-byte unchanged by `physical-slice`.
+4. Done: terminal `physical-slice` output prints the physical handoff path after slicing.
+5. Current local result: PLA, PETG, and TPU handoff sheets all point at their current `70_slice/slice_result.json` receipts.
+6. Boundary: synchronized handoff sheets and slice receipts still do not count as physical proof. The material-family gate still requires real printed coupons, real observations, and existing photo artifacts.
