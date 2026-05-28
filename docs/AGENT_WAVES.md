@@ -1047,3 +1047,14 @@ Status: complete for local web/API parity. Browser and agent automation can now 
 3. Done: blank or omitted query values keep the previous non-blocking default behavior.
 4. Done: endpoint tests prove the manifest path reaches the report builders and returns the `beta_regressions` gate.
 5. Boundary: the home page still shows the default no-manifest readiness/release panels unless a caller explicitly requests JSON with a manifest path.
+
+## Wave 95 - Web Regression Manifest Configuration
+
+Status: complete for local web UI parity. The browser app can now be launched with a regression manifest so the home panels and service links stay regression-aware by default.
+
+1. Done: added `printpipe serve --regression-manifest <manifest>`.
+2. Done: threaded the configured manifest through `PrintPipeWebApp`, `create_app()`, and `serve()`.
+3. Done: configured apps pass the manifest into home-page readiness and release-status panels.
+4. Done: configured apps add the manifest query to the `Readiness JSON` and `Release status JSON` service links.
+5. Done: explicit endpoint query parameters still override the configured manifest for one-off checks.
+6. Boundary: this still does not create beta failures, physical print evidence, signed packages, or certificates; it keeps local web visibility aligned with the CLI gates.

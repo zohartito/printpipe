@@ -25,6 +25,7 @@ def test_serve_parser_defaults_do_not_import_web_server(monkeypatch):
     assert args.host == "127.0.0.1"
     assert args.port == 8765
     assert args.runs_dir == Path("runs")
+    assert args.regression_manifest is None
 
 
 def test_serve_delegates_to_web_server_with_custom_options(monkeypatch, tmp_path: Path):
@@ -32,8 +33,21 @@ def test_serve_delegates_to_web_server_with_custom_options(monkeypatch, tmp_path
     web_module = types.ModuleType("printpipe.web")
     server_module = types.ModuleType("printpipe.web.server")
 
-    def serve(*, host: str, port: int, runs_dir: Path) -> None:
-        calls.append({"host": host, "port": port, "runs_dir": runs_dir})
+    def serve(
+        *,
+        host: str,
+        port: int,
+        runs_dir: Path,
+        regression_manifest_path: Path | None = None,
+    ) -> None:
+        calls.append(
+            {
+                "host": host,
+                "port": port,
+                "runs_dir": runs_dir,
+                "regression_manifest_path": regression_manifest_path,
+            }
+        )
 
     server_module.serve = serve
     web_module.server = server_module
@@ -49,8 +63,17 @@ def test_serve_delegates_to_web_server_with_custom_options(monkeypatch, tmp_path
             "9876",
             "--runs-dir",
             str(tmp_path),
+            "--regression-manifest",
+            str(tmp_path / "regression_manifest.json"),
         ]
     )
 
     assert exit_code == 0
-    assert calls == [{"host": "0.0.0.0", "port": 9876, "runs_dir": tmp_path}]
+    assert calls == [
+        {
+            "host": "0.0.0.0",
+            "port": 9876,
+            "runs_dir": tmp_path,
+            "regression_manifest_path": tmp_path / "regression_manifest.json",
+        }
+    ]

@@ -112,6 +112,14 @@ The local JSON endpoint accepts the same manifest path:
 /readiness.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
 ```
 
+Or launch the local app with the manifest preconfigured:
+
+```bash
+printpipe serve \
+  --runs-dir runs \
+  --regression-manifest tests/fixtures/regression/failure_manifest.json
+```
+
 Gate release status with the same manifest:
 
 ```bash
@@ -141,6 +149,8 @@ Meaning:
   intentionally reclassified before release claims.
 - Release status consumes the same regression gate when `--regression-manifest`
   is provided, so final handoff checks can fail on beta drift too.
+- `printpipe serve --regression-manifest ...` applies the same manifest to the
+  home-page readiness/release panels and JSON service links.
 
 ## Current Limits
 

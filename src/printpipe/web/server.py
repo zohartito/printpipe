@@ -159,11 +159,17 @@ class PrintPipeWebApp:
         *,
         runs_dir: str | Path | None = None,
         release_dir: str | Path | None = Path("dist/release"),
+        regression_manifest_path: str | Path | None = None,
         path_opener: Callable[[Path], object] | None = None,
     ) -> None:
         self.static_roots = tuple(Path(root) for root in static_roots)
         self.runs_dir = Path(runs_dir) if runs_dir is not None else None
         self.release_dir = Path(release_dir) if release_dir is not None else None
+        self.regression_manifest_path = (
+            Path(regression_manifest_path).expanduser()
+            if regression_manifest_path is not None
+            else None
+        )
         self.path_opener = path_opener
 
     def handle(
@@ -206,11 +212,11 @@ class PrintPipeWebApp:
             return self.doctor_response()
         if path == "/readiness.json":
             return self.readiness_response(
-                regression_manifest_path=_query_path(query, "regression_manifest")
+                regression_manifest_path=self._regression_manifest_for_query(query)
             )
         if path == "/release-status.json":
             return self.release_status_response(
-                regression_manifest_path=_query_path(query, "regression_manifest")
+                regression_manifest_path=self._regression_manifest_for_query(query)
             )
         if path == "/physical-plan.json":
             return self.physical_plan_response()
@@ -314,6 +320,9 @@ class PrintPipeWebApp:
     def home_response(self) -> WebResponse:
         return WebResponse.html(self.render_home())
 
+    def _regression_manifest_for_query(self, query: dict[str, list[str]]) -> Path | None:
+        return _query_path(query, "regression_manifest") or self.regression_manifest_path
+
     def health_response(self) -> WebResponse:
         return WebResponse.json({"service": "printpipe-web", "status": "ok"})
 
@@ -339,12 +348,13 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            if regression_manifest_path is None:
+            manifest_path = regression_manifest_path or self.regression_manifest_path
+            if manifest_path is None:
                 return WebResponse.json(build_beta_readiness_report(self.runs_dir))
             return WebResponse.json(
                 build_beta_readiness_report(
                     self.runs_dir,
-                    regression_manifest_path=regression_manifest_path,
+                    regression_manifest_path=manifest_path,
                 )
             )
         except (OSError, ValueError) as exc:
@@ -366,7 +376,8 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            if regression_manifest_path is None:
+            manifest_path = regression_manifest_path or self.regression_manifest_path
+            if manifest_path is None:
                 return WebResponse.json(
                     build_release_status_report(
                         release_dir=self.release_dir,
@@ -377,7 +388,7 @@ class PrintPipeWebApp:
                 build_release_status_report(
                     release_dir=self.release_dir,
                     runs_dir=self.runs_dir,
-                    regression_manifest_path=regression_manifest_path,
+                    regression_manifest_path=manifest_path,
                 )
             )
         except (OSError, ValueError) as exc:
@@ -526,8 +537,8 @@ class PrintPipeWebApp:
                 '    <section class="panel">',
                 "      <h2>Service</h2>",
                 '      <p><a href="/health">Health check</a></p>',
-                '      <p><a href="/release-status.json">Release status JSON</a></p>',
-                '      <p><a href="/readiness.json">Readiness JSON</a></p>',
+                f'      <p><a href="{escape(self._service_href("/release-status.json"), quote=True)}">Release status JSON</a></p>',
+                f'      <p><a href="{escape(self._service_href("/readiness.json"), quote=True)}">Readiness JSON</a></p>',
                 '      <p><a href="/physical-plan.json">Physical plan JSON</a></p>',
                 '      <p><a href="/doctor.json">Environment doctor JSON</a></p>',
                 "    </section>",
@@ -635,7 +646,13 @@ class PrintPipeWebApp:
         if self.runs_dir is None:
             return ""
         try:
-            report = build_beta_readiness_report(self.runs_dir)
+            if self.regression_manifest_path is None:
+                report = build_beta_readiness_report(self.runs_dir)
+            else:
+                report = build_beta_readiness_report(
+                    self.runs_dir,
+                    regression_manifest_path=self.regression_manifest_path,
+                )
         except (OSError, ValueError):
             return ""
         overall = str(report.get("overall_status", "unknown"))
@@ -658,10 +675,17 @@ class PrintPipeWebApp:
         if self.runs_dir is None or self.release_dir is None:
             return ""
         try:
-            report = build_release_status_report(
-                release_dir=self.release_dir,
-                runs_dir=self.runs_dir,
-            )
+            if self.regression_manifest_path is None:
+                report = build_release_status_report(
+                    release_dir=self.release_dir,
+                    runs_dir=self.runs_dir,
+                )
+            else:
+                report = build_release_status_report(
+                    release_dir=self.release_dir,
+                    runs_dir=self.runs_dir,
+                    regression_manifest_path=self.regression_manifest_path,
+                )
         except (OSError, ValueError):
             return ""
         overall = str(report.get("overall_status", "unknown"))
@@ -692,6 +716,12 @@ class PrintPipeWebApp:
                 "        </article>",
             ]
         )
+
+    def _service_href(self, path: str) -> str:
+        if self.regression_manifest_path is None:
+            return path
+        encoded_manifest = quote(str(self.regression_manifest_path), safe="")
+        return f"{path}?regression_manifest={encoded_manifest}"
 
     def _render_physical_beta_gate_panel(self) -> str:
         if self.runs_dir is None:
@@ -1009,6 +1039,7 @@ def create_app(
     *,
     runs_dir: str | Path | None = None,
     release_dir: str | Path | None = Path("dist/release"),
+    regression_manifest_path: str | Path | None = None,
     path_opener: Callable[[Path], object] | None = None,
 ) -> PrintPipeWebApp:
     """Create the local web app without binding a socket."""
@@ -1020,6 +1051,7 @@ def create_app(
         static_roots=roots,
         runs_dir=runs_dir,
         release_dir=release_dir,
+        regression_manifest_path=regression_manifest_path,
         path_opener=path_opener,
     )
 
@@ -1043,10 +1075,14 @@ def serve(
     host: str = "127.0.0.1",
     port: int = 8000,
     runs_dir: str | Path | None = None,
+    regression_manifest_path: str | Path | None = None,
 ) -> None:
     """Run the local server until interrupted."""
 
-    web_app = app or create_app(runs_dir=runs_dir)
+    web_app = app or create_app(
+        runs_dir=runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
     server = create_server(web_app, host=host, port=port)
     try:
         server.serve_forever()

@@ -636,6 +636,7 @@ printpipe build-release --output-dir dist/release --developer-id-identity "Devel
 printpipe verify-release dist/release --json
 printpipe release-status --release-dir dist/release --runs-dir runs --strict
 printpipe release-status --release-dir dist/release --runs-dir runs --regression-manifest tests/fixtures/regression/failure_manifest.json --strict
+printpipe serve --runs-dir runs --regression-manifest tests/fixtures/regression/failure_manifest.json
 ```
 
 The release folder contains:
@@ -714,6 +715,10 @@ manifest path as a query parameter:
 /readiness.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
 /release-status.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
 ```
+
+When `printpipe serve --regression-manifest ...` is used, the local home-page
+readiness and release-status panels include that manifest automatically, and the
+service links point at the manifest-aware JSON endpoints.
 
 Local smoke evidence: Wave 82 built the default ignored `dist/release` folder
 with ad-hoc macOS signing. `verify-release` returned `0`; `release-status

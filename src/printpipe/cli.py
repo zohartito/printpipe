@@ -165,6 +165,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("runs"),
         help="Directory where run folders are read and created.",
     )
+    serve.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Optional beta regression manifest to include in local readiness/release gates.",
+    )
 
     doctor = subparsers.add_parser(
         "doctor",
@@ -874,7 +880,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "serve":
-        return _serve(host=args.host, port=args.port, runs_dir=args.runs_dir)
+        return _serve(
+            host=args.host,
+            port=args.port,
+            runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
+        )
 
     if args.command == "doctor":
         return _doctor(json_output=args.json, platform_name=args.platform)
@@ -1013,10 +1024,21 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _serve(*, host: str, port: int, runs_dir: Path) -> int:
+def _serve(
+    *,
+    host: str,
+    port: int,
+    runs_dir: Path,
+    regression_manifest_path: Path | None,
+) -> int:
     from printpipe.web import server
 
-    server.serve(host=host, port=port, runs_dir=runs_dir)
+    server.serve(
+        host=host,
+        port=port,
+        runs_dir=runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
     return 0
 
 

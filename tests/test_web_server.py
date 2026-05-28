@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 from printpipe.beta.physical import (
     PhysicalArtifact,
@@ -513,6 +514,83 @@ def test_readiness_json_endpoint_accepts_regression_manifest_query(
     payload = json.loads(response.text)
     assert response.status == 200
     assert payload["gates"][0]["id"] == "beta_regressions"
+
+
+def test_configured_regression_manifest_feeds_home_and_json_endpoints(
+    monkeypatch,
+    tmp_path: Path,
+):
+    manifest_path = tmp_path / "regression_manifest.json"
+    observed: list[tuple[str, Path | None]] = []
+
+    def fake_readiness_report(runs_dir, *, regression_manifest_path=None):
+        observed.append(("readiness", regression_manifest_path))
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_required_count": 1,
+            "gates": [
+                {
+                    "id": "beta_regressions",
+                    "label": "Beta regressions",
+                    "status": "action_required",
+                    "detail": "1 regression case(s) drifted from expected outcomes.",
+                    "action": "Run printpipe run-regressions manifest --strict.",
+                }
+            ],
+        }
+
+    def fake_release_status_report(*, release_dir, runs_dir, regression_manifest_path=None):
+        observed.append(("release", regression_manifest_path))
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_required_count": 1,
+            "release_dir": str(release_dir),
+            "runs_dir": str(runs_dir),
+            "gates": [
+                {
+                    "id": "beta_regressions",
+                    "label": "Beta regressions",
+                    "status": "action_required",
+                    "detail": "1 regression case(s) drifted from expected outcomes.",
+                    "action": "Run printpipe run-regressions manifest --strict.",
+                }
+            ],
+            "next_actions": ["Run printpipe run-regressions manifest --strict."],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.web.server.build_beta_readiness_report",
+        fake_readiness_report,
+    )
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_status_report",
+        fake_release_status_report,
+    )
+    app = create_app(
+        runs_dir=tmp_path / "runs",
+        release_dir=tmp_path / "release",
+        regression_manifest_path=manifest_path,
+    )
+
+    home = app.handle("/")
+    readiness = json.loads(app.handle("/readiness.json").text)
+    release = json.loads(app.handle("/release-status.json").text)
+
+    encoded_manifest = quote(str(manifest_path), safe="")
+    assert home.status == 200
+    assert "Beta regressions" in home.text
+    assert f"/readiness.json?regression_manifest={encoded_manifest}" in home.text
+    assert f"/release-status.json?regression_manifest={encoded_manifest}" in home.text
+    assert readiness["gates"][0]["id"] == "beta_regressions"
+    assert release["gates"][0]["id"] == "beta_regressions"
+    assert observed == [
+        ("release", manifest_path),
+        ("readiness", manifest_path),
+        ("readiness", manifest_path),
+        ("release", manifest_path),
+    ]
 
 
 def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_path: Path):
