@@ -157,7 +157,7 @@ Status: F3 complete as a PrintPipe feature; successful live slicing remains bloc
 3. Done: missing Bambu CLI is a failed requested slice gate; not-requested slicing remains a skipped gate.
 4. Done: slice receipts now include `slice_requested=true`, command, executable, checked candidates, logs, return code, warnings, errors, and G-code-derived estimates when available.
 5. Done: negative subprocess return codes are classified as signals, including `SIGSEGV` for Bambu Studio crashes.
-6. Found: Bambu Studio 02.06.00.51 on macOS 26.5 crashes with signal 11 for CLI `--slice` on both a PrintPipe `.3mf` and a direct tiny STL; follow-up F13 owns isolating that Bambu CLI/runtime issue.
+6. Found: Bambu Studio 02.06.00.51 on macOS 26.5 crashed with signal 11 for CLI `--slice` on sparse/direct inputs; Wave 36 later isolated the supported full-settings `.3mf` path.
 
 ## Wave 15 - Run Detail Contract and Edit Recipes
 
@@ -234,7 +234,7 @@ Status: complete. Outputs are covered by `tests/test_bambu_slicer.py`, `tests/te
 3. Done: pipeline warnings and CLI errors inherit the concrete slice failure reason.
 4. Done: run-detail readiness reads real slice `return_code` and `errors`, not only synthetic `slice_success` metrics.
 5. Done: raw slice JSON metrics still preserve the full warning/error tuple.
-6. Remaining: F13 still owns isolating or bypassing the Bambu Studio 2.6.00.51/macOS 26.5 CLI crash itself.
+6. Superseded: Wave 36 isolated the supported non-crashing full-settings `.3mf` path.
 
 ## Wave 22 - Documentation and GitHub Sync
 
@@ -245,7 +245,7 @@ Status: complete for this pass once the orchestrator commit is pushed. Outputs a
 3. Done: verified full test suite after each high-risk integration wave.
 4. Done: left Bambu CLI segfault as an explicit open frontier, not a hidden failure.
 5. Done: prepared all current work for a single GitHub commit.
-6. Next: continue with F4/F13 or physical/beta validation after this push.
+6. Superseded: F4 and F13 are now complete; physical/beta validation remains.
 
 ## Wave 23 - Configured Media Meshgen Spine
 
@@ -256,7 +256,7 @@ Status: complete for the software path. Outputs are covered by `tests/test_pipel
 3. Done: configured Hunyuan3D output continues through repair, orientation, preview generation, Bambu `.3mf` bundle, validation, reports, and optional slice gate.
 4. Done: missing `PRINTPIPE_HUNYUAN3D_COMMAND` now produces a failed `meshgen` receipt with provider id `hunyuan3d`.
 5. Done: CLI coverage proves a fake configured Hunyuan command can turn a PNG input into `generated_mesh_hunyuan3d.3mf`.
-6. Remaining: real local Hunyuan runtime configuration and F13 Bambu CLI SIGSEGV isolation are still outside this wave.
+6. Remaining: real local Hunyuan runtime configuration is still outside this wave; Wave 36 completed F13.
 
 ## Wave 24 - TPU Flex Coupon Artifact
 
@@ -309,7 +309,7 @@ Status: complete for F8 and original item 103 as software dogfood. Outputs are c
 3. Done: ran `/Users/zohartito/Desktop/slipper_3d/output/slipper_size11_v2c_wide_upper_textured.stl` through PrintPipe as `runs/20260528-042826-slipper-size11-v2c-wide-upper-textured`.
 4. Done: verified the run repaired the mesh to watertight output, fit the 256 x 256 mm P2S bed with 21.92 mm minimum XY margin, validated the `.3mf`, and recorded 0 warnings.
 5. Done: verified the TPU flex coupon artifact and checklist requirement are present in the dogfood run.
-6. Remaining: live Bambu CLI slice is still skipped because F13 owns the local Bambu Studio SIGSEGV; physical slipper printing stays under Phase 16 beta/physical validation.
+6. Superseded: Wave 36 verified live Bambu CLI slicing for PrintPipe-generated full-settings `.3mf` bundles; physical slipper printing stays under Phase 16 beta/physical validation.
 
 ## Wave 29 - Physical Evidence Packets
 
@@ -331,7 +331,7 @@ Status: complete for F10. This proves a clean macOS package smoke path around th
 3. Done: added `printpipe package-smoke --platform macos --runs-dir ... --json`.
 4. Done: the smoke command runs the real existing-mesh pipeline and records run root, reports, bundle paths, and slice-gate status.
 5. Done: updated `docs/PACKAGING.md` and `docs/APP_ROADMAP.md` with the F10 boundary.
-6. Remaining: original item 121 stays partial until there is a signed/notarized macOS app or installer flow; F13 still owns live Bambu CLI slicing.
+6. Remaining: original item 121 stays partial until there is a signed/notarized macOS app or installer flow.
 
 ## Wave 31 - Windows Package Smoke Path
 
@@ -346,14 +346,14 @@ Status: superseded by Wave 33. This wave added the Windows smoke command and Pow
 
 ## Wave 32 - Bambu CLI SIGSEGV Boundary
 
-Status: partial for F13. The crash is classified and documented as a Bambu CLI/runtime boundary, but there is still no verified non-crashing CLI slice path on this host.
+Status: superseded by Wave 36. This wave classified and documented the Bambu CLI/runtime crash boundary; Wave 36 then found the supported non-crashing PrintPipe path.
 
 1. Done: recorded current host facts: Bambu Studio `02.06.00.51`, macOS `26.5`, build `25F71`.
 2. Done: added `diagnose_bambu_cli_crash()` for known process-crash signatures.
 3. Done: slice receipts now include structured diagnosis for signal crashes such as `SIGSEGV`.
 4. Done: crash-report text containing `update_values_to_printer_extruders_for_multiple_filaments` is classified as `extruder_filament_mapping`.
 5. Done: added `docs/research/wave32_bambu_cli_sigsegv.md` with the current boundary and workaround.
-6. Remaining: capture a fresh crash receipt, test another Bambu/macOS or Windows combination, or find a non-crashing CLI invocation before marking F13 complete.
+6. Superseded: Wave 36 found that sparse/direct inputs fail or crash, while full-settings Bambu-native `.3mf` bundles slice successfully.
 
 ## Wave 33 - Windows Package Smoke Evidence
 
@@ -387,3 +387,14 @@ Status: partial for F9. Evidence capture is now visible in the product, but only
 4. Done: surfaced recorded physical evidence, packet links, and photo/artifact links in the run-detail workbench.
 5. Done: kept the UI honest: digital flex-coupon artifacts remain separate from physical coupon proof.
 6. Remaining: run real PLA, PETG, and TPU coupon/small-object prints, then attach photos/notes before marking F9 complete.
+
+## Wave 36 - Bambu CLI Full-Settings Slice Gate
+
+Status: complete for F13 and original item 90. PrintPipe-generated `.3mf` bundles now carry the full resolved Bambu project settings needed by Bambu Studio CLI.
+
+1. Done: reproduced the red regression that TPU bundles were missing inherited machine/process/filament keys such as `printable_area`.
+2. Done: traced the root cause to sparse `Metadata/project_settings.config` output; the old known-good slipper bundle had 454 settings, while PrintPipe bundles had only the custom overrides.
+3. Done: resolved Bambu/Orca profile inheritance from discovered profile roots and embedded machine, process, and filament defaults before applying SUNLU TPU 90A overrides.
+4. Done: verified a fresh SUNLU TPU 90A `printpipe run ... --slice` command against Bambu Studio `02.06.00.51` on macOS `26.5` returned code 0, wrote `plate_1.gcode`, and reported zero warnings/errors.
+5. Done: documented that raw direct-STL CLI slicing can still crash because it lacks project filament/profile context; PrintPipe's supported slice path is Bambu-native `.3mf`.
+6. Remaining: physical PLA/PETG/TPU validation and signed packaging are still separate gates; live Windows Bambu CLI slicing is useful evidence later, not required for F13.

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from printpipe.bambu.profiles import load_profile, resolve_inherits
+from printpipe.bambu.profiles.sources import default_bambu_orca_profile_roots
 from printpipe.bambu.slicer import run_bambu_cli_slice_stage
 from printpipe.bambu.threemf import BambuProfileIds, GuiSafeTransform, validate_bundle
 from printpipe.bambu.threemf.mesh_adapter import write_bundle_from_ascii_stl
@@ -60,6 +62,13 @@ DEFAULT_PROFILE_IDS = BambuProfileIds(
     nozzle_diameter="0.4",
     printable_height="256",
 )
+DEFAULT_BBL_P2S_PROCESS_PROFILE = "0.20mm Standard @BBL P2S"
+BAMBU_TPU_90A_FILAMENT_PROFILE = "Bambu TPU 90A @BBL P2S"
+GENERIC_PLA_FILAMENT_PROFILE_FALLBACKS = (
+    "Generic PLA @BBL P2S",
+    "Bambu PLA Basic @BBL P2S",
+    "Bambu PLA Basic @base",
+)
 
 
 @dataclass(frozen=True)
@@ -80,6 +89,7 @@ class BundleProfileConfig:
     profile_ids: BambuProfileIds
     filament_settings: Mapping[str, Any]
     process_settings: Mapping[str, Any]
+    printer_settings: Mapping[str, Any]
     material_rule_slug: str | None = None
     material_rule_name: str | None = None
 
@@ -345,6 +355,7 @@ def run_existing_mesh_pipeline_on_layout(
         transform=GuiSafeTransform.bed_center(DEFAULT_BED.width_mm, DEFAULT_BED.depth_mm),
         filament_settings=bundle_profile.filament_settings,
         process_settings=bundle_profile.process_settings,
+        printer_settings=bundle_profile.printer_settings,
     )
     stages.append(
         _bundle_stage_receipt(
@@ -845,12 +856,26 @@ def _bundle_stage_receipt(
 
 
 def _bundle_profile_config(material: str) -> BundleProfileConfig:
+    profiles = _available_bambu_profiles()
+    printer_settings = _resolved_bambu_profile_settings(
+        DEFAULT_PROFILE_IDS.printer_settings_id,
+        profiles=profiles,
+    )
     tpu_rule = _tpu_rule_for_material(material)
     if tpu_rule is None:
         return BundleProfileConfig(
             profile_ids=DEFAULT_PROFILE_IDS,
-            filament_settings={},
-            process_settings={},
+            filament_settings=_resolved_bambu_profile_settings(
+                DEFAULT_PROFILE_IDS.filament_settings_id,
+                *GENERIC_PLA_FILAMENT_PROFILE_FALLBACKS,
+                profiles=profiles,
+            ),
+            process_settings=_resolved_bambu_profile_settings(
+                DEFAULT_PROFILE_IDS.print_settings_id,
+                DEFAULT_BBL_P2S_PROCESS_PROFILE,
+                profiles=profiles,
+            ),
+            printer_settings=printer_settings,
         )
 
     profile_ids = BambuProfileIds(
@@ -862,13 +887,57 @@ def _bundle_profile_config(material: str) -> BundleProfileConfig:
         nozzle_diameter=DEFAULT_PROFILE_IDS.nozzle_diameter,
         printable_height=DEFAULT_PROFILE_IDS.printable_height,
     )
+    base_filament_settings = _resolved_bambu_profile_settings(
+        profile_ids.filament_settings_id,
+        BAMBU_TPU_90A_FILAMENT_PROFILE,
+        profiles=profiles,
+    )
+    base_process_settings = _resolved_bambu_profile_settings(
+        profile_ids.print_settings_id,
+        DEFAULT_BBL_P2S_PROCESS_PROFILE,
+        DEFAULT_PROFILE_IDS.print_settings_id,
+        profiles=profiles,
+    )
     return BundleProfileConfig(
         profile_ids=profile_ids,
-        filament_settings=tpu_rule.filament_overrides,
-        process_settings=tpu_rule.process_overrides,
+        filament_settings={**base_filament_settings, **tpu_rule.filament_overrides},
+        process_settings={**base_process_settings, **tpu_rule.process_overrides},
+        printer_settings=printer_settings,
         material_rule_slug=tpu_rule.slug,
         material_rule_name=tpu_rule.name,
     )
+
+
+def _available_bambu_profiles() -> dict[str, Mapping[str, Any]]:
+    profiles: dict[str, Mapping[str, Any]] = {}
+    for root in default_bambu_orca_profile_roots():
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*.json"), key=lambda item: str(item.relative_to(root))):
+            try:
+                profile = load_profile(path)
+            except (OSError, ValueError):
+                continue
+            name = profile.get("name")
+            if isinstance(name, str) and name:
+                profiles.setdefault(name, profile)
+    return profiles
+
+
+def _resolved_bambu_profile_settings(
+    profile_name: str,
+    *fallback_profile_names: str,
+    profiles: Mapping[str, Mapping[str, Any]],
+) -> Mapping[str, Any]:
+    for candidate in (profile_name, *fallback_profile_names):
+        profile = profiles.get(candidate)
+        if profile is None:
+            continue
+        try:
+            return resolve_inherits(profile, profiles=profiles)
+        except (KeyError, ValueError):
+            continue
+    return {}
 
 
 def _tpu_rule_for_material(material: str) -> TpuMaterialRule | None:

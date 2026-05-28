@@ -1,8 +1,8 @@
 # Wave 32 Bambu CLI SIGSEGV Boundary
 
-Status: F13 is narrowed but not solved. PrintPipe now classifies Bambu CLI
-process crashes as a slicer/runtime boundary and preserves that diagnosis in
-slice receipts.
+Status: superseded by Wave 36. This wave narrowed the crash; Wave 36 then
+found the supported non-crashing PrintPipe path by embedding fully resolved
+Bambu project settings in generated `.3mf` bundles.
 
 ## Current Host Facts
 
@@ -18,13 +18,20 @@ slice receipts.
 
 ## What This Means
 
-The failure is currently treated as a Bambu Studio CLI/runtime crash, not as
-proof that the PrintPipe `.3mf` bundle is invalid. The important evidence is
-that the same local Bambu CLI path has crashed on both a direct tiny STL and a
-PrintPipe-generated `.3mf`.
+The original failure was treated as a Bambu Studio CLI/runtime crash, not as
+proof that the PrintPipe `.3mf` bundle was invalid. Later investigation split
+the behavior into three cases:
 
-PrintPipe still cannot call a run fully slice-verified until the CLI returns a
-successful receipt or an equivalent trusted workaround is built.
+- Raw direct STL passed to `BambuStudio --slice` can still crash or fail because
+  it lacks Bambu project filament/profile context.
+- Sparse PrintPipe `.3mf` bundles avoided the direct-STL path but still missed
+  full machine/process/filament settings.
+- Full-settings Bambu-native PrintPipe `.3mf` bundles slice successfully on this
+  host.
+
+The supported PrintPipe slice path is therefore: generate Bambu-native `.3mf`,
+embed the fully resolved profile stack in `Metadata/project_settings.config`,
+then invoke Bambu CLI on the `.3mf`.
 
 ## Implemented Handling
 
@@ -44,17 +51,15 @@ successful receipt or an equivalent trusted workaround is built.
 
 ## Current Workaround
 
-Use Bambu Studio GUI/manual slicing for real print decisions. Re-test CLI
-slicing after a Bambu Studio update, a macOS update, or a discovered
-non-crashing CLI invocation.
+Use PrintPipe-generated `.3mf` bundles with fully resolved project settings for
+CLI slicing. Do not use direct raw-STL CLI slicing as the product path.
 
-## Remaining F13 Work
+## Wave 36 Resolution
 
-- Capture a fresh crash receipt from this machine without relying on a pasted
-  Apple crash dialog.
-- Test a different Bambu Studio version or macOS version.
-- Test a Windows Bambu Studio CLI path.
-- Try a non-P2S profile and a one-filament generic profile to determine whether
-  the crash is tied to P2S/profile/extruder map handling.
-- If a non-crashing invocation is found, record it as the default slice-gate
-  command and move F13 to done.
+- Old known-good slipper `.3mf`: Bambu CLI returned 0.
+- Direct tiny STL: Bambu CLI still crashed/failed with missing filament context.
+- Sparse PrintPipe slipper `.3mf`: Bambu CLI failed because there was "Nothing
+  to be sliced" or incomplete project context.
+- Patched full-settings PrintPipe `.3mf`: Bambu CLI returned 0.
+- Fresh PrintPipe SUNLU TPU 90A test run: Bambu CLI returned 0, wrote
+  `plate_1.gcode`, reported 207 s, 0.34 g, 48 layers, and zero warnings/errors.

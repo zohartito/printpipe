@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 35: 123 done, 19 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 36: 124 done, 18 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -132,7 +132,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Phase 11 - Slice Gate
 
-- [~] 90. Run Bambu CLI slice.
+- [x] 90. Run Bambu CLI slice.
 - [x] 91. Parse warnings/errors.
 - [x] 92. Extract time, mass, layers, cost.
 - [x] 93. Fail or retry if non-manifold, off-bed, enum replacement, or floating cantilever.
@@ -206,7 +206,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 35 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs now prepare references, call the configured Hunyuan3D local adapter, and then continue through the same repair/orient/bundle/report spine. If `PRINTPIPE_HUNYUAN3D_COMMAND` is unset, media runs fail at `meshgen` with a provider-configuration receipt instead of silently pretending to generate geometry. The wide-upper slipper mesh has now run through PrintPipe itself with SUNLU TPU 90A material intent, TPU profile IDs/settings in the `.3mf`, 0 warnings, a watertight repair receipt, bed-fit receipt, bundle validation, and a generated flex-coupon artifact. Physical print evidence now has a structured beta packet for real coupon/object results plus `printpipe record-physical-evidence`, which writes `90_physical/physical_evidence.json` and `.md`, copies attached photos/artifacts into `90_physical/artifacts/`, and surfaces the packet in the run-detail UI; the actual PLA/PETG/TPU physical prints are still not complete. The macOS package smoke path now has a `printpipe package-smoke --platform macos` command that writes a generated ASCII STL, runs the real pipeline, and reports bundle/report evidence; this is not yet a signed or notarized `.app`, so original item 121 remains partial. The Windows package smoke path now has real `desktop-zt` evidence: it ran the generated-STL smoke path on Windows, produced reports and a `.3mf`, and returned `status=ok`; original item 122 remains partial only because there is still no signed installer. Slice receipts now include structured SIGSEGV diagnosis for the Bambu CLI crash signature, but Bambu Studio 2.6.00.51 on this macOS 26.5 machine still crashes in CLI slicing, so original roadmap item 90 remains partial until the local Bambu CLI crash is bypassed or a fixed Bambu/macOS combination is verified. The run-detail UI and CLI both expose local open-folder affordances for bundle/report folders. `printpipe doctor` now reports workspace and configured artifact readability, web run status marks unreadable external artifacts without crashing, and troubleshooting docs include the macOS Desktop/TCC recovery path.
+Wave 36 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs now prepare references, call the configured Hunyuan3D local adapter, and then continue through the same repair/orient/bundle/report spine. If `PRINTPIPE_HUNYUAN3D_COMMAND` is unset, media runs fail at `meshgen` with a provider-configuration receipt instead of silently pretending to generate geometry. The wide-upper slipper mesh has now run through PrintPipe itself with SUNLU TPU 90A material intent, TPU profile IDs/settings in the `.3mf`, 0 warnings, a watertight repair receipt, bed-fit receipt, bundle validation, and a generated flex-coupon artifact. Physical print evidence now has a structured beta packet for real coupon/object results plus `printpipe record-physical-evidence`, which writes `90_physical/physical_evidence.json` and `.md`, copies attached photos/artifacts into `90_physical/artifacts/`, and surfaces the packet in the run-detail UI; the actual PLA/PETG/TPU physical prints are still not complete. The macOS package smoke path now has a `printpipe package-smoke --platform macos` command that writes a generated ASCII STL, runs the real pipeline, and reports bundle/report evidence; this is not yet a signed or notarized `.app`, so original item 121 remains partial. The Windows package smoke path now has real `desktop-zt` evidence: it ran the generated-STL smoke path on Windows, produced reports and a `.3mf`, and returned `status=ok`; original item 122 remains partial only because there is still no signed installer. The Bambu CLI slice gate is now verified for PrintPipe-generated Bambu-native `.3mf` bundles on this host: TPU bundles embed fully resolved machine/process/filament settings, a live SUNLU TPU 90A run returned code 0 with G-code, and raw direct-STL CLI crashes are documented as outside the supported slice path. The run-detail UI and CLI both expose local open-folder affordances for bundle/report folders. `printpipe doctor` now reports workspace and configured artifact readability, web run status marks unreadable external artifacts without crashing, and troubleshooting docs include the macOS Desktop/TCC recovery path.
 
 ## Post-Wave 13 Findings Backlog
 
@@ -224,7 +224,7 @@ These items are not part of the original 142 count. They come from Wave 13 verif
 - [x] F10. Build a clean macOS app/package smoke path.
 - [x] F11. Build a clean Windows package smoke path.
 - [x] F12. Add a regression for unreadable external artifact paths so permission problems skip or report clearly instead of crashing.
-- [~] F13. Isolate Bambu Studio 2.6.00.51 CLI `--slice` SIGSEGV on macOS 26.5; slice receipts now diagnose the known SIGSEGV boundary, but a non-crashing CLI invocation or fixed Bambu/macOS combo is still pending.
+- [x] F13. Isolate Bambu Studio 2.6.00.51 CLI `--slice` SIGSEGV on macOS 26.5; PrintPipe now slices Bambu-native `.3mf` bundles with fully resolved project settings, while raw direct-STL CLI crashes remain documented as outside the supported path.
 - [x] F14. Add run-detail workbench route with print verdict, preview/workbench area, artifact links, and edit controls.
 - [x] F15. Add non-destructive edit recipes and child edit runs.
 - [x] F16. Rebuild edit runs deterministically from saved recipes, with scale-only geometry and explicit semantic warnings.

@@ -88,3 +88,95 @@ def test_existing_ascii_stl_runs_pipeline_and_writes_bundle_in_run_dir(tmp_path:
     ]
     assert project_settings["print_settings_id"] == metadata["profile_ids"]["print_settings_id"]
     assert project_settings["printer_settings_id"] == metadata["profile_ids"]["printer_settings_id"]
+
+
+def test_tpu_bundle_embeds_resolved_bambu_profile_settings_for_cli(
+    tmp_path: Path,
+    monkeypatch,
+):
+    profile_root = tmp_path / "profiles" / "BBL"
+    _write_profile(
+        profile_root / "machine" / "fdm_bbl_3dp_001_common.json",
+        {
+            "name": "fdm_bbl_3dp_001_common",
+            "type": "machine",
+            "printer_model": "Bambu Lab P2S",
+            "printable_area": ["0x0", "256x0", "256x256", "0x256"],
+            "machine_start_gcode": "G28 ; home from base machine",
+        },
+    )
+    _write_profile(
+        profile_root / "machine" / "Bambu Lab P2S 0.4 nozzle.json",
+        {
+            "name": "Bambu Lab P2S 0.4 nozzle",
+            "type": "machine",
+            "inherits": "fdm_bbl_3dp_001_common",
+            "nozzle_type": ["hardened_steel"],
+        },
+    )
+    _write_profile(
+        profile_root / "process" / "fdm_process_single_0.20.json",
+        {
+            "name": "fdm_process_single_0.20",
+            "type": "process",
+            "wall_loops": "2",
+            "base_process_marker": "from-base-process",
+        },
+    )
+    _write_profile(
+        profile_root / "process" / "0.20mm Standard @BBL P2S.json",
+        {
+            "name": "0.20mm Standard @BBL P2S",
+            "type": "process",
+            "inherits": "fdm_process_single_0.20",
+            "compatible_printers": ["Bambu Lab P2S 0.4 nozzle"],
+        },
+    )
+    _write_profile(
+        profile_root / "filament" / "Bambu TPU 90A @base.json",
+        {
+            "name": "Bambu TPU 90A @base",
+            "type": "filament",
+            "filament_type": ["TPU"],
+            "filament_max_volumetric_speed": ["2.8"],
+        },
+    )
+    _write_profile(
+        profile_root / "filament" / "Bambu TPU 90A @BBL P2S.json",
+        {
+            "name": "Bambu TPU 90A @BBL P2S",
+            "type": "filament",
+            "inherits": "Bambu TPU 90A @base",
+            "compatible_printers": ["Bambu Lab P2S 0.4 nozzle"],
+        },
+    )
+    monkeypatch.setenv("PRINTPIPE_BAMBU_PROFILE_ROOTS", str(profile_root))
+
+    result = run_existing_mesh_pipeline(
+        STL_FIXTURE,
+        tmp_path / "runs",
+        material="SUNLU TPU 90A",
+    )
+    bundle_path = next(
+        artifact.path
+        for artifact in result.artifacts
+        if artifact.kind == ArtifactKind.THREEMF
+    )
+
+    with zipfile.ZipFile(bundle_path) as archive:
+        project_settings = json.loads(archive.read("Metadata/project_settings.config"))
+
+    assert project_settings["printable_area"] == ["0x0", "256x0", "256x256", "0x256"]
+    assert project_settings["machine_start_gcode"] == "G28 ; home from base machine"
+    assert project_settings["base_process_marker"] == "from-base-process"
+    assert project_settings["wall_loops"] == ["3"]
+    assert project_settings["filament_type"] == ["TPU"]
+    assert project_settings["filament_settings_id"] == ["SUNLU TPU 90A Slipper @BBL P2S"]
+    assert project_settings["print_settings_id"] == "0.20mm Slipper TPU 90A @BBL P2S"
+    assert project_settings["support_style"] == ["snug"]
+    assert project_settings["brim_object_gap"] == ["0.12"]
+
+
+def _write_profile(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
