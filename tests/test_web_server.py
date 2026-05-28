@@ -1024,6 +1024,202 @@ def test_run_detail_response_surfaces_physical_evidence_packet(tmp_path: Path):
     )
 
 
+def test_run_detail_response_surfaces_physical_evidence_context_fields(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-physical-ui-context")
+    write_run_report(layout, stages=())
+    photo = layout.root / "90_physical" / "artifacts" / "first-layer.jpg"
+    photo.parent.mkdir(parents=True)
+    photo.write_bytes(b"photo")
+    write_physical_evidence_files(
+        run_root=layout.root,
+        evidence=build_physical_print_evidence(
+            run_id=layout.run_id,
+            material="Bambu PETG Basic",
+            printer="Bambu Lab P2S",
+            object_label="tiny tetrahedron",
+            print_type="small_object",
+            print_status="partial",
+            operator="Zohar",
+            started_at="2026-05-28T18:10:00-07:00",
+            completed_at="2026-05-28T18:42:00-07:00",
+            first_layer="front corner lifted slightly",
+            adhesion="usable with brim",
+            warping="minor front lift",
+            stringing="light wisps",
+            artifacts=(
+                PhysicalArtifact(
+                    label="First-layer photo",
+                    path="90_physical/artifacts/first-layer.jpg",
+                    kind="photo",
+                ),
+            ),
+        ),
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/run-physical-ui-context")
+
+    assert response.status == 200
+    assert "Partial physical small_object: tiny tetrahedron" in response.text
+    assert "Material: Bambu PETG Basic" in response.text
+    assert "Printer: Bambu Lab P2S" in response.text
+    assert "Started: 2026-05-28T18:10:00-07:00" in response.text
+    assert "Completed: 2026-05-28T18:42:00-07:00" in response.text
+    assert "Physical evidence recorded: partial" in response.text
+
+
+def test_run_detail_response_hides_physical_evidence_panel_without_packet(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-physical-ui-none")
+    write_run_report(layout, stages=())
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/run-physical-ui-none")
+
+    assert response.status == 200
+    assert 'aria-label="Physical evidence"' not in response.text
+    assert "Physical coupon/print evidence not recorded" in response.text
+
+
+def test_run_detail_response_surfaces_failed_physical_evidence(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-physical-ui-failed")
+    write_run_report(layout, stages=())
+    photo = layout.root / "90_physical" / "artifacts" / "coupon.jpg"
+    photo.parent.mkdir(parents=True)
+    photo.write_bytes(b"photo")
+    write_physical_evidence_files(
+        run_root=layout.root,
+        evidence=build_physical_print_evidence(
+            run_id=layout.run_id,
+            material="SUNLU TPU 90A",
+            printer="Bambu Lab P2S",
+            object_label="flex coupon",
+            print_type="coupon",
+            print_status="failed",
+            operator="Zohar",
+            filament_drying="50 C for 6 h",
+            layer_bonding="split at layer 12",
+            flex_recovery="not tested because print failed",
+            artifacts=(
+                PhysicalArtifact(
+                    label="Failed coupon photo",
+                    path="90_physical/artifacts/coupon.jpg",
+                    kind="photo",
+                ),
+            ),
+        ),
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/run-physical-ui-failed")
+
+    assert response.status == 200
+    assert "Failed physical coupon: flex coupon" in response.text
+    assert "Physical evidence recorded: failed" in response.text
+    assert "physically validated" not in response.text.lower()
+    assert 'href="/runs/run-physical-ui-failed/artifacts/90_physical/physical_evidence.json"' in (
+        response.text
+    )
+    assert 'href="/runs/run-physical-ui-failed/artifacts/90_physical/artifacts/coupon.jpg"' in (
+        response.text
+    )
+
+
+def test_run_detail_response_surfaces_incomplete_physical_evidence(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-physical-ui-incomplete")
+    flex_coupon = layout.geometry_dir / "flex_coupon_40x15x3.stl"
+    flex_coupon.parent.mkdir(parents=True, exist_ok=True)
+    flex_coupon.write_text("solid flex\n", encoding="utf-8")
+    write_run_report(
+        layout,
+        stages=(
+            StageReceipt(
+                stage="orient_scale",
+                status=StageStatus.SUCCEEDED,
+                message="Oriented for bed fit.",
+                artifacts=(
+                    Artifact(
+                        kind=ArtifactKind.CALIBRATION_MESH,
+                        path=flex_coupon,
+                        label="Flex coupon ASCII STL",
+                    ),
+                ),
+            ),
+        ),
+        settings_changes=(
+            {
+                "printer_label": "Bambu Lab P2S",
+                "material_label": "SUNLU TPU 90A",
+                "profile_label": "0.20mm Slipper TPU 90A @BBL P2S",
+                "use_case": "wearable slipper",
+            },
+        ),
+    )
+    write_physical_evidence_files(
+        run_root=layout.root,
+        evidence=build_physical_print_evidence(
+            run_id=layout.run_id,
+            material="SUNLU TPU 90A",
+            printer="Bambu Lab P2S",
+            object_label="flex coupon",
+            print_type="coupon",
+            print_status="passed",
+            operator="Zohar",
+        ),
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/run-physical-ui-incomplete")
+
+    assert response.status == 200
+    assert "Passed physical coupon: flex coupon" in response.text
+    assert "Missing: photo artifact" in response.text
+    assert "Physical evidence incomplete: photo artifact" in response.text
+    assert "Required; coupon artifact generated, physical print not recorded" in response.text
+    assert "Required; physical coupon evidence recorded" not in response.text
+    assert "physically validated" not in response.text.lower()
+
+
+def test_run_detail_response_keeps_not_printed_physical_packet_honest(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-physical-ui-not-printed")
+    write_run_report(layout, stages=())
+    write_physical_evidence_files(
+        run_root=layout.root,
+        evidence=build_physical_print_evidence(
+            run_id=layout.run_id,
+            material="SUNLU TPU 90A",
+            printer="Bambu Lab P2S",
+            object_label="flex coupon",
+            print_type="coupon",
+            print_status="not_printed",
+            operator="Zohar",
+        ),
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/run-physical-ui-not-printed")
+
+    assert response.status == 200
+    assert "Physical coupon recorded: flex coupon" in response.text
+    assert "Physical evidence recorded; review packet" in response.text
+    assert "Physical evidence recorded: not_printed" not in response.text
+    assert "physical coupon evidence recorded" not in response.text.lower()
+
+
 def test_run_detail_response_surfaces_prompt_image_quote_receipt(tmp_path: Path):
     source = tmp_path / "prompt.txt"
     source.write_text("small ergonomic wall hook\n", encoding="utf-8")

@@ -375,3 +375,121 @@ def test_run_detail_contract_loads_physical_evidence_packet(tmp_path: Path):
         "json": "90_physical/physical_evidence.json",
         "markdown": "90_physical/physical_evidence.md",
     }
+
+
+def test_run_detail_contract_without_physical_evidence_packet(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-no-physical-001")
+
+    detail = build_run_detail(layout.root)
+
+    assert detail["physical_evidence"] == {
+        "available": False,
+        "missing_required_evidence": ["physical evidence packet"],
+        "packet_paths": {},
+    }
+
+
+def test_run_detail_contract_not_printed_physical_evidence(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-physical-not-printed")
+    write_physical_evidence_files(
+        run_root=layout.root,
+        evidence=build_physical_print_evidence(
+            run_id=layout.run_id,
+            material="SUNLU TPU 90A",
+            printer="Bambu Lab P2S",
+            object_label="flex coupon",
+            print_type="coupon",
+            print_status="not_printed",
+            operator="Zohar",
+        ),
+    )
+
+    detail = build_run_detail(layout.root)
+
+    assert detail["physical_evidence"]["available"] is True
+    assert detail["physical_evidence"]["print_status"] == "not_printed"
+    assert detail["physical_evidence"]["missing_required_evidence"] == []
+
+
+def test_run_detail_contract_failed_physical_evidence_lists_missing_fields(
+    tmp_path: Path,
+):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-physical-failed")
+    photo = layout.root / "90_physical" / "artifacts" / "coupon.jpg"
+    photo.parent.mkdir(parents=True)
+    photo.write_bytes(b"photo")
+    write_physical_evidence_files(
+        run_root=layout.root,
+        evidence=build_physical_print_evidence(
+            run_id=layout.run_id,
+            material="SUNLU TPU 90A",
+            printer="Bambu Lab P2S",
+            object_label="flex coupon",
+            print_type="coupon",
+            print_status="failed",
+            operator="Zohar",
+            artifacts=(
+                PhysicalArtifact(
+                    label="Failed coupon photo",
+                    path="90_physical/artifacts/coupon.jpg",
+                    kind="photo",
+                ),
+            ),
+        ),
+    )
+
+    detail = build_run_detail(layout.root)
+
+    assert detail["physical_evidence"]["print_status"] == "failed"
+    assert detail["physical_evidence"]["missing_required_evidence"] == [
+        "filament_drying",
+        "layer_bonding",
+        "flex_recovery",
+    ]
+
+
+def test_run_detail_contract_partial_physical_evidence(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-physical-partial")
+    photo = layout.root / "90_physical" / "artifacts" / "first-layer.jpg"
+    photo.parent.mkdir(parents=True)
+    photo.write_bytes(b"photo")
+    write_physical_evidence_files(
+        run_root=layout.root,
+        evidence=build_physical_print_evidence(
+            run_id=layout.run_id,
+            material="Bambu PETG Basic",
+            printer="Bambu Lab P2S",
+            object_label="tiny tetrahedron",
+            print_type="small_object",
+            print_status="partial",
+            operator="Zohar",
+            started_at="2026-05-28T18:10:00-07:00",
+            completed_at="2026-05-28T18:42:00-07:00",
+            first_layer="front corner lifted slightly",
+            adhesion="usable with brim",
+            warping="minor front lift",
+            stringing="light wisps",
+            artifacts=(
+                PhysicalArtifact(
+                    label="First-layer photo",
+                    path="90_physical/artifacts/first-layer.jpg",
+                    kind="photo",
+                ),
+            ),
+        ),
+    )
+
+    detail = build_run_detail(layout.root)
+
+    assert detail["physical_evidence"]["print_status"] == "partial"
+    assert detail["physical_evidence"]["started_at"] == "2026-05-28T18:10:00-07:00"
+    assert detail["physical_evidence"]["completed_at"] == "2026-05-28T18:42:00-07:00"
+    assert detail["physical_evidence"]["missing_required_evidence"] == []
