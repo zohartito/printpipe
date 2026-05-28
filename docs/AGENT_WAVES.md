@@ -343,3 +343,14 @@ Status: partial for F11. The Windows smoke command and PowerShell-ready plan exi
 4. Done: the Windows implementation can run the same generated-STL pipeline when invoked on a real Windows runtime.
 5. Done: updated `docs/PACKAGING.md` and `docs/APP_ROADMAP.md` with the F11 boundary.
 6. Remaining: run the command on a clean Windows host and attach the JSON evidence before marking F11 complete.
+
+## Wave 32 - Bambu CLI SIGSEGV Boundary
+
+Status: partial for F13. The crash is classified and documented as a Bambu CLI/runtime boundary, but there is still no verified non-crashing CLI slice path on this host.
+
+1. Done: recorded current host facts: Bambu Studio `02.06.00.51`, macOS `26.5`, build `25F71`.
+2. Done: added `diagnose_bambu_cli_crash()` for known process-crash signatures.
+3. Done: slice receipts now include structured diagnosis for signal crashes such as `SIGSEGV`.
+4. Done: crash-report text containing `update_values_to_printer_extruders_for_multiple_filaments` is classified as `extruder_filament_mapping`.
+5. Done: added `docs/research/wave32_bambu_cli_sigsegv.md` with the current boundary and workaround.
+6. Remaining: capture a fresh crash receipt, test another Bambu/macOS or Windows combination, or find a non-crashing CLI invocation before marking F13 complete.

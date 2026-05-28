@@ -236,6 +236,71 @@ def classify_slicer_output(stdout: str, stderr: str, return_code: int) -> SliceR
     )
 
 
+def diagnose_bambu_cli_crash(
+    *,
+    return_code: int,
+    stderr: str = "",
+    crash_report: str = "",
+    compared_inputs: Sequence[str] = (),
+) -> dict[str, Any] | None:
+    """Return a stable diagnosis for known Bambu CLI process crashes."""
+
+    combined = "\n".join(part for part in (stderr, crash_report) if part)
+    signal_crash = return_code < 0
+    sigsegv = return_code == -signal.SIGSEGV or "SIGSEGV" in combined
+    exc_bad_access = "EXC_BAD_ACCESS" in combined
+    if not (signal_crash or sigsegv or exc_bad_access):
+        return None
+
+    evidence: list[str] = []
+    if return_code < 0:
+        signal_number = abs(return_code)
+        try:
+            signal_name = signal.Signals(signal_number).name
+        except ValueError:
+            signal_name = "UNKNOWN"
+        evidence.append(f"process terminated by signal {signal_number} ({signal_name})")
+    elif sigsegv:
+        signal_name = "SIGSEGV"
+        evidence.append("crash report names SIGSEGV")
+    else:
+        signal_name = "UNKNOWN"
+        evidence.append("crash report names EXC_BAD_ACCESS")
+
+    signature = "process_crash"
+    if "update_values_to_printer_extruders_for_multiple_filaments" in combined:
+        signature = "extruder_filament_mapping"
+        evidence.append(
+            "crash stack contains update_values_to_printer_extruders_for_multiple_filaments"
+        )
+    if "update_filament_maps_to_config" in combined:
+        evidence.append("crash stack contains update_filament_maps_to_config")
+
+    printpipe_bundle_specific: bool | None
+    compared = {item.lower() for item in compared_inputs}
+    if {"direct stl", "printpipe generated 3mf"}.issubset(compared):
+        printpipe_bundle_specific = False
+        evidence.append("crash reproduced across direct STL and PrintPipe generated 3MF")
+    elif compared_inputs:
+        printpipe_bundle_specific = None
+        evidence.append("crash comparison set is incomplete: " + ", ".join(compared_inputs))
+    else:
+        printpipe_bundle_specific = None
+
+    return {
+        "kind": "bambu_cli_segfault" if sigsegv else "bambu_cli_process_crash",
+        "signal": signal_name,
+        "scope": "bambu_cli_runtime",
+        "signature": signature,
+        "printpipe_bundle_specific": printpipe_bundle_specific,
+        "evidence": evidence,
+        "recommended_next_step": (
+            "Use Bambu Studio GUI/manual slicing as the current workaround; "
+            "re-test CLI slicing after a Bambu Studio or macOS update."
+        ),
+    }
+
+
 def parse_slice_estimate_from_text(text: str) -> SliceResult:
     """Parse simple Bambu stdout/G-code/Markdown estimate patterns."""
 
@@ -601,7 +666,7 @@ def _float_from_text(value: str) -> float:
 
 
 def _slice_result_payload(result: SliceResult) -> dict[str, Any]:
-    return {
+    payload = {
         "return_code": result.return_code,
         "warnings": list(result.warnings),
         "errors": list(result.errors),
@@ -613,6 +678,10 @@ def _slice_result_payload(result: SliceResult) -> dict[str, Any]:
         "log_path": _path_to_text(result.log_path),
         "stderr_log_path": _path_to_text(result.stderr_log_path),
     }
+    diagnosis = diagnose_bambu_cli_crash(return_code=result.return_code)
+    if diagnosis is not None:
+        payload["diagnosis"] = diagnosis
+    return payload
 
 
 def _slice_result_metrics(result: SliceResult) -> dict[str, Any]:
@@ -625,6 +694,9 @@ def _slice_result_metrics(result: SliceResult) -> dict[str, Any]:
         value = getattr(result, key)
         if value is not None:
             metrics[key] = value
+    diagnosis = diagnose_bambu_cli_crash(return_code=result.return_code)
+    if diagnosis is not None:
+        metrics["diagnosis"] = diagnosis
     return metrics
 
 

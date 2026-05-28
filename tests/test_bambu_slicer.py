@@ -14,6 +14,7 @@ from printpipe.bambu.slicer import (
     bambu_cli_candidate_paths,
     build_bambu_slice_command,
     classify_slicer_output,
+    diagnose_bambu_cli_crash,
     discover_bambu_cli_executable,
     gate_slice,
     parse_slice_estimate_from_text,
@@ -289,6 +290,41 @@ def test_classify_slicer_output_names_unix_signal_crashes():
     assert result.errors == ("slicer terminated by signal 11 (SIGSEGV)",)
 
 
+def test_diagnose_bambu_cli_crash_recognizes_macos_extruder_mapping_segfault():
+    crash_text = """
+Exception Type:    EXC_BAD_ACCESS (SIGSEGV)
+Thread 0 Crashed:: bambustu_main
+0   BambuStudio Slic3r::DynamicPrintConfig::update_values_to_printer_extruders_for_multiple_filaments(...) + 4900
+1   BambuStudio Slic3r::Print::update_filament_maps_to_config(...) + 2848
+2   BambuStudio Slic3r::ToolOrdering::reorder_extruders_for_minimum_flush_volume(bool) + 1604
+"""
+
+    diagnosis = diagnose_bambu_cli_crash(
+        return_code=-11,
+        stderr="",
+        crash_report=crash_text,
+        compared_inputs=("direct STL", "PrintPipe generated 3MF"),
+    )
+
+    assert diagnosis == {
+        "kind": "bambu_cli_segfault",
+        "signal": "SIGSEGV",
+        "scope": "bambu_cli_runtime",
+        "signature": "extruder_filament_mapping",
+        "printpipe_bundle_specific": False,
+        "evidence": [
+            "process terminated by signal 11 (SIGSEGV)",
+            "crash stack contains update_values_to_printer_extruders_for_multiple_filaments",
+            "crash stack contains update_filament_maps_to_config",
+            "crash reproduced across direct STL and PrintPipe generated 3MF",
+        ],
+        "recommended_next_step": (
+            "Use Bambu Studio GUI/manual slicing as the current workaround; "
+            "re-test CLI slicing after a Bambu Studio or macOS update."
+        ),
+    }
+
+
 def test_run_slice_command_writes_stdout_stderr_logs_and_parsed_result(tmp_path: Path):
     layout = FakeRunLayout(tmp_path / "70_slice")
     command = [
@@ -429,6 +465,8 @@ def test_slice_result_receipt_promotes_signal_crash_message(tmp_path: Path):
     assert receipt.status is StageStatus.FAILED
     assert receipt.message == "Bambu CLI slice failed: slicer terminated by signal 11 (SIGSEGV)."
     assert receipt.metrics["errors"] == ("slicer terminated by signal 11 (SIGSEGV)",)
+    assert receipt.metrics["diagnosis"]["scope"] == "bambu_cli_runtime"
+    assert receipt.metrics["diagnosis"]["printpipe_bundle_specific"] is None
 
 
 def test_gate_slice_allows_success_with_noncritical_warnings():
