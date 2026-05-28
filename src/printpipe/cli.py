@@ -199,6 +199,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write the executable Python adapter template to this path instead of stdout.",
     )
 
+    media_smoke = subparsers.add_parser(
+        "media-meshgen-smoke",
+        help="Smoke-test a configured image/GIF/video meshgen adapter without bundling.",
+    )
+    media_smoke.add_argument("input", type=Path, help="Image, GIF, or video reference to test.")
+    media_smoke.add_argument(
+        "--command",
+        dest="media_command",
+        help="Explicit PRINTPIPE_MEDIA_MESHGEN_COMMAND-compatible adapter command to test.",
+    )
+    media_smoke.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs/media-meshgen-smoke"),
+        help="Directory where media meshgen smoke run folders are created.",
+    )
+    media_smoke.add_argument(
+        "--output-format",
+        choices=("stl", "glb", "obj"),
+        default="stl",
+        help="Single mesh format requested from the adapter.",
+    )
+    media_smoke.add_argument(
+        "--prompt",
+        help="Optional prompt hint passed through to the media meshgen adapter.",
+    )
+
     package_smoke = subparsers.add_parser(
         "package-smoke",
         help="Run or describe local packaging smoke checks.",
@@ -1288,6 +1315,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "media-meshgen-template":
         return _media_meshgen_template(output_path=args.output)
 
+    if args.command == "media-meshgen-smoke":
+        return _media_meshgen_smoke(
+            input_path=args.input,
+            runs_dir=args.runs_dir,
+            command=args.media_command,
+            output_format=args.output_format,
+            prompt=args.prompt,
+            parser=parser,
+        )
+
     if args.command == "package-smoke":
         return _package_smoke(
             platform_name=args.platform,
@@ -2178,6 +2215,42 @@ def _media_meshgen_template(*, output_path: Path | None) -> int:
     print(f"wrote media meshgen adapter template: {written}")
     print(f"export PRINTPIPE_MEDIA_MESHGEN_COMMAND={shlex.quote(str(written))}")
     return 0
+
+
+def _media_meshgen_smoke(
+    *,
+    input_path: Path,
+    runs_dir: Path,
+    command: str | None,
+    output_format: str,
+    prompt: str | None,
+    parser: argparse.ArgumentParser,
+) -> int:
+    from printpipe.meshgen.smoke import run_media_meshgen_smoke, smoke_exit_code
+
+    try:
+        payload = run_media_meshgen_smoke(
+            input_path,
+            runs_dir=runs_dir,
+            command=command,
+            output_format=output_format,
+            prompt=prompt,
+        )
+    except FileNotFoundError:
+        parser.error(f"input does not exist: {input_path}")
+    except ValueError as exc:
+        parser.error(str(exc))
+
+    print(f"media meshgen smoke: {payload['status']}")
+    print(f"run id: {payload['run_id']}")
+    print(f"run root: {payload['run_root']}")
+    print(f"provider: {payload['provider_id']}")
+    print(f"smoke json: {Path(payload['run_root']) / payload['smoke_path']}")
+    if payload.get("output_path"):
+        print(f"mesh: {Path(payload['run_root']) / str(payload['output_path'])}")
+    if payload.get("error"):
+        print(f"error: {payload['error']}", file=sys.stderr)
+    return smoke_exit_code(payload)
 
 
 def _package_smoke(

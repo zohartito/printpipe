@@ -1804,3 +1804,14 @@ Status: complete for missing-provider honesty in the image/GIF/video path.
 4. Done: doctor/readiness missing-provider actions now include the template scaffold command.
 5. Done: CLI, pipeline, web upload, environment doctor, and beta readiness coverage prove the generic-first missing-provider copy.
 6. Boundary: this does not configure a real model/provider. It removes misleading Hunyuan-only failure copy from the no-provider path.
+
+## Wave 165 - Media Meshgen Adapter Smoke Command
+
+Status: partial progress for the remaining live media-meshgen provider gate.
+
+1. Done: added `printpipe media-meshgen-smoke <image|gif|video>` as a narrow adapter validation command.
+2. Done: the command accepts `--command` for one-off generic adapter testing, otherwise it uses `PRINTPIPE_MEDIA_MESHGEN_COMMAND`, then `PRINTPIPE_HUNYUAN3D_COMMAND`, then the generic missing-provider failure path.
+3. Done: smoke runs prepare media references, call the provider, and write `20_meshgen/smoke.json`, `summary.json`, and `attempts.jsonl`.
+4. Done: the command returns `0` only when a mesh is produced and `2` for provider/configuration failures.
+5. Done: README and troubleshooting docs now show the template-to-smoke flow before a full media run.
+6. Boundary: this does not install a model or make placeholder geometry count as real media-to-mesh. It gives Zohar and future agents a cheap proof step for any adapter they wire in.

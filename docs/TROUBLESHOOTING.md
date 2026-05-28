@@ -60,11 +60,16 @@ To scaffold the generic adapter protocol instead of starting from a blank file:
 ```bash
 printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
 export PRINTPIPE_MEDIA_MESHGEN_COMMAND="$(pwd)/scripts/media_meshgen_adapter.py"
+printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
 ```
 
 The generated script is executable and intentionally exits with an adapter
 placeholder error until `generate_mesh()` is replaced with a real local model,
 hosted wrapper, or provider API call.
+`media-meshgen-smoke` creates a narrow run folder and writes
+`20_meshgen/smoke.json`, `summary.json`, and `attempts.jsonl` without repairing,
+bundling, or slicing. Use it to prove the adapter writes a mesh before starting a
+full PrintPipe run.
 
 If an OBJ, GLB, GLTF, or 3MF input fails at `mesh_repair` with a
 `printpipe[mesh-repair]` message, install the optional mesh repair dependencies

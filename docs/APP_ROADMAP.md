@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 164: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 165: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 164 made missing-provider media failures generic-first instead of Hunyuan-first. If no media meshgen provider is configured, CLI, web, report warnings, and doctor/readiness actions now point at `printpipe media-meshgen-template`, `PRINTPIPE_MEDIA_MESHGEN_COMMAND`, `PRINTPIPE_HUNYUAN3D_COMMAND`, or a hosted provider. Hunyuan is still selected automatically when `PRINTPIPE_HUNYUAN3D_COMMAND` is set. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured live media meshgen provider for non-mesh inputs.
+Latest status: Wave 165 added `printpipe media-meshgen-smoke`, a narrow adapter validation command for image/GIF/video providers. It creates a smoke run, prepares references, invokes either an explicit `--command` or the configured media/Hunyuan adapter, writes `20_meshgen/smoke.json`, and stops before repair/bundling/slicing. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured live media meshgen provider for non-mesh inputs.
 
 ## Goal
 
