@@ -349,9 +349,16 @@ def run_existing_mesh_pipeline_on_layout(
     )
     if fallback_warning is not None:
         warnings = (*warnings, fallback_warning)
+    orientation_candidate = _selected_bed_fit_orientation(orientation_source)
+    rotation_degrees = (
+        orientation_candidate.rotation_degrees
+        if orientation_candidate is not None
+        else 0.0
+    )
     orientation_receipt = write_oriented_ascii_stl_artifacts(
         orientation_source,
         layout.geometry_dir,
+        rotation_degrees=rotation_degrees,
         stem=f"{imported_mesh.stem}_oriented",
     )
     stages.append(orientation_receipt)
@@ -388,18 +395,22 @@ def run_existing_mesh_pipeline_on_layout(
         )
         raise PipelineError(message, result)
 
-    vertices = read_ascii_stl_vertices(oriented_mesh)
-    candidates = candidate_rotations(vertices, DEFAULT_BED)
-    selected = select_top_orientations(candidates, require_bed_fit=True)
+    if orientation_candidate is None:
+        vertices = read_ascii_stl_vertices(oriented_mesh)
+        candidates = candidate_rotations(vertices, DEFAULT_BED)
+        selected = select_top_orientations(candidates, require_bed_fit=True)
+        preview_candidate = selected[0] if selected else candidates[0]
+    else:
+        preview_candidate = orientation_candidate
     bed_preview_receipt = write_bed_fit_preview_artifacts(
-        selected[0] if selected else candidates[0],
+        preview_candidate,
         DEFAULT_BED,
         layout.reports_dir,
         stem="bed_fit",
     )
     stages.append(bed_preview_receipt)
     model_preview_receipt = write_run_detail_model_preview_artifacts(
-        selected[0] if selected else candidates[0],
+        preview_candidate,
         DEFAULT_BED,
         layout.geometry_dir,
         stem="run_detail_model_preview",
@@ -859,6 +870,16 @@ def _orientation_source_warning(
         "mesh_repair: repaired mesh is not ASCII STL-readable by the current "
         "orientation/bundle adapters; using imported mesh for downstream artifacts"
     )
+
+
+def _selected_bed_fit_orientation(source_mesh: Path) -> Any | None:
+    try:
+        vertices = read_ascii_stl_vertices(source_mesh)
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
+    candidates = candidate_rotations(vertices, DEFAULT_BED)
+    selected = select_top_orientations(candidates, require_bed_fit=True)
+    return selected[0] if selected else candidates[0]
 
 
 def _first_artifact_path(receipt: StageReceipt, kind_value: str) -> Path | None:

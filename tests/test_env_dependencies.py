@@ -162,7 +162,7 @@ def test_executable_check_reports_missing_for_invalid_configured_path(tmp_path: 
 
 
 def test_preflight_returns_json_friendly_launch_report(monkeypatch, tmp_path: Path):
-    available_modules = {"trimesh"}
+    available_modules = {"trimesh", "networkx"}
     bambu = tmp_path / "bambu-studio"
     bambu.write_text("#!/bin/sh\n", encoding="utf-8")
     bambu.chmod(0o755)
@@ -187,13 +187,14 @@ def test_preflight_returns_json_friendly_launch_report(monkeypatch, tmp_path: Pa
     assert [report["id"] for report in reports] == [
         "python",
         "trimesh",
+        "networkx",
         "bambu_studio_cli",
         "blender",
         "paho_mqtt",
     ]
     assert all(isinstance(report, dict) for report in reports)
     assert {report["status"] for report in reports} == {"ok", "optional_missing"}
-    assert reports[2]["details"]["path"] == str(bambu)
+    assert reports[3]["details"]["path"] == str(bambu)
 
 
 def test_preflight_reads_tool_paths_from_environment(monkeypatch, tmp_path: Path):

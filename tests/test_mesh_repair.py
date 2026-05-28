@@ -59,6 +59,58 @@ def test_repair_mesh_file_to_receipt_records_unavailable_dependency(
     assert stats["output_path"].endswith("output.stl")
 
 
+def test_repair_mesh_file_to_receipt_records_missing_networkx_from_hole_fill(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    class FakeRepair:
+        @staticmethod
+        def fill_holes(mesh):
+            del mesh
+            raise ModuleNotFoundError("No module named 'networkx'", name="networkx")
+
+        @staticmethod
+        def fix_normals(mesh):
+            del mesh
+
+    class FakeTrimesh:
+        repair = FakeRepair()
+
+    class FakeMesh:
+        is_watertight = False
+
+        def copy(self):
+            return self
+
+        def merge_vertices(self):
+            pass
+
+        def remove_unreferenced_vertices(self):
+            pass
+
+    monkeypatch.setattr(repair, "_import_trimesh", lambda: FakeTrimesh)
+    monkeypatch.setattr(repair, "_load_mesh", lambda trimesh, path: FakeMesh())
+    monkeypatch.setattr(
+        repair,
+        "_mesh_stats",
+        lambda mesh: MeshStats(vertices=3, faces=1, watertight=False, boundary_edges=3),
+    )
+
+    receipt = repair.repair_mesh_file_to_receipt(
+        tmp_path / "input.stl",
+        tmp_path / "output.stl",
+        stats_path=tmp_path / "repair_stats.json",
+    )
+
+    assert receipt.status is StageStatus.SKIPPED
+    assert "networkx" in receipt.message
+    assert receipt.metrics["dependency"] == "networkx"
+
+    stats = json.loads((tmp_path / "repair_stats.json").read_text())
+    assert stats["status"] == StageStatus.SKIPPED.value
+    assert stats["dependency"] == "networkx"
+
+
 def test_repair_mesh_file_to_receipt_writes_success_receipt_without_real_trimesh(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -105,6 +157,41 @@ def test_repair_mesh_file_to_receipt_writes_success_receipt_without_real_trimesh
     assert stats["status"] == StageStatus.SUCCEEDED.value
     assert stats["before"]["boundary_edges"] == 4
     assert stats["after"]["boundary_edges"] == 0
+
+
+def test_repair_mesh_file_allows_non_watertight_when_requested(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    stats = [
+        MeshStats(vertices=6, faces=4, watertight=False, boundary_edges=6),
+        MeshStats(vertices=6, faces=4, watertight=False, boundary_edges=6),
+    ]
+
+    monkeypatch.setattr(repair, "_import_trimesh", lambda: object())
+    monkeypatch.setattr(repair, "_load_mesh", lambda trimesh, path: object())
+    monkeypatch.setattr(repair, "_repair_mesh", lambda trimesh, mesh: object())
+    monkeypatch.setattr(repair, "_mesh_stats", lambda mesh: stats.pop(0))
+    monkeypatch.setattr(
+        repair,
+        "_export_repaired_mesh",
+        lambda mesh, output_path: Path(output_path).write_text(
+            "solid open\nendsolid open\n",
+            encoding="utf-8",
+        ),
+    )
+
+    output_path = tmp_path / "open_repaired.stl"
+    result = repair_mesh_file(
+        tmp_path / "open.stl",
+        output_path,
+        allow_non_watertight=True,
+    )
+
+    assert result.status is StageStatus.SUCCEEDED
+    assert result.after.watertight is False
+    assert "allowed non-watertight" in result.message
+    assert output_path.exists()
 
 
 @pytest.mark.skipif(not TRIMESH_AVAILABLE, reason="trimesh is not installed")

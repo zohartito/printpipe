@@ -1,6 +1,6 @@
 # Non-Slipper Beta Runs
 
-Status: Wave 9 software run plan for beta coverage beyond the slipper fixture.
+Status: Wave 100 software dogfood passed for three non-slipper fixtures; the broader beta set still needs physical printing and trusted-user evidence.
 
 This plan uses the existing small STL fixtures so the beta pass can exercise
 multiple object classes without adding large mesh assets. It is a software
@@ -8,6 +8,32 @@ artifact regression plan, not a substitute for physical printing. A passing run
 folder proves that PrintPipe accepted the fixture, copied the input, and wrote
 receipts and reports. It does not prove printability, final orientation quality,
 surface quality, support burden, slicer success, or real-world part usefulness.
+
+## Current Software Dogfood Evidence
+
+Wave 100 ran three non-slipper fixtures through the real local pipeline with
+live Bambu CLI slicing enabled. Run folders live under ignored `runs/dogfood/`
+and are not committed.
+
+| Object | Run ID | Repair | Orientation / bed fit | Slice receipt |
+| --- | --- | --- | --- | --- |
+| Figurine | `20260528-144457-simple-figurine-ascii` | watertight, 0 boundary edges | 0 deg, 16.0 x 10.0 x 34.0 mm, 240.0 mm margin | succeeded, 831s, 1.68g, 170 layers, 0 warnings |
+| Cup/vase | `20260528-144446-cup-vase-open-frustum` | intentionally open rim, 6 boundary edges allowed | 45 deg, 31.1 x 31.1 x 30.0 mm, 224.9 mm margin | succeeded, 1338s, 6.07g, 150 layers, 0 warnings |
+| Flat bracket | `20260528-144421-flat-bracket` | watertight, 0 boundary edges | 45 deg, 222.7 x 222.7 x 4.0 mm, 33.3 mm margin | succeeded, 3408s, 28.18g, 20 layers, 0 warnings |
+
+Failures found during this dogfood pass were converted into code and test
+changes before the evidence was counted:
+
+- `trimesh.repair.fill_holes()` required the lazy `networkx` dependency, so the
+  `mesh-repair` extra and doctor/preflight checks now include `networkx`.
+- The cup/vase fixture is intentionally open at the rim, so
+  `allow_non_watertight=True` now records an honest successful repair receipt
+  instead of failing the pipeline.
+- The flat bracket initially sliced as an empty/off-bed plate because the
+  preview found a 45 degree fit but the bundled mesh stayed at 0 degrees; the
+  pipeline now applies the selected bed-fit rotation before bundling.
+
+This is software/slicer dogfood only. It is not physical print proof.
 
 ## Common Commands
 

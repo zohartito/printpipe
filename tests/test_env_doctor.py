@@ -22,7 +22,7 @@ def test_environment_report_combines_dependencies_bambu_and_profile_detection(
     monkeypatch,
     tmp_path: Path,
 ):
-    available_modules = {"trimesh"}
+    available_modules = {"trimesh", "networkx"}
     monkeypatch.setattr(
         "importlib.util.find_spec",
         lambda module_name: (
@@ -49,7 +49,7 @@ def test_environment_report_combines_dependencies_bambu_and_profile_detection(
     assert report["bambu_profiles"]["candidate_count"] == 1
     assert report["summary"]["bambu_studio_found"] is True
     assert report["summary"]["bambu_profile_user_count"] == 1
-    assert report["summary"]["dependency_status_counts"]["ok"] == 2
+    assert report["summary"]["dependency_status_counts"]["ok"] == 3
 
 
 def test_environment_report_warns_about_unreadable_workspace_and_artifact_paths(

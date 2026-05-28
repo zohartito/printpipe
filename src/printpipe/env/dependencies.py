@@ -54,6 +54,12 @@ def check_dependency_preflight(
             purpose="mesh inspection and repair",
             install_hint="Install trimesh to enable mesh inspection and repair.",
         ),
+        check_module_available(
+            "networkx",
+            label="networkx",
+            purpose="trimesh hole filling for open mesh repair",
+            install_hint="Install networkx or printpipe[mesh-repair] to repair open meshes.",
+        ),
         check_executable(
             id="bambu_studio_cli",
             label="Bambu Studio CLI",

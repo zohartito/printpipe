@@ -20,7 +20,7 @@ Use the source checkout while packaging is still foundation work:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,mesh-repair]"
 pytest
 printpipe --version
 ```
@@ -30,7 +30,7 @@ On Windows PowerShell, activate the venv with:
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,mesh-repair]"
 pytest
 printpipe --version
 ```

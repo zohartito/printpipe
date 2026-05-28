@@ -140,7 +140,7 @@ dist/PrintPipe.app/Contents/MacOS/printpipe --version
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,mesh-repair]"
 pytest
 printpipe --version
 ```

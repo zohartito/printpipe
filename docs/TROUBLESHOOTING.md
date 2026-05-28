@@ -15,7 +15,7 @@ If the command is not found, activate the virtual environment or reinstall the
 editable package:
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,mesh-repair]"
 ```
 
 On Windows PowerShell, make sure the venv is active:
@@ -146,8 +146,9 @@ these checks to narrow the issue:
 
 Known missing-dependency cases:
 
-- Optional mesh repair requires `trimesh`; without it, repair should report that
-  the feature is unavailable rather than failing at import time.
+- Optional mesh repair requires `trimesh`. Open-mesh hole filling also requires
+  `networkx`; without it, repair should report the missing dependency instead
+  of failing with a traceback.
 - Bambu Studio/Bambu CLI must be installed separately before a run can be called
   slice-verified.
 - Missing Bambu profiles should report the profile name/type and searched roots.

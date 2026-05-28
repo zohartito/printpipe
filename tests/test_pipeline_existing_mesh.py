@@ -14,6 +14,9 @@ from printpipe.runs.editing import EditRecipe, EditScale, EditTargets, GeometryI
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "objects" / "existing_stl_pipeline"
 STL_FIXTURE = FIXTURE_DIR / "tiny_tetrahedron.stl"
+FLAT_BRACKET_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "objects" / "flat_bracket" / "flat_bracket.stl"
+)
 
 
 def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_reports(
@@ -129,6 +132,57 @@ def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_repor
     assert report["pre_print_checklist"]
     assert {item["id"] for item in report["pre_print_checklist"]} >= {"slice_gate", "layer_preview"}
     assert (result.layout.reports_dir / "run_report.html").exists()
+
+
+def test_existing_mesh_pipeline_applies_bed_fit_rotation_before_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def fake_repair_mesh_file_to_receipt(
+        input_path: Path | str,
+        output_path: Path | str,
+        *,
+        stats_path: Path | str | None = None,
+        allow_non_watertight: bool = False,
+        stage: str = "mesh_repair",
+    ) -> StageReceipt:
+        del allow_non_watertight
+        output = Path(output_path)
+        stats = Path(stats_path) if stats_path is not None else output.with_suffix(".json")
+        output.write_text(Path(input_path).read_text(encoding="ascii"), encoding="ascii")
+        stats.write_text(
+            json.dumps({"stage": stage, "status": "succeeded"}) + "\n",
+            encoding="utf-8",
+        )
+        return StageReceipt(
+            stage=stage,
+            status=StageStatus.SUCCEEDED,
+            message="fake repair succeeded",
+            artifacts=(
+                Artifact(ArtifactKind.REPAIRED_MESH, output, "Repaired mesh"),
+                Artifact(ArtifactKind.REPORT, stats, "Mesh repair stats JSON"),
+            ),
+            metrics={"watertight_after": True},
+        )
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "repair_mesh_file_to_receipt",
+        fake_repair_mesh_file_to_receipt,
+        raising=False,
+    )
+
+    result = run_existing_mesh_pipeline(FLAT_BRACKET_FIXTURE, tmp_path / "runs")
+
+    stages = {receipt.stage: receipt for receipt in result.stages}
+    orientation = stages["geometry.write_oriented_ascii_stl_artifacts"]
+    bed_fit = stages["geometry.write_bed_fit_preview_artifacts"]
+
+    assert orientation.metrics["rotation_degrees"] == 45.0
+    assert orientation.metrics["oriented_bounds_mm"]["width_x"] <= 256.0
+    assert orientation.metrics["oriented_bounds_mm"]["depth_y"] <= 256.0
+    assert bed_fit.metrics["rotation_degrees"] == 45.0
+    assert bed_fit.metrics["fits"] is True
 
 
 def test_edit_recipe_pipeline_rebuilds_child_run_without_touching_parent(tmp_path: Path):

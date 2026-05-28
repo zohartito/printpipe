@@ -1101,3 +1101,14 @@ Status: complete for local web parity. The browser app now exposes the same trus
 3. Done: added a service link to the trusted-user feedback JSON endpoint.
 4. Done: web regression tests prove the route, service link, and home panel.
 5. Boundary: this is read-only visibility; it does not create tester feedback, physical proof, or final beta completion.
+
+## Wave 100 - Non-Slipper Dogfood Repairs
+
+Status: complete for software dogfood on three non-slipper fixture objects. PrintPipe now has live Bambu CLI slice receipts for the figurine, open-rim cup/vase, and flat bracket paths.
+
+1. Done: dogfooded `simple_figurine_ascii.stl`, `cup_vase_open_frustum.stl`, and `flat_bracket.stl` through `printpipe run --slice` into ignored `runs/dogfood/` folders.
+2. Done: fixed the lazy `networkx` dependency exposed by `trimesh.repair.fill_holes()` and added it to the `mesh-repair` extra and environment diagnostics.
+3. Done: changed intentional open-rim non-watertight meshes to succeed when `allow_non_watertight=True`, with repair receipts that preserve the boundary-edge warning instead of pretending the mesh is watertight.
+4. Done: fixed the flat-bracket orientation regression by applying the selected bed-fit rotation before writing the oriented STL and `.3mf`, so the bundle matches the preview and fits the 256 mm bed.
+5. Done: latest successful dogfood runs sliced with 0 warnings: figurine `831s / 1.68g / 170 layers`, cup/vase `1338s / 6.07g / 150 layers`, flat bracket `3408s / 28.18g / 20 layers`.
+6. Boundary: this is software/slicer evidence only. It does not replace physical PLA/PETG/TPU print evidence or trusted-user beta packets.

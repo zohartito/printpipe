@@ -30,7 +30,7 @@ def test_onboarding_doc_lists_required_setup_and_run_commands() -> None:
     for expected in (
         "python -m venv .venv",
         "source .venv/bin/activate",
-        'python -m pip install -e ".[dev]"',
+        'python -m pip install -e ".[dev,mesh-repair]"',
         "printpipe --version",
         "printpipe doctor",
         "printpipe doctor --json",

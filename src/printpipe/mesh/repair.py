@@ -18,7 +18,11 @@ from printpipe.mesh.topology import (
 
 
 class MeshRepairUnavailableError(RuntimeError):
-    """Raised when the optional mesh repair dependency is not installed."""
+    """Raised when an optional mesh repair dependency is not installed."""
+
+    def __init__(self, message: str, *, dependency: str = "trimesh") -> None:
+        self.dependency = dependency
+        super().__init__(message)
 
 
 class MeshRepairError(RuntimeError):
@@ -62,7 +66,17 @@ def repair_mesh_file(
 
     mesh = _load_mesh(trimesh, input_path)
     before = _mesh_stats(mesh)
-    repaired = _repair_mesh(trimesh, mesh)
+    try:
+        repaired = _repair_mesh(trimesh, mesh)
+    except ModuleNotFoundError as exc:
+        dependency = _missing_module_name(exc)
+        if dependency == "networkx":
+            raise MeshRepairUnavailableError(
+                "Mesh repair hole filling requires the optional 'networkx' package. "
+                "Install printpipe[mesh-repair] or networkx to repair open meshes.",
+                dependency="networkx",
+            ) from exc
+        raise
     after = _mesh_stats(repaired)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,6 +91,18 @@ def repair_mesh_file(
             message=f"Repaired mesh written to {output_path}.",
         )
 
+    if allow_non_watertight:
+        return MeshRepairResult(
+            before=before,
+            after=after,
+            output_path=output_path,
+            status=StageStatus.SUCCEEDED,
+            message=(
+                f"repair allowed non-watertight mesh: {output_path} retains "
+                f"{after.boundary_edges} boundary edges and "
+                f"{after.non_manifold_edges} non-manifold edges"
+            ),
+        )
     result = MeshRepairResult(
         before=before,
         after=after,
@@ -88,8 +114,6 @@ def repair_mesh_file(
             f"{after.non_manifold_edges} non-manifold edges)"
         ),
     )
-    if allow_non_watertight:
-        return result
     raise MeshRepairError(result)
 
 
@@ -113,10 +137,11 @@ def repair_mesh_file_to_receipt(
             allow_non_watertight=allow_non_watertight,
         )
     except MeshRepairUnavailableError as exc:
+        dependency = exc.dependency
         payload = {
             "stage": stage,
             "status": StageStatus.SKIPPED.value,
-            "dependency": "trimesh",
+            "dependency": dependency,
             "message": str(exc),
             "input_path": str(input_path),
             "output_path": str(output_path),
@@ -128,7 +153,7 @@ def repair_mesh_file_to_receipt(
             message=str(exc),
             artifacts=(_stats_artifact(stats_path),),
             metrics={
-                "dependency": "trimesh",
+                "dependency": dependency,
                 "input_path": str(input_path),
                 "output_path": str(output_path),
             },
@@ -149,6 +174,17 @@ def _import_trimesh() -> Any:
             "Mesh repair requires the optional 'trimesh' package. "
             "Install trimesh to enable repair_mesh_file()."
         ) from exc
+
+
+def _missing_module_name(exc: ModuleNotFoundError) -> str:
+    name = getattr(exc, "name", None)
+    if isinstance(name, str) and name:
+        return name.split(".", 1)[0]
+    message = str(exc)
+    prefix = "No module named "
+    if prefix in message:
+        return message.split(prefix, 1)[1].strip("'\"").split(".", 1)[0]
+    return ""
 
 
 def _default_stats_path(output_path: Path) -> Path:
