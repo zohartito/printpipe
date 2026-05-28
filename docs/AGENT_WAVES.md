@@ -1503,3 +1503,14 @@ Status: partial progress for endgame readiness UX. This removes a local CLI foot
 4. Done: targeted CLI regression coverage verifies both discovery and no-manifest behavior.
 5. Current local result: `printpipe readiness --runs-dir runs --strict` now reports 3 action-required gates: physical validation, trusted-user beta, and release signing. Failure regression coverage and beta regression replay are ready by default.
 6. Boundary: defaulting the manifest is reporting friction removal only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.
+
+## Wave 137 - Default Regression-Aware Web Launch
+
+Status: partial progress for local web readiness UX. This makes the default local server launch match the default terminal readiness gate.
+
+1. Done: `printpipe serve` now auto-discovers `regressions/dogfood_failures.json` when that standard manifest exists in the current project.
+2. Done: explicit `--regression-manifest <path>` still overrides the discovered standard manifest.
+3. Done: the parser remains lightweight and does not import the web server while building defaults.
+4. Done: CLI delegation coverage verifies the default server receives the discovered manifest path.
+5. Current local result: a plain `printpipe serve --runs-dir runs` launch can make `/readiness.json`, `/release-status.json`, `/beta-plan.json`, and the home-page final-readiness surfaces regression-aware without an extra flag.
+6. Boundary: this is local web launch parity only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.

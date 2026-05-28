@@ -23,7 +23,7 @@ from printpipe.pipeline import (
 from printpipe.runs import create_run, load_run
 
 
-DEFAULT_READINESS_REGRESSION_MANIFEST = Path("regressions/dogfood_failures.json")
+DEFAULT_REGRESSION_MANIFEST = Path("regressions/dogfood_failures.json")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1263,7 +1263,9 @@ def main(argv: list[str] | None = None) -> int:
             host=args.host,
             port=args.port,
             runs_dir=args.runs_dir,
-            regression_manifest_path=args.regression_manifest,
+            regression_manifest_path=(
+                args.regression_manifest or _default_regression_manifest_path()
+            ),
         )
 
     if args.command == "doctor":
@@ -1970,7 +1972,7 @@ def _readiness(
     )
 
     if regression_manifest_path is None:
-        regression_manifest_path = _default_readiness_regression_manifest_path()
+        regression_manifest_path = _default_regression_manifest_path()
 
     report = build_beta_readiness_report(
         runs_dir,
@@ -1985,8 +1987,8 @@ def _readiness(
     return 0
 
 
-def _default_readiness_regression_manifest_path() -> Path | None:
-    candidate = DEFAULT_READINESS_REGRESSION_MANIFEST
+def _default_regression_manifest_path() -> Path | None:
+    candidate = DEFAULT_REGRESSION_MANIFEST
     if not candidate.is_file():
         return None
     return candidate.resolve()

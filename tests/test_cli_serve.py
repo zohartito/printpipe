@@ -77,3 +77,46 @@ def test_serve_delegates_to_web_server_with_custom_options(monkeypatch, tmp_path
             "regression_manifest_path": tmp_path / "regression_manifest.json",
         }
     ]
+
+
+def test_serve_uses_standard_regression_manifest_when_present(monkeypatch, tmp_path: Path):
+    manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
+    manifest_path.parent.mkdir()
+    manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    calls: list[dict[str, object]] = []
+    web_module = types.ModuleType("printpipe.web")
+    server_module = types.ModuleType("printpipe.web.server")
+
+    def serve(
+        *,
+        host: str,
+        port: int,
+        runs_dir: Path,
+        regression_manifest_path: Path | None = None,
+    ) -> None:
+        calls.append(
+            {
+                "host": host,
+                "port": port,
+                "runs_dir": runs_dir,
+                "regression_manifest_path": regression_manifest_path,
+            }
+        )
+
+    server_module.serve = serve
+    web_module.server = server_module
+    monkeypatch.setitem(sys.modules, "printpipe.web", web_module)
+    monkeypatch.setitem(sys.modules, "printpipe.web.server", server_module)
+
+    exit_code = main(["serve"])
+
+    assert exit_code == 0
+    assert calls == [
+        {
+            "host": "127.0.0.1",
+            "port": 8765,
+            "runs_dir": Path("runs"),
+            "regression_manifest_path": manifest_path,
+        }
+    ]

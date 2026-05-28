@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 136: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 137: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 136 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, optional live Bambu CLI slice receipts, physical print handoffs, trusted-user beta handoffs, release distribution handoffs, and default regression-aware readiness are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail/final-readiness UI that separates digital artifacts from physical, beta, or signed-distribution proof.
+Wave 137 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, optional live Bambu CLI slice receipts, physical print handoffs, trusted-user beta handoffs, release distribution handoffs, and default regression-aware CLI/web readiness are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail/final-readiness UI that separates digital artifacts from physical, beta, or signed-distribution proof.
 
-The latest completed wave made the default terminal readiness command use the standard `regressions/dogfood_failures.json` manifest when that file exists. `printpipe readiness --runs-dir runs --strict` now reports the same regression-aware truth as the configured local web server: physical validation, trusted-user beta, and release signing remain action-required, while failure regression coverage and beta regression replay are ready. Repos without that standard manifest still keep the beta regression gate optional/not-applicable unless a manifest path is provided.
+The latest completed wave made default local web launches use the same standard `regressions/dogfood_failures.json` manifest when that file exists. `printpipe serve --runs-dir runs` now feeds the local home page, readiness JSON, release status, beta plan, and final readiness surfaces the regression-aware gate state without requiring a remembered `--regression-manifest` flag. Explicit manifest paths still override the default.
+
+Wave 136 made the default terminal readiness command use the standard `regressions/dogfood_failures.json` manifest when that file exists. `printpipe readiness --runs-dir runs --strict` now reports the same regression-aware truth as the configured local web server: physical validation, trusted-user beta, and release signing remain action-required, while failure regression coverage and beta regression replay are ready. Repos without that standard manifest still keep the beta regression gate optional/not-applicable unless a manifest path is provided.
 
 Wave 135 made final-readiness run artifact paths actionable in the local web UI. Paths under `runs/<run-id>/...` now link to the existing safe `/runs/<run-id>/artifacts/...` route from the top next-action callout and checklist rows, while non-run local paths remain plain text. This still does not create evidence; it just reduces friction when opening reports, bundles, handoffs, and receipts.
 
