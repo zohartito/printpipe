@@ -132,6 +132,7 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/runs/run-ui-001"' in response.text
     assert "Open workbench" in response.text
     assert 'href="/runs/run-ui-001/artifacts/60_bundle/ready.3mf"' in response.text
+    assert 'href="/doctor.json"' in response.text
 
 
 def test_home_response_renders_physical_beta_gate_status(tmp_path: Path):
@@ -226,6 +227,29 @@ def test_physical_status_json_endpoint_returns_beta_gate_status(tmp_path: Path):
     assert payload["family_status"]["pla"]["status"] == "passed"
     assert payload["family_status"]["petg"]["status"] == "missing"
     assert payload["family_status"]["tpu"]["status"] == "missing"
+
+
+def test_doctor_json_endpoint_returns_environment_report(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(
+        "printpipe.web.server.build_environment_report",
+        lambda: {
+            "schema_version": 1,
+            "platform": {"raw": "darwin", "normalized": "macos"},
+            "dependencies": [],
+            "bambu_studio": {"installed_count": 1, "candidate_count": 1},
+            "bambu_profiles": {"candidate_count": 1},
+            "summary": {"dependency_status_counts": {}},
+        },
+    )
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/doctor.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["platform"]["normalized"] == "macos"
+    assert payload["bambu_studio"]["installed_count"] == 1
 
 
 def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_path: Path):

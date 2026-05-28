@@ -18,6 +18,7 @@ from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from printpipe.beta.physical_status import build_physical_validation_status
+from printpipe.env.doctor import build_environment_report
 from printpipe.local_open import open_run_folder
 from printpipe.pipeline import (
     PipelineError,
@@ -194,6 +195,8 @@ class PrintPipeWebApp:
             return WebResponse(int(HTTPStatus.NO_CONTENT), b"", (("Content-Length", "0"),))
         if path == "/health":
             return self.health_response()
+        if path == "/doctor.json":
+            return self.doctor_response()
         if path == "/physical-status.json":
             return self.physical_status_response()
         if path.startswith(_STATIC_PREFIX):
@@ -296,6 +299,16 @@ class PrintPipeWebApp:
 
     def health_response(self) -> WebResponse:
         return WebResponse.json({"service": "printpipe-web", "status": "ok"})
+
+    def doctor_response(self) -> WebResponse:
+        try:
+            return WebResponse.json(build_environment_report())
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
 
     def physical_status_response(self) -> WebResponse:
         if self.runs_dir is None:
@@ -417,6 +430,7 @@ class PrintPipeWebApp:
                 '    <section class="panel">',
                 "      <h2>Service</h2>",
                 '      <p><a href="/health">Health check</a></p>',
+                '      <p><a href="/doctor.json">Environment doctor JSON</a></p>',
                 "    </section>",
                 '    <section class="panel">',
                 "      <h2>Local Pages</h2>",

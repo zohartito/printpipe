@@ -817,3 +817,13 @@ Status: complete for local app/API visibility. The physical validation gate is n
 3. Done: endpoint returns `503` when the web app has no runs directory configured.
 4. Done: regression coverage proves the endpoint reports passed PLA evidence while keeping missing PETG/TPU gates explicit.
 5. Boundary: this is a read-only status endpoint; it does not mutate evidence packets or bypass the strict physical validation gate.
+
+## Wave 74 - Environment Doctor JSON Endpoint
+
+Status: complete for local app/API visibility. Environment, dependency, Bambu, filesystem, and signing readiness are now machine-readable from the local web app.
+
+1. Done: added `GET /doctor.json`.
+2. Done: endpoint returns the existing `build_environment_report()` payload used by `printpipe doctor --json`.
+3. Done: home page service links now include `Environment doctor JSON`.
+4. Done: regression coverage proves the endpoint returns Bambu/environment readiness data.
+5. Boundary: this exposes readiness status only; it does not install dependencies, certificates, signing tools, Bambu Studio, or OS-native installers.
