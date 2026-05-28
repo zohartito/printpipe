@@ -68,6 +68,65 @@ def test_readiness_prints_json_and_can_gate_strictly(monkeypatch, tmp_path: Path
     assert payload["gates"][0]["id"] == "physical_validation"
 
 
+def test_readiness_uses_standard_regression_manifest_when_present(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
+    manifest_path.parent.mkdir()
+    manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    def fake_report(runs_dir, *, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "ready",
+            "action_required_count": 0,
+            "gates": [],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.beta.readiness.build_beta_readiness_report",
+        fake_report,
+    )
+
+    exit_code = main(["readiness", "--runs-dir", "runs", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "ready"
+
+
+def test_readiness_keeps_regression_manifest_optional_when_standard_file_is_absent(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    def fake_report(runs_dir, *, regression_manifest_path=None):
+        assert regression_manifest_path is None
+        return {
+            "schema_version": 1,
+            "overall_status": "ready",
+            "action_required_count": 0,
+            "gates": [],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.beta.readiness.build_beta_readiness_report",
+        fake_report,
+    )
+
+    exit_code = main(["readiness", "--runs-dir", "runs", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "ready"
+
+
 def test_readiness_prints_human_gate_summary(monkeypatch, tmp_path: Path, capsys) -> None:
     monkeypatch.setattr(
         "printpipe.beta.readiness.build_beta_readiness_report",

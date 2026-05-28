@@ -1492,3 +1492,14 @@ Status: partial progress for web execution UX. This makes final-readiness file p
 3. Done: absolute local paths containing a `runs/<run-id>/...` segment are normalized into safe artifact links.
 4. Done: non-run local paths, including release handoff paths under `dist/`, remain plain text instead of becoming arbitrary file links.
 5. Boundary: clickable links are navigation only. They do not create physical evidence, trusted-user evidence, or signed distribution artifacts.
+
+## Wave 136 - Default Regression-Aware Readiness
+
+Status: partial progress for endgame readiness UX. This removes a local CLI footgun without closing physical, trusted-user, or signed-release gates.
+
+1. Done: `printpipe readiness` now auto-discovers `regressions/dogfood_failures.json` when that standard manifest exists in the current project.
+2. Done: explicit `--regression-manifest <path>` still overrides the discovered standard manifest.
+3. Done: repos without the standard manifest keep the previous optional behavior, so first-run readiness remains honest instead of hard-failing on a missing beta regression file.
+4. Done: targeted CLI regression coverage verifies both discovery and no-manifest behavior.
+5. Current local result: `printpipe readiness --runs-dir runs --strict` now reports 3 action-required gates: physical validation, trusted-user beta, and release signing. Failure regression coverage and beta regression replay are ready by default.
+6. Boundary: defaulting the manifest is reporting friction removal only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.

@@ -23,6 +23,9 @@ from printpipe.pipeline import (
 from printpipe.runs import create_run, load_run
 
 
+DEFAULT_READINESS_REGRESSION_MANIFEST = Path("regressions/dogfood_failures.json")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="printpipe",
@@ -1966,6 +1969,9 @@ def _readiness(
         render_beta_readiness_report,
     )
 
+    if regression_manifest_path is None:
+        regression_manifest_path = _default_readiness_regression_manifest_path()
+
     report = build_beta_readiness_report(
         runs_dir,
         regression_manifest_path=regression_manifest_path,
@@ -1977,6 +1983,13 @@ def _readiness(
     if strict and report["overall_status"] != "ready":
         return 2
     return 0
+
+
+def _default_readiness_regression_manifest_path() -> Path | None:
+    candidate = DEFAULT_READINESS_REGRESSION_MANIFEST
+    if not candidate.is_file():
+        return None
+    return candidate.resolve()
 
 
 def _release_status(
