@@ -53,6 +53,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
     next_action_markup = ""
     if next_action:
         command = str(next_action.get("command") or "")
+        next_action_file_markup = _render_next_action_files(next_action)
         next_action_markup = "\n".join(
             [
                 '        <p class="final-readiness-next">',
@@ -66,6 +67,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
                     if command
                     else ""
                 ),
+                next_action_file_markup,
             ]
         )
 
@@ -233,6 +235,25 @@ def _action_label(action: Mapping[str, Any]) -> str:
     if label:
         return str(label)
     return "Remaining action"
+
+
+def _render_next_action_files(next_action: Mapping[str, Any]) -> str:
+    rows = []
+    file_labels = (
+        ("coupon_stl_path", "Next action artifact"),
+        ("coupon_json_path", "Next action sidecar"),
+        ("handoff_markdown_path", "Next action handoff"),
+        ("report_path", "Next action report"),
+        ("bundle_path", "Next action bundle"),
+    )
+    for key, label in file_labels:
+        value = str(next_action.get(key) or "")
+        if value:
+            rows.append(
+                f'        <p class="muted">{escape(label)}: '
+                f"<code>{escape(value)}</code></p>"
+            )
+    return "\n".join(rows)
 
 
 def _action_detail(action: Mapping[str, Any]) -> str:

@@ -1304,3 +1304,14 @@ Status: partial progress for release distribution, physical validation, and trus
 6. Done: trusted-user beta status now rejects completed-outcome packets unless the run has an existing report or existing attached artifact file.
 7. Current local result: `dist/release_handoffs/release_distribution_handoff.md` exists locally but is ignored; `release-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json` surfaces that handoff for all three release actions.
 8. Boundary: release handoffs, existing reports, and attached artifacts are operational evidence only. Items 121 and 122 remain partial until a Developer ID signed/notarized macOS artifact and a signed Windows installer are verified in the release manifest.
+
+## Wave 118 - Final Next-Action Artifact Visibility
+
+Status: partial progress for endgame execution UX. This makes the immediate next action carry its supporting files; it does not close any physical, trusted-user, or signed-release gate.
+
+1. Done: `final-plan` now preserves action-specific supporting paths on top-level `next_action`.
+2. Done: supported next-action paths include `coupon_stl_path`, `coupon_json_path`, `handoff_markdown_path`, `report_path`, and `bundle_path`.
+3. Done: the home-page `Final readiness / Remaining actions` callout renders next-action artifact, sidecar, handoff, report, and bundle paths when present.
+4. Done: regression coverage verifies the physical PLA next action keeps its coupon STL/JSON and handoff paths while still selecting the record command.
+5. Current local result: `final-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json --json` still reports `action_required`, nine actions, and `physical_validation` / `PLA` as the next action; that next action now carries the physical coupon and handoff paths.
+6. Boundary: this is visibility and execution guidance only. The physical validation gate still requires real printed coupons with existing photo files and observations, trusted-user beta still requires completed feedback packets, and release still requires signed/notarized artifacts.

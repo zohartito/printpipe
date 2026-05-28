@@ -21,6 +21,14 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
                 "detail": "no packet",
                 "command": "printpipe physical-start --family pla",
                 "command_kind": "start_command",
+                "coupon_stl_path": (
+                    "runs/pla/40_geometry/"
+                    "physical_validation_coupon_40x15x3.stl"
+                ),
+                "handoff_markdown_path": (
+                    "runs/pla/90_physical/"
+                    "physical_print_handoff.md"
+                ),
             },
             "sections": [
                 {
@@ -100,6 +108,14 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                 "status": "missing",
                 "detail": "no packet",
                 "command": "printpipe physical-start --family pla",
+                "coupon_stl_path": (
+                    "runs/pla/40_geometry/"
+                    "physical_validation_coupon_40x15x3.stl"
+                ),
+                "handoff_markdown_path": (
+                    "runs/pla/90_physical/"
+                    "physical_print_handoff.md"
+                ),
             },
             "pillars": [
                 {
@@ -137,6 +153,8 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "Digital coupons are not physical proof." in html
     assert "Next action:" in html
     assert "printpipe physical-start --family pla" in html
+    assert "Next action artifact:" in html
+    assert "Next action handoff:" in html
     assert "Coupon artifact:" in html
     assert "physical_validation_coupon_40x15x3.stl" in html
     assert "Handoff:" in html

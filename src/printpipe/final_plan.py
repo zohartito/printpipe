@@ -218,7 +218,7 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, str]:
         if not action:
             return _section_as_next_action(section)
         command_kind, command = _action_command(action, section)
-        return {
+        payload = {
             "section_id": str(section.get("id") or ""),
             "section_label": str(section.get("label") or ""),
             "action_id": _action_id(action),
@@ -228,6 +228,17 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, str]:
             "command": command,
             "command_kind": command_kind,
         }
+        for key in (
+            "coupon_stl_path",
+            "coupon_json_path",
+            "handoff_markdown_path",
+            "report_path",
+            "bundle_path",
+        ):
+            value = str(action.get(key) or "")
+            if value:
+                payload[key] = value
+        return payload
     return {}
 
 

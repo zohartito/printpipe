@@ -104,6 +104,38 @@ def test_final_action_plan_prefers_action_specific_start_command(
     assert plan["next_command"] == "printpipe physical-start --family tpu"
 
 
+def test_final_action_plan_next_action_keeps_handoff_and_artifact_paths(
+    tmp_path: Path,
+) -> None:
+    plan = build_final_action_plan(
+        runs_dir=tmp_path / "runs",
+        release_dir=tmp_path / "release",
+        physical_plan={
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "physical proof only",
+            "actions": [
+                {
+                    "family": "pla",
+                    "status": "recorded_but_not_passed",
+                    "reason": "no passed physical evidence",
+                    "record_command": "printpipe record-physical-evidence runs/pla",
+                    "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+                    "coupon_json_path": "runs/pla/40_geometry/coupon.json",
+                    "handoff_markdown_path": "runs/pla/90_physical/handoff.md",
+                }
+            ],
+        },
+        trusted_feedback_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+        release_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+    )
+
+    assert plan["next_action"]["command"] == "printpipe record-physical-evidence runs/pla"
+    assert plan["next_action"]["coupon_stl_path"] == "runs/pla/40_geometry/coupon.stl"
+    assert plan["next_action"]["coupon_json_path"] == "runs/pla/40_geometry/coupon.json"
+    assert plan["next_action"]["handoff_markdown_path"] == "runs/pla/90_physical/handoff.md"
+
+
 def test_render_final_action_plan_keeps_proof_boundaries(tmp_path: Path) -> None:
     plan = build_final_action_plan(
         runs_dir=tmp_path / "runs",
