@@ -23,6 +23,11 @@ from printpipe.beta.physical_status import (
     build_physical_validation_status,
     render_physical_validation_status,
 )
+from printpipe.beta.physical_plan import (
+    PROOF_BOUNDARY,
+    build_physical_validation_plan,
+    render_physical_validation_plan,
+)
 from printpipe.beta.readiness import build_beta_readiness_report, render_beta_readiness_report
 from printpipe.beta.regression import (
     ExpectedOutcome,
@@ -43,6 +48,7 @@ __all__ = (
     "FailureReport",
     "PHYSICAL_EVIDENCE_REQUIRED_HEADINGS",
     "PHYSICAL_EVIDENCE_SCHEMA_VERSION",
+    "PROOF_BOUNDARY",
     "PhysicalArtifact",
     "PhysicalPrintEvidence",
     "RegressionCase",
@@ -50,6 +56,7 @@ __all__ = (
     "build_failure_report",
     "build_beta_readiness_report",
     "build_physical_print_evidence",
+    "build_physical_validation_plan",
     "build_physical_validation_status",
     "case_from_run",
     "load_regression_manifest",
@@ -57,6 +64,7 @@ __all__ = (
     "missing_required_headings",
     "parse_failure_report_sections",
     "render_physical_evidence_markdown",
+    "render_physical_validation_plan",
     "render_physical_validation_status",
     "render_beta_readiness_report",
     "render_command",

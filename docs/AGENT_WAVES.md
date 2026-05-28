@@ -948,3 +948,14 @@ Status: complete for local web parity. The stronger release-status gates are now
 5. Done: added `Release status JSON` to the home page service links.
 6. Done: browser smoke on `http://127.0.0.1:8895/` showed `Release status`, `macOS distribution`, `Windows distribution`, and `Release status JSON`; `/release-status.json` returned the expected action-required gates.
 7. Boundary: this is read-only UI visibility; it does not build releases, sign packages, install tools, or record physical evidence.
+
+## Wave 86 - Physical Validation Action Plan
+
+Status: complete for printer-side action planning. PrintPipe now turns the remaining PLA/PETG/TPU physical validation gate into exact next actions instead of only reporting missing evidence.
+
+1. Done: added `printpipe.beta.physical_plan.build_physical_validation_plan()`.
+2. Done: added `printpipe physical-plan --runs-dir runs` with JSON and human renderers.
+3. Done: missing or incomplete PLA/PETG/TPU families produce family-specific `record-physical-evidence` command skeletons.
+4. Done: the plan targets an existing incomplete packet's run folder when available, otherwise uses a clear placeholder run root for the next physical print.
+5. Done: the plan repeats the proof boundary: generated coupons, digital artifacts, and slice receipts do not count as physical proof until a real print is recorded.
+6. Boundary: this wave does not create fake physical evidence or mark F9 complete; real PLA, PETG, and TPU coupon/small-object prints are still required.

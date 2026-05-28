@@ -560,6 +560,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Return exit code 2 unless all required material families have passed evidence.",
     )
 
+    physical_plan = subparsers.add_parser(
+        "physical-plan",
+        help="Turn missing PLA/PETG/TPU physical validation gates into exact next actions.",
+    )
+    physical_plan.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders to scan.",
+    )
+    physical_plan.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the physical validation action plan as JSON.",
+    )
+
     readiness = subparsers.add_parser(
         "readiness",
         help="Summarize combined beta and release readiness gates.",
@@ -827,6 +843,9 @@ def main(argv: list[str] | None = None) -> int:
             strict=args.strict,
         )
 
+    if args.command == "physical-plan":
+        return _physical_plan(runs_dir=args.runs_dir, json_output=args.json)
+
     if args.command == "readiness":
         return _readiness(
             runs_dir=args.runs_dir,
@@ -868,6 +887,20 @@ def _physical_status(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
         print(render_physical_validation_status(status), end="")
     if strict and status["overall_status"] != "passed":
         return 2
+    return 0
+
+
+def _physical_plan(*, runs_dir: Path, json_output: bool) -> int:
+    from printpipe.beta.physical_plan import (
+        build_physical_validation_plan,
+        render_physical_validation_plan,
+    )
+
+    plan = build_physical_validation_plan(runs_dir)
+    if json_output:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    else:
+        print(render_physical_validation_plan(plan), end="")
     return 0
 
 
