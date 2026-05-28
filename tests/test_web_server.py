@@ -230,6 +230,52 @@ def test_physical_status_json_endpoint_returns_beta_gate_status(tmp_path: Path):
     assert payload["family_status"]["tpu"]["status"] == "missing"
 
 
+def test_home_response_renders_combined_readiness_summary(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(
+        "printpipe.web.server.build_beta_readiness_report",
+        lambda runs_dir: {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_required_count": 2,
+            "gates": [
+                {
+                    "id": "physical_validation",
+                    "label": "Physical validation",
+                    "status": "action_required",
+                    "detail": "Missing passed physical evidence for: PLA, PETG, TPU.",
+                    "action": "Print and record passed coupons.",
+                },
+                {
+                    "id": "dependencies",
+                    "label": "Dependencies",
+                    "status": "ready",
+                    "detail": "Required dependencies are available.",
+                    "action": "No action needed.",
+                },
+                {
+                    "id": "signing",
+                    "label": "Release signing",
+                    "status": "action_required",
+                    "detail": "Missing signing requirements: Developer ID Application.",
+                    "action": "Install signing tools/certificates.",
+                },
+            ],
+        },
+    )
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Readiness gates" in response.text
+    assert "action_required" in response.text
+    assert "2 action required" in response.text
+    assert "Physical validation" in response.text
+    assert "Release signing" in response.text
+    assert "Missing signing requirements: Developer ID Application." in response.text
+    assert "Print and record passed coupons." in response.text
+
+
 def test_doctor_json_endpoint_returns_environment_report(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         "printpipe.web.server.build_environment_report",

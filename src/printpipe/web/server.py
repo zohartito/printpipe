@@ -444,6 +444,7 @@ class PrintPipeWebApp:
                 "      <h1>PrintPipe</h1>",
                 "    </header>",
                 self._render_create_run_panel(),
+                self._render_readiness_panel(),
                 self._render_physical_beta_gate_panel(),
                 self._render_recent_runs_panel(),
                 '    <section class="panel">',
@@ -549,6 +550,42 @@ class PrintPipeWebApp:
                 "      <h2>Runs</h2>",
                 f"      {body}",
                 "    </section>",
+            ]
+        )
+
+    def _render_readiness_panel(self) -> str:
+        if self.runs_dir is None:
+            return ""
+        try:
+            report = build_beta_readiness_report(self.runs_dir)
+        except (OSError, ValueError):
+            return ""
+        overall = str(report.get("overall_status", "unknown"))
+        action_count = str(report.get("action_required_count", 0))
+        gates = _as_dicts(report.get("gates"))
+        gate_cards = "\n".join(self._render_readiness_gate(gate) for gate in gates)
+        return "\n".join(
+            [
+                '    <section class="panel readiness-panel">',
+                "      <div>",
+                "        <h2>Readiness gates</h2>",
+                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
+                "      </div>",
+                f'      <div class="readiness-grid">{gate_cards}</div>',
+                "    </section>",
+            ]
+        )
+
+    def _render_readiness_gate(self, gate: dict[str, Any]) -> str:
+        status = str(gate.get("status", "unknown"))
+        return "\n".join(
+            [
+                f'        <article class="readiness-gate readiness-gate-{_class_name(status)}">',
+                f"          <span>{escape(str(gate.get('label') or gate.get('id') or 'Gate'))}</span>",
+                f"          <strong>{escape(status)}</strong>",
+                f"          <p>{escape(str(gate.get('detail') or 'No detail recorded.'))}</p>",
+                f'          <p class="muted">{escape(str(gate.get("action") or "No action recorded."))}</p>',
+                "        </article>",
             ]
         )
 
@@ -1290,6 +1327,12 @@ def _class_name(value: str) -> str:
     return cleaned.strip("-") or "unknown"
 
 
+def _as_dicts(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
 _CSS = """
     :root {
       color-scheme: light;
@@ -1346,7 +1389,8 @@ _CSS = """
     }
     .field-grid,
     .run-list,
-    .physical-family-grid {
+    .physical-family-grid,
+    .readiness-grid {
       display: grid;
       gap: 12px;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1432,6 +1476,29 @@ _CSS = """
       overflow-wrap: anywhere;
     }
     .physical-family p {
+      margin: 6px 0 0;
+    }
+    .readiness-panel {
+      display: grid;
+      gap: 14px;
+    }
+    .readiness-gate {
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .readiness-gate span {
+      color: #334e68;
+      display: block;
+      font-size: 0.84rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .readiness-gate strong {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+    .readiness-gate p {
       margin: 6px 0 0;
     }
     .run-card h3 {

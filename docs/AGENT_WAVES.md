@@ -838,3 +838,13 @@ Status: complete for gate visibility. PrintPipe now has one local readiness repo
 4. Done: added `GET /readiness.json`.
 5. Done: home page service links now include `Readiness JSON`.
 6. Boundary: this is a reporting layer; it does not print coupons, install tools, sign packages, or convert missing evidence into completion.
+
+## Wave 76 - Readiness Gates on Home Page
+
+Status: complete for local dashboard visibility. The combined readiness report now appears directly on the local home page.
+
+1. Done: home page calls `build_beta_readiness_report()` when a runs directory is configured.
+2. Done: the page shows overall readiness and action-required count.
+3. Done: the page renders each readiness gate with status, detail, and action.
+4. Done: regression coverage proves physical validation and release-signing blockers are visible without opening JSON.
+5. Boundary: the panel is read-only; it does not complete physical prints or signing work.
