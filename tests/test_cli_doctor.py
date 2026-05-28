@@ -22,6 +22,13 @@ def test_doctor_prints_human_report(monkeypatch, capsys):
             "dependencies": [],
             "bambu_studio": {"installed_count": 0, "candidate_count": 0},
             "bambu_profiles": {"candidate_count": 0},
+            "system": {
+                "signing": {
+                    "status": "missing_identities",
+                    "missing_tools": [],
+                    "missing_identities": ["Developer ID Application"],
+                }
+            },
             "summary": {"dependency_status_counts": {}},
         },
     )
@@ -32,6 +39,7 @@ def test_doctor_prints_human_report(monkeypatch, capsys):
     assert exit_code == 0
     assert "PrintPipe Doctor" in captured.out
     assert "Platform: macos (darwin)" in captured.out
+    assert "macOS signing: missing_identities" in captured.out
 
 
 def test_doctor_prints_json_report(monkeypatch, capsys):

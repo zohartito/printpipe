@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -108,6 +109,68 @@ def test_python_runtime_summary_is_json_friendly_and_copy_safe():
 
     data["version_info"].append("mutated")
     assert "mutated" not in summary.as_dict()["version_info"]
+
+
+def test_macos_signing_readiness_reports_missing_tools_and_identities():
+    macos = load_macos_module()
+
+    summary = macos.macos_signing_readiness(which=lambda _name: None)
+    data = summary.as_dict()
+
+    assert data["status"] == "missing_tools"
+    assert data["missing_tools"] == ["codesign", "productbuild", "security", "notarytool"]
+    assert data["missing_identities"] == [
+        "Developer ID Application",
+        "Developer ID Installer",
+    ]
+    assert data["tools"]["codesign"] == {"path": None, "available": False}
+    assert data["identities"]["developer_id_application"] == []
+
+
+def test_macos_signing_readiness_parses_developer_id_identities():
+    macos = load_macos_module()
+    tool_paths = {
+        "codesign": "/usr/bin/codesign",
+        "productbuild": "/usr/bin/productbuild",
+        "security": "/usr/bin/security",
+        "xcrun": "/usr/bin/xcrun",
+    }
+
+    def fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        if args == ["/usr/bin/xcrun", "--find", "notarytool"]:
+            return subprocess.CompletedProcess(args, 0, stdout="/usr/bin/notarytool\n", stderr="")
+        if args == ["/usr/bin/security", "find-identity", "-v", "-p", "codesigning"]:
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                stdout=(
+                    '  1) ABCD "Developer ID Application: Zohar Tito (TEAMID)"\n'
+                    '  2) EFGH "Developer ID Installer: Zohar Tito (TEAMID)"\n'
+                    "     2 valid identities found\n"
+                ),
+                stderr="",
+            )
+        raise AssertionError(f"unexpected command: {args}")
+
+    summary = macos.macos_signing_readiness(
+        which=tool_paths.get,
+        run_command=fake_run,
+    )
+    data = summary.as_dict()
+
+    assert data["status"] == "ready"
+    assert data["missing_tools"] == []
+    assert data["missing_identities"] == []
+    assert data["tools"]["notarytool"] == {
+        "path": "/usr/bin/notarytool",
+        "available": True,
+    }
+    assert data["identities"]["developer_id_application"] == [
+        "Developer ID Application: Zohar Tito (TEAMID)"
+    ]
+    assert data["identities"]["developer_id_installer"] == [
+        "Developer ID Installer: Zohar Tito (TEAMID)"
+    ]
 
 
 def test_macos_environment_report_is_json_friendly_and_copy_safe(

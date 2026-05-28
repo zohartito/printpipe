@@ -46,6 +46,7 @@ printpipe run tests/fixtures/objects/existing_stl_pipeline/tiny_tetrahedron.stl 
 printpipe status runs/<run-id>
 printpipe open-report runs/<run-id>
 printpipe doctor
+printpipe doctor --json
 ```
 
 `printpipe run` is still a skeleton pipeline for reports and prepared artifacts.
@@ -72,6 +73,12 @@ pipeline job.
 V1 macOS packaging should provide a local launcher around the same `printpipe`
 entry point, bundled with a compatible Python runtime and the required Python
 dependencies. The package should not bundle Bambu Studio.
+
+`printpipe doctor` reports macOS signing readiness separately from basic package
+building. It checks for `codesign`, `productbuild`, `security`, `notarytool`, and
+valid `Developer ID Application` plus `Developer ID Installer` identities. Missing
+identities mean the local DMG can still be built and ad-hoc signed for smoke
+testing, but final Developer ID signing/notarization is not ready.
 
 The package should detect:
 

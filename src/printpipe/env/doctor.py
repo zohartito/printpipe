@@ -80,6 +80,8 @@ def render_environment_report(report: Mapping[str, Any]) -> str:
 
     platform_info = _mapping(report.get("platform"))
     summary = _mapping(report.get("summary"))
+    system = _mapping(report.get("system"))
+    signing = _mapping(system.get("signing"))
     studio = _mapping(report.get("bambu_studio"))
     profiles = _mapping(report.get("bambu_profiles"))
     dependencies = _list(report.get("dependencies"))
@@ -134,9 +136,20 @@ def render_environment_report(report: Mapping[str, Any]) -> str:
                     )
                 )
             ),
-            "",
         ]
     )
+    if signing:
+        lines.extend(
+            [
+                "",
+                f"macOS signing: {signing.get('status', 'unknown')}",
+                "Missing signing tools: "
+                + _join_or_none(_list(signing.get("missing_tools"))),
+                "Missing signing identities: "
+                + _join_or_none(_list(signing.get("missing_identities"))),
+            ]
+        )
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -265,6 +278,10 @@ def _list(value: Any) -> list[Any]:
     if isinstance(value, tuple):
         return list(value)
     return []
+
+
+def _join_or_none(values: list[Any]) -> str:
+    return ", ".join(str(item) for item in values) or "none"
 
 
 __all__ = [

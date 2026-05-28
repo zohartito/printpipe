@@ -143,6 +143,10 @@ def test_packaging_doc_names_macos_package_smoke_command() -> None:
 
     for expected in (
         "printpipe package-smoke --platform macos --runs-dir runs/package-smoke/macos --json",
+        "printpipe doctor --json",
+        "macos signing",
+        "developer id application",
+        "developer id installer",
         "printpipe package-smoke --platform windows --runs-dir runs/package-smoke/windows --json",
         "generated ascii stl",
         "manual_required",

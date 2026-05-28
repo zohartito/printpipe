@@ -607,3 +607,15 @@ Status: partial progress for original items 121 and 122. PrintPipe can now verif
 5. Done: verifier checks every manifest artifact exists, stays inside the release folder, and matches recorded size plus SHA-256.
 6. Done: verifier exits `0` for intact folders and `2` for failed verification.
 7. Remaining: Developer ID notarization, signed Windows installer, bundled Python runtime, live Windows+Bambu slice evidence, and physical print validation stay open.
+
+## Wave 56 - macOS Signing Readiness Doctor
+
+Status: partial progress for original item 121. PrintPipe now distinguishes local packaging/tool readiness from the missing Apple Developer signing credential gate.
+
+1. Done: added `printpipe.env.macos.macos_signing_readiness()`.
+2. Done: readiness checks `codesign`, `productbuild`, `security`, and `notarytool`.
+3. Done: readiness parses `security find-identity -v -p codesigning` for `Developer ID Application` and `Developer ID Installer` identities.
+4. Done: `printpipe doctor` now renders macOS signing status and missing tools/identities.
+5. Done: `printpipe doctor --json` includes the signing readiness packet under `system.signing`.
+6. Boundary on this Mac: signing tools are present, but no valid Developer ID identities are installed.
+7. Remaining: install Apple Developer certificates, perform real Developer ID signing/notarization, signed Windows installer, bundled Python runtime, live Windows+Bambu slice evidence, and physical print validation stay open.
