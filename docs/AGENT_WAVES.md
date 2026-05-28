@@ -398,3 +398,13 @@ Status: complete for F13 and original item 90. PrintPipe-generated `.3mf` bundle
 4. Done: verified a fresh SUNLU TPU 90A `printpipe run ... --slice` command against Bambu Studio `02.06.00.51` on macOS `26.5` returned code 0, wrote `plate_1.gcode`, and reported zero warnings/errors.
 5. Done: documented that raw direct-STL CLI slicing can still crash because it lacks project filament/profile context; PrintPipe's supported slice path is Bambu-native `.3mf`.
 6. Remaining: physical PLA/PETG/TPU validation and signed packaging are still separate gates; live Windows Bambu CLI slicing is useful evidence later, not required for F13.
+
+## Wave 37 - Run Detail 3MF Download Affordance
+
+Status: complete for original item 120. The run-detail workbench now exposes the Bambu bundle as a browser-downloadable `.3mf` artifact.
+
+1. Done: added a regression asserting the run-detail workbench renders `download="<bundle>.3mf"` for the bundle tile.
+2. Done: kept download behavior limited to Bambu bundle artifacts with `category=bundle`, `.3mf` filename, and `model/3mf` media type.
+3. Done: preserved the existing safe artifact-serving route and open-folder actions.
+4. Done: updated the roadmap count to 125 done / 17 partial.
+5. Remaining: signed packaging and real physical beta print evidence are still separate gates.

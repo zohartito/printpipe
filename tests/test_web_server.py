@@ -294,6 +294,7 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert "Final STL" in response.text
     assert ">3MF<" in response.text
     assert "3MF bundle" in response.text
+    assert 'download="ready.3mf"' in response.text
     assert "Slice report" in response.text
     assert 'href="/runs/run-workbench-001/artifacts/70_slice/slice_result.json"' in response.text
     assert "Warning and Failure Receipts" in response.text

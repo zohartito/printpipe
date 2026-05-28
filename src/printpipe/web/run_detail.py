@@ -416,7 +416,20 @@ def _render_primary_artifact_tile(label: str, categories: tuple[str, ...], artif
     if link is None:
         return f'<span class="missing-artifact"><strong>{escape(label)}</strong><span>Pending</span></span>'
     path = str(getattr(link, "path", getattr(link, "download_name", "")))
-    return f'<a href="{escape(str(getattr(link, "href", "#")), quote=True)}"><strong>{escape(label)}</strong><span>{escape(path)}</span></a>'
+    download_attribute = _download_attribute(link)
+    return (
+        f'<a href="{escape(str(getattr(link, "href", "#")), quote=True)}"{download_attribute}>'
+        f"<strong>{escape(label)}</strong><span>{escape(path)}</span></a>"
+    )
+
+
+def _download_attribute(link: Any) -> str:
+    category = str(getattr(link, "category", ""))
+    download_name = str(getattr(link, "download_name", ""))
+    media_type = str(getattr(link, "media_type", ""))
+    if category == "bundle" and download_name.lower().endswith(".3mf") and media_type == "model/3mf":
+        return f' download="{escape(download_name, quote=True)}"'
+    return ""
 
 
 def _first_artifact_link(categories: tuple[str, ...], artifact_links: list[Any]) -> Any | None:
