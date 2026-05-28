@@ -84,9 +84,9 @@ def test_prepare_still_image_saves_extracted_cleaned_selected_reference_and_mani
     assert receipt_by_stage["classify_input"].status == StageStatus.SUCCEEDED
     assert receipt_by_stage["extract_references"].status == StageStatus.SUCCEEDED
     assert receipt_by_stage["extract_references"].metrics["candidate_count"] == 1
-    assert receipt_by_stage["background_removal"].status == StageStatus.SUCCEEDED
+    assert receipt_by_stage["background_removal"].status == StageStatus.SKIPPED
     assert receipt_by_stage["background_removal"].metrics["semantic_background_removed"] is False
-    assert receipt_by_stage["normalize_lighting"].status == StageStatus.SUCCEEDED
+    assert receipt_by_stage["normalize_lighting"].status == StageStatus.SKIPPED
     assert receipt_by_stage["normalize_lighting"].metrics["lighting_normalized"] is False
     assert receipt_by_stage["select_references"].status == StageStatus.SUCCEEDED
     assert receipt_by_stage["select_references"].metrics["candidate_count"] == 1
@@ -127,8 +127,8 @@ def test_prepare_gif_and_video_extract_with_fake_runner_and_select_references(tm
         assert receipt_by_stage["extract_references"].status == StageStatus.SUCCEEDED
         assert receipt_by_stage["extract_references"].metrics["candidate_count"] == 3
         assert receipt_by_stage["extract_references"].metrics["extractor"] == "fake_ffmpeg"
-        assert receipt_by_stage["background_removal"].status == StageStatus.SUCCEEDED
-        assert receipt_by_stage["normalize_lighting"].status == StageStatus.SUCCEEDED
+        assert receipt_by_stage["background_removal"].status == StageStatus.SKIPPED
+        assert receipt_by_stage["normalize_lighting"].status == StageStatus.SKIPPED
         assert receipt_by_stage["select_references"].status == StageStatus.SUCCEEDED
         assert receipt_by_stage["select_references"].metrics["selected_count"] == 2
         assert receipt_by_stage["contact_sheet"].status == StageStatus.SUCCEEDED

@@ -793,7 +793,7 @@ def _background_removed_references(
         cleaned,
         StageReceipt(
             stage="background_removal",
-            status=StageStatus.SUCCEEDED,
+            status=StageStatus.SKIPPED,
             message="copied frames without semantic background removal",
             artifacts=cleaned,
             metrics={
@@ -853,7 +853,7 @@ def _lighting_normalized_references(
         cleaned,
         StageReceipt(
             stage="normalize_lighting",
-            status=StageStatus.SUCCEEDED,
+            status=StageStatus.SKIPPED,
             message="left cleaned frames unchanged; no lighting normalization was applied",
             artifacts=cleaned,
             metrics={

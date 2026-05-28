@@ -1729,3 +1729,13 @@ Status: partial progress for beta-readiness honesty. This closes the Opus audit 
 4. Done: the no-failure/no-rule-packet state still remains `not_applicable`.
 5. Done: regression coverage proves one captured failure with no rule packets blocks readiness at `rule_updates`.
 6. Boundary: this does not decide which material/orientation/repair rule changed; it prevents captured failures from being silently treated as irrelevant.
+
+## Wave 158 - No-Op Preprocessing Receipts Are Skipped
+
+Status: complete for media-preprocessing receipt honesty. This closes the Opus audit S3 gap where background removal and lighting normalization reported `succeeded` even when no configured command ran.
+
+1. Done: no-command background removal now returns `StageStatus.SKIPPED` while still copying references forward with explicit metadata.
+2. Done: no-command lighting normalization now returns `StageStatus.SKIPPED` while preserving the existing cleaned references.
+3. Done: configured background-removal and lighting-normalization commands still return `succeeded`.
+4. Done: regression coverage now expects skipped no-op receipts for still image, GIF, and video preparation.
+5. Boundary: this does not implement semantic background removal or lighting normalization; it prevents no-op copies from being counted as successful preprocessing.
