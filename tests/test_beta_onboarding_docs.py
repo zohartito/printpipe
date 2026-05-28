@@ -80,3 +80,22 @@ def test_onboarding_doc_covers_local_first_privacy_and_feedback_artifacts() -> N
         "whether you opened the report",
     ):
         assert expected in content
+
+
+def test_onboarding_doc_names_physical_evidence_packet_requirements() -> None:
+    content = _read(ONBOARDING_DOC)
+
+    for expected in (
+        "physical evidence packet",
+        "operator",
+        "print status",
+        "photo artifact",
+        "filament drying",
+        "layer bonding",
+        "flex recovery",
+        "first layer",
+        "adhesion",
+        "warping",
+        "stringing",
+    ):
+        assert expected in content

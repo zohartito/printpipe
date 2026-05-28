@@ -162,6 +162,27 @@ object differs from the recorded bundle, or inspection finds unsafe/ unusable
 geometry. This gate is currently pending because the slipper has not been
 physically printed by PrintPipe.
 
+## Physical Evidence Packet
+
+Use a physical evidence packet for the flex coupon and, later, the slipper
+print. The code helper is `printpipe.beta.physical`; it makes the evidence
+requirements explicit so a real print does not become a vague memory.
+
+For the TPU flex coupon, the packet must include:
+
+- Run id for the PrintPipe run that generated the coupon.
+- Operator.
+- Printer, material, and print status.
+- Photo artifact for passed, failed, or partial coupon prints.
+- Filament drying note.
+- Layer bonding note after hand flexing.
+- Flex recovery note after repeated bending.
+- First layer, adhesion, stringing, and support-removal notes when observed.
+
+For the slipper, add measured fit, support-removal, delamination, sole texture,
+and wear-safety notes. Keep the status as `not_printed` until the coupon or
+slipper actually comes off the printer and has photos plus notes.
+
 ## Physical Steps Still Required
 
 - Dry the TPU filament and record the dryer settings/time.

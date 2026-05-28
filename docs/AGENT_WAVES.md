@@ -310,3 +310,14 @@ Status: complete for F8 and original item 103 as software dogfood. Outputs are c
 4. Done: verified the run repaired the mesh to watertight output, fit the 256 x 256 mm P2S bed with 21.92 mm minimum XY margin, validated the `.3mf`, and recorded 0 warnings.
 5. Done: verified the TPU flex coupon artifact and checklist requirement are present in the dogfood run.
 6. Remaining: live Bambu CLI slice is still skipped because F13 owns the local Bambu Studio SIGSEGV; physical slipper printing stays under Phase 16 beta/physical validation.
+
+## Wave 29 - Physical Evidence Packets
+
+Status: partial for F9. Evidence capture is implemented and tested, but the real PLA, PETG, and TPU physical prints remain user/printer-side work.
+
+1. Done: added `printpipe.beta.physical` for structured physical print evidence packets.
+2. Done: added JSON-friendly artifact and evidence serialization for coupon and small-object print results.
+3. Done: added material-specific missing-evidence checks for TPU, PLA, and PETG.
+4. Done: added Markdown rendering with required evidence headings and open-issue reporting.
+5. Done: updated beta onboarding and slipper dogfood docs to require physical evidence packets for real print claims.
+6. Remaining: print one PLA, one PETG, and one TPU coupon or small object, attach photos/notes, and keep F9 partial until those artifacts exist.

@@ -176,6 +176,28 @@ It is fine to report "missing" for artifacts that the current skeleton does not
 produce yet. The important part is naming the missing artifact and attaching the
 run folder evidence that led you there.
 
+## Physical Evidence Packet
+
+When a coordinator explicitly clears a coupon or small-object print, attach a
+physical evidence packet instead of only saying that it printed. The helper API
+for this is `printpipe.beta.physical`; it records the same fields the beta team
+needs before treating a real print as evidence.
+
+Every physical evidence packet should include:
+
+- Run id and printed object.
+- Operator.
+- Printer, material, and print status.
+- At least one photo artifact for a passed, failed, or partial print.
+- Slice status if Bambu Studio or another slicer was checked manually.
+- First layer and adhesion notes for PLA and PETG.
+- Warping and stringing notes for PETG.
+- Filament drying, layer bonding, and flex recovery notes for TPU.
+- Dimensions, support-removal notes, or other inspection notes when relevant.
+
+If the print has not happened yet, keep the status as `not_printed`. Do not add
+photo, adhesion, or flex claims from memory or from a planned print.
+
 ## Feedback Expectations
 
 Good beta feedback is short and concrete:
