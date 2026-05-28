@@ -27,6 +27,7 @@ class ArtifactKind(str, Enum):
     ORIGINAL_INPUT = "original_input"
     CLEANED_FRAME = "cleaned_frame"
     GENERATED_MESH = "generated_mesh"
+    CALIBRATION_MESH = "calibration_mesh"
     REPAIRED_MESH = "repaired_mesh"
     ORIENTED_MESH = "oriented_mesh"
     PROFILE_JSON = "profile_json"
@@ -62,4 +63,3 @@ class StageReceipt:
     message: str
     artifacts: tuple[Artifact, ...] = ()
     metrics: dict[str, Any] = field(default_factory=dict)
-

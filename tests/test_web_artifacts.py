@@ -134,6 +134,36 @@ def test_link_for_artifact_normalizes_safe_absolute_paths(tmp_path: Path):
     )
 
 
+def test_discover_run_artifacts_surfaces_flex_coupon_as_calibration_mesh(tmp_path: Path):
+    run_root = tmp_path / "run-flex"
+    coupon = run_root / "40_geometry" / "flex_coupon_40x15x3.stl"
+    report_json = run_root / "80_reports" / "run_report.json"
+    coupon.parent.mkdir(parents=True, exist_ok=True)
+    report_json.parent.mkdir(parents=True, exist_ok=True)
+    coupon.write_text("solid coupon\nendsolid coupon\n", encoding="utf-8")
+    report_json.write_text(
+        json.dumps(
+            {
+                "artifacts": [
+                    {
+                        "kind": "calibration_mesh",
+                        "path": "40_geometry/flex_coupon_40x15x3.stl",
+                        "label": "Flex coupon ASCII STL",
+                    }
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    links = discover_run_artifacts(run_root)
+
+    assert ("calibration_mesh", "Flex coupon ASCII STL", "40_geometry/flex_coupon_40x15x3.stl") in {
+        (link.category, link.label, link.path) for link in links
+    }
+
+
 def test_discover_run_artifacts_includes_geometry_frame_bundle_and_slice_outputs(
     tmp_path: Path,
 ):

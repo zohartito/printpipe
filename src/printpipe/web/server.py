@@ -1035,6 +1035,7 @@ def _render_run_meta(detail: dict[str, Any]) -> str:
 
 def _render_verdict_strip(*, detail: dict[str, Any]) -> str:
     verdict = _mapping(detail.get("print_verdict"))
+    tone = _state_tone(str(verdict.get("state", "review")))
     reason = str(verdict.get("reason") or "Print readiness pending.")
     checks = _validation_by_key(detail)
     cards = "\n".join(
@@ -1048,7 +1049,7 @@ def _render_verdict_strip(*, detail: dict[str, Any]) -> str:
     )
     return "\n".join(
         [
-            '      <section class="verdict-strip" aria-label="Can this run print?">',
+            f'      <section class="verdict-strip verdict-strip-{escape(tone, quote=True)}" aria-label="Can this run print?">',
             '        <article class="verdict">',
             '          <p class="eyebrow">Can this run print?</p>',
             f'          <h2>{escape(str(verdict.get("label", "Review before print")))}</h2>',
@@ -1178,6 +1179,7 @@ def _render_model_card(*, detail: dict[str, Any], artifact_links: list[Any]) -> 
             _render_metric("Fit issue", _fit_issue_label(detail)),
             _render_metric("Slice gate", _state_label(str(validation.get("slice_success", {}).get("state", "review")))),
             "            </div>",
+            _render_workbench_artifacts(artifact_links),
             "          </article>",
         ]
     )
@@ -1226,6 +1228,20 @@ def _render_metric(label: str, value: str) -> str:
             f"                <span>{escape(label)}</span>",
             f"                <strong>{escape(value)}</strong>",
             "              </div>",
+        ]
+    )
+
+
+def _render_workbench_artifacts(artifact_links: list[Any]) -> str:
+    return "\n".join(
+        [
+            '            <section class="workbench-artifacts" aria-label="Primary artifacts">',
+            '              <div class="artifact-heading">',
+            "                <h3>Artifacts</h3>",
+            "                <p>Open the files you need while editing this run.</p>",
+            "              </div>",
+            _render_artifact_tiles(artifact_links),
+            "            </section>",
         ]
     )
 
@@ -1549,7 +1565,7 @@ _PRIMARY_ARTIFACT_TILES = (
     ("Repaired mesh", ("repaired_mesh",)),
     ("Final STL", ("oriented_mesh",)),
     ("3MF", ("bundle",)),
-    ("Slice report", ("reports", "slice_log")),
+    ("Slice report", ("slice_log",)),
 )
 
 
@@ -2062,9 +2078,19 @@ _CSS = """
       padding: clamp(14px, 2vw, 24px);
     }
     .verdict-strip {
+      border-top: 4px solid transparent;
       display: grid;
       gap: 10px;
       grid-template-columns: 1.2fr repeat(5, minmax(110px, 1fr));
+    }
+    .verdict-strip-pass {
+      border-color: #1f8a4c;
+    }
+    .verdict-strip-warn {
+      border-color: #b7791f;
+    }
+    .verdict-strip-fail {
+      border-color: #c23030;
     }
     .verdict,
     .score,
@@ -2318,6 +2344,31 @@ _CSS = """
       min-width: 0;
       padding: 12px;
     }
+    .workbench-artifacts {
+      border-top: 1px solid #cfd8e3;
+      display: grid;
+      gap: 10px;
+      padding: 12px 14px 14px;
+    }
+    .artifact-heading {
+      align-items: baseline;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      justify-content: space-between;
+    }
+    .artifact-heading h3 {
+      font-size: 0.96rem;
+      margin: 0;
+    }
+    .artifact-heading p {
+      color: #52606d;
+      font-size: 0.84rem;
+      margin: 0;
+    }
+    .workbench-artifacts .links {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
     .lower-grid {
       display: grid;
       gap: 14px;
@@ -2542,6 +2593,7 @@ _CSS = """
       .verdict-strip,
       .lower-grid,
       .model-footer,
+      .workbench-artifacts .links,
       .control-grid {
         grid-template-columns: 1fr;
       }

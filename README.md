@@ -42,6 +42,8 @@ Current input support is intentionally explicit:
 | Prompt plus image | Supported only at the provider-contract level as an optional `prompt_hint`; not wired through CLI/web runs yet. |
 | Prompt only | Not supported yet. The pipeline needs an image/video/mesh source before it can produce geometry. |
 
+Flexible-material runs, including TPU, also emit `40_geometry/flex_coupon_40x15x3.stl` as the first validation print artifact.
+
 ## Development
 
 ```bash

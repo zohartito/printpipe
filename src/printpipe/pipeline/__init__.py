@@ -11,6 +11,7 @@ from typing import Any
 from printpipe.bambu.slicer import run_bambu_cli_slice_stage
 from printpipe.bambu.threemf import BambuProfileIds, GuiSafeTransform, validate_bundle
 from printpipe.bambu.threemf.mesh_adapter import write_bundle_from_ascii_stl
+from printpipe.calibration import write_flex_coupon_artifacts
 from printpipe.contracts import Artifact, ArtifactKind, InputKind, StageReceipt, StageStatus
 from printpipe.geometry import (
     BedSize,
@@ -620,22 +621,33 @@ def _write_pipeline_reports(
     use_case: str = "print",
     settings_changes: Sequence[Mapping[str, Any] | str] = (),
 ) -> PipelineResult:
+    report_stages = _stages_with_validation_artifacts(
+        layout,
+        stages=stages,
+        material=material,
+        use_case=use_case,
+    )
     pre_print_checklist = build_pre_print_checklist(
         material=material,
         printer=printer,
         use_case=use_case,
-        slice_gate_status=_slice_gate_status(stages),
+        slice_gate_status=_slice_gate_status(report_stages),
+    )
+    pre_print_checklist = _attach_validation_artifacts_to_checklist(
+        layout,
+        checklist=pre_print_checklist,
+        stages=report_stages,
     )
     report_dict = build_run_report_dict(
         layout,
-        stages=stages,
+        stages=report_stages,
         warnings=warnings,
         settings_changes=settings_changes,
         pre_print_checklist=pre_print_checklist,
     )
     report_json, report_markdown = write_run_report(
         layout,
-        stages=stages,
+        stages=report_stages,
         warnings=warnings,
         settings_changes=settings_changes,
         pre_print_checklist=pre_print_checklist,
@@ -643,9 +655,70 @@ def _write_pipeline_reports(
     report_html = write_html_report(layout, report_dict)
     return PipelineResult(
         layout=layout,
-        stages=tuple(stages),
-        artifacts=(*_stage_artifacts(stages), report_json, report_markdown, report_html),
+        stages=tuple(report_stages),
+        artifacts=(*_stage_artifacts(report_stages), report_json, report_markdown, report_html),
     )
+
+
+def _stages_with_validation_artifacts(
+    layout: RunLayout,
+    *,
+    stages: Sequence[StageReceipt],
+    material: str,
+    use_case: str,
+) -> tuple[StageReceipt, ...]:
+    if not _is_flexible_material(material):
+        return tuple(stages)
+    if any(receipt.stage == "validation.flex_coupon" for receipt in stages):
+        return tuple(stages)
+    return (
+        *stages,
+        write_flex_coupon_artifacts(
+            layout.geometry_dir,
+            material=material,
+            use_case=use_case,
+        ),
+    )
+
+
+def _attach_validation_artifacts_to_checklist(
+    layout: RunLayout,
+    *,
+    checklist: Sequence[Mapping[str, Any]],
+    stages: Sequence[StageReceipt],
+) -> list[dict[str, Any]]:
+    coupon_artifact = _flex_coupon_artifact_path(layout, stages)
+    if coupon_artifact is None:
+        return [dict(item) for item in checklist]
+
+    enriched: list[dict[str, Any]] = []
+    for item in checklist:
+        payload = dict(item)
+        if payload.get("id") == "flex_coupon_first":
+            metadata = dict(_mapping(payload.get("metadata")))
+            metadata["coupon_artifact"] = coupon_artifact
+            payload["metadata"] = metadata
+        enriched.append(payload)
+    return enriched
+
+
+def _flex_coupon_artifact_path(layout: RunLayout, stages: Sequence[StageReceipt]) -> str | None:
+    for receipt in stages:
+        if receipt.stage != "validation.flex_coupon" or receipt.status != StageStatus.SUCCEEDED:
+            continue
+        for artifact in receipt.artifacts:
+            if artifact.kind == ArtifactKind.CALIBRATION_MESH:
+                return artifact.path.relative_to(layout.root).as_posix()
+    return None
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _is_flexible_material(material: str) -> bool:
+    normalized = material.upper()
+    return "TPU" in normalized or "TPE" in normalized or "FLEX" in normalized
 
 
 def _stage_artifacts(stages: Sequence[StageReceipt]) -> tuple[Artifact, ...]:

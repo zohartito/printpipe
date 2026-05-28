@@ -14,6 +14,7 @@ from urllib.parse import quote, unquote
 CATEGORY_ORIGINAL_INPUT = "original_input"
 CATEGORY_REPORTS = "reports"
 CATEGORY_GENERATED_MESH = "generated_mesh"
+CATEGORY_CALIBRATION_MESH = "calibration_mesh"
 CATEGORY_REPAIRED_MESH = "repaired_mesh"
 CATEGORY_ORIENTED_MESH = "oriented_mesh"
 CATEGORY_BUNDLE = "bundle"
@@ -23,6 +24,7 @@ CATEGORY_PREVIEW = "preview"
 CATEGORY_ORDER: tuple[str, ...] = (
     CATEGORY_ORIGINAL_INPUT,
     CATEGORY_REPORTS,
+    CATEGORY_CALIBRATION_MESH,
     CATEGORY_GENERATED_MESH,
     CATEGORY_REPAIRED_MESH,
     CATEGORY_ORIENTED_MESH,
@@ -179,6 +181,7 @@ class _Candidate:
 _KIND_TO_CATEGORY = {
     "original_input": CATEGORY_ORIGINAL_INPUT,
     "report": CATEGORY_REPORTS,
+    "calibration_mesh": CATEGORY_CALIBRATION_MESH,
     "generated_mesh": CATEGORY_GENERATED_MESH,
     "repaired_mesh": CATEGORY_REPAIRED_MESH,
     "oriented_mesh": CATEGORY_ORIENTED_MESH,
@@ -190,6 +193,7 @@ _KIND_TO_CATEGORY = {
 _DEFAULT_LABELS = {
     CATEGORY_ORIGINAL_INPUT: "Original input",
     CATEGORY_REPORTS: "Run report",
+    CATEGORY_CALIBRATION_MESH: "Calibration mesh",
     CATEGORY_GENERATED_MESH: "Generated mesh",
     CATEGORY_REPAIRED_MESH: "Repaired mesh",
     CATEGORY_ORIENTED_MESH: "Oriented mesh",
@@ -309,6 +313,11 @@ def _fallback_candidates(root: Path) -> Iterable[_Candidate]:
         CATEGORY_GENERATED_MESH,
         "20_meshgen/*",
         suffixes={".3mf", ".glb", ".gltf", ".obj", ".stl"},
+    )
+    yield from _fallback_glob(
+        root,
+        CATEGORY_CALIBRATION_MESH,
+        "40_geometry/flex_coupon*.stl",
     )
     yield from _fallback_glob(
         root,

@@ -257,3 +257,13 @@ Status: complete for the software path. Outputs are covered by `tests/test_pipel
 4. Done: missing `PRINTPIPE_HUNYUAN3D_COMMAND` now produces a failed `meshgen` receipt with provider id `hunyuan3d`.
 5. Done: CLI coverage proves a fake configured Hunyuan command can turn a PNG input into `generated_mesh_hunyuan3d.3mf`.
 6. Remaining: real local Hunyuan runtime configuration and F13 Bambu CLI SIGSEGV isolation are still outside this wave.
+
+## Wave 24 - TPU Flex Coupon Artifact
+
+Status: complete for software artifact generation. Outputs are covered by `tests/test_flex_coupon.py`, `tests/test_web_artifacts.py`, and `tests/test_pipeline_existing_mesh.py`.
+
+1. Done: added a deterministic ASCII STL flex-coupon generator for flexible-material validation.
+2. Done: TPU/flexible pipeline reports now include `validation.flex_coupon` and `40_geometry/flex_coupon_40x15x3.stl`.
+3. Done: the `flex_coupon_first` checklist item records the coupon artifact path in metadata.
+4. Done: web artifact discovery recognizes `calibration_mesh` artifacts so the coupon can be opened/downloaded from the run workbench.
+5. Remaining: physical F9 validation still needs real PLA/PETG/TPU coupon or small-object prints with photos and notes.

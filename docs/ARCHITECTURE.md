@@ -26,6 +26,7 @@ Local CLI / local app
 - `meshgen`: provider interface for hosted or local model calls.
 - `mesh`: repair, topology validation, and export.
 - `geometry`: orientation, scale, bed fit, and support-risk scoring.
+- `calibration`: physical validation artifacts such as flexible-material coupons.
 - `bambu`: printer profiles, filament profiles, process profiles, enum validation, 3MF bundling, and slice parsing.
 - `reports`: HTML/Markdown/JSON receipts.
 - `cli`: user-facing command line.
@@ -66,3 +67,5 @@ printpipe run input.gif \
 ```
 
 The first real milestone is not a polished UI. It is a reproducible run folder with a slice-verified `.3mf` and receipts.
+
+Flexible-material runs also add `40_geometry/flex_coupon_40x15x3.stl` as a calibration artifact so the user can print a small TPU validation coupon before a long final part.

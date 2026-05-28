@@ -230,7 +230,7 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
 
     assert response.status == 200
     assert "Can this run print?" in response.text
-    assert 'class="verdict-strip"' in response.text
+    assert 'class="verdict-strip verdict-strip-warn"' in response.text
     assert "Next action" in response.text
     assert "Choose a support strategy, then rebuild or inspect the slice receipt." in response.text
     assert 'class="run-context"' in response.text
@@ -265,6 +265,10 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert ">3MF<" in response.text
     assert "3MF bundle" in response.text
     assert "Slice report" in response.text
+    assert 'href="/runs/run-workbench-001/artifacts/70_slice/slice_result.json"' in response.text
+    assert 'class="workbench-artifacts"' in response.text
+    assert response.text.find('class="workbench-artifacts"') < response.text.find('class="lower-grid"')
+    assert response.text.find('class="workbench-artifacts"') < response.text.find('class="controls"')
     assert "Overall scale" in response.text
     assert "Widen / narrow opening" in response.text
     assert "Raise / lower arch/opening" in response.text
@@ -275,7 +279,6 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert 'name="support_strategy"' in response.text
     assert 'name="edit_instruction"' in response.text
     assert 'href="/runs/run-workbench-001/artifacts/60_bundle/ready.3mf"' in response.text
-    assert 'href="/runs/run-workbench-001/artifacts/80_reports/run_report.html"' in response.text
 
 
 def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
@@ -287,6 +290,8 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert ".model-preview-image" in css
     assert ".next-action" in css
     assert ".run-context" in css
+    assert ".verdict-strip-warn" in css
+    assert ".workbench-artifacts" in css
     assert ".edit-actions" in css
     assert "position: sticky" in css
     assert "bottom: 0" in css
