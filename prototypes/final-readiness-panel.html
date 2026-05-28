@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PrintPipe — Final readiness panel (prototype)</title>
+  <style>
+    :root { color-scheme: light; font-family: "IBM Plex Sans", system-ui, sans-serif; }
+    body { background: #f0f4f8; color: #243b53; margin: 0; padding: 24px; }
+    .panel { background: #fff; border: 1px solid #d9e2ec; border-radius: 8px; max-width: 960px; padding: 18px; }
+    h2 { margin: 0 0 8px; }
+    .muted { color: #52606d; }
+    .boundary { color: #334e68; font-weight: 600; }
+    .pillars { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 16px 0; }
+    .pillar { border: 1px solid #d9e2ec; border-radius: 8px; padding: 12px; }
+    .pillar span { color: #52606d; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; }
+    .pillar strong { display: block; margin: 4px 0; text-transform: capitalize; }
+    ol { display: grid; gap: 10px; padding-left: 1.2rem; }
+    li { border-left: 3px solid #c75233; padding-left: 10px; }
+    pre { background: #f1f5f9; border: 1px solid #d9e2ec; border-radius: 6px; font-size: 0.85rem; overflow-wrap: anywhere; padding: 8px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <h2>Final readiness / Remaining actions</h2>
+    <p class="muted">Overall: <strong>action_required</strong>; <strong>9</strong> remaining action(s).</p>
+    <p class="boundary">A final plan is not evidence. Physical validation, trusted-user beta, and signed distribution gates only close when their underlying evidence packets or verified signed artifacts exist on disk.</p>
+    <div class="pillars">
+      <article class="pillar">
+        <span>Physical validation</span>
+        <strong>action required</strong>
+        <p>0/3 material families have credible passed physical evidence</p>
+        <p class="muted">Digital coupons, meshes, and slice receipts are not physical proof.</p>
+      </article>
+      <article class="pillar">
+        <span>Trusted-user beta</span>
+        <strong>action required</strong>
+        <p>0/3 trusted users with completed feedback packets</p>
+        <p class="muted">Not-run packets are audit records, not completed beta feedback.</p>
+      </article>
+      <article class="pillar">
+        <span>Release distribution</span>
+        <strong>action required</strong>
+        <p>3 signing or distribution action(s) still open</p>
+        <p class="muted">Unsigned build artifacts are not distribution proof.</p>
+      </article>
+    </div>
+    <h3>Remaining actions</h3>
+    <ol>
+      <li>
+        <p><strong>Physical validation</strong> · PLA physical validation</p>
+        <p class="muted">no physical evidence packet found</p>
+        <pre><code>printpipe record-physical-evidence ... --print-status passed</code></pre>
+      </li>
+      <li>
+        <p><strong>Trusted-user beta</strong> · Trusted-user feedback (tester slot 1)</p>
+        <p class="muted">No completed feedback packet for this tester slot.</p>
+      </li>
+    </ol>
+  </main>
+</body>
+</html>

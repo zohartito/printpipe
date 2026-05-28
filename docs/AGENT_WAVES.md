@@ -1231,3 +1231,15 @@ Status: complete for trusted-user beta scanner hardening. This does not create t
 4. Done: incomplete trusted-user packets stay visible through `incomplete_trusted_user_packet_count` and `incomplete_trusted_user_packets`.
 5. Done: the terminal trusted-feedback summary lists incomplete packets and their missing fields.
 6. Boundary: generated or hand-edited incomplete packets are audit records only; they do not satisfy trusted-user beta completion.
+
+## Wave 112 - Final Readiness Command Center and Next-Action Contract
+
+Status: complete for endgame action orchestration and home-page visibility. This does not create physical, tester, or signed-distribution evidence.
+
+1. Done: added a home-page `Final readiness / Remaining actions` command-center panel backed by the existing final plan, physical status, and trusted-user status payloads.
+2. Done: the panel shows the three real remaining pillars: physical validation, trusted-user beta, and release distribution.
+3. Done: the panel flattens remaining endgame actions into one checklist while repeating that generated plans and digital artifacts are not proof.
+4. Done: added final-plan regression coverage for top-level `next_action` and `next_command` fields.
+5. Done: final-plan JSON now selects the first actionable gate in the existing order and action-specific commands are preferred when present.
+6. Current local result: `printpipe final-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json --json` reports nine actions and a next action of `physical_validation` / `PLA`, with the PLA `physical-start` command as the immediate command.
+7. Boundary: this is routing and visibility only; PLA/PETG/TPU physical packets, three trusted-user feedback packets, Developer ID/notary credentials, and signed Windows installer evidence remain external gates.

@@ -478,16 +478,19 @@ def test_home_response_renders_final_action_plan(monkeypatch, tmp_path: Path):
     response = app.handle("/")
 
     assert response.status == 200
-    assert "Final action plan" in response.text
-    assert "7 action required" in response.text
+    assert "Final readiness / Remaining actions" in response.text
+    assert "<strong>7</strong> remaining action(s)" in response.text
     assert "A final plan is not evidence." in response.text
     assert "Physical validation" in response.text
     assert "Trusted-user beta" in response.text
     assert "Release distribution" in response.text
+    assert "final-readiness-checklist" in response.text
+    assert "Digital coupons, meshes, and slice receipts are not physical proof." in response.text
+    assert "not-run or incomplete feedback packets" in response.text
     assert "printpipe physical-plan --runs-dir runs" in response.text
     assert "printpipe beta-feedback-plan --runs-dir runs" in response.text
-    assert "printpipe release-plan --release-dir dist/release --runs-dir runs" in response.text
     assert 'href="/final-plan.json"' in response.text
+    assert 'href="/physical-plan.json"' in response.text
 
 
 def test_beta_feedback_status_json_endpoint_returns_trusted_user_status(

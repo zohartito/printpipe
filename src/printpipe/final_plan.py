@@ -74,6 +74,7 @@ def build_final_action_plan(
         ),
     ]
     action_count = sum(int(section["action_count"]) for section in sections)
+    next_action = _next_action(sections)
     return {
         "schema_version": 1,
         "runs_dir": str(runs_path),
@@ -83,6 +84,8 @@ def build_final_action_plan(
         ),
         "overall_status": "ready" if action_count == 0 else "action_required",
         "action_count": action_count,
+        "next_action": next_action,
+        "next_command": str(next_action.get("command") or ""),
         "proof_boundary": FINAL_PLAN_PROOF_BOUNDARY,
         "sections": sections,
     }
@@ -100,8 +103,27 @@ def render_final_action_plan(plan: Mapping[str, Any]) -> str:
         "",
         str(plan.get("proof_boundary", FINAL_PLAN_PROOF_BOUNDARY)),
         "",
-        "Sections:",
     ]
+    next_action = _dict(plan.get("next_action"))
+    if next_action:
+        lines.extend(
+            [
+                "Next action:",
+                (
+                    f"- {next_action.get('section_label', '')}: "
+                    f"{next_action.get('label', '')} "
+                    f"({next_action.get('status', 'unknown')})"
+                ),
+            ]
+        )
+        detail = str(next_action.get("detail") or "")
+        if detail:
+            lines.append(f"  detail: {detail}")
+        command = str(next_action.get("command") or "")
+        if command:
+            lines.append(f"  command: {command}")
+        lines.append("")
+    lines.append("Sections:")
     sections = _list(plan.get("sections"))
     if not sections:
         lines.append("- no final-plan sections recorded")
@@ -183,6 +205,98 @@ def _action_summary(action: Mapping[str, Any]) -> str:
     if status is None:
         return str(label)
     return f"{status}: {label}"
+
+
+def _next_action(sections: list[dict[str, Any]]) -> dict[str, str]:
+    for section in sections:
+        if int(section.get("action_count") or 0) <= 0:
+            continue
+        actions = _list(section.get("actions"))
+        if not actions:
+            return _section_as_next_action(section)
+        action = _dict(actions[0])
+        if not action:
+            return _section_as_next_action(section)
+        command_kind, command = _action_command(action, section)
+        return {
+            "section_id": str(section.get("id") or ""),
+            "section_label": str(section.get("label") or ""),
+            "action_id": _action_id(action),
+            "label": _action_label(action),
+            "status": str(action.get("status") or section.get("status") or "unknown"),
+            "detail": _action_detail(action, section),
+            "command": command,
+            "command_kind": command_kind,
+        }
+    return {}
+
+
+def _section_as_next_action(section: Mapping[str, Any]) -> dict[str, str]:
+    command = str(section.get("command") or "")
+    return {
+        "section_id": str(section.get("id") or ""),
+        "section_label": str(section.get("label") or ""),
+        "action_id": str(section.get("id") or ""),
+        "label": str(section.get("label") or "Next gate"),
+        "status": str(section.get("status") or "unknown"),
+        "detail": str(section.get("detail") or ""),
+        "command": command,
+        "command_kind": "section_command" if command else "",
+    }
+
+
+def _action_command(
+    action: Mapping[str, Any],
+    section: Mapping[str, Any],
+) -> tuple[str, str]:
+    for key in (
+        "start_command",
+        "command",
+        "record_command",
+        "setup_command",
+        "followup_command",
+    ):
+        command = str(action.get(key) or "")
+        if command:
+            return key, command
+    command = str(section.get("command") or "")
+    if command:
+        return "section_command", command
+    return "", ""
+
+
+def _action_id(action: Mapping[str, Any]) -> str:
+    if action.get("id") is not None:
+        return str(action.get("id"))
+    if action.get("family") is not None:
+        return str(action.get("family"))
+    if action.get("slot") is not None:
+        return f"trusted-user-{action.get('slot')}"
+    return str(action.get("label") or "next-action")
+
+
+def _action_label(action: Mapping[str, Any]) -> str:
+    if action.get("label") is not None:
+        return str(action.get("label"))
+    if action.get("family") is not None:
+        return str(action.get("family")).upper()
+    if action.get("slot") is not None:
+        return f"Trusted tester {action.get('slot')}"
+    if action.get("id") is not None:
+        return str(action.get("id"))
+    return "Next action"
+
+
+def _action_detail(
+    action: Mapping[str, Any],
+    section: Mapping[str, Any],
+) -> str:
+    return str(
+        action.get("detail")
+        or action.get("reason")
+        or section.get("detail")
+        or ""
+    )
 
 
 def _quote(value: str) -> str:

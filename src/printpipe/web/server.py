@@ -28,6 +28,10 @@ from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.env.doctor import build_environment_report
 from printpipe.final_plan import build_final_action_plan
+from printpipe.web.final_readiness import (
+    build_final_readiness_view,
+    render_final_readiness_panel,
+)
 from printpipe.local_open import open_run_folder
 from printpipe.packaging.release_plan import build_release_distribution_plan
 from printpipe.packaging.release_status import build_release_status_report
@@ -842,36 +846,17 @@ class PrintPipeWebApp:
                     runs_dir=self.runs_dir,
                     regression_manifest_path=self.regression_manifest_path,
                 )
+            physical_status = build_physical_validation_status(self.runs_dir)
+            feedback_status = build_trusted_user_feedback_status(self.runs_dir)
         except (OSError, ValueError):
             return ""
 
-        overall = str(plan.get("overall_status", "unknown"))
-        action_count = str(plan.get("action_count", 0))
-        proof_boundary = str(plan.get("proof_boundary", ""))
-        sections = _as_dicts(plan.get("sections"))
-        section_cards = "\n".join(
-            self._render_final_action_section_card(section)
-            for section in sections
+        view = build_final_readiness_view(
+            plan,
+            physical_status=physical_status,
+            feedback_status=feedback_status,
         )
-        if not section_cards:
-            section_cards = '<p class="muted">No final actions required.</p>'
-        command = "printpipe final-plan --release-dir dist/release --runs-dir runs"
-        if self.regression_manifest_path is not None:
-            manifest_arg = shlex.quote(str(self.regression_manifest_path))
-            command += f" --regression-manifest {manifest_arg}"
-        return "\n".join(
-            [
-                '    <section class="panel final-plan-panel">',
-                "      <div>",
-                "        <h2>Final action plan</h2>",
-                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
-                f"        <p>{escape(proof_boundary)}</p>",
-                "      </div>",
-                f'      <div class="physical-action-grid">{section_cards}</div>',
-                f'      <code>{escape(command)}</code>',
-                "    </section>",
-            ]
-        )
+        return render_final_readiness_panel(view)
 
     def _render_final_action_section_card(self, section: dict[str, Any]) -> str:
         status = str(section.get("status", "unknown"))
@@ -2164,6 +2149,70 @@ _CSS = """
       border: 1px solid #e4e7eb;
       border-radius: 8px;
       padding: 14px;
+    }
+    .final-readiness-panel {
+      display: grid;
+      gap: 16px;
+    }
+    .final-readiness-panel h3 {
+      font-size: 1rem;
+      margin: 0 0 8px;
+    }
+    .final-readiness-boundary {
+      color: #334e68;
+      font-weight: 600;
+      margin: 8px 0 0;
+    }
+    .final-readiness-pillars {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+    .final-readiness-pillar {
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .final-readiness-pillar span {
+      color: #52606d;
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .final-readiness-pillar strong {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: 6px;
+      text-transform: capitalize;
+    }
+    .final-readiness-checklist {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .final-readiness-action {
+      border-left: 3px solid #d9e2ec;
+      padding-left: 10px;
+    }
+    .final-readiness-action-action-required,
+    .final-readiness-action-missing,
+    .final-readiness-action-insufficient-feedback {
+      border-left-color: #c75233;
+    }
+    .final-readiness-action-passed,
+    .final-readiness-action-ready {
+      border-left-color: #2f855a;
+    }
+    .final-readiness-action pre {
+      margin: 6px 0 0;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+    .final-readiness-links a {
+      font-weight: 700;
     }
     .beta-plan-panel,
     .physical-gate-panel,
