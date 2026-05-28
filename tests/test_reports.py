@@ -111,3 +111,40 @@ def test_write_run_report_writes_json_and_markdown_to_reports_dir(tmp_path: Path
     assert "No settings changes recorded yet." in markdown
     assert "## Pre-print Checklist" in markdown
     assert "Pre-print checklist pending final slice gate integration." in markdown
+
+
+def test_write_run_report_promotes_prompt_reference_quote_in_markdown(tmp_path: Path):
+    source = tmp_path / "prompt.txt"
+    source.write_text("small ergonomic wall hook\n", encoding="utf-8")
+    layout = create_run(source, tmp_path / "runs", run_id="run-prompt-report")
+    receipt = StageReceipt(
+        stage="prompt_reference_generation",
+        status=StageStatus.FAILED,
+        message="OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD",
+        metrics={
+            "provider": "openai",
+            "provider_quote": {
+                "provider": "openai",
+                "privacy_mode": "remote_api",
+                "estimated_seconds": 45.0,
+                "estimated_cost_usd": 0.25,
+                "max_cost_usd": 0.05,
+                "remote_upload": True,
+                "stores_prompt_with_provider": True,
+            },
+        },
+    )
+
+    write_run_report(layout, stages=(receipt,))
+
+    markdown = (layout.reports_dir / "run_report.md").read_text(encoding="utf-8")
+    assert "## Prompt Reference" in markdown
+    assert "- Provider: openai" in markdown
+    assert "- Status: failed" in markdown
+    assert "- Privacy: remote_api" in markdown
+    assert "- Estimated cost: $0.25" in markdown
+    assert "- Max cost: $0.05" in markdown
+    assert "- Budget: blocked" in markdown
+    assert "- Remote upload: true" in markdown
+    assert "- Provider prompt storage: true" in markdown
+    assert "OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD" in markdown

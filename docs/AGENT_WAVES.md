@@ -754,3 +754,13 @@ Status: partial progress for prompt/reference trust. The workbench now exposes p
 4. Done: prompt-reference failures now block the top-level print verdict instead of leaving the run in a generic review state.
 5. Done: regression coverage proves an OpenAI cost-cap failure is visible in both the contract and workbench.
 6. Remaining: real live OpenAI/API-key evidence, provider quality comparison, and physical validation stay open.
+
+## Wave 68 - Prompt Provider Receipts in Static Reports
+
+Status: partial progress for prompt/reference evidence portability. Prompt-provider quote/budget receipts now appear in the Markdown and HTML run reports, not only the live workbench.
+
+1. Done: Markdown reports add a `Prompt Reference` section when `prompt_reference_generation` receipts exist.
+2. Done: HTML reports add a `Prompt Reference` section with provider, status, privacy mode, estimated cost, max cost, latency, budget status, and remote prompt-storage note.
+3. Done: report tests prove OpenAI cost-cap failure receipts are promoted instead of buried inside raw stage metrics.
+4. Done: report CSS keeps the prompt-reference receipt readable on desktop and mobile report layouts.
+5. Remaining: real live OpenAI/API-key evidence, provider quality comparison, and physical validation stay open.

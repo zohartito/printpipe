@@ -230,6 +230,45 @@ def test_render_html_report_promotes_local_print_readiness_sections(tmp_path: Pa
     assert "3h 12m" in html
 
 
+def test_render_html_report_promotes_prompt_reference_quote_receipt(tmp_path: Path):
+    source = tmp_path / "prompt.txt"
+    source.write_text("small ergonomic wall hook\n", encoding="utf-8")
+    layout = create_run(source, tmp_path / "runs", run_id="run-html-prompt-provider")
+    stages = (
+        StageReceipt(
+            stage="prompt_reference_generation",
+            status=StageStatus.FAILED,
+            message="OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD",
+            metrics={
+                "provider": "openai",
+                "provider_quote": {
+                    "provider": "openai",
+                    "privacy_mode": "remote_api",
+                    "estimated_seconds": 45.0,
+                    "estimated_cost_usd": 0.25,
+                    "max_cost_usd": 0.05,
+                    "remote_upload": True,
+                    "stores_prompt_with_provider": True,
+                },
+            },
+        ),
+    )
+    report_dict = build_run_report_dict(layout, stages=stages)
+
+    html = render_html_report(report_dict, layout=layout)
+
+    assert 'class="report-section section-prompt-reference"' in html
+    assert "Prompt Reference" in html
+    assert "OpenAI" in html
+    assert "failed" in html
+    assert "remote API" in html
+    assert "$0.25" in html
+    assert "$0.05" in html
+    assert "Budget blocked before remote work" in html
+    assert "prompt may be stored by provider" in html
+    assert "OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD" in html
+
+
 def test_render_html_report_embeds_preview_cards_and_highlights_print_artifacts(
     tmp_path: Path,
 ):

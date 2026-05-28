@@ -44,6 +44,7 @@ def render_html_report(
             f"      <h1>{run_id}</h1>",
             "    </header>",
             _render_input_section(stages, artifacts, layout=layout),
+            _render_prompt_reference_section(stages),
             _render_previews_section(stages, artifacts, layout=layout),
             _render_mesh_repair_section(stages, artifacts, layout=layout),
             _render_bed_fit_section(stages, artifacts, layout=layout),
@@ -123,6 +124,42 @@ def _render_previews_section(
         ),
         classes=("section-previews",),
     )
+
+
+def _render_prompt_reference_section(stages: list[Any]) -> str:
+    stage = _first_prompt_reference_stage(stages)
+    if stage is None:
+        return ""
+    metrics = stage.get("metrics", {})
+    metrics = metrics if isinstance(metrics, Mapping) else {}
+    quote = metrics.get("provider_quote", {})
+    quote = quote if isinstance(quote, Mapping) else {}
+    provider = quote.get("provider") or metrics.get("provider") or "unknown"
+    status = str(stage.get("status", "unknown"))
+    status_class = _class_name(status)
+    items = [
+        ("Provider", _prompt_provider_label(provider)),
+        ("Status", status),
+        ("Privacy", _privacy_mode_label(quote.get("privacy_mode"))),
+        ("Estimated cost", _format_money(quote.get("estimated_cost_usd"))),
+        ("Max cost", _format_money(quote.get("max_cost_usd"))),
+        ("Latency", _format_seconds(quote.get("estimated_seconds"))),
+        ("Budget", _prompt_budget_label(stage, quote)),
+    ]
+    body = "\n".join(
+        [
+            '<div class="prompt-reference-summary">',
+            "      <div>",
+            f"        <h3>{_prompt_provider_label(provider)} prompt reference</h3>",
+            f'        <span class="status status-{status_class}">{_as_text(status)}</span>',
+            f"        <p>{_as_text(stage.get('message', 'No provider message recorded.'))}</p>",
+            f'        <p class="provider-note">{_as_text(_remote_prompt_note(quote))}</p>',
+            "      </div>",
+            f'      <dl class="prompt-reference-grid">{_render_prompt_reference_items(items)}</dl>',
+            "    </div>",
+        ]
+    )
+    return _section("Prompt Reference", body, classes=("section-prompt-reference",))
 
 
 def _render_mesh_repair_section(
@@ -547,6 +584,106 @@ def _render_settings_change(change: Any) -> str:
     )
 
 
+def _first_prompt_reference_stage(stages: list[Any]) -> Mapping[str, Any] | None:
+    for stage in stages:
+        if not isinstance(stage, Mapping):
+            continue
+        if str(stage.get("stage", "")) == "prompt_reference_generation":
+            return stage
+    return None
+
+
+def _render_prompt_reference_items(items: list[tuple[str, str]]) -> str:
+    return "\n".join(
+        "        <div>"
+        f"<dt>{_as_text(label)}</dt>"
+        f"<dd>{_as_text(value)}</dd>"
+        "</div>"
+        for label, value in items
+    )
+
+
+def _prompt_provider_label(value: Any) -> str:
+    provider = str(value or "unknown").strip().lower()
+    if provider == "openai":
+        return "OpenAI"
+    if provider == "command":
+        return "Command"
+    return provider.title() if provider else "Unknown"
+
+
+def _privacy_mode_label(value: Any) -> str:
+    mode = str(value or "not recorded").strip().lower()
+    if mode == "remote_api":
+        return "remote API"
+    if mode == "local_or_user_configured":
+        return "local or user-configured"
+    return mode.replace("_", " ")
+
+
+def _prompt_budget_label(stage: Mapping[str, Any], quote: Mapping[str, Any]) -> str:
+    status = _prompt_budget_status(stage, quote)
+    labels = {
+        "blocked": "Budget blocked before remote work",
+        "within_cap": "Within configured cap",
+        "within_cap_pending": "Within cap; provider did not finish",
+        "unchecked": "Cap set; estimate missing",
+        "not_capped": "No max cost cap recorded",
+    }
+    return labels.get(status, "Review budget receipt")
+
+
+def _prompt_budget_status(stage: Mapping[str, Any], quote: Mapping[str, Any]) -> str:
+    message = str(stage.get("message", "")).lower()
+    estimated_cost = quote.get("estimated_cost_usd")
+    max_cost = quote.get("max_cost_usd")
+    if "cost cap" in message or "exceeds cap" in message:
+        return "blocked"
+    if max_cost is None:
+        return "not_capped"
+    if estimated_cost is None:
+        return "unchecked"
+    try:
+        estimate = float(estimated_cost)
+        cap = float(max_cost)
+    except (TypeError, ValueError):
+        return "review"
+    if estimate > cap:
+        return "blocked"
+    if str(stage.get("status", "")).lower() == "succeeded":
+        return "within_cap"
+    return "within_cap_pending"
+
+
+def _remote_prompt_note(quote: Mapping[str, Any]) -> str:
+    remote_upload = quote.get("remote_upload")
+    stores_prompt = quote.get("stores_prompt_with_provider")
+    if remote_upload is True:
+        storage = "prompt may be stored by provider" if stores_prompt is True else "storage policy not recorded"
+        return f"Remote prompt/reference request; {storage}."
+    if remote_upload is False:
+        return "No remote upload recorded for this provider."
+    return "Remote upload behavior depends on the configured provider command."
+
+
+def _format_money(value: Any) -> str:
+    if value in {None, ""}:
+        return "not estimated"
+    try:
+        return f"${float(value):g}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _format_seconds(value: Any) -> str:
+    if value in {None, ""}:
+        return "not estimated"
+    try:
+        return f"{float(value):g} s"
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def _render_checklist_item(item: Any) -> str:
     if not isinstance(item, Mapping):
         return f'<li class="checklist-item checklist-status-pending">{_render_value(item)}</li>'
@@ -851,6 +988,28 @@ _CSS = """
     .slice-metric dt {
       margin-bottom: 4px;
     }
+    .prompt-reference-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 0.74fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .prompt-reference-summary p {
+      margin: 8px 0 0;
+    }
+    .provider-note {
+      color: #52606d;
+      font-weight: 700;
+    }
+    .prompt-reference-grid {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 6px 12px;
+      margin: 0;
+    }
+    .prompt-reference-grid div {
+      display: contents;
+    }
     table {
       border-collapse: collapse;
       width: 100%;
@@ -973,6 +1132,10 @@ _CSS = """
       }
       .checklist-details {
         grid-column: auto;
+      }
+      .prompt-reference-summary,
+      .prompt-reference-grid {
+        grid-template-columns: 1fr;
       }
     }
 """.strip()

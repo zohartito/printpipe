@@ -91,6 +91,10 @@ def render_markdown_report(
         lines.append("")
         lines.append("No stages recorded yet.")
 
+    prompt_reference_lines = _render_prompt_reference_section(stages)
+    if prompt_reference_lines:
+        lines.extend(["", *prompt_reference_lines])
+
     lines.extend(["", "## Artifacts"])
     artifacts = [artifact for receipt in stages for artifact in receipt.artifacts]
     if artifacts:
@@ -183,6 +187,89 @@ def _render_artifact(layout: RunLayout, artifact: Artifact) -> str:
     display_path = _path_to_string(artifact.path, root=layout.root)
     link_path = _path_to_link(artifact.path, base_dir=layout.reports_dir)
     return f"- {artifact.label} ({artifact.kind.value}): [{display_path}]({link_path})"
+
+
+def _render_prompt_reference_section(stages: Sequence[StageReceipt]) -> list[str]:
+    receipt = _prompt_reference_receipt(stages)
+    if receipt is None:
+        return []
+    quote = _prompt_provider_quote(receipt.metrics)
+    provider = str(quote.get("provider") or receipt.metrics.get("provider") or "unknown")
+    lines = [
+        "## Prompt Reference",
+        f"- Provider: {provider}",
+        f"- Status: {receipt.status.value}",
+        f"- Message: {receipt.message}",
+        f"- Privacy: {quote.get('privacy_mode', 'not recorded')}",
+        f"- Estimated cost: {_format_money(quote.get('estimated_cost_usd'))}",
+        f"- Max cost: {_format_money(quote.get('max_cost_usd'))}",
+        f"- Estimated latency: {_format_seconds(quote.get('estimated_seconds'))}",
+        f"- Budget: {_prompt_budget_status(receipt)}",
+        f"- Remote upload: {_format_bool(quote.get('remote_upload'))}",
+        f"- Provider prompt storage: {_format_bool(quote.get('stores_prompt_with_provider'))}",
+    ]
+    return lines
+
+
+def _prompt_reference_receipt(stages: Sequence[StageReceipt]) -> StageReceipt | None:
+    for receipt in stages:
+        if receipt.stage == "prompt_reference_generation":
+            return receipt
+    return None
+
+
+def _prompt_provider_quote(metrics: Mapping[str, Any]) -> Mapping[str, Any]:
+    quote = metrics.get("provider_quote")
+    return quote if isinstance(quote, Mapping) else {}
+
+
+def _prompt_budget_status(receipt: StageReceipt) -> str:
+    message = receipt.message.lower()
+    quote = _prompt_provider_quote(receipt.metrics)
+    estimated_cost = quote.get("estimated_cost_usd")
+    max_cost = quote.get("max_cost_usd")
+    if "cost cap" in message or "exceeds cap" in message:
+        return "blocked"
+    if max_cost is None:
+        return "not_capped"
+    if estimated_cost is None:
+        return "unchecked"
+    try:
+        estimate = float(estimated_cost)
+        cap = float(max_cost)
+    except (TypeError, ValueError):
+        return "review"
+    if estimate > cap:
+        return "blocked"
+    if receipt.status.value == "succeeded":
+        return "within_cap"
+    return "within_cap_pending"
+
+
+def _format_money(value: Any) -> str:
+    if value in {None, ""}:
+        return "not estimated"
+    try:
+        return f"${float(value):g}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _format_seconds(value: Any) -> str:
+    if value in {None, ""}:
+        return "not estimated"
+    try:
+        return f"{float(value):g} s"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _format_bool(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value in {None, ""}:
+        return "not recorded"
+    return str(value)
 
 
 def _json_friendly(value: Any, *, run_root: Path | None = None) -> Any:
