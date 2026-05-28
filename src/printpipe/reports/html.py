@@ -288,7 +288,7 @@ def _render_slice_summary(
     if not slice_stages:
         return _section(
             "Slice Summary",
-            '<p class="empty-note">Slice summary pending final slice gate integration.</p>',
+            '<p class="empty-note">No slice receipt recorded for this report.</p>',
             classes=("section-slice-summary",),
         )
 
@@ -352,7 +352,7 @@ def _render_pre_print_checklist_section(pre_print_checklist: list[Any]) -> str:
     if not pre_print_checklist:
         return _section(
             "Pre-print Checklist",
-            '<p class="empty-note">Pre-print checklist pending final slice gate integration.</p>',
+            '<p class="empty-note">No pre-print checklist recorded for this report.</p>',
             classes=("section-pre-print-checklist",),
         )
 

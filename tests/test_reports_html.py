@@ -269,6 +269,21 @@ def test_render_html_report_promotes_prompt_reference_quote_receipt(tmp_path: Pa
     assert "OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD" in html
 
 
+def test_render_html_report_uses_honest_empty_slice_and_preflight_copy(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-html-empty-receipts")
+    report_dict = build_run_report_dict(layout, stages=())
+
+    html = render_html_report(report_dict, layout=layout)
+
+    assert "No slice receipt recorded for this report." in html
+    assert "No pre-print checklist recorded for this report." in html
+    assert "pending final slice gate integration" not in html
+
+
 def test_render_html_report_embeds_preview_cards_and_highlights_print_artifacts(
     tmp_path: Path,
 ):

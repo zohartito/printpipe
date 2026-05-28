@@ -764,3 +764,13 @@ Status: partial progress for prompt/reference evidence portability. Prompt-provi
 3. Done: report tests prove OpenAI cost-cap failure receipts are promoted instead of buried inside raw stage metrics.
 4. Done: report CSS keeps the prompt-reference receipt readable on desktop and mobile report layouts.
 5. Remaining: real live OpenAI/API-key evidence, provider quality comparison, and physical validation stay open.
+
+## Wave 69 - Report Empty-State Honesty
+
+Status: complete for report-copy cleanup. Static Markdown and HTML reports no longer imply that slice/preflight systems are globally unfinished when a specific report simply has no slice or checklist receipt.
+
+1. Done: replaced Markdown pre-print empty copy with `No pre-print checklist recorded for this report.`
+2. Done: replaced HTML slice empty copy with `No slice receipt recorded for this report.`
+3. Done: replaced HTML pre-print empty copy with `No pre-print checklist recorded for this report.`
+4. Done: added regression coverage that rejects the stale `pending final slice gate integration` wording.
+5. Boundary: this does not create slice receipts, checklist items, or physical print evidence; it only keeps missing evidence language accurate.

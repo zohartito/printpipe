@@ -110,7 +110,8 @@ def test_write_run_report_writes_json_and_markdown_to_reports_dir(tmp_path: Path
     assert "## Settings Changes" in markdown
     assert "No settings changes recorded yet." in markdown
     assert "## Pre-print Checklist" in markdown
-    assert "Pre-print checklist pending final slice gate integration." in markdown
+    assert "No pre-print checklist recorded for this report." in markdown
+    assert "pending final slice gate integration" not in markdown
 
 
 def test_write_run_report_promotes_prompt_reference_quote_in_markdown(tmp_path: Path):

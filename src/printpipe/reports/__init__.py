@@ -122,7 +122,7 @@ def render_markdown_report(
         for item in pre_print_checklist:
             lines.append(f"- {_format_report_value(item, run_root=layout.root)}")
     else:
-        lines.append("Pre-print checklist pending final slice gate integration.")
+        lines.append("No pre-print checklist recorded for this report.")
 
     return "\n".join(lines) + "\n"
 
