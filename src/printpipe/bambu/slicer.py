@@ -651,13 +651,27 @@ def _parse_layer_count(text: str) -> int | None:
 
 def _parse_cost(text: str) -> float | None:
     for line in text.splitlines():
-        if re.search(r"filament cost|cost", line, re.IGNORECASE):
+        if not re.search(
+            r"\b(filament\s+cost|total(?:\s+estimated)?\s+cost|estimated\s+cost|model\s+cost)\b",
+            line,
+            re.IGNORECASE,
+        ):
+            continue
+
+        if re.search(r"@\s*\$?\s*[\d.,]+\s*/\s*kg\b", line, re.IGNORECASE):
+            dollar_values = re.findall(r"\$\s*([\d.,]+)", line)
+            if dollar_values:
+                if len(dollar_values) == 1:
+                    continue
+                return _float_from_text(dollar_values[-1])
+        else:
             dollar_values = re.findall(r"\$\s*([\d.,]+)", line)
             if dollar_values:
                 return _float_from_text(dollar_values[-1])
-            values = re.findall(r"[\d.,]+", line)
-            if values:
-                return _float_from_text(values[-1])
+
+        values = re.findall(r"[\d.,]+", line)
+        if values:
+            return _float_from_text(values[-1])
     return None
 
 

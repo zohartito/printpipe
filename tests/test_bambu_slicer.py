@@ -256,6 +256,37 @@ def test_parse_slice_estimate_reads_markdown_summary_patterns():
     assert result.layer_count == 425
 
 
+def test_parse_slice_estimate_ignores_filament_unit_cost_config():
+    text = """
+; model printing time: 3m 35s; total estimated time: 3m 55s
+; total layer number: 15
+; total filament weight [g] : 1.60
+; filament_cost = 20
+"""
+
+    result = parse_slice_estimate_from_text(text)
+
+    assert result.time_seconds == 215
+    assert result.filament_g == 1.6
+    assert result.layer_count == 15
+    assert result.cost is None
+
+
+@pytest.mark.parametrize(
+    "cost_line",
+    [
+        "; filament cost = 0.25",
+        "; total cost = 0.25",
+        "; estimated cost = $0.25",
+        "| **Filament cost @ $20/kg** | **$0.25** |",
+    ],
+)
+def test_parse_slice_estimate_reads_explicit_estimated_cost_labels(cost_line: str):
+    result = parse_slice_estimate_from_text(cost_line)
+
+    assert result.cost == 0.25
+
+
 @pytest.mark.parametrize(
     ("output", "expected_error"),
     [

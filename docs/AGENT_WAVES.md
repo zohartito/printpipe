@@ -1369,3 +1369,14 @@ Status: partial progress for physical-validation execution. This makes `physical
 4. Done: physical plans surface `bundle_path` and `bundle_validation_path` for started coupon packets.
 5. Done: terminal `physical-start` output prints the bundle and bundle-validation paths, and the physical handoff includes the Bambu bundle section.
 6. Boundary: the generated `.3mf` is printable software evidence, not physical proof. The physical gate still requires a real coupon print, real observations, and an existing photo artifact.
+
+## Wave 124 - Optional Physical Coupon Slice Gate
+
+Status: partial progress for physical-validation execution. This adds an explicit slice receipt path for validation coupons without making Bambu Studio mandatory for starter-packet creation.
+
+1. Done: added `physical-start --slice` and `physical-start --bambu-cli <path>` for generated coupon bundles.
+2. Done: `--bambu-cli` is rejected unless `--slice` is set, matching the main `run` and `rebuild-edit` commands.
+3. Done: when slicing is requested, `physical-start` writes `70_slice/slice_result.json` using the existing Bambu CLI slice wrapper.
+4. Done: `physical-start --json` returns `slice_requested`, `slice_status`, `slice_message`, and `slice_result_path`.
+5. Done: physical plans and final-next can surface `slice_result_path` as a supporting proof/diagnostic file when one exists.
+6. Boundary: a slice receipt is software evidence only. The material-family physical gate still requires real print observations and an existing photo artifact.

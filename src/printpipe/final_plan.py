@@ -230,6 +230,8 @@ def _supporting_path_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
         ("handoff_markdown_path", "handoff"),
         ("report_path", "report"),
         ("bundle_path", "bundle"),
+        ("bundle_validation_path", "bundle validation"),
+        ("slice_result_path", "slice"),
     )
     lines: list[tuple[str, str]] = []
     for key, label in pairs:
@@ -300,6 +302,8 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, str]:
             "handoff_markdown_path",
             "report_path",
             "bundle_path",
+            "bundle_validation_path",
+            "slice_result_path",
         ):
             value = str(action.get(key) or "")
             if value:

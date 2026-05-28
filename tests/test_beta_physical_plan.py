@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from printpipe.beta.physical import (
     PhysicalArtifact,
     build_physical_print_evidence,
@@ -14,6 +16,7 @@ from printpipe.beta.physical_plan import (
 )
 from printpipe.beta.physical_start import start_physical_validation
 from printpipe.beta.physical_status import build_physical_validation_status
+from printpipe.bambu.slicer import SliceResult
 from printpipe.cli import main
 
 
@@ -209,6 +212,9 @@ def test_start_physical_validation_writes_not_printed_starter_packet(
     assert result["coupon_json_path"] == str(coupon_sidecar_path.resolve())
     assert result["bundle_path"] == str(bundle_path.resolve())
     assert result["bundle_validation_path"] == str(bundle_validation_path.resolve())
+    assert result["slice_requested"] is False
+    assert result["slice_status"] == "not_requested"
+    assert result["slice_result_path"] == ""
     assert coupon_path.exists()
     assert bundle_path.exists()
     assert bundle_validation["ok"] is True
@@ -277,6 +283,8 @@ def test_cli_physical_start_prints_json_and_does_not_pass_gate(
     assert payload["bundle_validation_path"].endswith(
         "60_bundle/physical_validation_coupon_40x15x3_bundle_validation.json"
     )
+    assert payload["slice_requested"] is False
+    assert payload["slice_status"] == "not_requested"
     assert "record-physical-evidence" in payload["record_command"]
     assert status["family_status"]["pla"]["status"] == "recorded_but_not_passed"
 
@@ -308,6 +316,56 @@ def test_cli_physical_start_text_prints_coupon_and_handoff_paths(
     assert "physical_validation_coupon_40x15x3.3mf" in captured.out
     assert "print handoff:" in captured.out
     assert "physical_print_handoff.md" in captured.out
+
+
+def test_physical_start_can_slice_coupon_bundle_with_explicit_runner(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    calls: list[tuple[tuple[str | Path, ...], object]] = []
+
+    def fake_slice_runner(command, run_layout):
+        calls.append((tuple(command), run_layout))
+        return SliceResult(return_code=0, time_seconds=300, filament_g=1.25, layer_count=15)
+
+    result = start_physical_validation(
+        runs_dir,
+        family="pla",
+        operator="Zohar",
+        run_slice=True,
+        slice_executable=tmp_path / "BambuStudio",
+        slice_runner=fake_slice_runner,
+    )
+
+    slice_result_path = runs_dir / "physical-pla-validation" / "70_slice" / "slice_result.json"
+    payload = json.loads(slice_result_path.read_text(encoding="utf-8"))
+    plan = build_physical_validation_plan(runs_dir)
+
+    assert result["slice_requested"] is True
+    assert result["slice_status"] == "succeeded"
+    assert result["slice_message"] == "Bambu CLI slice passed."
+    assert result["slice_result_path"] == str(slice_result_path.resolve())
+    assert payload["time_seconds"] == 300
+    assert calls[0][0][0] == str(tmp_path / "BambuStudio")
+    assert calls[0][0][-1].endswith("physical_validation_coupon_40x15x3.3mf")
+    assert plan["actions"][0]["slice_result_path"] == str(slice_result_path.resolve())
+
+
+def test_cli_physical_start_rejects_bambu_cli_without_slice(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "physical-start",
+                "--family",
+                "pla",
+                "--runs-dir",
+                str(tmp_path / "runs"),
+                "--bambu-cli",
+                str(tmp_path / "BambuStudio"),
+            ]
+        )
 
 
 def _write_evidence(

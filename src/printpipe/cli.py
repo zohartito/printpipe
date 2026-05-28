@@ -707,6 +707,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Person preparing or later inspecting the print.",
     )
     physical_start.add_argument(
+        "--slice",
+        action="store_true",
+        help="Run the Bambu CLI slice gate for the generated coupon bundle.",
+    )
+    physical_start.add_argument(
+        "--bambu-cli",
+        type=Path,
+        help="Explicit Bambu Studio executable path for --slice.",
+    )
+    physical_start.add_argument(
         "--json",
         action="store_true",
         help="Print the starter packet paths and next record command as JSON.",
@@ -1360,10 +1370,14 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.command == "physical-start":
+        if args.bambu_cli is not None and not args.slice:
+            parser.error("--bambu-cli requires --slice")
         return _physical_start(
             runs_dir=args.runs_dir,
             family=args.family,
             operator=args.operator,
+            run_slice=args.slice,
+            slice_executable=args.bambu_cli,
             json_output=args.json,
         )
 
@@ -1827,6 +1841,8 @@ def _physical_start(
     runs_dir: Path,
     family: str,
     operator: str,
+    run_slice: bool,
+    slice_executable: Path | None,
     json_output: bool,
 ) -> int:
     from printpipe.beta.physical_start import start_physical_validation
@@ -1835,6 +1851,8 @@ def _physical_start(
         runs_dir,
         family=family,
         operator=operator,
+        run_slice=run_slice,
+        slice_executable=slice_executable,
     )
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
@@ -1853,6 +1871,11 @@ def _physical_start(
             print(f"bundle 3mf: {payload['bundle_path']}")
         if payload.get("bundle_validation_path"):
             print(f"bundle validation: {payload['bundle_validation_path']}")
+        if payload.get("slice_requested"):
+            print(f"slice status: {payload['slice_status']}")
+            print(f"slice message: {payload['slice_message']}")
+            if payload.get("slice_result_path"):
+                print(f"slice result: {payload['slice_result_path']}")
         if payload.get("handoff_markdown_path"):
             print(f"print handoff: {payload['handoff_markdown_path']}")
         if payload.get("record_command"):

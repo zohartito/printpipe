@@ -42,6 +42,9 @@ def start_physical_validation(
     *,
     family: str,
     operator: str = "",
+    run_slice: bool = False,
+    slice_executable: str | Path | None = None,
+    slice_runner: Any | None = None,
 ) -> dict[str, Any]:
     """Create a starter packet for a material-family validation print."""
 
@@ -79,6 +82,21 @@ def start_physical_validation(
         coupon_stl_path=Path(coupon_paths["stl"]),
         material=str(action["material_hint"]),
     )
+    slice_payload = (
+        _run_coupon_slice(
+            run_root=run_root,
+            bundle_path=Path(bundle_paths["bundle"]),
+            executable=slice_executable,
+            slice_runner=slice_runner,
+        )
+        if run_slice
+        else {
+            "slice_requested": False,
+            "slice_status": "not_requested",
+            "slice_message": "Bambu CLI slice not requested.",
+            "slice_result_path": "",
+        }
+    )
     evidence = build_physical_print_evidence(
         run_id=run_root.name,
         material=str(action["material_hint"]),
@@ -100,6 +118,7 @@ def start_physical_validation(
         action=action,
         coupon_paths=coupon_paths,
         bundle_paths=bundle_paths,
+        slice_payload=slice_payload,
         validation_points=_validation_points(normalized_family),
     )
     return {
@@ -115,6 +134,10 @@ def start_physical_validation(
         "coupon_json_path": coupon_paths["json"],
         "bundle_path": bundle_paths["bundle"],
         "bundle_validation_path": bundle_paths["validation"],
+        "slice_requested": slice_payload["slice_requested"],
+        "slice_status": slice_payload["slice_status"],
+        "slice_message": slice_payload["slice_message"],
+        "slice_result_path": slice_payload["slice_result_path"],
         "handoff_markdown_path": str(handoff_path),
         "record_command": action["record_command"],
     }
@@ -187,6 +210,38 @@ def _write_coupon_bundle(
     }
 
 
+def _run_coupon_slice(
+    *,
+    run_root: Path,
+    bundle_path: Path,
+    executable: str | Path | None,
+    slice_runner: Any | None,
+) -> dict[str, Any]:
+    from types import SimpleNamespace
+
+    from printpipe.bambu.slicer import run_bambu_cli_slice_stage, run_slice_command
+
+    runner = run_slice_command if slice_runner is None else slice_runner
+    layout = SimpleNamespace(slice_dir=run_root / "70_slice")
+    receipt = run_bambu_cli_slice_stage(
+        three_mf_path=bundle_path,
+        run_layout=layout,
+        executable=executable,
+        slice_runner=runner,
+    )
+    result_path = ""
+    for artifact in receipt.artifacts:
+        if artifact.path.name == "slice_result.json":
+            result_path = str(artifact.path.resolve())
+            break
+    return {
+        "slice_requested": True,
+        "slice_status": receipt.status.value,
+        "slice_message": receipt.message,
+        "slice_result_path": result_path,
+    }
+
+
 def _write_handoff_markdown(
     *,
     run_root: Path,
@@ -194,6 +249,7 @@ def _write_handoff_markdown(
     action: dict[str, Any],
     coupon_paths: dict[str, str],
     bundle_paths: dict[str, str],
+    slice_payload: dict[str, Any],
     validation_points: tuple[str, ...],
 ) -> Path:
     handoff_path = run_root / "90_physical" / "physical_print_handoff.md"
@@ -219,6 +275,12 @@ def _write_handoff_markdown(
                 "## Bambu Bundle",
                 f"- 3MF: {bundle_paths.get('bundle') or 'not generated'}",
                 f"- Validation JSON: {bundle_paths.get('validation') or 'not generated'}",
+                "",
+                "## Slice Receipt",
+                f"- Requested: {slice_payload.get('slice_requested', False)}",
+                f"- Status: {slice_payload.get('slice_status', 'not_requested')}",
+                f"- Message: {slice_payload.get('slice_message', '')}",
+                f"- Result JSON: {slice_payload.get('slice_result_path') or 'not generated'}",
                 "",
                 "## Validate During The Print",
                 validation_lines,

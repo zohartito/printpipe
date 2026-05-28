@@ -246,6 +246,8 @@ def _render_next_action_files(next_action: Mapping[str, Any]) -> str:
         ("handoff_markdown_path", "Next action handoff"),
         ("report_path", "Next action report"),
         ("bundle_path", "Next action bundle"),
+        ("bundle_validation_path", "Next action bundle validation"),
+        ("slice_result_path", "Next action slice receipt"),
     )
     for key, label in file_labels:
         value = str(next_action.get(key) or "")

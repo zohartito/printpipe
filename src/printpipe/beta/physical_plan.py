@@ -161,6 +161,7 @@ def _action_for_family(
     )
     coupon_paths = _coupon_paths(Path(run_root))
     bundle_paths = _bundle_paths(Path(run_root))
+    slice_path = _slice_result_path(Path(run_root))
     setup_command = "" if existing_run_root else f"mkdir -p {_quote(run_root)}"
     start_command = (
         ""
@@ -192,6 +193,7 @@ def _action_for_family(
         "coupon_json_path": coupon_paths["json"],
         "bundle_path": bundle_paths["bundle"],
         "bundle_validation_path": bundle_paths["validation"],
+        "slice_result_path": slice_path,
         "handoff_markdown_path": _handoff_path(Path(run_root)),
         "record_command": _record_command(family=family, run_root=run_root),
     }
@@ -284,6 +286,11 @@ def _bundle_paths(run_root: Path) -> dict[str, str]:
         "bundle": str(bundle_path.resolve()) if bundle_path.exists() else "",
         "validation": str(validation_path.resolve()) if validation_path.exists() else "",
     }
+
+
+def _slice_result_path(run_root: Path) -> str:
+    path = run_root / "70_slice" / "slice_result.json"
+    return str(path.resolve()) if path.exists() else ""
 
 
 def _handoff_path(run_root: Path) -> str:
