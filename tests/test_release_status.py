@@ -586,3 +586,98 @@ def test_cli_release_status_json_returns_two_when_strict_and_action_required(
     assert exit_code == 2
     assert payload["overall_status"] == "action_required"
     assert payload["next_actions"] == ["Build and verify a release bundle."]
+
+
+def test_cli_release_status_uses_standard_regression_manifest_when_present(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
+    manifest_path.parent.mkdir()
+    manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    def fake_release_status_report(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "ready",
+            "action_required_count": 0,
+            "gates": [],
+            "next_actions": [],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.packaging.release_status.build_release_status_report",
+        fake_release_status_report,
+    )
+
+    exit_code = main(["release-status", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "ready"
+
+
+def test_cli_release_plan_uses_standard_regression_manifest_when_present(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
+    manifest_path.parent.mkdir()
+    manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    def fake_release_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "actions": [],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.packaging.release_plan.build_release_distribution_plan",
+        fake_release_plan,
+    )
+
+    exit_code = main(["release-plan", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "action_required"
+
+
+def test_cli_release_start_uses_standard_regression_manifest_when_present(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
+    manifest_path.parent.mkdir()
+    manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    def fake_release_start(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
+            "status": "started",
+            "release_dir": str(release_dir),
+            "runs_dir": str(runs_dir),
+            "handoff_markdown_path": "dist/release_handoffs/release_distribution_handoff.md",
+            "release_status_command": "printpipe release-status --strict",
+            "final_plan_command": "printpipe final-plan",
+        }
+
+    monkeypatch.setattr(
+        "printpipe.packaging.release_plan.start_release_distribution_handoff",
+        fake_release_start,
+    )
+
+    exit_code = main(["release-start", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["status"] == "started"

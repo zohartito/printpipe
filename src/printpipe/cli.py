@@ -1350,7 +1350,9 @@ def main(argv: list[str] | None = None) -> int:
         return _release_status(
             release_dir=args.release_dir,
             runs_dir=args.runs_dir,
-            regression_manifest_path=args.regression_manifest,
+            regression_manifest_path=_regression_manifest_or_default(
+                args.regression_manifest
+            ),
             json_output=args.json,
             strict=args.strict,
         )
@@ -1359,7 +1361,9 @@ def main(argv: list[str] | None = None) -> int:
         return _release_plan(
             release_dir=args.release_dir,
             runs_dir=args.runs_dir,
-            regression_manifest_path=args.regression_manifest,
+            regression_manifest_path=_regression_manifest_or_default(
+                args.regression_manifest
+            ),
             json_output=args.json,
         )
 
@@ -1367,7 +1371,9 @@ def main(argv: list[str] | None = None) -> int:
         return _release_start(
             release_dir=args.release_dir,
             runs_dir=args.runs_dir,
-            regression_manifest_path=args.regression_manifest,
+            regression_manifest_path=_regression_manifest_or_default(
+                args.regression_manifest
+            ),
             json_output=args.json,
         )
 
@@ -1375,7 +1381,9 @@ def main(argv: list[str] | None = None) -> int:
         return _final_plan(
             release_dir=args.release_dir,
             runs_dir=args.runs_dir,
-            regression_manifest_path=args.regression_manifest,
+            regression_manifest_path=_regression_manifest_or_default(
+                args.regression_manifest
+            ),
             json_output=args.json,
         )
 
@@ -1383,7 +1391,9 @@ def main(argv: list[str] | None = None) -> int:
         return _final_next(
             release_dir=args.release_dir,
             runs_dir=args.runs_dir,
-            regression_manifest_path=args.regression_manifest,
+            regression_manifest_path=_regression_manifest_or_default(
+                args.regression_manifest
+            ),
             json_output=args.json,
         )
 
@@ -1431,7 +1441,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "beta-plan":
         return _beta_plan(
             runs_dir=args.runs_dir,
-            regression_manifest_path=args.regression_manifest,
+            regression_manifest_path=_regression_manifest_or_default(
+                args.regression_manifest
+            ),
             json_output=args.json,
         )
 
@@ -1992,6 +2004,12 @@ def _default_regression_manifest_path() -> Path | None:
     if not candidate.is_file():
         return None
     return candidate.resolve()
+
+
+def _regression_manifest_or_default(path: Path | None) -> Path | None:
+    if path is not None:
+        return path
+    return _default_regression_manifest_path()
 
 
 def _release_status(

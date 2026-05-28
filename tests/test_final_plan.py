@@ -551,6 +551,37 @@ def test_cli_final_plan_prints_json(monkeypatch, tmp_path: Path, capsys) -> None
     assert payload["sections"][0]["id"] == "physical_validation"
 
 
+def test_cli_final_plan_uses_standard_regression_manifest_when_present(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
+    manifest_path.parent.mkdir()
+    manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 1,
+            "sections": [{"id": "physical_validation", "action_count": 1}],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.final_plan.build_final_action_plan",
+        fake_final_plan,
+    )
+
+    exit_code = main(["final-plan", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "action_required"
+
+
 def test_cli_final_next_prints_next_action_json(monkeypatch, tmp_path: Path, capsys) -> None:
     manifest_path = tmp_path / "regression_manifest.json"
 
@@ -599,3 +630,42 @@ def test_cli_final_next_prints_next_action_json(monkeypatch, tmp_path: Path, cap
     assert payload["overall_status"] == "action_required"
     assert payload["next_action"]["action_id"] == "pla"
     assert payload["next_action"]["coupon_stl_path"].endswith("coupon.stl")
+
+
+def test_cli_final_next_uses_standard_regression_manifest_when_present(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
+    manifest_path.parent.mkdir()
+    manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "next_action": {
+                "section_id": "physical_validation",
+                "section_label": "Physical validation",
+                "action_id": "pla",
+                "label": "PLA",
+                "status": "recorded_but_not_passed",
+                "command": "printpipe open-folder runs/pla --target run",
+            },
+        }
+
+    monkeypatch.setattr(
+        "printpipe.final_plan.build_final_action_plan",
+        fake_final_plan,
+    )
+
+    exit_code = main(["final-next", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["next_action"]["action_id"] == "pla"

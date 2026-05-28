@@ -1514,3 +1514,14 @@ Status: partial progress for local web readiness UX. This makes the default loca
 4. Done: CLI delegation coverage verifies the default server receives the discovered manifest path.
 5. Current local result: a plain `printpipe serve --runs-dir runs` launch can make `/readiness.json`, `/release-status.json`, `/beta-plan.json`, and the home-page final-readiness surfaces regression-aware without an extra flag.
 6. Boundary: this is local web launch parity only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.
+
+## Wave 138 - Default Regression-Aware Endgame Planning
+
+Status: partial progress for terminal planning truth. This aligns the remaining beta, release, and final planning commands with the default readiness/web manifest behavior.
+
+1. Done: `beta-plan`, `release-status`, `release-plan`, `release-start`, `final-plan`, and `final-next` now auto-discover `regressions/dogfood_failures.json` when that standard manifest exists.
+2. Done: explicit `--regression-manifest <path>` still overrides the discovered standard manifest.
+3. Done: targeted CLI coverage verifies the discovered manifest is passed through each command branch.
+4. Done: current local `final-plan --release-dir dist/release --runs-dir runs --json` reports `regression_manifest_path` as the canonical dogfood manifest instead of an empty string.
+5. Done: current local `beta-plan --runs-dir runs --json` renders `printpipe run-regressions "/Users/zohartito/Desktop/printpipe/regressions/dogfood_failures.json" --strict` as ready by default.
+6. Boundary: this is planning/reporting truth only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.

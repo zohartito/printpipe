@@ -254,6 +254,36 @@ def test_cli_beta_plan_prints_json(tmp_path: Path, capsys) -> None:
     )
 
 
+def test_cli_beta_plan_uses_standard_regression_manifest_when_present(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
+    manifest_path.parent.mkdir()
+    manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    def fake_beta_plan(runs_dir, *, regression_manifest_path=None):
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "actions": [],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.beta.beta_plan.build_beta_action_plan",
+        fake_beta_plan,
+    )
+
+    exit_code = main(["beta-plan", "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "action_required"
+
+
 def _write_feedback(
     run_root: Path,
     *,
