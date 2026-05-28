@@ -18,6 +18,13 @@ TETRAHEDRON_FACES = (
     (1, 3, 2),
     (2, 3, 0),
 )
+TETRAHEDRON_VERTICES = (
+    (0.0, 0.0, 0.0),
+    (1.0, 0.0, 0.0),
+    (0.0, 1.0, 0.0),
+    (0.0, 0.0, 1.0),
+)
+OUTWARD_TETRAHEDRON_FACES = tuple(tuple(reversed(face)) for face in TETRAHEDRON_FACES)
 
 
 def test_validate_mesh_topology_accepts_watertight_tetrahedron():
@@ -75,6 +82,26 @@ def test_gate_mesh_topology_fails_clearly_and_writes_json_for_open_triangle(
     assert payload["defects"] == ["3 boundary edges"]
 
 
+def test_gate_mesh_topology_writes_inverted_normal_diagnostics_when_vertices_available(
+    tmp_path: Path,
+):
+    stats_path = tmp_path / "mesh_stats.json"
+
+    with pytest.raises(MeshValidationError, match="inverted normals"):
+        gate_mesh_topology(
+            TETRAHEDRON_FACES,
+            vertices=TETRAHEDRON_VERTICES,
+            stats_path=stats_path,
+        )
+
+    payload = json.loads(stats_path.read_text())
+    assert payload["passed"] is False
+    assert payload["defects"] == ["inverted normals"]
+    assert payload["diagnostics"]["normal_orientation"] == "inverted"
+    assert payload["diagnostics"]["inverted_normals"] is True
+    assert payload["diagnostics"]["signed_volume"] < 0
+
+
 def test_validate_mesh_topology_counts_non_manifold_edges():
     result = validate_mesh_topology(
         (
@@ -106,3 +133,29 @@ def test_validate_mesh_topology_detects_inconsistent_face_winding():
     assert result.stats.watertight is True
     assert result.diagnostics["inconsistent_winding_edges"] == 3
     assert "3 inconsistent winding edges" in result.defects
+
+
+def test_validate_mesh_topology_detects_inverted_closed_shell_when_vertices_available():
+    result = validate_mesh_topology(
+        TETRAHEDRON_FACES,
+        vertices=TETRAHEDRON_VERTICES,
+    )
+
+    assert result.passed is False
+    assert result.stats.watertight is True
+    assert result.diagnostics["normal_orientation"] == "inverted"
+    assert result.diagnostics["signed_volume"] < 0
+    assert result.diagnostics["inverted_normals"] is True
+    assert "inverted normals" in result.defects
+
+
+def test_validate_mesh_topology_accepts_outward_closed_shell_with_vertices():
+    result = validate_mesh_topology(
+        OUTWARD_TETRAHEDRON_FACES,
+        vertices=TETRAHEDRON_VERTICES,
+    )
+
+    assert result.passed is True
+    assert result.diagnostics["normal_orientation"] == "outward"
+    assert result.diagnostics["signed_volume"] > 0
+    assert result.diagnostics["inverted_normals"] is False

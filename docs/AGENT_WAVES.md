@@ -408,3 +408,14 @@ Status: complete for original item 120. The run-detail workbench now exposes the
 3. Done: preserved the existing safe artifact-serving route and open-folder actions.
 4. Done: updated the roadmap count to 125 done / 17 partial.
 5. Remaining: signed packaging and real physical beta print evidence are still separate gates.
+
+## Wave 38 - Inverted Normal Detection
+
+Status: complete for original item 54. Mesh validation can now distinguish globally inverted closed-shell normals from inconsistent winding.
+
+1. Done: added coordinate-aware validation for signed mesh volume when vertex coordinates are supplied.
+2. Done: closed shells with consistent but inward-facing normals now fail with `inverted normals`.
+3. Done: outward closed shells report `normal_orientation=outward` and pass.
+4. Done: JSON gate output now records `normal_orientation`, `inverted_normals`, and `signed_volume`.
+5. Done: updated the roadmap count to 126 done / 16 partial.
+6. Remaining: media frame ranking/background cleanup, material physical prints, packaging, and beta loops remain separate gates.
