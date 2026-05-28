@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 146: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 147: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 146 made final-plan and final-readiness surfaces show required evidence fields, not only commands and artifacts. Physical and trusted-user actions now keep and render `required_fields` separately from release `required_inputs`, so the checklist can say exactly which observations/outcomes must be recorded before a gate can close. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 147 made final-plan and final-readiness handoffs show evidence context, not only commands and required fields. Physical and beta actions can now carry/render material, printer, object label, print type, input type, tester, and run folder context so Zohar can see what is being printed or reviewed before recording evidence. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 

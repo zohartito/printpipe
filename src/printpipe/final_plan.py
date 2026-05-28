@@ -250,6 +250,9 @@ def _supporting_path_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
 
 def _supporting_info_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
     lines: list[tuple[str, str]] = []
+    context = _evidence_context_text(action)
+    if context:
+        lines.append(("evidence context", context))
     required = _list(action.get("required_inputs"))
     if required:
         lines.append(("required inputs", ", ".join(str(item) for item in required)))
@@ -396,6 +399,14 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, Any]:
             "bundle_path",
             "bundle_validation_path",
             "slice_result_path",
+            "run_root",
+            "material_hint",
+            "material",
+            "printer",
+            "object_label",
+            "print_type",
+            "input_type",
+            "tester",
         ):
             value = str(action.get(key) or "")
             if value:
@@ -504,6 +515,28 @@ def _action_detail(
         or section.get("detail")
         or ""
     )
+
+
+def _evidence_context_text(action: Mapping[str, Any]) -> str:
+    pairs = (
+        ("material_hint", "Material"),
+        ("material", "Material"),
+        ("printer", "Printer"),
+        ("object_label", "Object"),
+        ("print_type", "Print type"),
+        ("input_type", "Input"),
+        ("tester", "Tester"),
+        ("run_root", "Run"),
+    )
+    seen_labels: set[str] = set()
+    parts: list[str] = []
+    for key, label in pairs:
+        value = str(action.get(key) or "")
+        if not value or label in seen_labels:
+            continue
+        seen_labels.add(label)
+        parts.append(f"{label}: {value}")
+    return "; ".join(parts)
 
 
 def _quote(value: str) -> str:

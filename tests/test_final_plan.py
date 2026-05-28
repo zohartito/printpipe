@@ -160,6 +160,10 @@ def test_final_action_plan_prefers_print_handoff_command_before_record_command(
                     "command_kind": "print_handoff_command",
                     "record_command": "printpipe record-physical-evidence runs/pla",
                     "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+                    "material_hint": "Bambu PLA Basic",
+                    "object_label": "PLA validation coupon",
+                    "print_type": "coupon",
+                    "run_root": "runs/pla",
                     "required_fields": [
                         "operator",
                         "photo artifact",
@@ -180,6 +184,10 @@ def test_final_action_plan_prefers_print_handoff_command_before_record_command(
         == "printpipe record-physical-evidence runs/pla"
     )
     assert plan["next_action"]["coupon_stl_path"] == "runs/pla/40_geometry/coupon.stl"
+    assert plan["next_action"]["material_hint"] == "Bambu PLA Basic"
+    assert plan["next_action"]["object_label"] == "PLA validation coupon"
+    assert plan["next_action"]["print_type"] == "coupon"
+    assert plan["next_action"]["run_root"] == "runs/pla"
     assert plan["next_action"]["required_fields"] == [
         "operator",
         "photo artifact",
@@ -406,6 +414,10 @@ def test_render_final_next_action_shows_only_immediate_action() -> None:
             "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
             "coupon_json_path": "runs/pla/40_geometry/coupon.json",
             "handoff_markdown_path": "runs/pla/90_physical/handoff.md",
+            "material_hint": "Bambu PLA Basic",
+            "object_label": "PLA validation coupon",
+            "print_type": "coupon",
+            "run_root": "runs/pla",
             "required_fields": ["operator", "photo artifact", "adhesion"],
         },
         "sections": [
@@ -419,6 +431,10 @@ def test_render_final_next_action_shows_only_immediate_action() -> None:
     assert "PrintPipe Final Next Action" in rendered
     assert "Physical validation: PLA (recorded_but_not_passed)" in rendered
     assert "command: printpipe open-folder runs/pla --target run" in rendered
+    assert (
+        "evidence context: Material: Bambu PLA Basic; "
+        "Object: PLA validation coupon; Print type: coupon; Run: runs/pla"
+    ) in rendered
     assert "required fields: operator, photo artifact, adhesion" in rendered
     assert "record after print: printpipe record-physical-evidence runs/pla" in rendered
     assert "artifact: runs/pla/40_geometry/coupon.stl" in rendered

@@ -59,6 +59,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
         followup_command = str(next_action.get("followup_command") or "")
         record_command = str(next_action.get("record_command") or "")
         record_label = _action_record_label(str(next_action.get("section_id") or ""))
+        context_markup = _next_action_context(next_action)
         required_markup = _next_action_required_inputs(next_action)
         evidence_fields_markup = _next_action_required_fields(next_action)
         setup_markup = _next_action_command_block(
@@ -100,6 +101,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
                     if command
                     else ""
                 ),
+                context_markup,
                 required_markup,
                 evidence_fields_markup,
                 setup_markup,
@@ -262,6 +264,14 @@ def _action_item(
         "record_label": _action_record_label(section_id),
         "required_inputs": _string_list(action.get("required_inputs")),
         "required_fields": _string_list(action.get("required_fields")),
+        "run_root": str(action.get("run_root") or ""),
+        "material_hint": str(action.get("material_hint") or ""),
+        "material": str(action.get("material") or ""),
+        "printer": str(action.get("printer") or ""),
+        "object_label": str(action.get("object_label") or ""),
+        "print_type": str(action.get("print_type") or ""),
+        "input_type": str(action.get("input_type") or ""),
+        "tester": str(action.get("tester") or ""),
         "coupon_stl_path": str(action.get("coupon_stl_path") or ""),
         "coupon_json_path": str(action.get("coupon_json_path") or ""),
         "bundle_path": str(action.get("bundle_path") or ""),
@@ -317,6 +327,13 @@ def _next_action_required_inputs(next_action: Mapping[str, Any]) -> str:
         '        <p class="muted">Next action required inputs: '
         f"{escape(', '.join(required))}</p>"
     )
+
+
+def _next_action_context(next_action: Mapping[str, Any]) -> str:
+    context = _evidence_context_text(next_action)
+    if not context:
+        return ""
+    return f'        <p class="muted">Next action context: {escape(context)}</p>'
 
 
 def _next_action_required_fields(next_action: Mapping[str, Any]) -> str:
@@ -437,6 +454,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     )
     required_inputs = _string_list(action.get("required_inputs"))
     required_fields = _string_list(action.get("required_fields"))
+    evidence_context = _evidence_context_text(action)
     coupon_stl_path = str(action.get("coupon_stl_path") or "")
     coupon_json_path = str(action.get("coupon_json_path") or "")
     report_path = str(action.get("report_path") or "")
@@ -501,6 +519,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     bundle_markup = _file_row("Bundle", bundle_path)
     bundle_validation_markup = _file_row("Bundle validation", bundle_validation_path)
     slice_markup = _file_row("Slice receipt", slice_result_path)
+    context_markup = _evidence_context_row(evidence_context)
     required_markup = _required_inputs_row(required_inputs)
     required_fields_markup = _required_fields_row(required_fields)
     return "\n".join(
@@ -508,6 +527,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
             f'          <li class="final-readiness-action final-readiness-action-{_class_name(status)}">',
             f'            <p class="action-title"><strong>{escape(section_label)}</strong> · {escape(label)}</p>',
             f'            <p class="muted">{escape(detail)}</p>',
+            context_markup,
             required_markup,
             required_fields_markup,
             coupon_markup,
@@ -543,11 +563,39 @@ def _required_inputs_row(values: list[str]) -> str:
     return f'            <p class="muted">Required inputs: {escape(text)}</p>'
 
 
+def _evidence_context_row(value: str) -> str:
+    if not value:
+        return ""
+    return f'            <p class="muted">Evidence context: {escape(value)}</p>'
+
+
 def _required_fields_row(values: list[str]) -> str:
     if not values:
         return ""
     text = ", ".join(values)
     return f'            <p class="muted">Required evidence fields: {escape(text)}</p>'
+
+
+def _evidence_context_text(action: Mapping[str, Any]) -> str:
+    pairs = (
+        ("material_hint", "Material"),
+        ("material", "Material"),
+        ("printer", "Printer"),
+        ("object_label", "Object"),
+        ("print_type", "Print type"),
+        ("input_type", "Input"),
+        ("tester", "Tester"),
+        ("run_root", "Run"),
+    )
+    seen_labels: set[str] = set()
+    parts: list[str] = []
+    for key, label in pairs:
+        value = str(action.get(key) or "")
+        if not value or label in seen_labels:
+            continue
+        seen_labels.add(label)
+        parts.append(f"{label}: {value}")
+    return "; ".join(parts)
 
 
 def _path_code_or_link(value: str) -> str:

@@ -44,6 +44,10 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
                             "reason": "no physical evidence packet found",
                             "start_command": "printpipe physical-start --family pla",
                             "record_command": "printpipe record-physical-evidence runs/pla",
+                            "material_hint": "Bambu PLA Basic",
+                            "object_label": "PLA validation coupon",
+                            "print_type": "coupon",
+                            "run_root": "runs/pla",
                             "coupon_stl_path": (
                                 "runs/pla/40_geometry/"
                                 "physical_validation_coupon_40x15x3.stl"
@@ -96,6 +100,10 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
     assert len(view["actions"]) == 3
     assert view["actions"][0]["command"] == "printpipe physical-start --family pla"
     assert view["actions"][0]["record_command"] == ""
+    assert view["actions"][0]["material_hint"] == "Bambu PLA Basic"
+    assert view["actions"][0]["object_label"] == "PLA validation coupon"
+    assert view["actions"][0]["print_type"] == "coupon"
+    assert view["actions"][0]["run_root"] == "runs/pla"
     assert view["actions"][0]["coupon_stl_path"].endswith(
         "physical_validation_coupon_40x15x3.stl"
     )
@@ -298,6 +306,10 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                     "status": "missing",
                     "command": "printpipe open-folder runs/pla --target run",
                     "record_command": "printpipe record-physical-evidence runs/pla",
+                    "material_hint": "Bambu PLA Basic",
+                    "object_label": "PLA validation coupon",
+                    "print_type": "coupon",
+                    "run_root": "runs/pla",
                     "coupon_stl_path": (
                         "runs/pla/40_geometry/"
                         "physical_validation_coupon_40x15x3.stl"
@@ -331,6 +343,11 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "printpipe open-folder runs/pla --target run" in html
     assert "Record after print:" in html
     assert "printpipe record-physical-evidence runs/pla" in html
+    assert "Evidence context:" in html
+    assert "Material: Bambu PLA Basic" in html
+    assert "Object: PLA validation coupon" in html
+    assert "Print type: coupon" in html
+    assert "Run: runs/pla" in html
     assert "Next action artifact:" in html
     assert "Next action handoff:" in html
     assert "Coupon artifact:" in html

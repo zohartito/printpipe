@@ -1613,3 +1613,14 @@ Status: partial progress for final-gate execution UX. This makes the final check
 4. Done: the web top next-action callout can render `Next action required evidence fields` when the selected action carries them.
 5. Current local result: physical validation rows can show fields such as operator, photo artifact, first-layer, adhesion, filament drying, layer bonding, and flex recovery before Zohar records evidence.
 6. Boundary: visible required fields still do not create evidence. Real physical prints, trusted-user reviews, photos/artifacts, and explicit outcomes remain required.
+
+## Wave 147 - Evidence Context Visibility
+
+Status: partial progress for final-gate execution UX. This adds the missing "what is this evidence about?" context beside the commands and required fields.
+
+1. Done: `final-plan` now preserves context fields on the top next-action payload when an action carries them.
+2. Done: supported context fields include material hint, material, printer, object label, print type, input type, tester, and run folder.
+3. Done: terminal `final-plan` and `final-next` render context as `evidence context`.
+4. Done: web final-readiness action rows render the same context as `Evidence context`.
+5. Current local result: physical rows can show `Material`, `Object`, `Print type`, and `Run` before Zohar opens the handoff or records proof.
+6. Boundary: context visibility still does not create evidence. It only reduces the chance of recording the wrong material, run, object, or review target.
