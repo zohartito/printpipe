@@ -122,6 +122,8 @@ def render_final_action_plan(plan: Mapping[str, Any]) -> str:
         command = str(next_action.get("command") or "")
         if command:
             lines.append(f"  command: {command}")
+        for label, value in _supporting_info_lines(next_action):
+            lines.append(f"  {label}: {value}")
         for label, value in _supporting_command_lines(next_action):
             lines.append(f"  {label}: {value}")
         for label, value in _supporting_path_lines(next_action):
@@ -198,6 +200,8 @@ def render_final_next_action(plan: Mapping[str, Any]) -> str:
     command = str(next_action.get("command") or "")
     if command:
         lines.append(f"command: {command}")
+    for label, value in _supporting_info_lines(next_action):
+        lines.append(f"{label}: {value}")
     for label, value in _supporting_command_lines(next_action):
         lines.append(f"{label}: {value}")
     for label, value in _supporting_path_lines(next_action):
@@ -245,12 +249,31 @@ def _supporting_path_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
     return lines
 
 
+def _supporting_info_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
+    required = _list(action.get("required_inputs"))
+    if not required:
+        return []
+    return [("required inputs", ", ".join(str(item) for item in required))]
+
+
 def _supporting_command_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
     immediate = str(action.get("command") or "")
+    run = str(action.get("run_command") or "")
+    followup = str(action.get("followup_command") or "")
     record = str(action.get("record_command") or "")
+    lines: list[tuple[str, str]] = []
+    if run and run != immediate:
+        lines.append(("run after prerequisites", run))
+    if followup and followup not in {immediate, run}:
+        lines.append(("follow-up check", followup))
     if record and record != immediate:
-        return [("record after print", record)]
-    return []
+        label = (
+            "record after review"
+            if str(action.get("section_id") or "") == "trusted_user_beta"
+            else "record after print"
+        )
+        lines.append((label, record))
+    return lines
 
 
 def _action_count(source_plan: Mapping[str, Any]) -> int:
@@ -287,7 +310,7 @@ def _action_summary(action: Mapping[str, Any]) -> str:
     return f"{status}: {label}"
 
 
-def _next_action(sections: list[dict[str, Any]]) -> dict[str, str]:
+def _next_action(sections: list[dict[str, Any]]) -> dict[str, Any]:
     for section in sections:
         if int(section.get("action_count") or 0) <= 0:
             continue
@@ -320,18 +343,30 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, str]:
             value = str(action.get(key) or "")
             if value:
                 payload[key] = value
+        required_inputs = _list(action.get("required_inputs"))
+        if required_inputs:
+            payload["required_inputs"] = [str(item) for item in required_inputs]
+        run_command = _run_command(action, immediate_command=command)
+        if run_command:
+            payload["run_command"] = run_command
+        followup_command = str(action.get("followup_command") or "")
+        if followup_command and followup_command not in {command, run_command}:
+            payload["followup_command"] = followup_command
         record_command = str(action.get("record_command") or "")
         if (
             record_command
             and record_command != command
-            and command_kind not in {"start_command", "setup_command"}
+            and (
+                command_kind not in {"start_command", "setup_command"}
+                or str(section.get("id") or "") == "trusted_user_beta"
+            )
         ):
             payload["record_command"] = record_command
         return payload
     return {}
 
 
-def _section_as_next_action(section: Mapping[str, Any]) -> dict[str, str]:
+def _section_as_next_action(section: Mapping[str, Any]) -> dict[str, Any]:
     command = str(section.get("command") or "")
     return {
         "section_id": str(section.get("id") or ""),
@@ -365,6 +400,13 @@ def _action_command(
     if command:
         return "section_command", command
     return "", ""
+
+
+def _run_command(action: Mapping[str, Any], *, immediate_command: str) -> str:
+    command = str(action.get("command") or "")
+    if not command or command == immediate_command:
+        return ""
+    return command
 
 
 def _action_id(action: Mapping[str, Any]) -> str:

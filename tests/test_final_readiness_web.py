@@ -315,6 +315,46 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert 'href="/final-next.json"' in html
 
 
+def test_render_final_readiness_panel_next_action_shows_release_commands() -> None:
+    html = render_final_readiness_panel(
+        {
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "next_action": {
+                "section_id": "release_distribution",
+                "section_label": "Release distribution",
+                "label": "macOS distribution",
+                "status": "action_required",
+                "detail": "sign and notarize",
+                "command": "printpipe release-start --release-dir dist/release",
+                "run_command": "printpipe build-release --developer-id-identity '<id>'",
+                "followup_command": "printpipe release-status --strict",
+                "required_inputs": [
+                    "Developer ID Application certificate",
+                    "notarytool keychain profile",
+                ],
+                "handoff_markdown_path": (
+                    "dist/release_handoffs/"
+                    "release_distribution_handoff.md"
+                ),
+            },
+            "pillars": [],
+            "actions": [],
+        }
+    )
+
+    assert "Next action:" in html
+    assert "Next action required inputs:" in html
+    assert "Developer ID Application certificate" in html
+    assert "Run after prerequisites:" in html
+    assert "printpipe build-release --developer-id-identity" in html
+    assert "Follow-up check:" in html
+    assert "printpipe release-status --strict" in html
+    assert "Next action handoff:" in html
+    assert "release_distribution_handoff.md" in html
+
+
 def test_render_final_readiness_panel_labels_trusted_user_record_command_after_review() -> None:
     html = render_final_readiness_panel(
         {

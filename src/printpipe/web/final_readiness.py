@@ -53,11 +53,25 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
     next_action_markup = ""
     if next_action:
         command = str(next_action.get("command") or "")
+        run_command = str(next_action.get("run_command") or "")
+        followup_command = str(next_action.get("followup_command") or "")
         record_command = str(next_action.get("record_command") or "")
+        record_label = _action_record_label(str(next_action.get("section_id") or ""))
+        required_markup = _next_action_required_inputs(next_action)
+        run_markup = _next_action_command_block(
+            "Run after prerequisites",
+            run_command,
+            excluded={command},
+        )
+        followup_markup = _next_action_command_block(
+            "Follow-up check",
+            followup_command,
+            excluded={command, run_command},
+        )
         record_markup = (
             "\n".join(
                 [
-                    '        <p class="muted"><strong>Record after print:</strong></p>',
+                    f'        <p class="muted"><strong>{escape(record_label)}:</strong></p>',
                     f'        <pre><code>{escape(record_command)}</code></pre>',
                 ]
             )
@@ -78,6 +92,9 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
                     if command
                     else ""
                 ),
+                required_markup,
+                run_markup,
+                followup_markup,
                 record_markup,
                 next_action_file_markup,
             ]
@@ -278,6 +295,32 @@ def _render_next_action_files(next_action: Mapping[str, Any]) -> str:
                 f"<code>{escape(value)}</code></p>"
             )
     return "\n".join(rows)
+
+
+def _next_action_required_inputs(next_action: Mapping[str, Any]) -> str:
+    required = _string_list(next_action.get("required_inputs"))
+    if not required:
+        return ""
+    return (
+        '        <p class="muted">Next action required inputs: '
+        f"{escape(', '.join(required))}</p>"
+    )
+
+
+def _next_action_command_block(
+    label: str,
+    command: str,
+    *,
+    excluded: set[str],
+) -> str:
+    if not command or command in excluded:
+        return ""
+    return "\n".join(
+        [
+            f'        <p class="muted"><strong>{escape(label)}:</strong></p>',
+            f'        <pre><code>{escape(command)}</code></pre>',
+        ]
+    )
 
 
 def _action_detail(action: Mapping[str, Any]) -> str:

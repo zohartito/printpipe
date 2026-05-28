@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 132: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 133: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 132 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, optional live Bambu CLI slice receipts, physical print handoffs, trusted-user beta handoffs, and release distribution handoffs are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail/final-readiness UI that separates digital artifacts from physical, beta, or signed-distribution proof.
+Wave 133 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, optional live Bambu CLI slice receipts, physical print handoffs, trusted-user beta handoffs, and release distribution handoffs are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail/final-readiness UI that separates digital artifacts from physical, beta, or signed-distribution proof.
 
-The latest completed wave made release distribution rows self-contained for final handoff. The web final-readiness checklist can now show required signing/tool inputs, the existing release handoff Markdown, the immediate `release-start` handoff command, the actual build/check command to run after prerequisites, and the follow-up verification command. This still does not count as signed distribution evidence; Developer ID/notary credentials and a signed Windows installer remain external gates.
+The latest completed wave made `final-next` truthful when release distribution becomes the active top action. Release next-action payloads, terminal output, and the web top callout can now carry required signing/tool inputs, the immediate `release-start` handoff command, the actual build/check command to run after prerequisites, follow-up verification, and release handoff paths. This still does not count as signed distribution evidence; Developer ID/notary credentials and a signed Windows installer remain external gates.
+
+Wave 132 made release distribution rows self-contained for final handoff. The web final-readiness checklist can now show required signing/tool inputs, the existing release handoff Markdown, the immediate `release-start` handoff command, the actual build/check command to run after prerequisites, and the follow-up verification command. This still does not count as signed distribution evidence; Developer ID/notary credentials and a signed Windows installer remain external gates.
 
 Wave 131 made trusted-user beta rows self-contained for review handoff. `beta-feedback-plan` now preserves the existing review handoff Markdown plus the run report and Bambu `.3mf` bundle paths for each trusted-user slot, and the web final-readiness checklist renders those files with a contextual `Record after review` command. This still does not count as tester evidence; the beta gate remains open until three unique trusted users return completed packets.
 

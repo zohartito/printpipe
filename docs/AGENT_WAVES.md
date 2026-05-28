@@ -1462,3 +1462,13 @@ Status: partial progress for release distribution execution UX. This makes each 
 3. Done: release rows still show the release handoff Markdown path and immediate handoff command.
 4. Done: regression coverage verifies the row view model and rendered HTML include required inputs, build/check commands, follow-up commands, and handoff links.
 5. Boundary: release handoffs and commands are instructions only. The distribution gates still require Developer ID/notary credentials and signed/notarized macOS plus signed Windows artifacts.
+
+## Wave 133 - Release Final Next Action Support
+
+Status: partial progress for release distribution execution UX. This makes the focused top next-action path preserve the same release handoff context as the full checklist rows.
+
+1. Done: `final-plan`/`final-next` now preserve release `required_inputs`, secondary `run_command`, and `followup_command` when a release action's immediate command is `release-start`.
+2. Done: terminal `final-plan` and `final-next` render required inputs, run-after-prerequisites, and follow-up check lines for release next actions.
+3. Done: the web final-readiness top next-action callout renders release required inputs, run-after-prerequisites command, follow-up check command, and handoff path.
+4. Done: trusted-user top next-action record commands now use the contextual `record after review` label when present, matching row behavior.
+5. Boundary: a richer next-action payload is still instructions only. Signed distribution gates remain open until verified signed/notarized macOS and signed Windows artifacts exist.
