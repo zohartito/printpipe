@@ -796,3 +796,14 @@ Status: complete for beta-gate visibility. PrintPipe can now scan run folders an
 5. Done: added `printpipe physical-status --runs-dir runs --json --strict`.
 6. Done: strict mode exits `2` until every required family has a passed packet with no missing required evidence.
 7. Boundary: this reports physical validation status; it does not create physical evidence or claim that unprinted coupons passed.
+
+## Wave 72 - Physical Beta Gate in Local UI
+
+Status: complete for local visibility. The home page now surfaces the same physical validation gate that the CLI exposes.
+
+1. Done: local web home calls `build_physical_validation_status()` when a runs directory is configured.
+2. Done: the page shows the overall physical gate status.
+3. Done: the page shows PLA, PETG, and TPU cards with passed packet counts and missing reasons.
+4. Done: the panel explicitly says digital artifacts do not count as physical proof.
+5. Done: the panel shows the strict CLI command for beta/release gating.
+6. Boundary: this is a read-only status panel; it does not record evidence, edit packets, or mark physical prints as passed.

@@ -134,6 +134,65 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/runs/run-ui-001/artifacts/60_bundle/ready.3mf"' in response.text
 
 
+def test_home_response_renders_physical_beta_gate_status(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    pla_run = runs_dir / "run-pla-pass"
+    pla_run.mkdir(parents=True)
+    photo = pla_run / "coupon.jpg"
+    photo.write_bytes(b"photo")
+    write_physical_evidence_files(
+        run_root=pla_run,
+        evidence=build_physical_print_evidence(
+            run_id="run-pla-pass",
+            material="Bambu PLA Basic",
+            printer="Bambu Lab P2S",
+            object_label="validation coupon",
+            print_type="coupon",
+            print_status="passed",
+            operator="Zohar",
+            first_layer="clean first layer",
+            adhesion="held through print",
+            artifacts=(PhysicalArtifact(label="Coupon photo", path=photo, kind="photo"),),
+        ),
+        copy_artifacts=True,
+    )
+    tpu_run = runs_dir / "run-tpu-failed"
+    tpu_run.mkdir(parents=True)
+    tpu_photo = tpu_run / "coupon.jpg"
+    tpu_photo.write_bytes(b"photo")
+    write_physical_evidence_files(
+        run_root=tpu_run,
+        evidence=build_physical_print_evidence(
+            run_id="run-tpu-failed",
+            material="SUNLU TPU 90A",
+            printer="Bambu Lab P2S",
+            object_label="validation coupon",
+            print_type="coupon",
+            print_status="failed",
+            operator="Zohar",
+            filament_drying="50 C for 6 h",
+            layer_bonding="split at layer 12",
+            flex_recovery="not tested because print failed",
+            artifacts=(PhysicalArtifact(label="Coupon photo", path=tpu_photo, kind="photo"),),
+        ),
+        copy_artifacts=True,
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Physical beta gate" in response.text
+    assert "missing_passed_evidence" in response.text
+    assert "PLA" in response.text
+    assert "PETG" in response.text
+    assert "TPU" in response.text
+    assert "passed" in response.text
+    assert "missing" in response.text
+    assert "recorded_but_not_passed" in response.text
+    assert "printpipe physical-status --runs-dir" in response.text
+
+
 def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_path: Path):
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
+from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.local_open import open_run_folder
 from printpipe.pipeline import (
     PipelineError,
@@ -393,6 +394,7 @@ class PrintPipeWebApp:
                 "      <h1>PrintPipe</h1>",
                 "    </header>",
                 self._render_create_run_panel(),
+                self._render_physical_beta_gate_panel(),
                 self._render_recent_runs_panel(),
                 '    <section class="panel">',
                 "      <h2>Service</h2>",
@@ -495,6 +497,53 @@ class PrintPipeWebApp:
                 "      <h2>Runs</h2>",
                 f"      {body}",
                 "    </section>",
+            ]
+        )
+
+    def _render_physical_beta_gate_panel(self) -> str:
+        if self.runs_dir is None:
+            return ""
+        try:
+            status = build_physical_validation_status(self.runs_dir)
+        except (OSError, ValueError):
+            return ""
+
+        overall = str(status.get("overall_status", "unknown"))
+        families = status.get("family_status")
+        if not isinstance(families, dict):
+            families = {}
+        cards = "\n".join(
+            self._render_physical_family_card(family, payload)
+            for family, payload in sorted(families.items())
+        )
+        command = "printpipe physical-status --runs-dir runs --strict"
+        return "\n".join(
+            [
+                '    <section class="panel physical-gate-panel">',
+                "      <div>",
+                "        <h2>Physical beta gate</h2>",
+                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>. Digital artifacts do not count as physical proof.</p>',
+                "      </div>",
+                f'      <div class="physical-family-grid">{cards}</div>',
+                f'      <code>{escape(command)}</code>',
+                "    </section>",
+            ]
+        )
+
+    def _render_physical_family_card(self, family: str, payload: Any) -> str:
+        item = payload if isinstance(payload, dict) else {}
+        state = str(item.get("status", "unknown"))
+        reason = str(item.get("missing_reason") or "Physical evidence gate satisfied.")
+        passed_count = str(item.get("passed_count", 0))
+        packet_count = str(item.get("packet_count", 0))
+        return "\n".join(
+            [
+                f'        <article class="physical-family physical-family-{_class_name(state)}">',
+                f"          <span>{escape(family.upper())}</span>",
+                f"          <strong>{escape(state)}</strong>",
+                f"          <p>{escape(passed_count)} passed / {escape(packet_count)} packet(s)</p>",
+                f'          <p class="muted">{escape(reason)}</p>',
+                "        </article>",
             ]
         )
 
@@ -1244,7 +1293,8 @@ _CSS = """
       padding: 18px;
     }
     .field-grid,
-    .run-list {
+    .run-list,
+    .physical-family-grid {
       display: grid;
       gap: 12px;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1298,6 +1348,39 @@ _CSS = """
       border: 1px solid #e4e7eb;
       border-radius: 8px;
       padding: 14px;
+    }
+    .physical-gate-panel {
+      display: grid;
+      gap: 14px;
+    }
+    .physical-gate-panel code {
+      background: #f1f5f9;
+      border: 1px solid #d9e2ec;
+      border-radius: 6px;
+      display: inline-block;
+      font-size: 0.9rem;
+      overflow-wrap: anywhere;
+      padding: 8px 10px;
+    }
+    .physical-family {
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .physical-family span {
+      color: #52606d;
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .physical-family strong {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+    .physical-family p {
+      margin: 6px 0 0;
     }
     .run-card h3 {
       margin: 0 0 8px;
