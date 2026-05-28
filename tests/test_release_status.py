@@ -142,6 +142,7 @@ def test_release_status_report_blocks_on_unsigned_distribution_artifacts(
             "artifacts": [
                 {"kind": "macos_dmg", "signed": True, "notarized": False},
                 {"kind": "windows_portable", "signed": False},
+                {"kind": "windows_installer", "signed": False},
             ],
         },
         readiness_report={

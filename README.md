@@ -135,6 +135,11 @@ PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipe.app/Contents/MacOS/printpipe path/to/inpu
 dist/PrintPipe.app/Contents/MacOS/printpipe --version
 ```
 
+`--windows-installer-exe` copies a prebuilt installer into the release folder,
+but it does not by itself prove Authenticode signing. `verify-release` requires
+real signature verification before a Windows installer can close the signed
+distribution gate.
+
 ## Development
 
 ```bash

@@ -447,7 +447,7 @@ The implementation:
 - runs `iscc`
 - optionally runs `signtool sign /n ... /fd SHA256 /tr ... /td SHA256`
 
-`build-release` can carry a prebuilt signed installer:
+`build-release` can carry a prebuilt installer:
 
 ```bash
 printpipe build-release \
@@ -456,9 +456,11 @@ printpipe build-release \
   --json
 ```
 
-This is command plumbing, not proof that the Windows installer has been built on
-`desktop-zt`. The Windows readiness gate still requires an installed installer
-compiler, `signtool`, and a code-signing certificate.
+This is command plumbing, not proof that the Windows installer has been built or
+signed on `desktop-zt`. Copying `PrintPipeSetup.exe` into a release folder keeps
+the manifest unsigned by default; the Windows readiness gate still requires an
+installed installer compiler, `signtool`, a code-signing certificate, and
+successful Authenticode verification.
 
 ## Windows Bambu CLI Boundary
 
@@ -656,7 +658,7 @@ release folder also contains a copied prebuilt artifact:
 - `PrintPipe-Windows-standalone.zip`
 
 With `--windows-installer-exe dist/PrintPipeSetup.exe`, the release folder also
-contains a copied prebuilt signed installer:
+contains a copied prebuilt installer:
 
 - `PrintPipeSetup.exe`
 
@@ -683,9 +685,10 @@ states that macOS and Windows standalone artifacts bundle Python while the other
 artifacts do not.
 
 When `--windows-installer-exe` is used, the manifest adds a
-`windows_installer` artifact with `signed=true`, `bundles_python_runtime=true`,
-and the Windows boundary changes to:
-`Windows signed installer is included in this release.`
+`windows_installer` artifact with `signed=false` and
+`bundles_python_runtime=true`. This keeps the Windows boundary at
+`Windows artifact is not a signed installer.` until Authenticode signing is
+actually verified.
 
 The standalone ZIP preserves the PyInstaller app's symlinks. A live unzip smoke
 verified `codesign --verify --deep --strict`, `PrintPipeStandalone --version`,

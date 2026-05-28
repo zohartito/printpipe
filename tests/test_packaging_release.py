@@ -327,7 +327,7 @@ def test_build_release_bundle_can_include_prebuilt_windows_installer(
     monkeypatch.setattr(release, "build_windows_portable_package", fake_windows_portable_builder)
     prebuilt = tmp_path / "prebuilt" / "PrintPipeSetup.exe"
     prebuilt.parent.mkdir()
-    prebuilt.write_text("signed installer", encoding="utf-8")
+    prebuilt.write_text("prebuilt installer", encoding="utf-8")
 
     result = release.build_release_bundle(
         project_root=REPO_ROOT,
@@ -337,10 +337,11 @@ def test_build_release_bundle_can_include_prebuilt_windows_installer(
     artifacts = {artifact["kind"]: artifact for artifact in result["artifacts"]}
 
     assert artifacts["windows_installer"]["path"] == "PrintPipeSetup.exe"
-    assert artifacts["windows_installer"]["signed"] is True
+    assert artifacts["windows_installer"]["signed"] is False
     assert artifacts["windows_installer"]["bundles_python_runtime"] is True
     assert artifacts["windows_installer"]["bundles_bambu_studio"] is False
-    assert "Windows signed installer is included in this release." in result["boundaries"]
+    assert "signing_kind" not in artifacts["windows_installer"]
+    assert "Windows artifact is not a signed installer." in result["boundaries"]
 
 
 def test_build_release_bundle_can_request_developer_id_notarized_dmg(
@@ -451,7 +452,7 @@ def test_verify_release_bundle_rejects_boundary_drift(tmp_path: Path) -> None:
     assert "boundaries" in {failure["id"] for failure in result["failures"]}
 
 
-def test_verify_release_bundle_rejects_unsigned_windows_installer_metadata(
+def test_verify_release_bundle_accepts_honest_unsigned_windows_installer_metadata(
     tmp_path: Path,
 ) -> None:
     import printpipe.packaging.release as release
@@ -478,8 +479,44 @@ def test_verify_release_bundle_rejects_unsigned_windows_installer_metadata(
 
     result = release.verify_release_bundle(release_dir)
 
+    assert result["status"] == "ok"
+    assert "artifact_metadata:windows_installer:signed" not in {
+        failure["id"] for failure in result["failures"]
+    }
+
+
+def test_verify_release_bundle_rejects_unverifiable_signed_windows_installer(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import printpipe.packaging.release as release
+
+    release_dir = _write_fake_release(tmp_path)
+    installer = release_dir / "PrintPipeSetup.exe"
+    installer.write_bytes(b"installer")
+    manifest_path = release_dir / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"].append(
+        {
+            "kind": "windows_installer",
+            "path": installer.name,
+            "size_bytes": installer.stat().st_size,
+            "sha256": hashlib.sha256(installer.read_bytes()).hexdigest(),
+            "signed": True,
+            "notarized": False,
+            "bundles_python_runtime": True,
+            "bundles_bambu_studio": False,
+            "signing_kind": "authenticode",
+        }
+    )
+    manifest["boundaries"] = release._release_boundaries(manifest["artifacts"])
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(release.shutil, "which", lambda _name: None)
+
+    result = release.verify_release_bundle(release_dir)
+
     assert result["status"] == "failed"
-    assert "artifact_metadata:windows_installer:signed" in {
+    assert "artifact_signature:windows_installer:authenticode" in {
         failure["id"] for failure in result["failures"]
     }
 

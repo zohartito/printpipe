@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 151: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 152: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 151 brought the dedicated release distribution panel up to the same signing-handoff standard as final-readiness. The home page now shows required signing/tool inputs, setup prerequisites such as the Windows standalone ZIP build, release handoff commands, handoff sheets, build/check commands, and follow-up checks beside each release action, while still making clear that generated plans are not signed distribution evidence. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 152 closed a Windows release false-evidence path from the Opus audit. `build-release --windows-installer-exe` now copies a prebuilt installer as an unsigned artifact by default, the release boundary stays "not a signed installer", and `verify-release` fails any `signed=true` Windows installer claim unless Authenticode verification can actually run. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 

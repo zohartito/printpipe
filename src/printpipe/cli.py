@@ -437,7 +437,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--windows-installer-exe",
         type=Path,
         default=None,
-        help="Copy a prebuilt signed PrintPipeSetup.exe into the release bundle.",
+        help=(
+            "Copy a prebuilt PrintPipeSetup.exe into the release bundle. "
+            "The release manifest does not mark it signed unless signature "
+            "verification is added and passes."
+        ),
     )
     build_release.add_argument(
         "--json",

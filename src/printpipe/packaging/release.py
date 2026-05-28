@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import stat
+import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
@@ -151,7 +152,7 @@ def build_release_bundle(
                 kind="windows_installer",
                 path=installer_target,
                 metadata=_windows_installer_metadata(),
-                signed=True,
+                signed=False,
                 notarized=False,
             )
         )
@@ -319,7 +320,11 @@ def _macos_signing_boundary(artifacts: list[dict[str, Any]]) -> str:
 
 
 def _windows_signing_boundary(artifacts: list[dict[str, Any]]) -> str:
-    if any(str(artifact.get("kind")) == "windows_installer" for artifact in artifacts):
+    if any(
+        str(artifact.get("kind")) == "windows_installer"
+        and artifact.get("signed") is True
+        for artifact in artifacts
+    ):
         return "Windows signed installer is included in this release."
     return "Windows artifact is not a signed installer."
 
@@ -371,7 +376,6 @@ def _windows_installer_metadata() -> dict[str, bool | str]:
         "installer_kind": "inno_setup",
         "bundles_python_runtime": True,
         "bundles_bambu_studio": False,
-        "signing_kind": "authenticode",
     }
 
 
@@ -463,6 +467,12 @@ def _verify_artifact(
         actual=actual_sha,
         path=str(artifact_path),
     )
+    if kind == "windows_installer":
+        _verify_windows_installer_signature(
+            artifact=artifact,
+            artifact_path=artifact_path,
+            checks=checks,
+        )
 
 
 def _verify_artifact_metadata(
@@ -608,8 +618,8 @@ def _verify_artifact_metadata(
         _append_check(
             checks,
             check_id="artifact_metadata:windows_installer:signed",
-            ok=artifact.get("signed") is True,
-            message="Windows installer release artifact carries signed=true",
+            ok=artifact.get("signed") in {True, False},
+            message="Windows installer release artifact carries explicit signed metadata",
             actual=artifact.get("signed"),
         )
         _append_check(
@@ -626,6 +636,44 @@ def _verify_artifact_metadata(
             message="Windows installer does not claim to bundle Bambu Studio",
             actual=artifact.get("bundles_bambu_studio"),
         )
+
+
+def _verify_windows_installer_signature(
+    *,
+    artifact: dict[str, Any],
+    artifact_path: Path,
+    checks: list[dict[str, Any]],
+) -> None:
+    if artifact.get("signed") is not True:
+        return
+    signtool = shutil.which("signtool") or shutil.which("signtool.exe")
+    if signtool is None:
+        _append_check(
+            checks,
+            check_id="artifact_signature:windows_installer:authenticode",
+            ok=False,
+            message=(
+                "Windows installer claims signed=true, but signtool is unavailable "
+                "so Authenticode signing cannot be verified"
+            ),
+            path=str(artifact_path),
+        )
+        return
+    result = subprocess.run(
+        [signtool, "verify", "/pa", str(artifact_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    _append_check(
+        checks,
+        check_id="artifact_signature:windows_installer:authenticode",
+        ok=result.returncode == 0,
+        message="Windows installer Authenticode signature verifies with signtool",
+        path=str(artifact_path),
+        stdout=result.stdout.strip(),
+        stderr=result.stderr.strip(),
+    )
 
 
 def _append_check(

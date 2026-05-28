@@ -879,7 +879,7 @@ Status: partial progress for original item 122. PrintPipe now has native Windows
 2. Done: the installer builder wraps `PrintPipe-Windows-standalone.zip` with Inno Setup.
 3. Done: optional Authenticode signing uses `signtool sign /n ... /fd SHA256 /tr ... /td SHA256`.
 4. Done: added `printpipe build-windows-installer --standalone-zip ... --output ...`.
-5. Done: `build-release --windows-installer-exe ...` can copy a prebuilt signed installer into the checksummed release manifest.
+5. Done: `build-release --windows-installer-exe ...` can copy a prebuilt installer into the checksummed release manifest; Wave 152 corrected the manifest so copied installers stay unsigned unless signing is actually verified.
 6. Boundary: no Windows signing certificate, `signtool`, or Inno/WiX/NSIS installer tool was installed by this wave; the Windows readiness gate remains action-required on `desktop-zt`.
 
 ## Wave 80 - Release Verifier Metadata Hardening
@@ -1664,3 +1664,14 @@ Status: partial progress for release-distribution execution UX. This makes the d
 3. Done: release rows now label release handoff, build/check, and follow-up check commands instead of showing unlabeled command blocks.
 4. Done: focused web regression coverage proves macOS required signing inputs and Windows setup/signing prerequisites render in the home release panel.
 5. Boundary: UI parity still does not create signed artifacts. macOS remains open until Developer ID signing/notarization evidence exists, and Windows remains open until a signed installer is verified.
+
+## Wave 152 - Windows Installer Signing Honesty
+
+Status: partial progress for release-distribution evidence honesty. This closes the Opus audit S4-1 path where any copied `.exe` could be recorded as a signed Windows installer.
+
+1. Done: `build-release --windows-installer-exe` now records copied installers with `signed=false` by default.
+2. Done: copied installer metadata no longer injects `signing_kind=authenticode`.
+3. Done: release boundaries only say `Windows signed installer is included in this release.` when a Windows installer artifact has `signed=true`.
+4. Done: `verify-release` accepts honest unsigned installer metadata as a valid bundle record, but fails a `signed=true` Windows installer claim when `signtool verify /pa` cannot verify Authenticode signing.
+5. Done: README and packaging docs now state that copying `PrintPipeSetup.exe` is not signing proof.
+6. Boundary: this still does not produce a signed installer. The Windows distribution gate remains open until signing tools, a certificate, and verified Authenticode evidence exist.
