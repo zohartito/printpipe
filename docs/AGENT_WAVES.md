@@ -1144,3 +1144,14 @@ Status: complete for run-detail physical evidence visibility. This does not crea
 3. Done: updated the physical evidence panel to show material, printer, started, and completed fields next to operator, missing evidence, packet links, and artifact links.
 4. Done: preserved the boundary that generated flex-coupon artifacts do not count as physical proof and `not_printed`/incomplete packets stay review/incomplete.
 5. Boundary: physical PLA/PETG/TPU prints, trusted-user beta feedback, and signed release credentials remain separate gates.
+
+## Wave 104 - Evidence-Based Dogfood Beta Plan
+
+Status: complete for beta-plan dogfood evidence scanning. This does not create physical print evidence or trusted-user feedback.
+
+1. Done: added beta-plan evidence for the canonical software dogfood matrix.
+2. Done: `build_beta_action_plan()` now scans run folders for a slipper software run plus three distinct non-slipper live-sliced runs.
+3. Done: the dogfood action changes from `action_required` to `ready` when the software matrix is actually present on disk.
+4. Done: incomplete dogfood evidence stays action-required and reports the slipper status plus the non-slipper count.
+5. Current local result: `printpipe beta-plan --runs-dir runs --regression-manifest regressions/dogfood_failures.json --json` reports dogfood ready and reduces action-required items from 3 to 2.
+6. Boundary: physical PLA/PETG/TPU prints and three trusted-user feedback packets remain separate action-required gates.

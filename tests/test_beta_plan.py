@@ -37,6 +37,7 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert plan["evidence"]["rule_update_status"]["overall_status"] == "missing"
     assert plan["evidence"]["trusted_feedback_status"]["unique_trusted_user_count"] == 0
     assert plan["evidence"]["regression_status"]["overall_status"] == "not_configured"
+    assert plan["evidence"]["dogfood_status"]["overall_status"] == "missing"
     actions = {action["id"]: action for action in plan["actions"]}
     assert actions["run_beta_dogfood"]["status"] == "action_required"
     assert "slipper" in actions["run_beta_dogfood"]["detail"].lower()
@@ -52,6 +53,73 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert "record-rule-update" in actions["update_rules"]["command"]
     assert actions["trusted_user_beta"]["status"] == "action_required"
     assert "0 / 3 trusted users" in actions["trusted_user_beta"]["detail"]
+
+
+def test_beta_action_plan_marks_dogfood_ready_from_software_evidence(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_software_dogfood_run(
+        runs_dir / "20260528-slipper-wide-upper",
+        source_path="/proof/slipper_size11_wide_upper.stl",
+        slice_status="skipped",
+        extra_stage_names=("validation.flex_coupon",),
+    )
+    _write_software_dogfood_run(
+        runs_dir / "dogfood" / "20260528-simple-figurine-ascii",
+        source_path="/fixtures/simple_figurine_ascii.stl",
+    )
+    _write_software_dogfood_run(
+        runs_dir / "dogfood" / "20260528-cup-vase-open-frustum",
+        source_path="/fixtures/cup_vase_open_frustum.stl",
+    )
+    _write_software_dogfood_run(
+        runs_dir / "dogfood" / "20260528-flat-bracket",
+        source_path="/fixtures/flat_bracket.stl",
+    )
+
+    plan = build_beta_action_plan(runs_dir)
+
+    status = plan["evidence"]["dogfood_status"]
+    actions = {action["id"]: action for action in plan["actions"]}
+    assert status["overall_status"] == "passed"
+    assert status["slipper_status"] == "passed"
+    assert status["non_slipper_passed_count"] == 3
+    assert status["required_non_slipper_count"] == 3
+    assert actions["run_beta_dogfood"]["status"] == "ready"
+    assert "slipper software run" in actions["run_beta_dogfood"]["detail"]
+    assert "3 / 3 non-slipper" in actions["run_beta_dogfood"]["detail"]
+    assert actions["run_beta_dogfood"]["command"] == ""
+
+
+def test_beta_action_plan_keeps_dogfood_action_required_until_matrix_is_complete(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_software_dogfood_run(
+        runs_dir / "20260528-slipper-wide-upper",
+        source_path="/proof/slipper_size11_wide_upper.stl",
+        slice_status="skipped",
+        extra_stage_names=("validation.flex_coupon",),
+    )
+    _write_software_dogfood_run(
+        runs_dir / "dogfood" / "20260528-simple-figurine-ascii",
+        source_path="/fixtures/simple_figurine_ascii.stl",
+    )
+    _write_software_dogfood_run(
+        runs_dir / "dogfood" / "20260528-cup-vase-open-frustum",
+        source_path="/fixtures/cup_vase_open_frustum.stl",
+    )
+
+    plan = build_beta_action_plan(runs_dir)
+
+    status = plan["evidence"]["dogfood_status"]
+    actions = {action["id"]: action for action in plan["actions"]}
+    assert status["overall_status"] == "incomplete"
+    assert status["slipper_status"] == "passed"
+    assert status["non_slipper_passed_count"] == 2
+    assert actions["run_beta_dogfood"]["status"] == "action_required"
+    assert "2 / 3 non-slipper" in actions["run_beta_dogfood"]["detail"]
 
 
 def test_beta_action_plan_detects_failure_packets_and_regression_manifest(
@@ -207,3 +275,80 @@ def _write_feedback(
         artifacts=(),
     )
     write_trusted_user_feedback_files(run_root=run_root, feedback=feedback)
+
+
+def _write_software_dogfood_run(
+    run_root: Path,
+    *,
+    source_path: str,
+    slice_status: str = "succeeded",
+    extra_stage_names: tuple[str, ...] = (),
+) -> None:
+    run_root.mkdir(parents=True)
+    input_name = Path(source_path).name
+    (run_root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": run_root.name,
+                "input": {
+                    "kind": "mesh",
+                    "source_path": source_path,
+                    "stored_path": f"00_input/{input_name}",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    stages = [
+        {"stage": "meshgen", "status": "succeeded", "message": "imported mesh"},
+        {"stage": "mesh_repair", "status": "succeeded", "message": "repaired mesh"},
+        {"stage": "bundle", "status": "succeeded", "message": "wrote bundle"},
+        {
+            "stage": "bundle_validation",
+            "status": "succeeded",
+            "message": "validated bundle",
+        },
+    ]
+    for stage_name in extra_stage_names:
+        stages.append(
+            {
+                "stage": stage_name,
+                "status": "succeeded",
+                "message": f"{stage_name} succeeded",
+            }
+        )
+    stages.append(
+        {
+            "stage": "slice",
+            "status": slice_status,
+            "message": "slice result recorded",
+        }
+    )
+    reports_dir = run_root / "80_reports"
+    reports_dir.mkdir(parents=True)
+    (reports_dir / "run_report.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": run_root.name,
+                "warnings": [],
+                "stages": stages,
+            }
+        ),
+        encoding="utf-8",
+    )
+    if slice_status == "succeeded":
+        slice_dir = run_root / "70_slice"
+        slice_dir.mkdir(parents=True)
+        (slice_dir / "slice_result.json").write_text(
+            json.dumps({"return_code": 0, "warnings": [], "errors": []}),
+            encoding="utf-8",
+        )
+    if extra_stage_names:
+        geometry_dir = run_root / "40_geometry"
+        geometry_dir.mkdir(parents=True)
+        (geometry_dir / "flex_coupon_40x15x3.stl").write_text(
+            "solid coupon\nendsolid coupon\n",
+            encoding="utf-8",
+        )

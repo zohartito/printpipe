@@ -24,6 +24,7 @@ def build_beta_action_plan(
     runs_dir: str | Path,
     *,
     regression_manifest_path: str | Path | None = None,
+    dogfood_status: Mapping[str, Any] | None = None,
     physical_status: Mapping[str, Any] | None = None,
     trusted_feedback_status: Mapping[str, Any] | None = None,
     rule_update_status: Mapping[str, Any] | None = None,
@@ -34,6 +35,11 @@ def build_beta_action_plan(
 
     runs_root = Path(runs_dir).expanduser().resolve()
     failures = _load_failure_reports(runs_root)
+    dogfood = (
+        dict(dogfood_status)
+        if dogfood_status is not None
+        else _build_dogfood_software_status(runs_root)
+    )
     physical = (
         dict(physical_status)
         if physical_status is not None
@@ -67,7 +73,7 @@ def build_beta_action_plan(
         else None
     )
     actions = [
-        _dogfood_action(),
+        _dogfood_action(dogfood),
         _physical_action(physical, runs_dir=runs_root),
         _failure_capture_action(failures),
         _regression_action(
@@ -88,6 +94,7 @@ def build_beta_action_plan(
         "action_required_count": action_required_count,
         "proof_boundary": BETA_PLAN_PROOF_BOUNDARY,
         "evidence": {
+            "dogfood_status": dogfood,
             "failure_report_count": len(failures),
             "failure_reports": failures,
             "failure_regression_status": failure_regressions,
@@ -136,15 +143,38 @@ def render_beta_action_plan(plan: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _dogfood_action() -> dict[str, str]:
+def _dogfood_action(status: Mapping[str, Any]) -> dict[str, str]:
+    if status.get("overall_status") == "passed":
+        non_slipper_count = int(status.get("non_slipper_passed_count") or 0)
+        required_count = int(status.get("required_non_slipper_count") or 3)
+        return {
+            "id": "run_beta_dogfood",
+            "label": "Dogfood canonical object matrix",
+            "status": "ready",
+            "detail": (
+                "Software dogfood evidence found: slipper software run plus "
+                f"{non_slipper_count} / {required_count} non-slipper live-sliced runs. "
+                "Physical print proof and trusted-user feedback remain separate gates."
+            ),
+            "command": "",
+        }
+    slipper_status = str(status.get("slipper_status") or "missing")
+    non_slipper_count = int(status.get("non_slipper_passed_count") or 0)
+    required_count = int(status.get("required_non_slipper_count") or 3)
+    detail = (
+        "Run the slipper proof plus at least three non-slipper objects through "
+        "the current pipeline and record the outcomes."
+    )
+    if status.get("overall_status") == "incomplete":
+        detail = (
+            f"Software dogfood matrix incomplete: slipper={slipper_status}; "
+            f"{non_slipper_count} / {required_count} non-slipper live-sliced runs found."
+        )
     return {
         "id": "run_beta_dogfood",
         "label": "Dogfood canonical object matrix",
         "status": "action_required",
-        "detail": (
-            "Run the slipper proof plus at least three non-slipper objects through "
-            "the current pipeline and record the outcomes."
-        ),
+        "detail": detail,
         "command": "printpipe run <input.stl|image|prompt> --material <material> --slice",
     }
 
@@ -423,6 +453,178 @@ def _failure_summary(
         "artifact_count": len(_list(payload.get("artifacts"))),
         "physical_print_status": str(payload.get("physical_print_status") or ""),
     }
+
+
+def _build_dogfood_software_status(runs_dir: Path) -> dict[str, Any]:
+    required_non_slipper_count = 3
+    base = {
+        "schema_version": 1,
+        "required_non_slipper_count": required_non_slipper_count,
+        "non_slipper_passed_count": 0,
+        "non_slipper_runs": [],
+        "slipper_status": "missing",
+        "slipper_run": None,
+    }
+    if not runs_dir.exists():
+        return {"overall_status": "missing", **base}
+
+    candidates: list[dict[str, Any]] = []
+    slipper_run: dict[str, Any] | None = None
+    non_slipper_by_category: dict[str, dict[str, Any]] = {}
+    for report_path in sorted(runs_dir.glob("**/80_reports/run_report.json")):
+        candidate = _dogfood_candidate(report_path)
+        if candidate is None:
+            continue
+        candidates.append(candidate)
+        if candidate["category"] == "slipper":
+            if candidate["passed"] and slipper_run is None:
+                slipper_run = candidate
+            continue
+        if candidate["passed"]:
+            non_slipper_by_category.setdefault(candidate["category"], candidate)
+
+    non_slipper_runs = [
+        _dogfood_summary(candidate)
+        for candidate in sorted(
+            non_slipper_by_category.values(),
+            key=lambda value: str(value["category"]),
+        )
+    ]
+    slipper_status = "passed" if slipper_run is not None else "missing"
+    if slipper_run is None and any(
+        candidate["category"] == "slipper" for candidate in candidates
+    ):
+        slipper_status = "incomplete"
+    non_slipper_passed_count = len(non_slipper_runs)
+    if slipper_status == "passed" and non_slipper_passed_count >= required_non_slipper_count:
+        overall_status = "passed"
+    elif candidates:
+        overall_status = "incomplete"
+    else:
+        overall_status = "missing"
+    return {
+        "overall_status": overall_status,
+        **base,
+        "non_slipper_passed_count": non_slipper_passed_count,
+        "non_slipper_runs": non_slipper_runs,
+        "slipper_status": slipper_status,
+        "slipper_run": _dogfood_summary(slipper_run) if slipper_run else None,
+    }
+
+
+def _dogfood_candidate(report_path: Path) -> dict[str, Any] | None:
+    report = _read_json(report_path)
+    if not report:
+        return None
+    run_root = report_path.parents[1]
+    manifest = _read_json(run_root / "manifest.json")
+    run_id = str(report.get("run_id") or manifest.get("run_id") or run_root.name)
+    source_path = _manifest_source_path(manifest)
+    category = _dogfood_category(run_id=run_id, source_path=source_path)
+    if category is None:
+        return None
+    warnings = _list(report.get("warnings"))
+    stages = [_dict(item) for item in _list(report.get("stages"))]
+    stage_status = {
+        str(item.get("stage") or ""): str(item.get("status") or "")
+        for item in stages
+    }
+    failed_stage_count = sum(1 for status in stage_status.values() if status == "failed")
+    bundle_ok = _stage_succeeded(stage_status, "bundle") and _stage_succeeded(
+        stage_status,
+        "bundle_validation",
+    )
+    slice_passed = _slice_result_passed(run_root)
+    if category == "slipper":
+        passed = (
+            not warnings
+            and failed_stage_count == 0
+            and bundle_ok
+            and _slipper_flex_coupon_recorded(run_root, stage_status)
+        )
+    else:
+        passed = (
+            not warnings
+            and failed_stage_count == 0
+            and bundle_ok
+            and slice_passed
+        )
+    return {
+        "run_id": run_id,
+        "run_root": str(run_root),
+        "source_path": source_path,
+        "category": category,
+        "passed": passed,
+        "warning_count": len(warnings),
+        "failed_stage_count": failed_stage_count,
+        "slice_passed": slice_passed,
+        "bundle_validated": bundle_ok,
+    }
+
+
+def _dogfood_category(*, run_id: str, source_path: str) -> str | None:
+    text = f"{run_id} {source_path}".lower()
+    if "slipper" in text:
+        return "slipper"
+    if "figurine" in text:
+        return "figurine"
+    if "cup" in text or "vase" in text:
+        return "cup_vase"
+    if "flat" in text or "bracket" in text:
+        return "flat_bracket"
+    return None
+
+
+def _dogfood_summary(candidate: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if candidate is None:
+        return None
+    return {
+        "run_id": str(candidate.get("run_id") or ""),
+        "run_root": str(candidate.get("run_root") or ""),
+        "source_path": str(candidate.get("source_path") or ""),
+        "category": str(candidate.get("category") or ""),
+        "slice_passed": bool(candidate.get("slice_passed")),
+        "bundle_validated": bool(candidate.get("bundle_validated")),
+    }
+
+
+def _manifest_source_path(manifest: Mapping[str, Any]) -> str:
+    input_data = _dict(manifest.get("input"))
+    return str(input_data.get("source_path") or input_data.get("stored_path") or "")
+
+
+def _stage_succeeded(stage_status: Mapping[str, str], stage_name: str) -> bool:
+    return stage_status.get(stage_name) == "succeeded"
+
+
+def _slipper_flex_coupon_recorded(
+    run_root: Path,
+    stage_status: Mapping[str, str],
+) -> bool:
+    if stage_status.get("validation.flex_coupon") == "succeeded":
+        return True
+    return any(run_root.glob("40_geometry/flex_coupon*.stl"))
+
+
+def _slice_result_passed(run_root: Path) -> bool:
+    payload = _read_json(run_root / "70_slice" / "slice_result.json")
+    if not payload:
+        return False
+    return_code = payload.get("return_code")
+    return (
+        isinstance(return_code, int)
+        and return_code == 0
+        and not _list(payload.get("warnings"))
+        and not _list(payload.get("errors"))
+    )
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _quote(value: str) -> str:
