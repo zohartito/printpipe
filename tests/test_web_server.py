@@ -193,6 +193,41 @@ def test_home_response_renders_physical_beta_gate_status(tmp_path: Path):
     assert "printpipe physical-status --runs-dir" in response.text
 
 
+def test_physical_status_json_endpoint_returns_beta_gate_status(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    pla_run = runs_dir / "run-pla-pass"
+    pla_run.mkdir(parents=True)
+    photo = pla_run / "coupon.jpg"
+    photo.write_bytes(b"photo")
+    write_physical_evidence_files(
+        run_root=pla_run,
+        evidence=build_physical_print_evidence(
+            run_id="run-pla-pass",
+            material="Bambu PLA Basic",
+            printer="Bambu Lab P2S",
+            object_label="validation coupon",
+            print_type="coupon",
+            print_status="passed",
+            operator="Zohar",
+            first_layer="clean first layer",
+            adhesion="held through print",
+            artifacts=(PhysicalArtifact(label="Coupon photo", path=photo, kind="photo"),),
+        ),
+        copy_artifacts=True,
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/physical-status.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "missing_passed_evidence"
+    assert payload["family_status"]["pla"]["status"] == "passed"
+    assert payload["family_status"]["petg"]["status"] == "missing"
+    assert payload["family_status"]["tpu"]["status"] == "missing"
+
+
 def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_path: Path):
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")

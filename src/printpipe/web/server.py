@@ -194,6 +194,8 @@ class PrintPipeWebApp:
             return WebResponse(int(HTTPStatus.NO_CONTENT), b"", (("Content-Length", "0"),))
         if path == "/health":
             return self.health_response()
+        if path == "/physical-status.json":
+            return self.physical_status_response()
         if path.startswith(_STATIC_PREFIX):
             return self.static_response(path.removeprefix(_STATIC_PREFIX))
         if path.startswith(_RUNS_PREFIX):
@@ -294,6 +296,22 @@ class PrintPipeWebApp:
 
     def health_response(self) -> WebResponse:
         return WebResponse.json({"service": "printpipe-web", "status": "ok"})
+
+    def physical_status_response(self) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            return WebResponse.json(build_physical_validation_status(self.runs_dir))
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
 
     def static_response(self, relative_url_path: str) -> WebResponse:
         static_path = self._find_static_html(relative_url_path)

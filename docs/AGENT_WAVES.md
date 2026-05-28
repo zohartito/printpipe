@@ -807,3 +807,13 @@ Status: complete for local visibility. The home page now surfaces the same physi
 4. Done: the panel explicitly says digital artifacts do not count as physical proof.
 5. Done: the panel shows the strict CLI command for beta/release gating.
 6. Boundary: this is a read-only status panel; it does not record evidence, edit packets, or mark physical prints as passed.
+
+## Wave 73 - Physical Validation JSON Endpoint
+
+Status: complete for local app/API visibility. The physical validation gate is now machine-readable from the local web app.
+
+1. Done: added `GET /physical-status.json`.
+2. Done: endpoint returns the same `build_physical_validation_status()` payload used by the CLI and home page.
+3. Done: endpoint returns `503` when the web app has no runs directory configured.
+4. Done: regression coverage proves the endpoint reports passed PLA evidence while keeping missing PETG/TPU gates explicit.
+5. Boundary: this is a read-only status endpoint; it does not mutate evidence packets or bypass the strict physical validation gate.
