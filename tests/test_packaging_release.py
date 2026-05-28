@@ -285,6 +285,64 @@ def test_cli_build_release_parser_accepts_windows_standalone_zip() -> None:
     assert args.windows_standalone_zip == Path("dist/PrintPipe-Windows-standalone.zip")
 
 
+def test_build_release_bundle_can_include_prebuilt_windows_installer(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import printpipe.packaging.release as release
+
+    def fake_zipapp_builder(*, project_root: str | Path, output_path: str | Path) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("zipapp", encoding="utf-8")
+        return {"bundles_python_runtime": False, "bundles_bambu_studio": False}
+
+    def fake_dmg_builder(
+        *,
+        project_root: str | Path,
+        output_path: str | Path,
+        adhoc_sign: bool,
+        developer_id_identity: str | None,
+        notary_profile: str | None,
+    ) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("dmg", encoding="utf-8")
+        return {
+            "bundles_python_runtime": False,
+            "bundles_bambu_studio": False,
+            "signed": adhoc_sign,
+            "notarized": False,
+        }
+
+    def fake_windows_portable_builder(
+        *,
+        project_root: str | Path,
+        output_path: str | Path,
+    ) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("windows portable", encoding="utf-8")
+        return {"bundles_python_runtime": False, "bundles_bambu_studio": False}
+
+    monkeypatch.setattr(release, "build_zipapp_package", fake_zipapp_builder)
+    monkeypatch.setattr(release, "build_macos_dmg_package", fake_dmg_builder)
+    monkeypatch.setattr(release, "build_windows_portable_package", fake_windows_portable_builder)
+    prebuilt = tmp_path / "prebuilt" / "PrintPipeSetup.exe"
+    prebuilt.parent.mkdir()
+    prebuilt.write_text("signed installer", encoding="utf-8")
+
+    result = release.build_release_bundle(
+        project_root=REPO_ROOT,
+        output_dir=tmp_path / "release",
+        windows_installer_exe=prebuilt,
+    )
+    artifacts = {artifact["kind"]: artifact for artifact in result["artifacts"]}
+
+    assert artifacts["windows_installer"]["path"] == "PrintPipeSetup.exe"
+    assert artifacts["windows_installer"]["signed"] is True
+    assert artifacts["windows_installer"]["bundles_python_runtime"] is True
+    assert artifacts["windows_installer"]["bundles_bambu_studio"] is False
+    assert "Windows signed installer is included in this release." in result["boundaries"]
+
+
 def test_build_release_bundle_can_request_developer_id_notarized_dmg(
     tmp_path: Path,
     monkeypatch,

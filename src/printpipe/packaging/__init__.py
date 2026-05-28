@@ -18,6 +18,7 @@ from printpipe.packaging.smoke import (
     run_windows_package_smoke,
 )
 from printpipe.packaging.windows_portable import build_windows_portable_package
+from printpipe.packaging.windows_installer import build_windows_installer_package
 from printpipe.packaging.windows_standalone import build_windows_standalone_package
 from printpipe.packaging.zipapp import build_zipapp_package
 
@@ -34,6 +35,7 @@ __all__ = (
     "build_macos_standalone_app",
     "build_release_bundle",
     "build_windows_package_smoke_plan",
+    "build_windows_installer_package",
     "build_windows_portable_package",
     "build_windows_standalone_package",
     "build_zipapp_package",

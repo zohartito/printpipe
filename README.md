@@ -114,10 +114,12 @@ python dist/printpipe.pyz --version
 python dist/printpipe.pyz package-smoke --platform macos --runs-dir runs/package-smoke/zipapp --json
 printpipe build-windows-portable --output dist/PrintPipe-Windows-portable.zip
 printpipe build-windows-standalone --output dist/PrintPipe-Windows-standalone.zip --pyinstaller "pyinstaller"
+printpipe build-windows-installer --standalone-zip dist/PrintPipe-Windows-standalone.zip --output dist/PrintPipeSetup.exe --certificate-subject "CN=Your Code Signing Certificate"
 
 printpipe build-release --output-dir dist/release --adhoc-sign
 printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller"
 printpipe build-release --output-dir dist/release --adhoc-sign --windows-standalone-zip dist/PrintPipe-Windows-standalone.zip
+printpipe build-release --output-dir dist/release --windows-installer-exe dist/PrintPipeSetup.exe
 printpipe build-release --output-dir dist/release --developer-id-identity "Developer ID Application: Your Name (TEAMID)" --notary-profile printpipe-notary
 printpipe verify-release dist/release --json
 

@@ -870,3 +870,14 @@ Status: partial progress for original item 121. PrintPipe now has real Developer
 4. Done: `build-macos-dmg` accepts `--developer-id-identity` and `--notary-profile`.
 5. Done: `build-release` can pass Developer ID/notary options into the release DMG and manifest the notarized boundary honestly.
 6. Boundary: no certificate or notary profile was installed by this wave; the readiness gate remains action-required on this machine.
+
+## Wave 79 - Windows Native Installer Plumbing
+
+Status: partial progress for original item 122. PrintPipe now has native Windows installer build/sign command plumbing, but actual signed installer production still requires Windows installer tools plus a code-signing certificate.
+
+1. Done: added `printpipe.packaging.windows_installer.build_windows_installer_package()`.
+2. Done: the installer builder wraps `PrintPipe-Windows-standalone.zip` with Inno Setup.
+3. Done: optional Authenticode signing uses `signtool sign /n ... /fd SHA256 /tr ... /td SHA256`.
+4. Done: added `printpipe build-windows-installer --standalone-zip ... --output ...`.
+5. Done: `build-release --windows-installer-exe ...` can copy a prebuilt signed installer into the checksummed release manifest.
+6. Boundary: no Windows signing certificate, `signtool`, or Inno/WiX/NSIS installer tool was installed by this wave; the Windows readiness gate remains action-required on `desktop-zt`.

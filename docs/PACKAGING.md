@@ -425,6 +425,41 @@ What this does not prove:
 - It does not create Start Menu entries or file associations by itself.
 - It does not bundle Bambu Studio.
 
+## Windows Native Installer Plumbing
+
+Wave 79 adds an Inno Setup installer builder around the Windows standalone ZIP:
+
+```powershell
+printpipe build-windows-installer `
+  --standalone-zip dist/PrintPipe-Windows-standalone.zip `
+  --output dist/PrintPipeSetup.exe `
+  --iscc iscc `
+  --signtool signtool `
+  --certificate-subject "CN=Your Code Signing Certificate" `
+  --json
+```
+
+The implementation:
+
+- extracts `PrintPipe-Windows-standalone.zip`
+- verifies `PrintPipe/PrintPipe.exe` exists
+- writes an Inno Setup `.iss` script
+- runs `iscc`
+- optionally runs `signtool sign /n ... /fd SHA256 /tr ... /td SHA256`
+
+`build-release` can carry a prebuilt signed installer:
+
+```bash
+printpipe build-release \
+  --output-dir dist/release \
+  --windows-installer-exe dist/PrintPipeSetup.exe \
+  --json
+```
+
+This is command plumbing, not proof that the Windows installer has been built on
+`desktop-zt`. The Windows readiness gate still requires an installed installer
+compiler, `signtool`, and a code-signing certificate.
+
 ## Windows Bambu CLI Boundary
 
 Wave 45 checked `desktop-zt` for a callable Bambu Studio executable after the
@@ -596,6 +631,7 @@ writes checksums:
 printpipe build-release --output-dir dist/release --adhoc-sign --json
 printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller" --json
 printpipe build-release --output-dir dist/release --adhoc-sign --windows-standalone-zip dist/PrintPipe-Windows-standalone.zip --json
+printpipe build-release --output-dir dist/release --windows-installer-exe dist/PrintPipeSetup.exe --json
 printpipe build-release --output-dir dist/release --developer-id-identity "Developer ID Application: Your Name (TEAMID)" --notary-profile printpipe-notary --json
 printpipe verify-release dist/release --json
 ```
@@ -615,6 +651,11 @@ With `--windows-standalone-zip dist/PrintPipe-Windows-standalone.zip`, the
 release folder also contains a copied prebuilt artifact:
 
 - `PrintPipe-Windows-standalone.zip`
+
+With `--windows-installer-exe dist/PrintPipeSetup.exe`, the release folder also
+contains a copied prebuilt signed installer:
+
+- `PrintPipeSetup.exe`
 
 `release_manifest.json` records each artifact's relative path, size, SHA-256
 `sha256`, signing/notarization flags, and boundary claims. The default release
@@ -637,6 +678,11 @@ the Python-runtime boundary to: `Windows standalone artifact bundles Python;
 other artifacts do not.` If both standalone artifacts are present, the boundary
 states that macOS and Windows standalone artifacts bundle Python while the other
 artifacts do not.
+
+When `--windows-installer-exe` is used, the manifest adds a
+`windows_installer` artifact with `signed=true`, `bundles_python_runtime=true`,
+and the Windows boundary changes to:
+`Windows signed installer is included in this release.`
 
 The standalone ZIP preserves the PyInstaller app's symlinks. A live unzip smoke
 verified `codesign --verify --deep --strict`, `PrintPipeStandalone --version`,

@@ -345,6 +345,42 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print Windows standalone package output as JSON.",
     )
 
+    build_windows_installer = subparsers.add_parser(
+        "build-windows-installer",
+        help="Build an Inno Setup Windows installer from a standalone ZIP.",
+    )
+    build_windows_installer.add_argument(
+        "--standalone-zip",
+        type=Path,
+        required=True,
+        help="Prebuilt PrintPipe-Windows-standalone.zip to wrap in the installer.",
+    )
+    build_windows_installer.add_argument(
+        "--output",
+        type=Path,
+        default=Path("dist/PrintPipeSetup.exe"),
+        help="Path for the generated installer executable.",
+    )
+    build_windows_installer.add_argument(
+        "--iscc",
+        default=os.environ.get("PRINTPIPE_ISCC", "iscc"),
+        help="Inno Setup compiler command.",
+    )
+    build_windows_installer.add_argument(
+        "--signtool",
+        default=os.environ.get("PRINTPIPE_SIGNTOOL", "signtool"),
+        help="signtool command for Authenticode signing.",
+    )
+    build_windows_installer.add_argument(
+        "--certificate-subject",
+        help="Certificate subject passed to signtool /n.",
+    )
+    build_windows_installer.add_argument(
+        "--json",
+        action="store_true",
+        help="Print Windows installer package output as JSON.",
+    )
+
     build_release = subparsers.add_parser(
         "build-release",
         help="Build current release handoff artifacts plus a checksum manifest.",
@@ -386,6 +422,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Copy a prebuilt PrintPipe-Windows-standalone.zip into the release bundle.",
+    )
+    build_release.add_argument(
+        "--windows-installer-exe",
+        type=Path,
+        default=None,
+        help="Copy a prebuilt signed PrintPipeSetup.exe into the release bundle.",
     )
     build_release.add_argument(
         "--json",
@@ -708,6 +750,16 @@ def main(argv: list[str] | None = None) -> int:
             pyinstaller_command=args.pyinstaller,
         )
 
+    if args.command == "build-windows-installer":
+        return _build_windows_installer(
+            standalone_zip=args.standalone_zip,
+            output_path=args.output,
+            json_output=args.json,
+            iscc_command=args.iscc,
+            signtool_command=args.signtool,
+            certificate_subject=args.certificate_subject,
+        )
+
     if args.command == "build-release":
         _validate_macos_signing_flags(parser, args)
         return _build_release(
@@ -719,6 +771,7 @@ def main(argv: list[str] | None = None) -> int:
             include_standalone=args.include_standalone,
             pyinstaller_command=args.pyinstaller,
             windows_standalone_zip=args.windows_standalone_zip,
+            windows_installer_exe=args.windows_installer_exe,
         )
 
     if args.command == "verify-release":
@@ -980,6 +1033,33 @@ def _build_windows_standalone(
     return 0
 
 
+def _build_windows_installer(
+    *,
+    standalone_zip: Path,
+    output_path: Path,
+    json_output: bool,
+    iscc_command: str,
+    signtool_command: str,
+    certificate_subject: str | None,
+) -> int:
+    from printpipe.packaging.windows_installer import build_windows_installer_package
+
+    payload = build_windows_installer_package(
+        standalone_zip=standalone_zip,
+        output_path=output_path,
+        iscc_command=iscc_command,
+        signtool_command=signtool_command,
+        certificate_subject=certificate_subject,
+    )
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Windows installer: {payload['installer_path']}")
+        print(f"kind: {payload['installer_kind']}")
+        print(f"signed: {str(payload['signed']).lower()}")
+    return 0
+
+
 def _build_release(
     *,
     output_dir: Path,
@@ -990,6 +1070,7 @@ def _build_release(
     include_standalone: bool,
     pyinstaller_command: str,
     windows_standalone_zip: Path | None,
+    windows_installer_exe: Path | None,
 ) -> int:
     from printpipe.packaging.release import build_release_bundle
 
@@ -1001,6 +1082,7 @@ def _build_release(
         include_standalone=include_standalone,
         pyinstaller_command=pyinstaller_command,
         windows_standalone_zip=windows_standalone_zip,
+        windows_installer_exe=windows_installer_exe,
     )
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))

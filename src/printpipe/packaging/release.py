@@ -38,6 +38,7 @@ def build_release_bundle(
     include_standalone: bool = False,
     pyinstaller_command: str = "pyinstaller",
     windows_standalone_zip: str | Path | None = None,
+    windows_installer_exe: str | Path | None = None,
 ) -> dict[str, Any]:
     """Build current distributable artifacts and write a checksum manifest."""
 
@@ -131,6 +132,26 @@ def build_release_bundle(
                 path=standalone_target,
                 metadata=_windows_standalone_zip_metadata(standalone_target),
                 signed=False,
+                notarized=False,
+            )
+        )
+    if windows_installer_exe is not None:
+        source = Path(windows_installer_exe).expanduser()
+        if not source.is_absolute():
+            source = root / source
+        source = source.resolve()
+        if not source.exists():
+            raise FileNotFoundError(f"Windows installer EXE not found: {source}")
+        if source.suffix.lower() != ".exe":
+            raise ValueError("Windows installer release artifact must be an .exe file")
+        installer_target = target / "PrintPipeSetup.exe"
+        shutil.copy2(source, installer_target)
+        artifacts.append(
+            _artifact_manifest(
+                kind="windows_installer",
+                path=installer_target,
+                metadata=_windows_installer_metadata(),
+                signed=True,
                 notarized=False,
             )
         )
@@ -279,7 +300,7 @@ def _release_boundaries(artifacts: list[dict[str, Any]]) -> list[str]:
         runtime_boundary,
         "No artifact bundles Bambu Studio.",
         _macos_signing_boundary(artifacts),
-        "Windows artifact is not a signed installer.",
+        _windows_signing_boundary(artifacts),
         "Physical print validation is still recorded separately in run evidence packets.",
     ]
 
@@ -295,6 +316,12 @@ def _macos_signing_boundary(artifacts: list[dict[str, Any]]) -> str:
     if any(str(artifact.get("signing_kind")) == "developer_id_application" for artifact in macos_artifacts):
         return "macOS artifacts are Developer ID signed but not notarized."
     return "macOS artifacts are not Developer ID signed or notarized."
+
+
+def _windows_signing_boundary(artifacts: list[dict[str, Any]]) -> str:
+    if any(str(artifact.get("kind")) == "windows_installer" for artifact in artifacts):
+        return "Windows signed installer is included in this release."
+    return "Windows artifact is not a signed installer."
 
 
 def _list_artifacts(value: Any) -> list[dict[str, Any]]:
@@ -336,6 +363,15 @@ def _windows_standalone_zip_metadata(path: Path) -> dict[str, bool]:
     return {
         "bundles_python_runtime": True,
         "bundles_bambu_studio": False,
+    }
+
+
+def _windows_installer_metadata() -> dict[str, bool | str]:
+    return {
+        "installer_kind": "inno_setup",
+        "bundles_python_runtime": True,
+        "bundles_bambu_studio": False,
+        "signing_kind": "authenticode",
     }
 
 
