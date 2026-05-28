@@ -573,3 +573,14 @@ Status: partial progress for original item 122. The portable ZIP now includes re
 4. Done: the shortcut opens `printpipe.cmd` in a persistent Command Prompt.
 5. Done: verified on `desktop-zt` that install created `PrintPipe CLI.lnk` and uninstall removed it.
 6. Remaining: signed Windows installer, bundled Python runtime, file association registration, and live Windows+Bambu slice evidence stay open.
+
+## Wave 53 - Windows File Association Scripts
+
+Status: partial progress for original item 122. The portable ZIP now includes reversible user-scope file association scripts, but it is still not a signed Windows installer.
+
+1. Done: added `PrintPipe/install-file-associations.ps1` to the portable ZIP.
+2. Done: added `PrintPipe/uninstall-file-associations.ps1` to the portable ZIP.
+3. Done: default extensions are `.stl`, `.obj`, `.3mf`, `.glb`, and `.gltf`.
+4. Done: installer skips existing handlers unless `-Force` is passed.
+5. Done: verified on `desktop-zt` with a throwaway `.printpipetest` extension; install created an HKCU association and uninstall removed it.
+6. Remaining: signed Windows installer, bundled Python runtime, and live Windows+Bambu slice evidence stay open.

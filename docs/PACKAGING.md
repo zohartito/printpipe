@@ -276,6 +276,8 @@ The archive contains:
 - `PrintPipe/printpipe.ps1`
 - `PrintPipe/install-start-menu.ps1`
 - `PrintPipe/uninstall-start-menu.ps1`
+- `PrintPipe/install-file-associations.ps1`
+- `PrintPipe/uninstall-file-associations.ps1`
 - `PrintPipe/README.txt`
 
 The Command Prompt launcher runs:
@@ -312,6 +314,20 @@ uninstaller removes that `.lnk` and the empty `PrintPipe` Start Menu folder.
 This remains a reversible user-scope convenience script, not an MSI/EXE
 installer.
 
+Wave 53 adds optional user-scope file association scripts:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install-file-associations.ps1
+powershell -ExecutionPolicy Bypass -File .\uninstall-file-associations.ps1
+```
+
+By default, the installer covers `.stl`, `.obj`, `.3mf`, `.glb`, and `.gltf`.
+It writes under `HKCU:\Software\Classes`, creates `PrintPipe.<extension>`
+ProgIDs, and opens files by running `printpipe.cmd run "%1"` into
+`%USERPROFILE%\PrintPipe\runs`. It skips existing handlers unless `-Force` is
+passed. The uninstaller only removes associations currently owned by the
+matching PrintPipe ProgID.
+
 Observed on `desktop-zt`:
 
 - `printpipe.cmd --version` returned `printpipe 0.1.0`
@@ -322,6 +338,10 @@ Observed on `desktop-zt`:
   `C:\Users\zohar_4ta16fp\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`
 - `uninstall-start-menu.ps1` removed the shortcut; verification reported
   `SHORTCUT_EXISTS_AFTER_UNINSTALL=false`
+- `install-file-associations.ps1 -Extensions .printpipetest -ProgIdPrefix PrintPipeSmoke`
+  created a throwaway HKCU association
+- `uninstall-file-associations.ps1 -Extensions .printpipetest -ProgIdPrefix PrintPipeSmoke`
+  removed the throwaway association
 - run root:
   `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-portable\runs\20260528-071414-package-smoke-tiny-tetrahedron`
 - slice gate remains `manual_required` until Bambu Studio exists on the Windows
