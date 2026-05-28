@@ -14,6 +14,7 @@ from printpipe.packaging.smoke import (
     run_macos_package_smoke,
     run_windows_package_smoke,
 )
+from printpipe.packaging.windows_portable import build_windows_portable_package
 from printpipe.packaging.zipapp import build_zipapp_package
 
 __all__ = (
@@ -27,6 +28,7 @@ __all__ = (
     "build_macos_dmg_package",
     "build_macos_package_smoke_plan",
     "build_windows_package_smoke_plan",
+    "build_windows_portable_package",
     "build_zipapp_package",
     "run_macos_package_smoke",
     "run_windows_package_smoke",

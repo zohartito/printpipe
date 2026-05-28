@@ -83,6 +83,7 @@ Portable Python package artifact:
 printpipe build-zipapp --output dist/printpipe.pyz
 python dist/printpipe.pyz --version
 python dist/printpipe.pyz package-smoke --platform macos --runs-dir runs/package-smoke/zipapp --json
+printpipe build-windows-portable --output dist/PrintPipe-Windows-portable.zip
 
 printpipe build-macos-app --output dist/PrintPipe.app
 printpipe build-macos-app --output dist/PrintPipe.app --adhoc-sign

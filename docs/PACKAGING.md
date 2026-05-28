@@ -261,6 +261,49 @@ Observed:
 This upgrades the Windows packaging evidence from source-export smoke to actual
 zipapp-artifact smoke. It still does not replace signed installer work.
 
+## Windows Portable ZIP Artifact
+
+Wave 51 adds a Windows-friendly portable ZIP around the zipapp:
+
+```bash
+printpipe build-windows-portable --output dist/PrintPipe-Windows-portable.zip --json
+```
+
+The archive contains:
+
+- `PrintPipe/printpipe.pyz`
+- `PrintPipe/printpipe.cmd`
+- `PrintPipe/printpipe.ps1`
+- `PrintPipe/README.txt`
+
+The Command Prompt launcher runs:
+
+```cmd
+python "%~dp0printpipe.pyz" %*
+```
+
+The PowerShell launcher runs:
+
+```powershell
+python "$PSScriptRoot\printpipe.pyz" @args
+```
+
+This is a concrete Windows handoff package for testers who already have Python
+installed. It is not a signed Windows installer, does not install Start Menu
+shortcuts, does not register file associations, and does not bundle Bambu
+Studio.
+
+Observed on `desktop-zt`:
+
+- `printpipe.cmd --version` returned `printpipe 0.1.0`
+- `printpipe.ps1 --version` returned `printpipe 0.1.0`
+- `printpipe.cmd package-smoke --platform windows ... --json` returned
+  `status=ok`
+- run root:
+  `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-portable\runs\20260528-071414-package-smoke-tiny-tetrahedron`
+- slice gate remains `manual_required` until Bambu Studio exists on the Windows
+  target
+
 ## Windows Bambu CLI Boundary
 
 Wave 45 checked `desktop-zt` for a callable Bambu Studio executable after the

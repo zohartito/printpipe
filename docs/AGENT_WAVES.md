@@ -551,3 +551,14 @@ Status: partial progress for original item 121. PrintPipe can now produce a real
 4. Done: the DMG builder uses `hdiutil create -format UDZO`.
 5. Done: verified the generated artifact with `hdiutil imageinfo`.
 6. Remaining: Developer ID signing, notarization, bundled Python runtime, default-handler registration, and Windows signed installer packaging stay open.
+
+## Wave 51 - Windows Portable ZIP Artifact
+
+Status: partial progress for original item 122. PrintPipe now has a Windows-friendly portable ZIP handoff, but it is still not a signed installer and does not bundle Python.
+
+1. Done: added `printpipe.packaging.windows_portable.build_windows_portable_package()`.
+2. Done: added `printpipe build-windows-portable --output dist/PrintPipe-Windows-portable.zip`.
+3. Done: the ZIP contains `PrintPipe/printpipe.pyz`.
+4. Done: the ZIP contains `PrintPipe/printpipe.cmd` and `PrintPipe/printpipe.ps1` launchers.
+5. Done: verified the portable ZIP on `desktop-zt`: `.cmd` and `.ps1` returned `printpipe 0.1.0`, and `.cmd package-smoke --platform windows` returned `status=ok` with reports plus a `.3mf`.
+6. Remaining: signed Windows installer, bundled Python runtime, Start Menu shortcuts, file association registration, and live Windows+Bambu slice evidence stay open.

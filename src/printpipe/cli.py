@@ -243,6 +243,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ad-hoc sign the embedded app before creating the DMG.",
     )
 
+    build_windows_portable = subparsers.add_parser(
+        "build-windows-portable",
+        help="Build a portable Windows ZIP containing printpipe.pyz and launchers.",
+    )
+    build_windows_portable.add_argument(
+        "--output",
+        type=Path,
+        default=Path("dist/PrintPipe-Windows-portable.zip"),
+        help="Path for the generated Windows portable ZIP.",
+    )
+    build_windows_portable.add_argument(
+        "--json",
+        action="store_true",
+        help="Print Windows portable package output as JSON.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -464,6 +480,9 @@ def main(argv: list[str] | None = None) -> int:
             adhoc_sign=args.adhoc_sign,
         )
 
+    if args.command == "build-windows-portable":
+        return _build_windows_portable(output_path=args.output, json_output=args.json)
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -577,6 +596,21 @@ def _build_macos_dmg(*, output_path: Path, json_output: bool, adhoc_sign: bool) 
         print(f"drag install: {str(payload['drag_install']).lower()}")
         print(f"signed: {str(payload['signed']).lower()}")
         print("notarized: false")
+    return 0
+
+
+def _build_windows_portable(*, output_path: Path, json_output: bool) -> int:
+    from printpipe.packaging.windows_portable import build_windows_portable_package
+
+    payload = build_windows_portable_package(output_path=output_path)
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Windows portable ZIP: {payload['archive_path']}")
+        print(f"zipapp: {payload['zipapp_path']}")
+        print(f"cmd launcher: {payload['cmd_launcher']}")
+        print(f"PowerShell launcher: {payload['powershell_launcher']}")
+        print("signed: false")
     return 0
 
 
