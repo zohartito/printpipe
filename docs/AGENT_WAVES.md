@@ -419,3 +419,14 @@ Status: complete for original item 54. Mesh validation can now distinguish globa
 4. Done: JSON gate output now records `normal_orientation`, `inverted_normals`, and `signed_volume`.
 5. Done: updated the roadmap count to 126 done / 16 partial.
 6. Remaining: media frame ranking/background cleanup, material physical prints, packaging, and beta loops remain separate gates.
+
+## Wave 39 - Representative Frame Ranking
+
+Status: complete for original item 39. Media reference selection no longer blindly takes the first frames.
+
+1. Done: selected GIF/video references now spread across the extracted candidate set.
+2. Done: selected-reference metadata records `selection_strategy=representative_frame_spread`, source frame index, and candidate count.
+3. Done: selection receipts record the strategy and selected source frame indices.
+4. Done: added regression coverage for 5 extracted frames -> selected frames 1, 3, and 5.
+5. Done: updated the roadmap count to 127 done / 15 partial.
+6. Remaining: background removal and lighting normalization are still honest no-op/copy stages until a real local or provider-backed implementation lands.

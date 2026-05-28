@@ -130,6 +130,41 @@ def test_prepare_gif_and_video_extract_with_fake_runner_and_select_references(tm
         assert receipt_by_stage["contact_sheet"].status == StageStatus.SUCCEEDED
 
 
+def test_select_references_spreads_gif_video_frames_across_the_candidate_set(
+    tmp_path: Path,
+):
+    source = tmp_path / "turntable.gif"
+    source.write_bytes(b"fake media bytes")
+    work_dir = tmp_path / "work"
+    extractor = FakeFrameExtractor(frame_count=5)
+
+    result = prepare_input(source, work_dir, max_references=3, frame_extractor=extractor)
+
+    assert [artifact.metadata["selected_from"] for artifact in result.selected_references] == [
+        str(work_dir / "cleaned" / "frame_000001.png"),
+        str(work_dir / "cleaned" / "frame_000003.png"),
+        str(work_dir / "cleaned" / "frame_000005.png"),
+    ]
+    assert [artifact.metadata["source_frame_index"] for artifact in result.selected_references] == [
+        0,
+        2,
+        4,
+    ]
+    assert {
+        artifact.metadata["selection_strategy"] for artifact in result.selected_references
+    } == {"representative_frame_spread"}
+
+    receipt_by_stage = {receipt.stage: receipt for receipt in result.receipts}
+    assert receipt_by_stage["select_references"].metrics["selection_strategy"] == (
+        "representative_frame_spread"
+    )
+    assert receipt_by_stage["select_references"].metrics["selected_source_frame_indices"] == [
+        0,
+        2,
+        4,
+    ]
+
+
 def test_prepare_gif_and_video_skip_frame_extraction_when_no_runner_is_available(tmp_path: Path):
     for filename, expected_kind in (("turntable.gif", InputKind.GIF), ("clip.mov", InputKind.VIDEO)):
         source = tmp_path / filename

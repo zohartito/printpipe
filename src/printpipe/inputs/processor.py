@@ -422,20 +422,23 @@ def select_references(
 ) -> tuple[Artifact, ...]:
     if max_references < 1:
         raise ValueError("max_references must be at least 1")
-    selected = references[:max_references]
+    ranked = _rank_reference_candidates(references, max_references=max_references)
     if selected_dir is None:
-        return selected
+        return tuple(reference for _, reference in ranked)
 
     selected_references: list[Artifact] = []
-    for index, reference in enumerate(selected):
+    for index, (source_index, reference) in enumerate(ranked):
         selected_path = _copy_to_dir(reference.path, selected_dir)
         metadata = dict(reference.metadata)
+        source_frame_index = metadata.get("frame_index", source_index)
         metadata.update(
             {
                 "processing_stage": "selected_reference",
                 "selected_from": str(reference.path),
                 "selection_rank": index,
-                "selection_strategy": "first_available_frames",
+                "selection_strategy": "representative_frame_spread",
+                "selection_candidate_count": len(references),
+                "source_frame_index": source_frame_index,
             }
         )
         selected_references.append(
@@ -447,6 +450,36 @@ def select_references(
             )
         )
     return tuple(selected_references)
+
+
+def _rank_reference_candidates(
+    references: tuple[Artifact, ...],
+    *,
+    max_references: int,
+) -> tuple[tuple[int, Artifact], ...]:
+    if len(references) <= max_references:
+        return tuple(enumerate(references))
+    return tuple((index, references[index]) for index in _spread_indices(len(references), max_references))
+
+
+def _spread_indices(candidate_count: int, selected_count: int) -> tuple[int, ...]:
+    if candidate_count < 1:
+        return ()
+    if selected_count <= 1:
+        return (candidate_count // 2,)
+
+    indices: list[int] = []
+    for rank in range(selected_count):
+        index = round(rank * (candidate_count - 1) / (selected_count - 1))
+        if index not in indices:
+            indices.append(index)
+
+    fill_index = 0
+    while len(indices) < min(candidate_count, selected_count):
+        if fill_index not in indices:
+            indices.append(fill_index)
+        fill_index += 1
+    return tuple(sorted(indices))
 
 
 def route_existing_mesh(input_path: Path) -> Artifact:
@@ -709,6 +742,13 @@ def _selection_receipt(
     if max_references is not None:
         metrics["max_references"] = max_references
     if selected_references:
+        metrics["selection_strategy"] = _selected_strategy(selected_references)
+        metrics["selected_source_frame_indices"] = [
+            reference.metadata.get("source_frame_index")
+            for reference in selected_references
+            if "source_frame_index" in reference.metadata
+        ]
+    if selected_references:
         return StageReceipt(
             stage="select_references",
             status=StageStatus.SUCCEEDED,
@@ -722,6 +762,19 @@ def _selection_receipt(
         message="no extracted references are available yet",
         metrics=metrics,
     )
+
+
+def _selected_strategy(selected_references: tuple[Artifact, ...]) -> str:
+    strategies = {
+        str(reference.metadata.get("selection_strategy"))
+        for reference in selected_references
+        if reference.metadata.get("selection_strategy")
+    }
+    if len(strategies) == 1:
+        return next(iter(strategies))
+    if strategies:
+        return "mixed"
+    return "unknown"
 
 
 def _resolve_frame_extractor(
