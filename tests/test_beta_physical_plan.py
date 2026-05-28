@@ -139,11 +139,18 @@ def test_physical_validation_plan_surfaces_started_coupon_artifacts(
     plan = build_physical_validation_plan(runs_dir)
 
     pla_action = plan["actions"][0]
+    run_root = (runs_dir / "physical-pla-validation").resolve()
     coupon_sidecar = json.loads(
         Path(pla_action["coupon_json_path"]).read_text(encoding="utf-8")
     )
     assert pla_action["family"] == "pla"
     assert pla_action["status"] == "recorded_but_not_passed"
+    assert pla_action["detail"] == (
+        "Print the coupon from the STL, take a real photo, then run the "
+        "record command with real observations."
+    )
+    assert pla_action["command"] == f'printpipe open-folder "{run_root}" --target run'
+    assert pla_action["command_kind"] == "print_handoff_command"
     assert pla_action["coupon_stl_path"].endswith(
         "40_geometry/physical_validation_coupon_40x15x3.stl"
     )
@@ -156,6 +163,7 @@ def test_physical_validation_plan_surfaces_started_coupon_artifacts(
     assert "first layer continuity" in coupon_sidecar["print_validation"]
     assert "flex recovery" not in coupon_sidecar["print_validation"]
     assert "handoff: " in render_physical_validation_plan(plan)
+    assert "next: printpipe open-folder" in render_physical_validation_plan(plan)
 
 
 def test_start_physical_validation_writes_not_printed_starter_packet(

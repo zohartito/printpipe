@@ -123,16 +123,22 @@ def render_physical_validation_plan(plan: dict[str, Any]) -> str:
                 f"   required: {_comma_list(action.get('required_fields'))}",
             ]
         )
+        detail = str(action.get("detail", ""))
+        if detail:
+            lines.append(f"   detail: {detail}")
         setup_command = str(action.get("setup_command", ""))
         if setup_command:
             lines.append(f"   setup: {setup_command}")
         start_command = str(action.get("start_command", ""))
         if start_command:
             lines.append(f"   start: {start_command}")
+        command = str(action.get("command", ""))
+        if command:
+            lines.append(f"   next: {command}")
         handoff_path = str(action.get("handoff_markdown_path", ""))
         if handoff_path:
             lines.append(f"   handoff: {handoff_path}")
-        lines.append(f"   command: {action.get('record_command', '')}")
+        lines.append(f"   record after print: {action.get('record_command', '')}")
     lines.append("")
     return "\n".join(lines)
 
@@ -160,13 +166,14 @@ def _action_for_family(
             f"--runs-dir {_quote(str(runs_dir))} --operator {_quote('Zohar')}"
         )
     )
+    print_status = str(best_evidence.get("print_status") or "")
     missing = best_evidence.get("missing_required_evidence")
     required_fields = (
         [str(item) for item in missing]
         if isinstance(missing, list) and missing
         else list(profile["required_fields"])
     )
-    return {
+    action = {
         "family": family,
         "status": payload.get("status", "unknown"),
         "reason": payload.get("missing_reason", ""),
@@ -182,6 +189,37 @@ def _action_for_family(
         "handoff_markdown_path": _handoff_path(Path(run_root)),
         "record_command": _record_command(family=family, run_root=run_root),
     }
+    action["detail"] = _action_detail(
+        status=str(payload.get("status") or ""),
+        print_status=print_status,
+    )
+    command = _next_command_for_action(
+        status=str(payload.get("status") or ""),
+        print_status=print_status,
+        run_root=run_root,
+    )
+    if command:
+        action["command"] = command
+        action["command_kind"] = "print_handoff_command"
+    return action
+
+
+def _action_detail(*, status: str, print_status: str) -> str:
+    if status == "missing":
+        return "Create the starter packet and coupon artifacts before claiming any print evidence."
+    if status == "incomplete":
+        return "Complete the physical evidence packet with the missing required fields and an existing photo artifact."
+    if status == "recorded_but_not_passed" and print_status == "not_printed":
+        return "Print the coupon from the STL, take a real photo, then run the record command with real observations."
+    if status == "recorded_but_not_passed":
+        return "Reprint or record a new passed evidence packet with real observations and a photo artifact."
+    return "Physical validation evidence is still required before this family can pass."
+
+
+def _next_command_for_action(*, status: str, print_status: str, run_root: str) -> str:
+    if status == "recorded_but_not_passed" and print_status == "not_printed":
+        return f"printpipe open-folder {_quote(run_root)} --target run"
+    return ""
 
 
 def _record_command(*, family: str, run_root: str) -> str:

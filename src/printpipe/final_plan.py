@@ -335,6 +335,8 @@ def _action_command(
     ):
         command = str(action.get(key) or "")
         if command:
+            if key == "command":
+                return str(action.get("command_kind") or key), command
             return key, command
     command = str(section.get("command") or "")
     if command:

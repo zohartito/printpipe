@@ -1347,3 +1347,14 @@ Status: partial progress for endgame web/API coordination. This exposes the same
 4. Done: linked `Final next JSON` from the final-readiness panel beside the full final plan and pillar plans.
 5. Done: regression coverage verifies the web endpoint omits full section data and returns `next_action` plus `next_command`.
 6. Boundary: `/final-next.json` is read-only coordination output. It does not close physical validation, trusted-user beta, or signed distribution gates.
+
+## Wave 122 - Physical Next Action Honesty
+
+Status: partial progress for physical-validation UX. This makes the current PLA starter packet point to the real next human action: print the coupon and use the handoff before recording evidence.
+
+1. Done: physical-validation actions now include human-readable `detail` copy for missing, incomplete, not-printed, and reprint states.
+2. Done: already-started `not_printed` coupon packets now expose `command=printpipe open-folder "<run>" --target run` with `command_kind=print_handoff_command`.
+3. Done: `record_command` remains present as the post-print evidence command, but is no longer the immediate `final-next` command for not-printed starter packets.
+4. Done: terminal physical-plan output now labels the immediate folder-opening command as `next` and the evidence command as `record after print`.
+5. Done: final-readiness web action command selection now prefers explicit `command` before `record_command`, matching the final-plan contract.
+6. Boundary: opening a run folder and printing a coupon are not physical proof. The gate still requires real photo-backed evidence packets for PLA, PETG, and TPU.

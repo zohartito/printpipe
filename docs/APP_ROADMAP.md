@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 121: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 122: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 121 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
+Wave 122 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
 
-The latest completed wave added `/final-next.json` to the local web app and moved the focused next-action JSON into a shared helper used by both the CLI and web endpoint. Agents, Cursor, Claude, and UI clients can now read the immediate final action without parsing full section data.
+The latest completed wave tightened physical next-action honesty. Started but not printed physical-validation starter packets now make `final-next` point at `printpipe open-folder "<run>" --target run` so the user sees the coupon STL and physical handoff first. The post-print `record-physical-evidence ... --print-status passed ... --photo ...` command remains present as `record_command`, but is no longer treated as the immediate command before a real print exists.
+
+Wave 121 added `/final-next.json` to the local web app and moved the focused next-action JSON into a shared helper used by both the CLI and web endpoint. Agents, Cursor, Claude, and UI clients can now read the immediate final action without parsing full section data.
 
 Wave 120 added `printpipe final-next`, a narrow command that renders only the immediate endgame action plus its supporting files and proof boundary. It uses the same `final-plan` data, so `final-next --json` returns `overall_status`, `action_count`, `proof_boundary`, `next_action`, and `next_command` without requiring agents or users to parse the full section checklist.
 

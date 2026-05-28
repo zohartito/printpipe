@@ -271,8 +271,8 @@ def _action_detail(action: Mapping[str, Any]) -> str:
 def _action_command(action: Mapping[str, Any]) -> str:
     for key in (
         "start_command",
-        "record_command",
         "command",
+        "record_command",
         "followup_command",
         "setup_command",
     ):

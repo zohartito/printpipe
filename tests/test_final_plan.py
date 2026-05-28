@@ -141,6 +141,38 @@ def test_final_action_plan_next_action_keeps_handoff_and_artifact_paths(
     assert plan["next_action"]["handoff_markdown_path"] == "runs/pla/90_physical/handoff.md"
 
 
+def test_final_action_plan_prefers_print_handoff_command_before_record_command(
+    tmp_path: Path,
+) -> None:
+    plan = build_final_action_plan(
+        runs_dir=tmp_path / "runs",
+        release_dir=tmp_path / "release",
+        physical_plan={
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "physical proof only",
+            "actions": [
+                {
+                    "family": "pla",
+                    "status": "recorded_but_not_passed",
+                    "detail": "print first, then record",
+                    "command": "printpipe open-folder runs/pla --target run",
+                    "command_kind": "print_handoff_command",
+                    "record_command": "printpipe record-physical-evidence runs/pla",
+                    "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+                }
+            ],
+        },
+        trusted_feedback_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+        release_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+    )
+
+    assert plan["next_action"]["command"] == "printpipe open-folder runs/pla --target run"
+    assert plan["next_action"]["command_kind"] == "print_handoff_command"
+    assert plan["next_action"]["detail"] == "print first, then record"
+    assert plan["next_action"]["coupon_stl_path"] == "runs/pla/40_geometry/coupon.stl"
+
+
 def test_render_final_action_plan_keeps_proof_boundaries(tmp_path: Path) -> None:
     plan = build_final_action_plan(
         runs_dir=tmp_path / "runs",
