@@ -1423,3 +1423,13 @@ Status: partial progress for physical-validation execution UX. This makes the im
 4. Done: `start_command` actions do not surface premature record commands before the starter packet exists.
 5. Done: physical handoff slice section spacing was normalized while refreshing the local PLA, PETG, and TPU handoffs.
 6. Boundary: the record command is still an instruction. Physical validation remains open until a real printed coupon, real observations, and an existing photo artifact are recorded.
+
+## Wave 129 - Final Readiness Row Record Commands
+
+Status: partial progress for physical-validation execution UX. This aligns the web checklist rows with the top final-next action.
+
+1. Done: final-readiness action rows now preserve `record_command` when the immediate command is a print handoff/open-folder action.
+2. Done: starter/setup rows continue to hide premature record commands.
+3. Done: the web final-readiness checklist renders a row-level `Record after print` command block.
+4. Done: regression coverage verifies both the row view model and rendered HTML behavior.
+5. Boundary: row-level record commands are instructions only. They do not close physical validation until run with real observations and existing photo artifacts.

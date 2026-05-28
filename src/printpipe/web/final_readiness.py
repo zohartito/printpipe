@@ -228,6 +228,7 @@ def _action_item(
         "label": _action_label(action),
         "detail": _action_detail(action),
         "command": _action_command(action),
+        "record_command": _action_record_command(action),
         "coupon_stl_path": str(action.get("coupon_stl_path") or ""),
         "coupon_json_path": str(action.get("coupon_json_path") or ""),
         "handoff_markdown_path": str(action.get("handoff_markdown_path") or ""),
@@ -296,6 +297,16 @@ def _action_command(action: Mapping[str, Any]) -> str:
     return ""
 
 
+def _action_record_command(action: Mapping[str, Any]) -> str:
+    command = _action_command(action)
+    record_command = str(action.get("record_command") or "")
+    if not record_command or record_command == command:
+        return ""
+    if action.get("start_command") or action.get("setup_command"):
+        return ""
+    return record_command
+
+
 def _render_pillar_card(pillar: Mapping[str, Any]) -> str:
     status = str(pillar.get("status") or "unknown")
     label = str(pillar.get("label") or "Gate")
@@ -325,11 +336,22 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     label = str(action.get("label") or "Remaining action")
     detail = str(action.get("detail") or "")
     command = str(action.get("command") or "")
+    record_command = str(action.get("record_command") or "")
     coupon_stl_path = str(action.get("coupon_stl_path") or "")
     handoff_markdown_path = str(action.get("handoff_markdown_path") or "")
     command_markup = (
         f'            <pre><code>{escape(command)}</code></pre>'
         if command
+        else ""
+    )
+    record_markup = (
+        "\n".join(
+            [
+                '            <p class="muted"><strong>Record after print:</strong></p>',
+                f'            <pre><code>{escape(record_command)}</code></pre>',
+            ]
+        )
+        if record_command and record_command != command
         else ""
     )
     coupon_markup = (
@@ -352,6 +374,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
             coupon_markup,
             handoff_markup,
             command_markup,
+            record_markup,
             "          </li>",
         ]
     )

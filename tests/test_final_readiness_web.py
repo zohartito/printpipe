@@ -85,6 +85,7 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
     assert view["next_action"]["command"] == "printpipe physical-start --family pla"
     assert len(view["actions"]) == 3
     assert view["actions"][0]["command"] == "printpipe physical-start --family pla"
+    assert view["actions"][0]["record_command"] == ""
     assert view["actions"][0]["coupon_stl_path"].endswith(
         "physical_validation_coupon_40x15x3.stl"
     )
@@ -94,6 +95,39 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
     assert view["pillars"][0]["headline"].startswith("0/3 material families")
     assert "0/3 trusted users" in view["pillars"][1]["headline"]
     assert "not-run packet" in view["pillars"][1]["headline"]
+
+
+def test_build_final_readiness_view_keeps_row_record_after_print_command() -> None:
+    view = build_final_readiness_view(
+        {
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "sections": [
+                {
+                    "id": "physical_validation",
+                    "label": "Physical validation",
+                    "status": "action_required",
+                    "action_count": 1,
+                    "actions": [
+                        {
+                            "family": "pla",
+                            "status": "recorded_but_not_passed",
+                            "detail": "print first, then record",
+                            "command": "printpipe open-folder runs/pla --target run",
+                            "record_command": "printpipe record-physical-evidence runs/pla",
+                            "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert view["actions"][0]["command"] == "printpipe open-folder runs/pla --target run"
+    assert view["actions"][0]["record_command"] == (
+        "printpipe record-physical-evidence runs/pla"
+    )
 
 
 def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
@@ -135,7 +169,8 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                     "label": "PLA physical validation",
                     "detail": "no physical evidence packet found",
                     "status": "missing",
-                    "command": "printpipe record-physical-evidence runs/pla",
+                    "command": "printpipe open-folder runs/pla --target run",
+                    "record_command": "printpipe record-physical-evidence runs/pla",
                     "coupon_stl_path": (
                         "runs/pla/40_geometry/"
                         "physical_validation_coupon_40x15x3.stl"
@@ -163,5 +198,6 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "Handoff:" in html
     assert "physical_print_handoff.md" in html
     assert "PLA physical validation" in html
+    assert html.count("Record after print:") == 2
     assert "final-readiness-checklist" in html
     assert 'href="/final-next.json"' in html
