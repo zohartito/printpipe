@@ -26,6 +26,8 @@ def test_build_windows_portable_package_creates_launcher_zip(tmp_path: Path) -> 
     assert result["contains_zipapp"] is True
     assert result["contains_cmd_launcher"] is True
     assert result["contains_powershell_launcher"] is True
+    assert result["contains_start_menu_installer"] is True
+    assert result["contains_start_menu_uninstaller"] is True
     assert result["signed"] is False
     assert result["bundles_python_runtime"] is False
     assert output_path.exists()
@@ -34,13 +36,22 @@ def test_build_windows_portable_package_creates_launcher_zip(tmp_path: Path) -> 
         names = set(archive.namelist())
         cmd = archive.read("PrintPipe/printpipe.cmd").decode("utf-8")
         ps1 = archive.read("PrintPipe/printpipe.ps1").decode("utf-8")
+        installer = archive.read("PrintPipe/install-start-menu.ps1").decode("utf-8")
+        uninstaller = archive.read("PrintPipe/uninstall-start-menu.ps1").decode("utf-8")
 
     assert "PrintPipe/printpipe.pyz" in names
     assert "PrintPipe/printpipe.cmd" in names
     assert "PrintPipe/printpipe.ps1" in names
+    assert "PrintPipe/install-start-menu.ps1" in names
+    assert "PrintPipe/uninstall-start-menu.ps1" in names
     assert "PrintPipe/README.txt" in names
     assert "python \"%~dp0printpipe.pyz\" %*" in cmd
     assert 'python "$PSScriptRoot\\printpipe.pyz" @args' in ps1
+    assert "WScript.Shell" in installer
+    assert "Programs\\PrintPipe" in installer
+    assert "PrintPipe CLI.lnk" in installer
+    assert "Remove-Item" in uninstaller
+    assert "PrintPipe CLI.lnk" in uninstaller
 
 
 def test_cli_build_windows_portable_json_reports_artifact(
@@ -65,4 +76,5 @@ def test_cli_build_windows_portable_json_reports_artifact(
     assert payload["status"] == "ok"
     assert payload["archive_path"] == str(output_path)
     assert payload["contains_cmd_launcher"] is True
+    assert payload["contains_start_menu_installer"] is True
     assert output_path.exists()

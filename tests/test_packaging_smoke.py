@@ -152,6 +152,8 @@ def test_packaging_doc_names_macos_package_smoke_command() -> None:
         "printpipe build-windows-portable --output dist/printpipe-windows-portable.zip --json",
         "printpipe/printpipe.cmd",
         "printpipe/printpipe.ps1",
+        "printpipe/install-start-menu.ps1",
+        "printpipe/uninstall-start-menu.ps1",
         "printpipe build-macos-app --output dist/printpipe.app --json",
         "printpipe build-macos-app --output dist/printpipe.app --adhoc-sign --json",
         "codesign --verify --deep --strict dist/printpipe.app",

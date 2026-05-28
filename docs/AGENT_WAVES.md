@@ -562,3 +562,14 @@ Status: partial progress for original item 122. PrintPipe now has a Windows-frie
 4. Done: the ZIP contains `PrintPipe/printpipe.cmd` and `PrintPipe/printpipe.ps1` launchers.
 5. Done: verified the portable ZIP on `desktop-zt`: `.cmd` and `.ps1` returned `printpipe 0.1.0`, and `.cmd package-smoke --platform windows` returned `status=ok` with reports plus a `.3mf`.
 6. Remaining: signed Windows installer, bundled Python runtime, Start Menu shortcuts, file association registration, and live Windows+Bambu slice evidence stay open.
+
+## Wave 52 - Windows Start Menu Shortcut Scripts
+
+Status: partial progress for original item 122. The portable ZIP now includes reversible user-scope Start Menu shortcut scripts, but it is still not a signed Windows installer.
+
+1. Done: added `PrintPipe/install-start-menu.ps1` to the portable ZIP.
+2. Done: added `PrintPipe/uninstall-start-menu.ps1` to the portable ZIP.
+3. Done: the installer creates `%APPDATA%\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`.
+4. Done: the shortcut opens `printpipe.cmd` in a persistent Command Prompt.
+5. Done: verified on `desktop-zt` that install created `PrintPipe CLI.lnk` and uninstall removed it.
+6. Remaining: signed Windows installer, bundled Python runtime, file association registration, and live Windows+Bambu slice evidence stay open.

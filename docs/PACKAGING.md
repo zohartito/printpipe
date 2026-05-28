@@ -274,6 +274,8 @@ The archive contains:
 - `PrintPipe/printpipe.pyz`
 - `PrintPipe/printpipe.cmd`
 - `PrintPipe/printpipe.ps1`
+- `PrintPipe/install-start-menu.ps1`
+- `PrintPipe/uninstall-start-menu.ps1`
 - `PrintPipe/README.txt`
 
 The Command Prompt launcher runs:
@@ -293,12 +295,33 @@ installed. It is not a signed Windows installer, does not install Start Menu
 shortcuts, does not register file associations, and does not bundle Bambu
 Studio.
 
+Wave 52 adds optional user-scope Start Menu scripts inside the same portable
+ZIP:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install-start-menu.ps1
+powershell -ExecutionPolicy Bypass -File .\uninstall-start-menu.ps1
+```
+
+The installer creates:
+
+`%APPDATA%\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`
+
+The shortcut opens `printpipe.cmd` in a persistent Command Prompt. The
+uninstaller removes that `.lnk` and the empty `PrintPipe` Start Menu folder.
+This remains a reversible user-scope convenience script, not an MSI/EXE
+installer.
+
 Observed on `desktop-zt`:
 
 - `printpipe.cmd --version` returned `printpipe 0.1.0`
 - `printpipe.ps1 --version` returned `printpipe 0.1.0`
 - `printpipe.cmd package-smoke --platform windows ... --json` returned
   `status=ok`
+- `install-start-menu.ps1` created
+  `C:\Users\zohar_4ta16fp\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`
+- `uninstall-start-menu.ps1` removed the shortcut; verification reported
+  `SHORTCUT_EXISTS_AFTER_UNINSTALL=false`
 - run root:
   `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-portable\runs\20260528-071414-package-smoke-tiny-tetrahedron`
 - slice gate remains `manual_required` until Bambu Studio exists on the Windows
