@@ -616,6 +616,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the physical validation action plan as JSON.",
     )
 
+    beta_plan = subparsers.add_parser(
+        "beta-plan",
+        help="Turn remaining beta evidence, regression, and rule-update gaps into actions.",
+    )
+    beta_plan.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders to scan.",
+    )
+    beta_plan.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Optional beta regression manifest to include in the action plan.",
+    )
+    beta_plan.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the beta action plan as JSON.",
+    )
+
     beta_failure = subparsers.add_parser(
         "record-beta-failure",
         help="Write a beta failure packet and optionally append a regression case.",
@@ -1000,6 +1022,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "physical-plan":
         return _physical_plan(runs_dir=args.runs_dir, json_output=args.json)
 
+    if args.command == "beta-plan":
+        return _beta_plan(
+            runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
+            json_output=args.json,
+        )
+
     if args.command == "record-beta-failure":
         return _record_beta_failure(args)
 
@@ -1079,6 +1108,28 @@ def _physical_plan(*, runs_dir: Path, json_output: bool) -> int:
         print(json.dumps(plan, indent=2, sort_keys=True))
     else:
         print(render_physical_validation_plan(plan), end="")
+    return 0
+
+
+def _beta_plan(
+    *,
+    runs_dir: Path,
+    regression_manifest_path: Path | None,
+    json_output: bool,
+) -> int:
+    from printpipe.beta.beta_plan import (
+        build_beta_action_plan,
+        render_beta_action_plan,
+    )
+
+    plan = build_beta_action_plan(
+        runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
+    if json_output:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    else:
+        print(render_beta_action_plan(plan), end="")
     return 0
 
 

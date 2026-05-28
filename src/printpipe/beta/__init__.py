@@ -11,6 +11,11 @@ from printpipe.beta.failures import (
     render_failure_report_markdown,
     write_failure_report_files,
 )
+from printpipe.beta.beta_plan import (
+    BETA_PLAN_PROOF_BOUNDARY,
+    build_beta_action_plan,
+    render_beta_action_plan,
+)
 from printpipe.beta.physical import (
     PHYSICAL_EVIDENCE_REQUIRED_HEADINGS,
     PHYSICAL_EVIDENCE_SCHEMA_VERSION,
@@ -46,6 +51,7 @@ from printpipe.beta.regression import (
 
 __all__ = (
     "ExpectedOutcome",
+    "BETA_PLAN_PROOF_BOUNDARY",
     "FAILURE_REPORT_REQUIRED_HEADINGS",
     "FAILURE_REPORT_SCHEMA_VERSION",
     "FailureArtifact",
@@ -58,6 +64,7 @@ __all__ = (
     "RegressionCase",
     "RegressionManifest",
     "build_failure_report",
+    "build_beta_action_plan",
     "build_beta_readiness_report",
     "build_physical_print_evidence",
     "build_physical_validation_plan",
@@ -68,6 +75,7 @@ __all__ = (
     "missing_required_headings",
     "parse_failure_report_sections",
     "render_failure_report_markdown",
+    "render_beta_action_plan",
     "render_physical_evidence_markdown",
     "render_physical_validation_plan",
     "render_physical_validation_status",

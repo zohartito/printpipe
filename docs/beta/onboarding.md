@@ -253,6 +253,26 @@ physical evidence packet with the required fields for that material family. A
 digital coupon artifact, `.3mf`, or slice receipt is useful software evidence,
 but it is not physical validation by itself.
 
+## Beta Action Plan
+
+To see the remaining beta work as an action list, run:
+
+```bash
+printpipe beta-plan --runs-dir runs
+printpipe beta-plan --runs-dir runs --json
+```
+
+If the coordinator gives you a regression manifest, include it:
+
+```bash
+printpipe beta-plan --runs-dir runs --regression-manifest regressions/beta_regressions.json
+```
+
+The plan can point to physical validation, failed-run capture, regression
+replay, trusted-user beta, and rule-update triage. It is guidance only; it does
+not count as trusted-user evidence, physical print proof, or a completed rule
+change until those results are recorded.
+
 ## Feedback Expectations
 
 Good beta feedback is short and concrete:

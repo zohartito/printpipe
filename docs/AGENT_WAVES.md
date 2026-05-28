@@ -1058,3 +1058,14 @@ Status: complete for local web UI parity. The browser app can now be launched wi
 4. Done: configured apps add the manifest query to the `Readiness JSON` and `Release status JSON` service links.
 5. Done: explicit endpoint query parameters still override the configured manifest for one-off checks.
 6. Boundary: this still does not create beta failures, physical print evidence, signed packages, or certificates; it keeps local web visibility aligned with the CLI gates.
+
+## Wave 96 - Beta Action Plan
+
+Status: complete for beta-side action planning. PrintPipe now turns the remaining Phase 16 beta work into a concrete, read-only plan instead of only reporting partial gates.
+
+1. Done: added `printpipe.beta.beta_plan.build_beta_action_plan()`.
+2. Done: added `printpipe beta-plan --runs-dir runs` with JSON and human renderers.
+3. Done: the plan scans `90_beta/failure_report.json` packets, physical validation status, and an optional regression manifest.
+4. Done: missing evidence produces exact next actions for dogfood, physical validation, failure capture, regression replay, trusted-user beta, and material/orientation/repair rule triage.
+5. Done: the plan repeats the proof boundary that a generated plan is not trusted-user evidence, physical print proof, or a rule update.
+6. Roadmap count remains 132 done / 10 partial because the remaining beta and packaging items still require physical/user/installer evidence.

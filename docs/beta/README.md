@@ -20,3 +20,5 @@ Start with [onboarding.md](onboarding.md).
 
 - `onboarding.md`: setup, test object choice, run/report collection, safety
   boundaries, privacy notes, and feedback expectations.
+- `printpipe beta-plan --runs-dir runs`: local command for turning the remaining
+  beta evidence gaps into concrete next actions.

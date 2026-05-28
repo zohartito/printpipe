@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+from printpipe.beta.failures import build_failure_report, write_failure_report_files
+from printpipe.beta.regression import (
+    ExpectedOutcome,
+    RegressionCase,
+    RegressionManifest,
+    write_regression_manifest,
+)
+from printpipe.beta.beta_plan import (
+    BETA_PLAN_PROOF_BOUNDARY,
+    build_beta_action_plan,
+    render_beta_action_plan,
+)
+from printpipe.cli import main
+
+
+def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+
+    plan = build_beta_action_plan(runs_dir)
+
+    assert plan["overall_status"] == "action_required"
+    assert plan["runs_dir"] == str(runs_dir.resolve())
+    assert plan["proof_boundary"] == BETA_PLAN_PROOF_BOUNDARY
+    assert plan["evidence"]["failure_report_count"] == 0
+    assert plan["evidence"]["regression_status"]["overall_status"] == "not_configured"
+    actions = {action["id"]: action for action in plan["actions"]}
+    assert actions["run_beta_dogfood"]["status"] == "action_required"
+    assert "slipper" in actions["run_beta_dogfood"]["detail"].lower()
+    assert actions["physical_validation"]["status"] == "action_required"
+    assert actions["physical_validation"]["command"] == (
+        f'printpipe physical-plan --runs-dir "{runs_dir.resolve()}"'
+    )
+    assert actions["record_beta_failure"]["status"] == "waiting_for_evidence"
+    assert "printpipe record-beta-failure" in actions["record_beta_failure"]["command"]
+    assert actions["run_regressions"]["status"] == "action_required"
+    assert "record-beta-failure" in actions["run_regressions"]["detail"]
+    assert actions["update_rules"]["status"] == "waiting_for_evidence"
+    assert actions["trusted_user_beta"]["status"] == "action_required"
+
+
+def test_beta_action_plan_detects_failure_packets_and_regression_manifest(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    run_root = runs_dir / "run-beta-001"
+    run_root.mkdir(parents=True)
+    report = build_failure_report(
+        run_id="run-beta-001",
+        input_type="existing_stl",
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+        failed_stage="slice",
+        symptoms=("floating cantilever warning",),
+        artifacts=(),
+        reproduction_command="printpipe run 00_input/part.stl --material tpu",
+        physical_print_status="not_printed",
+    )
+    write_failure_report_files(run_root=run_root, report=report)
+    manifest_path = tmp_path / "regressions" / "beta_regressions.json"
+    manifest_path.parent.mkdir(parents=True)
+    write_regression_manifest(
+        RegressionManifest(
+            cases=(
+                RegressionCase(
+                    case_id="known-success",
+                    source_run_id="run-beta-001",
+                    fixture_path=Path("fixtures/good.stl"),
+                    command=(sys.executable, "-c", "print('ok')"),
+                    expected=ExpectedOutcome.SUCCESS,
+                    notes="Captured from beta triage.",
+                ),
+            )
+        ),
+        manifest_path,
+    )
+
+    plan = build_beta_action_plan(
+        runs_dir,
+        regression_manifest_path=manifest_path,
+    )
+
+    actions = {action["id"]: action for action in plan["actions"]}
+    assert plan["evidence"]["failure_report_count"] == 1
+    assert plan["evidence"]["failure_reports"][0]["run_id"] == "run-beta-001"
+    assert plan["evidence"]["regression_status"]["overall_status"] == "passed"
+    assert plan["evidence"]["regression_status"]["case_count"] == 1
+    assert actions["record_beta_failure"]["status"] == "ready"
+    assert actions["run_regressions"]["status"] == "ready"
+    assert actions["run_regressions"]["command"] == (
+        f'printpipe run-regressions "{manifest_path.resolve()}" --strict'
+    )
+    assert actions["update_rules"]["status"] == "action_required"
+    assert "material/orientation/repair" in actions["update_rules"]["detail"]
+
+
+def test_render_beta_action_plan_lists_actions_and_boundary(tmp_path: Path) -> None:
+    plan = build_beta_action_plan(tmp_path / "runs")
+
+    text = render_beta_action_plan(plan)
+
+    assert "PrintPipe Beta Action Plan" in text
+    assert "overall: action_required" in text
+    assert BETA_PLAN_PROOF_BOUNDARY in text
+    assert "run_beta_dogfood" in text
+    assert "printpipe physical-plan" in text
+    assert "trusted_user_beta" in text
+
+
+def test_cli_beta_plan_prints_json(tmp_path: Path, capsys) -> None:
+    runs_dir = tmp_path / "runs"
+
+    exit_code = main(["beta-plan", "--runs-dir", str(runs_dir), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    actions = {action["id"]: action for action in payload["actions"]}
+    assert exit_code == 0
+    assert payload["overall_status"] == "action_required"
+    assert payload["evidence"]["failure_report_count"] == 0
+    assert actions["physical_validation"]["command"] == (
+        f'printpipe physical-plan --runs-dir "{runs_dir.resolve()}"'
+    )
