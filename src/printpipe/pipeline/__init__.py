@@ -37,6 +37,7 @@ from printpipe.mesh.repair import repair_mesh_file_to_receipt
 from printpipe.meshgen import (
     ExistingMeshProvider,
     Hunyuan3DProvider,
+    MEDIA_MESHGEN_UNAVAILABLE_MESSAGE,
     MeshGenProvider,
     MeshGenRequest,
     MeshGenResult,
@@ -56,8 +57,8 @@ from printpipe.runs import (
 
 
 NON_MESH_MESHGEN_MESSAGE = (
-    "media meshgen requires a configured provider; set PRINTPIPE_HUNYUAN3D_COMMAND "
-    "for the local Hunyuan3D adapter"
+    MEDIA_MESHGEN_UNAVAILABLE_MESSAGE
+    + " Set PRINTPIPE_HUNYUAN3D_COMMAND for the local Hunyuan3D adapter."
 )
 DEFAULT_BED = BedSize(width_mm=256.0, depth_mm=256.0)
 DEFAULT_PROFILE_IDS = BambuProfileIds(

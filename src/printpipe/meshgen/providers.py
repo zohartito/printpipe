@@ -9,7 +9,7 @@ import shlex
 import shutil
 import subprocess
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +34,10 @@ from .contracts import (
 
 MESH_SUFFIXES = {".stl", ".glb", ".gltf", ".obj", ".3mf"}
 HUNYUAN3D_COMMAND_ENV = "PRINTPIPE_HUNYUAN3D_COMMAND"
+MEDIA_MESHGEN_INPUT_KINDS = (InputKind.IMAGE, InputKind.GIF, InputKind.VIDEO)
+MEDIA_MESHGEN_UNAVAILABLE_MESSAGE = (
+    "No live image/GIF/video meshgen provider is configured."
+)
 ProviderRegistry = MutableMapping[str, MeshGenProvider]
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -739,10 +743,79 @@ def available_provider_ids(registry: ProviderRegistry | None = None) -> tuple[st
     return tuple(sorted(actual_registry))
 
 
+def build_media_meshgen_readiness(
+    *,
+    registry: ProviderRegistry | None = None,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    actual_registry = (
+        registry
+        if registry is not None
+        else _default_readiness_registry(env=env)
+    )
+    provider_summaries: list[dict[str, Any]] = []
+    live_media_provider_count = 0
+    for provider in actual_registry.values():
+        health = provider.healthcheck()
+        input_kinds = tuple(kind.value for kind in provider.capabilities.input_kinds)
+        supports_media = any(
+            input_kind in provider.capabilities.input_kinds
+            for input_kind in MEDIA_MESHGEN_INPUT_KINDS
+        )
+        if supports_media and health.status == StageStatus.SUCCEEDED:
+            live_media_provider_count += 1
+        provider_summaries.append(
+            {
+                "provider_id": provider.provider_id,
+                "display_name": provider.display_name,
+                "status": health.status.value,
+                "message": health.message,
+                "input_kinds": list(input_kinds),
+                "supports_media": supports_media,
+                "supports_cloud": provider.capabilities.supports_cloud,
+                "supports_local": provider.capabilities.supports_local,
+            }
+        )
+
+    ready = live_media_provider_count > 0
+    return {
+        "overall_status": "ready" if ready else "action_required",
+        "live_media_provider_count": live_media_provider_count,
+        "required_input_kinds": [kind.value for kind in MEDIA_MESHGEN_INPUT_KINDS],
+        "message": (
+            "At least one live image/GIF/video meshgen provider is configured."
+            if ready
+            else MEDIA_MESHGEN_UNAVAILABLE_MESSAGE
+        ),
+        "action": (
+            "No action needed."
+            if ready
+            else f"Set {HUNYUAN3D_COMMAND_ENV} or configure a hosted mesh provider."
+        ),
+        "providers": provider_summaries,
+    }
+
+
 def default_registry() -> dict[str, MeshGenProvider]:
     registry: dict[str, MeshGenProvider] = {}
     register_provider(ExistingMeshProvider(), registry)
     register_provider(Hunyuan3DProvider(), registry)
+    register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
+    register_provider(PlaceholderMeshProvider("meshy", "Meshy"), registry)
+    register_provider(PlaceholderMeshProvider("rodin", "Rodin"), registry)
+    return registry
+
+
+def _default_readiness_registry(
+    *,
+    env: Mapping[str, str] | None,
+) -> dict[str, MeshGenProvider]:
+    command = None
+    if env is not None:
+        command = env.get(HUNYUAN3D_COMMAND_ENV, "")
+    registry: dict[str, MeshGenProvider] = {}
+    register_provider(ExistingMeshProvider(), registry)
+    register_provider(Hunyuan3DProvider(command=command), registry)
     register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
     register_provider(PlaceholderMeshProvider("meshy", "Meshy"), registry)
     register_provider(PlaceholderMeshProvider("rodin", "Rodin"), registry)

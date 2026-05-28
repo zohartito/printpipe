@@ -200,6 +200,40 @@ def test_beta_readiness_report_blocks_when_captured_failures_lack_regressions(
     assert "run-missing" in gate["detail"]
 
 
+def test_beta_readiness_report_blocks_when_media_meshgen_provider_unavailable(
+    tmp_path: Path,
+) -> None:
+    environment = _ready_environment_report()
+    environment["meshgen"] = {
+        "overall_status": "action_required",
+        "live_media_provider_count": 0,
+        "message": "No live image/GIF/video meshgen provider is configured.",
+        "action": "Set PRINTPIPE_HUNYUAN3D_COMMAND or configure a hosted mesh provider.",
+        "providers": [
+            {
+                "provider_id": "hunyuan3d",
+                "status": "skipped",
+                "message": "Hunyuan3D local command is not configured.",
+            }
+        ],
+    }
+
+    report = build_beta_readiness_report(
+        tmp_path / "runs",
+        physical_status=_passed_physical_status(),
+        trusted_feedback_status=_passed_trusted_feedback_status(),
+        rule_update_status=_passed_rule_update_status(),
+        environment_report=environment,
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    gate = gates["media_meshgen"]
+    assert report["overall_status"] == "action_required"
+    assert gate["status"] == "action_required"
+    assert "No live image/GIF/video meshgen provider" in gate["detail"]
+    assert "PRINTPIPE_HUNYUAN3D_COMMAND" in gate["action"]
+
+
 def _passed_physical_status() -> dict[str, object]:
     return {
         "overall_status": "passed",
@@ -240,5 +274,11 @@ def _ready_environment_report() -> dict[str, object]:
         "bambu_studio": {"installed_count": 1},
         "bambu_profiles": {"candidate_count": 1},
         "filesystem": {"checks": [{"status": "ok"}]},
+        "meshgen": {
+            "overall_status": "ready",
+            "live_media_provider_count": 1,
+            "message": "At least one live media meshgen provider is configured.",
+            "action": "No action needed.",
+        },
         "system": {"signing": {"status": "ready", "missing_tools": [], "missing_identities": []}},
     }

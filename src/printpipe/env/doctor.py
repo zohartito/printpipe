@@ -28,6 +28,8 @@ def build_environment_report(
 ) -> dict[str, Any]:
     """Build one JSON-friendly environment report for `printpipe doctor`."""
 
+    from printpipe.meshgen import build_media_meshgen_readiness
+
     environment = os.environ if env is None else env
     raw_platform = platform_name or sys.platform
     platform_key = normalize_platform(raw_platform)
@@ -48,6 +50,7 @@ def build_environment_report(
         artifact_paths=artifact_paths,
         env=environment,
     )
+    meshgen = build_media_meshgen_readiness(env=environment)
 
     return {
         "schema_version": 1,
@@ -64,6 +67,7 @@ def build_environment_report(
         },
         "bambu_profiles": profile_report,
         "filesystem": {"checks": filesystem_checks},
+        "meshgen": meshgen,
         "summary": {
             "dependency_status_counts": dict(Counter(report["status"] for report in dependencies)),
             "filesystem_status_counts": dict(
@@ -71,6 +75,8 @@ def build_environment_report(
             ),
             "bambu_studio_found": any(candidate["exists"] for candidate in studio_candidates),
             "bambu_profile_user_count": profile_report["candidate_count"],
+            "meshgen_status": meshgen["overall_status"],
+            "live_media_meshgen_provider_count": meshgen["live_media_provider_count"],
         },
     }
 
@@ -84,6 +90,7 @@ def render_environment_report(report: Mapping[str, Any]) -> str:
     signing = _mapping(system.get("signing"))
     studio = _mapping(report.get("bambu_studio"))
     profiles = _mapping(report.get("bambu_profiles"))
+    meshgen = _mapping(report.get("meshgen"))
     dependencies = _list(report.get("dependencies"))
     filesystem_checks = _list(_mapping(report.get("filesystem")).get("checks"))
 
@@ -127,6 +134,11 @@ def render_environment_report(report: Mapping[str, Any]) -> str:
                 f"{studio.get('candidate_count', 0)} checked"
             ),
             f"Bambu profile users: {profiles.get('candidate_count', 0)}",
+            (
+                "Media meshgen: "
+                f"{meshgen.get('overall_status', 'unknown')} "
+                f"({meshgen.get('live_media_provider_count', 0)} live provider(s))"
+            ),
             (
                 "Dependency statuses: "
                 + ", ".join(

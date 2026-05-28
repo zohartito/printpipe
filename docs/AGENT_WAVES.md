@@ -1686,3 +1686,14 @@ Status: partial progress for release-distribution evidence honesty. This closes 
 4. Done: release-status applies the same verified-release boundary to signed Windows installer readiness.
 5. Done: regression coverage proves unverifiable macOS notarization fails the verifier and does not produce a ready distribution gate.
 6. Boundary: this still does not provision Apple Developer credentials or notarize a real DMG. The macOS distribution gate remains open until actual Developer ID signing and stapler-verifiable notarization evidence exists.
+
+## Wave 154 - Media Meshgen Readiness Gate
+
+Status: partial progress for non-mesh input honesty. This closes the Opus audit S4-3 gap where image/GIF/video mesh generation could be unavailable without an upfront readiness signal.
+
+1. Done: added a media-meshgen provider readiness rollup that health-checks Hunyuan3D plus placeholder hosted providers and counts live image/GIF/video-capable providers.
+2. Done: `printpipe doctor` now includes the media meshgen status and live provider count.
+3. Done: `printpipe readiness` now adds a `media_meshgen` gate, reporting `action_required` when no live provider is configured.
+4. Done: the readiness action points at `PRINTPIPE_HUNYUAN3D_COMMAND` or a hosted provider setup instead of waiting for a failed run receipt.
+5. Done: regression coverage proves doctor/readiness expose the missing-provider state.
+6. Boundary: this does not configure Hunyuan3D, install a local model, or enable hosted providers. Existing mesh inputs remain usable; image/GIF/video/prompt-to-mesh runs still require a live provider.

@@ -50,6 +50,8 @@ printpipe open-folder runs/<run-id> --target report
 If `printpipe run` reports that the Hunyuan3D local command is not configured,
 set `PRINTPIPE_HUNYUAN3D_COMMAND` to the local adapter command before running
 image/GIF/video inputs. Existing mesh inputs do not need that provider.
+`printpipe doctor` and `printpipe readiness --strict` show the same provider
+gap before you start a media run.
 
 ## macOS Desktop and Privacy Permissions
 

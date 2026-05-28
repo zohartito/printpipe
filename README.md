@@ -42,6 +42,10 @@ Current input support is intentionally explicit:
 | Prompt plus image | CLI supports `printpipe run image.png --prompt "..."`; the local web UI supports file plus prompt. The prompt is passed through to configured mesh providers as `prompt_hint`. |
 | Prompt only | CLI supports `printpipe run --prompt "..."`; the local web UI supports prompt-only new runs. It writes `00_input/prompt.txt`, then uses the selected prompt-image provider to produce a reference image before the normal meshgen path. If no provider is configured, the run fails honestly at `prompt_reference_generation` with receipts. |
 
+`printpipe doctor` and `printpipe readiness` also surface media-meshgen readiness
+upfront, so image/GIF/video/prompt runs show an action-required setup gate when
+no live provider is configured.
+
 Optional media cleanup hooks:
 
 ```bash

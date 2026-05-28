@@ -71,6 +71,7 @@ def build_beta_readiness_report(
         _failure_regressions_gate(failure_regressions),
         _regression_gate(regression, regression_manifest_path=regression_manifest_path),
         _dependency_gate(environment),
+        _meshgen_gate(environment),
         _filesystem_gate(environment),
         _bambu_studio_gate(environment),
         _bambu_profiles_gate(environment),
@@ -90,6 +91,7 @@ def build_beta_readiness_report(
         "environment_summary": {
             "platform": _dict(environment.get("platform")),
             "summary": _dict(environment.get("summary")),
+            "meshgen": _dict(environment.get("meshgen")),
         },
     }
 
@@ -229,6 +231,34 @@ def _failure_regressions_gate(status: Mapping[str, Any]) -> dict[str, Any]:
         ACTION_REQUIRED,
         detail,
         "Append regression cases for every captured failure with record-beta-failure.",
+    )
+
+
+def _meshgen_gate(environment: Mapping[str, Any]) -> dict[str, Any]:
+    meshgen = _dict(environment.get("meshgen"))
+    if not meshgen:
+        return _gate(
+            "media_meshgen",
+            "Media meshgen provider",
+            NOT_APPLICABLE,
+            "No media meshgen provider readiness report is available.",
+            "Run printpipe doctor to inspect local meshgen provider configuration.",
+        )
+    if meshgen.get("overall_status") == "ready":
+        provider_count = int(meshgen.get("live_media_provider_count") or 0)
+        return _gate(
+            "media_meshgen",
+            "Media meshgen provider",
+            READY,
+            f"{provider_count} live image/GIF/video meshgen provider(s) configured.",
+            "No action needed.",
+        )
+    return _gate(
+        "media_meshgen",
+        "Media meshgen provider",
+        ACTION_REQUIRED,
+        str(meshgen.get("message") or "No live media meshgen provider is configured."),
+        str(meshgen.get("action") or "Configure a live image/GIF/video meshgen provider."),
     )
 
 
