@@ -220,6 +220,22 @@ def build_parser() -> argparse.ArgumentParser:
     physical.add_argument("--flex-recovery", default="", help="Flexible-material recovery note.")
     physical.add_argument("--support-removal", default="", help="Support-removal observation.")
     physical.add_argument(
+        "--photo",
+        action="append",
+        default=[],
+        type=Path,
+        help="Physical print photo to copy into 90_physical/artifacts; may be repeated.",
+    )
+    physical.add_argument(
+        "--artifact",
+        action="append",
+        default=[],
+        help=(
+            "Additional physical artifact as 'label|kind|path|notes'; notes may be omitted "
+            "and the artifact is copied into 90_physical/artifacts. May be repeated."
+        ),
+    )
+    physical.add_argument(
         "--note",
         action="append",
         default=[],
@@ -376,6 +392,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
+        except ValueError as exc:
+            parser.error(str(exc))
         except FileNotFoundError:
             parser.error(f"run root does not exist: {args.run_root}")
 
@@ -475,6 +493,7 @@ def _render_package_smoke(payload: dict[str, Any]) -> str:
 
 def _record_physical_evidence(args: argparse.Namespace) -> int:
     from printpipe.beta.physical import (
+        PhysicalArtifact,
         build_physical_print_evidence,
         write_physical_evidence_files,
     )
@@ -482,6 +501,15 @@ def _record_physical_evidence(args: argparse.Namespace) -> int:
     run_root = args.run_root.expanduser().resolve()
     if not run_root.exists():
         raise FileNotFoundError(run_root)
+    artifacts: list[PhysicalArtifact] = [
+        PhysicalArtifact(
+            label=f"Physical print photo {index}",
+            path=photo,
+            kind="photo",
+        )
+        for index, photo in enumerate(args.photo, start=1)
+    ]
+    artifacts.extend(_parse_physical_artifact(value) for value in args.artifact)
     evidence = build_physical_print_evidence(
         run_id=args.run_id or run_root.name,
         material=args.material,
@@ -502,10 +530,15 @@ def _record_physical_evidence(args: argparse.Namespace) -> int:
         layer_bonding=args.layer_bonding,
         flex_recovery=args.flex_recovery,
         support_removal=args.support_removal,
+        artifacts=tuple(artifacts),
         notes=tuple(args.note),
     )
     try:
-        result = write_physical_evidence_files(run_root=run_root, evidence=evidence)
+        result = write_physical_evidence_files(
+            run_root=run_root,
+            evidence=evidence,
+            copy_artifacts=True,
+        )
     except FileNotFoundError:
         raise FileNotFoundError(run_root)
 
@@ -520,6 +553,21 @@ def _record_physical_evidence(args: argparse.Namespace) -> int:
         else:
             print("missing required evidence: none")
     return 0
+
+
+def _parse_physical_artifact(value: str) -> Any:
+    from printpipe.beta.physical import PhysicalArtifact
+
+    parts = value.split("|", 3)
+    if len(parts) < 3:
+        raise ValueError(
+            "--artifact must use 'label|kind|path|notes' with notes optional"
+        )
+    label, kind, path = (part.strip() for part in parts[:3])
+    notes = parts[3].strip() if len(parts) == 4 else ""
+    if not label or not kind or not path:
+        raise ValueError("--artifact label, kind, and path are required")
+    return PhysicalArtifact(label=label, path=Path(path), kind=kind, notes=notes)
 
 
 def _print_pipeline_error(error: PipelineError) -> None:

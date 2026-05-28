@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from printpipe.beta.physical import build_physical_print_evidence, missing_required_evidence
 from printpipe.runs.editing import (
     EditRecipe,
     edit_recipe_to_dict,
@@ -59,6 +60,7 @@ def build_run_detail(run_root: str | Path) -> dict[str, Any]:
         "pipeline": _pipeline_contract(report),
         "artifacts": _artifact_groups(report, run_root=root),
         "warnings": warnings,
+        "physical_evidence": _physical_evidence_contract(root),
         "edit_recipe": _edit_recipe_contract(root, manifest),
         "rebuild": {
             "available": True,
@@ -353,6 +355,62 @@ def _artifact_list(value: Any) -> list[dict[str, Any]]:
             }
         )
     return artifacts
+
+
+def _physical_evidence_contract(root: Path) -> dict[str, Any]:
+    json_path = root / "90_physical" / "physical_evidence.json"
+    markdown_path = root / "90_physical" / "physical_evidence.md"
+    if not json_path.exists():
+        return {
+            "available": False,
+            "missing_required_evidence": ["physical evidence packet"],
+            "packet_paths": {},
+        }
+
+    payload = _read_optional_json(json_path)
+    evidence = build_physical_print_evidence(
+        run_id=str(payload.get("run_id", "")),
+        material=str(payload.get("material", "")),
+        printer=str(payload.get("printer", "")),
+        object_label=str(payload.get("object_label", "")),
+        print_type=str(payload.get("print_type", "")),
+        print_status=str(payload.get("print_status", "")),
+        operator=str(payload.get("operator", "")),
+        started_at=str(payload.get("started_at", "")),
+        completed_at=str(payload.get("completed_at", "")),
+        slice_status=str(payload.get("slice_status", "")),
+        filament_drying=str(payload.get("filament_drying", "")),
+        bed_prep=str(payload.get("bed_prep", "")),
+        first_layer=str(payload.get("first_layer", "")),
+        adhesion=str(payload.get("adhesion", "")),
+        warping=str(payload.get("warping", "")),
+        stringing=str(payload.get("stringing", "")),
+        layer_bonding=str(payload.get("layer_bonding", "")),
+        flex_recovery=str(payload.get("flex_recovery", "")),
+        support_removal=str(payload.get("support_removal", "")),
+        dimensions_mm=_mapping(payload.get("dimensions_mm")),
+        artifacts=_as_list(payload.get("artifacts")),
+        notes=_strings(payload.get("notes")),
+    )
+    packet_paths = {"json": "90_physical/physical_evidence.json"}
+    if markdown_path.exists():
+        packet_paths["markdown"] = "90_physical/physical_evidence.md"
+    return {
+        "available": True,
+        "schema_version": payload.get("schema_version"),
+        "run_id": evidence.run_id,
+        "material": evidence.material,
+        "printer": evidence.printer,
+        "object_label": evidence.object_label,
+        "print_type": evidence.print_type,
+        "print_status": evidence.print_status,
+        "operator": evidence.operator,
+        "started_at": evidence.started_at,
+        "completed_at": evidence.completed_at,
+        "artifacts": [artifact.to_dict() for artifact in evidence.artifacts],
+        "missing_required_evidence": missing_required_evidence(evidence),
+        "packet_paths": packet_paths,
+    }
 
 
 def _edit_recipe_contract(root: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:

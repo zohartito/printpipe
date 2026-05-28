@@ -179,6 +179,27 @@ printpipe record-physical-evidence runs/<run-id> \
   --print-status not_printed
 ```
 
+After the coupon is actually printed, rerun the command with the observed status
+and attach the photo evidence:
+
+```bash
+printpipe record-physical-evidence runs/<run-id> \
+  --material "SUNLU TPU 90A" \
+  --printer "Bambu Lab P2S" \
+  --object-label "flex coupon" \
+  --print-type coupon \
+  --print-status passed \
+  --operator "Zohar" \
+  --filament-drying "50 C for 6 h" \
+  --layer-bonding "no splits after repeated bending" \
+  --flex-recovery "returned flat after 20 flexes" \
+  --photo /path/to/flex-coupon-photo.jpg
+```
+
+The command copies attached photos into `90_physical/artifacts/`; the run-detail
+workbench then shows the physical evidence packet separately from the generated
+digital coupon artifact.
+
 For the TPU flex coupon, the packet must include:
 
 - Run id for the PrintPipe run that generated the coupon.

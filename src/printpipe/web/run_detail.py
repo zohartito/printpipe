@@ -38,6 +38,7 @@ def render_run_detail_page(*, detail: dict[str, Any], artifact_links: list[Any])
             _render_verdict_strip(detail),
             _render_run_context_strip(detail),
             _render_material_preflight_strip(detail, artifact_links),
+            _render_physical_evidence_panel(detail),
             _render_model_workbench(detail, artifact_links),
             "    </section>",
             "  </main>",
@@ -126,9 +127,53 @@ def _render_material_preflight_strip(detail: dict[str, Any], artifact_links: lis
         ("Profile", _label_from_detail(detail, "profile", "Profile not recorded")),
         ("Use case", _use_case_label(detail)),
         ("Flex coupon", _flex_coupon_status(detail, artifact_links)),
-        ("User-only gate", "Physical coupon/print evidence not recorded"),
+        ("User-only gate", _physical_gate_status(detail)),
     ]
     return _key_value_strip("print-context", "Material and preflight context", items)
+
+
+def _render_physical_evidence_panel(detail: dict[str, Any]) -> str:
+    evidence = _mapping(detail.get("physical_evidence"))
+    if not evidence.get("available"):
+        return ""
+    run_id = str(detail.get("run_id", "unknown-run"))
+    packet_paths = _mapping(evidence.get("packet_paths"))
+    packet_links = "".join(
+        _physical_link(run_id, label, path)
+        for label, path in (
+            ("Evidence JSON", packet_paths.get("json")),
+            ("Evidence Markdown", packet_paths.get("markdown")),
+        )
+        if path
+    )
+    artifact_links = "".join(
+        _physical_link(
+            run_id,
+            str(artifact.get("label") or "Physical artifact"),
+            artifact.get("path"),
+        )
+        for artifact in _as_dicts(evidence.get("artifacts"))
+        if artifact.get("path")
+    )
+    missing = [str(item) for item in _as_list(evidence.get("missing_required_evidence"))]
+    missing_label = (
+        "No missing required evidence"
+        if not missing
+        else "Missing: " + ", ".join(missing)
+    )
+    return "\n".join(
+        [
+            '      <section class="physical-evidence" aria-label="Physical evidence">',
+            "        <div>",
+            "          <p class=\"eyebrow\">Physical evidence</p>",
+            f"          <h2>{escape(_physical_evidence_heading(evidence))}</h2>",
+            f"          <p>Operator: {escape(str(evidence.get('operator') or 'unrecorded'))}</p>",
+            f'          <p class="evidence-missing">{escape(missing_label)}</p>',
+            "        </div>",
+            f'        <div class="evidence-links">{packet_links}{artifact_links}</div>',
+            "      </section>",
+        ]
+    )
 
 
 def _render_model_workbench(detail: dict[str, Any], artifact_links: list[Any]) -> str:
@@ -582,6 +627,9 @@ def _use_case_label(detail: dict[str, Any]) -> str:
 def _flex_coupon_status(detail: dict[str, Any], artifact_links: list[Any]) -> str:
     required = _requires_flex_coupon(detail)
     present = _has_flex_coupon_artifact(artifact_links)
+    evidence = _mapping(detail.get("physical_evidence"))
+    if required and _physical_packet_is_credible(evidence):
+        return "Required; physical coupon evidence recorded"
     if required and present:
         return "Required; coupon artifact generated, physical print not recorded"
     if required:
@@ -589,6 +637,43 @@ def _flex_coupon_status(detail: dict[str, Any], artifact_links: list[Any]) -> st
     if present:
         return "Coupon artifact present; requirement not inferred"
     return "Not required by recorded material/profile"
+
+
+def _physical_gate_status(detail: dict[str, Any]) -> str:
+    evidence = _mapping(detail.get("physical_evidence"))
+    if not evidence.get("available"):
+        return "Physical coupon/print evidence not recorded"
+    if _physical_packet_is_credible(evidence):
+        return f"Physical evidence recorded: {str(evidence.get('print_status', 'recorded'))}"
+    missing = [str(item) for item in _as_list(evidence.get("missing_required_evidence"))]
+    if missing:
+        return "Physical evidence incomplete: " + ", ".join(missing)
+    return "Physical evidence recorded; review packet"
+
+
+def _physical_packet_is_credible(evidence: dict[str, Any]) -> bool:
+    if not evidence.get("available"):
+        return False
+    if _as_list(evidence.get("missing_required_evidence")):
+        return False
+    return str(evidence.get("print_status", "")).lower() in {"passed", "failed", "partial"}
+
+
+def _physical_evidence_heading(evidence: dict[str, Any]) -> str:
+    status = str(evidence.get("print_status") or "recorded").strip().lower()
+    print_type = str(evidence.get("print_type") or "print").strip().lower()
+    object_label = str(evidence.get("object_label") or "object").strip()
+    if status in {"passed", "failed", "partial"}:
+        return f"{status.title()} physical {print_type}: {object_label}"
+    return f"Physical {print_type} recorded: {object_label}"
+
+
+def _physical_link(run_id: str, label: str, path: Any) -> str:
+    if not path:
+        return ""
+    path_text = str(path)
+    href = f"/runs/{quote(run_id, safe='')}/artifacts/{quote(path_text, safe='/.')}"
+    return f'<a href="{escape(href, quote=True)}">{escape(label)}</a>'
 
 
 def _requires_flex_coupon(detail: dict[str, Any]) -> bool:
@@ -683,7 +768,7 @@ RUN_DETAIL_CSS = """
     .shell { display: grid; gap: 16px; margin: 0 auto; max-width: 1620px; padding: clamp(14px,2vw,24px); }
     .verdict-strip { border-top: 4px solid transparent; display: grid; gap: 10px; grid-template-columns: 1.2fr repeat(5,minmax(110px,1fr)); }
     .verdict-strip-pass { border-color: #1f8a4c; } .verdict-strip-warn { border-color: #b7791f; } .verdict-strip-fail { border-color: #c23030; }
-    .verdict,.score,.model-card,.card,.controls,.run-context { background: rgba(255,255,255,.94); border: 1px solid #cfd8e3; border-radius: 8px; box-shadow: 0 18px 46px rgba(36,47,61,.1); }
+    .verdict,.score,.model-card,.card,.controls,.run-context,.physical-evidence { background: rgba(255,255,255,.94); border: 1px solid #cfd8e3; border-radius: 8px; box-shadow: 0 18px 46px rgba(36,47,61,.1); }
     .verdict { background: #17202a; color: #f8fafc; padding: 14px; } .verdict h2 { font-size: clamp(1.35rem,2.1vw,2rem); margin: 0 0 6px; } .verdict p { color: #d8e2ec; }
     .verdict-issue { color:#fff; display:block; font-size:.98rem; margin: 0 0 8px; overflow-wrap:anywhere; }
     .next-action { background: rgba(255,255,255,.08); border: 1px solid rgba(216,226,236,.22); border-radius: 8px; margin: 12px 0 0; padding: 9px 10px; }
@@ -692,6 +777,7 @@ RUN_DETAIL_CSS = """
     .score strong,.metric strong { display: block; font-size: 1.18rem; margin-top: 6px; overflow-wrap: anywhere; }
     .score-pass strong { color: #126237; } .score-warn strong { color: #7c4a03; } .score-fail strong { color: #9b1c1c; }
     .run-context,.print-context { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); overflow: hidden; } .print-context { border-left: 4px solid #327d9e; } .context-item { background: #fff; min-width: 0; padding: 11px 12px; } .context-item strong { display: block; overflow-wrap: anywhere; }
+    .physical-evidence { align-items:center; display:grid; gap:14px; grid-template-columns:minmax(0,1fr) auto; padding:14px; } .physical-evidence h2{font-size:1.1rem;margin:0 0 4px}.physical-evidence p{color:#52606d;margin:4px 0}.evidence-missing{font-weight:800}.evidence-links{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}.evidence-links a{background:#eef6f9;border:1px solid #c6dfe9;border-radius:999px;color:#24566d;font-size:.84rem;font-weight:800;padding:7px 10px;text-decoration:none}
     .workbench { display: grid; gap: clamp(14px,2vw,24px); grid-template-columns: minmax(0,1fr) minmax(330px,410px); }
     .canvas-zone { display: grid; gap: 14px; grid-template-rows: minmax(420px,auto) auto auto; min-width: 0; }
     .model-card { display: grid; grid-template-rows: auto minmax(420px,1fr) auto auto; min-height: 520px; overflow: hidden; }
@@ -714,7 +800,7 @@ RUN_DETAIL_CSS = """
     .controls { align-self:start; margin:0; overflow:hidden; } .control-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}.issue-line{background:#eef6f9;border:1px solid #c6dfe9;border-radius:8px;color:#24566d;font-weight:850;margin:0;padding:10px}.input-card{border-left:5px solid #327d9e;padding-left:12px}.input-card p,.muted{color:#52606d}.check-row{align-items:center;background:#f8fafc;border:1px solid #cfd8e3;border-radius:8px;color:#17202a;display:flex;gap:8px;justify-content:space-between;padding:10px;text-transform:none}.check-row input{min-height:auto;width:auto}.primary{background:#327d9e;max-width:none}.edit-actions{background:linear-gradient(rgba(255,255,255,.86),#fff);bottom:0;padding-top:8px;position:sticky;z-index:2}.recipe-preview{background:#eef6f9;border:1px solid #c6dfe9;border-radius:8px;color:#24566d;margin:0;padding:10px}
     .links{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.workbench-artifacts .links{grid-template-columns:repeat(5,minmax(0,1fr))}.links a,.missing-artifact{background:#f8fafc;border:1px solid #cfd8e3;border-radius:8px;display:block;font-weight:850;padding:10px}.links span{color:#52606d;display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.72rem;margin-top:4px;overflow-wrap:anywhere}.open-folder-actions{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
     @media (max-width:1180px){.verdict-strip{grid-template-columns:repeat(3,minmax(0,1fr))}.verdict{grid-column:1/-1}.workbench{grid-template-columns:1fr}.controls{order:-1}}
-    @media (max-width:760px){.topbar,.verdict-strip,.lower-grid,.model-footer,.workbench-artifacts .links,.control-grid,.receipt-grid,.open-folder-actions{grid-template-columns:1fr}.status-chip{white-space:normal}.model-card{min-height:430px}.mesh-placeholder,.model-preview-image{width:86vw}}
+    @media (max-width:760px){.topbar,.verdict-strip,.lower-grid,.model-footer,.workbench-artifacts .links,.control-grid,.receipt-grid,.open-folder-actions,.physical-evidence{grid-template-columns:1fr}.status-chip{white-space:normal}.model-card{min-height:430px}.mesh-placeholder,.model-preview-image{width:86vw}.evidence-links{justify-content:flex-start}}
 """.strip()
 
 

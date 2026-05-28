@@ -376,3 +376,14 @@ Status: partial for F9. PrintPipe can now write physical evidence packets into r
 4. Done: the command reports missing required evidence, so `not_printed` and incomplete coupon records stay honest.
 5. Done: updated beta onboarding with the command and output paths.
 6. Remaining: run real PLA, PETG, and TPU coupon/small-object prints and attach photos/notes before marking F9 complete.
+
+## Wave 35 - Physical Evidence UI Surfacing
+
+Status: partial for F9. Evidence capture is now visible in the product, but only real printer-side PLA/PETG/TPU prints can complete the physical validation gate.
+
+1. Done: extended `printpipe record-physical-evidence` with repeatable `--photo` and `--artifact` inputs.
+2. Done: copied evidence files into `90_physical/artifacts/` so packets are portable inside the run folder.
+3. Done: loaded `90_physical/physical_evidence.json` in the run-detail contract with missing-evidence checks.
+4. Done: surfaced recorded physical evidence, packet links, and photo/artifact links in the run-detail workbench.
+5. Done: kept the UI honest: digital flex-coupon artifacts remain separate from physical coupon proof.
+6. Remaining: run real PLA, PETG, and TPU coupon/small-object prints, then attach photos/notes before marking F9 complete.

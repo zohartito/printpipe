@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 import json
+import shutil
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -249,6 +250,7 @@ def write_physical_evidence_files(
     run_root: str | os.PathLike[str],
     evidence: PhysicalPrintEvidence,
     directory_name: str = "90_physical",
+    copy_artifacts: bool = False,
 ) -> dict[str, Any]:
     """Write physical evidence JSON and Markdown into a run folder."""
 
@@ -257,6 +259,16 @@ def write_physical_evidence_files(
         raise FileNotFoundError(root)
     output_dir = root / directory_name
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if copy_artifacts:
+        evidence = replace(
+            evidence,
+            artifacts=_copy_artifacts_into_packet(
+                root=root,
+                output_dir=output_dir,
+                artifacts=evidence.artifacts,
+            ),
+        )
 
     json_path = output_dir / "physical_evidence.json"
     markdown_path = output_dir / "physical_evidence.md"
@@ -274,6 +286,62 @@ def write_physical_evidence_files(
         "markdown_path": str(markdown_path),
         "missing_required_evidence": missing_required_evidence(evidence),
     }
+
+
+def _copy_artifacts_into_packet(
+    *,
+    root: Path,
+    output_dir: Path,
+    artifacts: Sequence[PhysicalArtifact],
+) -> tuple[PhysicalArtifact, ...]:
+    copied: list[PhysicalArtifact] = []
+    artifact_dir = output_dir / "artifacts"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    used_names: set[str] = set()
+
+    for artifact in artifacts:
+        source = Path(os.fspath(artifact.path)).expanduser()
+        if not source.is_absolute():
+            source = root / source
+        source = source.resolve()
+        if not source.is_file():
+            raise FileNotFoundError(source)
+
+        destination = _unique_destination(
+            artifact_dir,
+            _safe_artifact_name(source.name),
+            used_names,
+        )
+        if source != destination.resolve():
+            shutil.copy2(source, destination)
+        relative_path = destination.relative_to(root).as_posix()
+        copied.append(replace(artifact, path=relative_path))
+
+    return tuple(copied)
+
+
+def _safe_artifact_name(name: str) -> str:
+    stem = Path(name).stem.lower()
+    suffix = Path(name).suffix.lower()
+    safe_stem = "".join(
+        character if character.isalnum() or character in {"-", "_"} else "-"
+        for character in stem
+    ).strip("-")
+    while "--" in safe_stem:
+        safe_stem = safe_stem.replace("--", "-")
+    return f"{safe_stem or 'artifact'}{suffix}"
+
+
+def _unique_destination(directory: Path, name: str, used_names: set[str]) -> Path:
+    candidate = directory / name
+    stem = candidate.stem
+    suffix = candidate.suffix
+    counter = 2
+    while candidate.name in used_names or candidate.exists():
+        candidate = directory / f"{stem}-{counter}{suffix}"
+        counter += 1
+    used_names.add(candidate.name)
+    return candidate
 
 
 def _coerce_artifact(

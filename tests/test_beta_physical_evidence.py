@@ -233,3 +233,73 @@ def test_cli_record_physical_evidence_writes_run_folder_packet(
     assert payload["json_path"].endswith("90_physical/physical_evidence.json")
     assert (run_root / "90_physical" / "physical_evidence.json").exists()
     assert payload["missing_required_evidence"] == ["operator"]
+
+
+def test_cli_record_physical_evidence_copies_photos_into_run_packet(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    run_root = tmp_path / "runs" / "run-tpu-printed-001"
+    run_root.mkdir(parents=True)
+    photo = tmp_path / "coupon flex photo.jpg"
+    photo.write_bytes(b"fake photo bytes")
+    preview = tmp_path / "layer_preview.png"
+    preview.write_bytes(b"fake preview bytes")
+
+    exit_code = main(
+        [
+            "record-physical-evidence",
+            str(run_root),
+            "--material",
+            "SUNLU TPU 90A",
+            "--printer",
+            "Bambu Lab P2S",
+            "--object-label",
+            "flex coupon",
+            "--print-type",
+            "coupon",
+            "--print-status",
+            "passed",
+            "--operator",
+            "Zohar",
+            "--filament-drying",
+            "50 C for 6 h",
+            "--layer-bonding",
+            "no splits after bending",
+            "--flex-recovery",
+            "returned flat after 20 flexes",
+            "--photo",
+            str(photo),
+            "--artifact",
+            f"Layer preview|image|{preview}|manual Bambu Studio screenshot",
+            "--json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    evidence_path = run_root / "90_physical" / "physical_evidence.json"
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    assert exit_code == 0
+    assert payload["missing_required_evidence"] == []
+    assert (run_root / "90_physical" / "artifacts" / "coupon-flex-photo.jpg").read_bytes() == (
+        b"fake photo bytes"
+    )
+    assert (run_root / "90_physical" / "artifacts" / "layer_preview.png").read_bytes() == (
+        b"fake preview bytes"
+    )
+    assert evidence["artifacts"] == [
+        {
+            "label": "Physical print photo 1",
+            "path": "90_physical/artifacts/coupon-flex-photo.jpg",
+            "kind": "photo",
+            "notes": "",
+        },
+        {
+            "label": "Layer preview",
+            "path": "90_physical/artifacts/layer_preview.png",
+            "kind": "image",
+            "notes": "manual Bambu Studio screenshot",
+        },
+    ]

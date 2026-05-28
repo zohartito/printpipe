@@ -5,6 +5,11 @@ from pathlib import Path
 
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
 from printpipe.reports import build_run_report_dict, write_run_report
+from printpipe.beta.physical import (
+    PhysicalArtifact,
+    build_physical_print_evidence,
+    write_physical_evidence_files,
+)
 from printpipe.runs.detail import build_run_detail
 from printpipe.runs.editing import (
     EditRecipe,
@@ -274,3 +279,44 @@ def test_run_detail_uses_real_bed_fit_and_slice_receipt_metrics(tmp_path: Path):
     assert validation["slice_success"]["state"] == "fail"
     assert "SIGSEGV" in validation["slice_success"]["detail"]
     assert detail["print_verdict"]["state"] == "blocked"
+
+
+def test_run_detail_contract_loads_physical_evidence_packet(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-physical-001")
+    photo = layout.root / "90_physical" / "artifacts" / "coupon.jpg"
+    photo.parent.mkdir(parents=True)
+    photo.write_bytes(b"photo")
+    evidence = build_physical_print_evidence(
+        run_id=layout.run_id,
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+        object_label="flex coupon",
+        print_type="coupon",
+        print_status="passed",
+        operator="Zohar",
+        filament_drying="50 C for 6 h",
+        layer_bonding="no splits after bending",
+        flex_recovery="returned flat after 20 flexes",
+        artifacts=(
+            PhysicalArtifact(
+                label="Flexed coupon photo",
+                path="90_physical/artifacts/coupon.jpg",
+                kind="photo",
+            ),
+        ),
+    )
+    write_physical_evidence_files(run_root=layout.root, evidence=evidence)
+
+    detail = build_run_detail(layout.root)
+
+    assert detail["physical_evidence"]["available"] is True
+    assert detail["physical_evidence"]["print_status"] == "passed"
+    assert detail["physical_evidence"]["object_label"] == "flex coupon"
+    assert detail["physical_evidence"]["operator"] == "Zohar"
+    assert detail["physical_evidence"]["missing_required_evidence"] == []
+    assert detail["physical_evidence"]["packet_paths"] == {
+        "json": "90_physical/physical_evidence.json",
+        "markdown": "90_physical/physical_evidence.md",
+    }

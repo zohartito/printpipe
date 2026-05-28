@@ -3,6 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from printpipe.beta.physical import (
+    PhysicalArtifact,
+    build_physical_print_evidence,
+    write_physical_evidence_files,
+)
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
 from printpipe.reports import build_run_report_dict, write_run_report
 from printpipe.reports.html import write_html_report
@@ -314,6 +319,67 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert 'href="/runs/run-workbench-001/artifacts/60_bundle/ready.3mf"' in response.text
 
 
+def test_run_detail_response_surfaces_physical_evidence_packet(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-physical-ui-001")
+    write_run_report(
+        layout,
+        stages=(),
+        settings_changes=(
+            {
+                "printer_label": "Bambu Lab P2S",
+                "material_label": "SUNLU TPU 90A",
+                "profile_label": "0.20mm Slipper TPU 90A @BBL P2S",
+                "use_case": "wearable slipper",
+            },
+        ),
+    )
+    photo = layout.root / "90_physical" / "artifacts" / "coupon-flex.jpg"
+    photo.parent.mkdir(parents=True)
+    photo.write_bytes(b"photo")
+    evidence = build_physical_print_evidence(
+        run_id=layout.run_id,
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+        object_label="flex coupon",
+        print_type="coupon",
+        print_status="passed",
+        operator="Zohar",
+        filament_drying="50 C for 6 h",
+        layer_bonding="no splits after bending",
+        flex_recovery="returned flat after 20 flexes",
+        artifacts=(
+            PhysicalArtifact(
+                label="Flexed coupon photo",
+                path="90_physical/artifacts/coupon-flex.jpg",
+                kind="photo",
+            ),
+        ),
+    )
+    write_physical_evidence_files(run_root=layout.root, evidence=evidence)
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/run-physical-ui-001")
+
+    assert response.status == 200
+    assert "Physical evidence" in response.text
+    assert "Passed physical coupon: flex coupon" in response.text
+    assert "Operator: Zohar" in response.text
+    assert "No missing required evidence" in response.text
+    assert "Physical coupon/print evidence not recorded" not in response.text
+    assert 'href="/runs/run-physical-ui-001/artifacts/90_physical/physical_evidence.json"' in (
+        response.text
+    )
+    assert 'href="/runs/run-physical-ui-001/artifacts/90_physical/physical_evidence.md"' in (
+        response.text
+    )
+    assert 'href="/runs/run-physical-ui-001/artifacts/90_physical/artifacts/coupon-flex.jpg"' in (
+        response.text
+    )
+
+
 def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     css = web_server._CSS + run_detail.RUN_DETAIL_CSS
 
@@ -324,6 +390,7 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert ".next-action" in css
     assert ".run-context" in css
     assert ".print-context" in css
+    assert ".physical-evidence" in css
     assert ".verdict-strip-warn" in css
     assert ".verdict-issue" in css
     assert ".issue-line" in css

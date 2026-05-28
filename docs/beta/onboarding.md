@@ -199,6 +199,29 @@ The command writes:
 - `90_physical/physical_evidence.json`
 - `90_physical/physical_evidence.md`
 
+For a real passed, failed, or partial print, attach photo and inspection
+artifacts directly to the packet:
+
+```bash
+printpipe record-physical-evidence runs/<run-id> \
+  --material "SUNLU TPU 90A" \
+  --printer "Bambu Lab P2S" \
+  --object-label "flex coupon" \
+  --print-type coupon \
+  --print-status passed \
+  --operator "Zohar" \
+  --filament-drying "50 C for 6 h" \
+  --layer-bonding "no splits after repeated bending" \
+  --flex-recovery "returned flat after 20 flexes" \
+  --photo /path/to/coupon-photo.jpg \
+  --artifact "Layer preview|image|/path/to/layer-preview.png|manual Bambu Studio check"
+```
+
+Attached files are copied into `90_physical/artifacts/`, and the run-detail
+workbench reads `90_physical/physical_evidence.json` when it exists. A copied
+photo is evidence only for what was actually printed; it does not make a planned
+print physically validated.
+
 Every physical evidence packet should include:
 
 - Run id and printed object.
