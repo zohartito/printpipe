@@ -784,3 +784,15 @@ Status: complete for evidence portability. Physical print evidence packets now s
 3. Done: HTML reports render a `Physical Evidence` section with the same evidence packet and artifact links.
 4. Done: `printpipe record-physical-evidence` refreshes existing `80_reports/run_report.json`, `.md`, and `.html` when a run report already exists.
 5. Boundary: recording evidence still does not upgrade a run to physically validated unless the packet itself contains credible real print status and required evidence.
+
+## Wave 71 - Physical Validation Status Scanner
+
+Status: complete for beta-gate visibility. PrintPipe can now scan run folders and say whether the required PLA/PETG/TPU physical evidence has actually passed.
+
+1. Done: added `printpipe.beta.physical_status.build_physical_validation_status()`.
+2. Done: scanner reads `90_physical/physical_evidence.json` packets across a `runs/` directory.
+3. Done: required material families default to PLA, PETG, and TPU.
+4. Done: family status distinguishes `passed`, `missing`, `incomplete`, and `recorded_but_not_passed`.
+5. Done: added `printpipe physical-status --runs-dir runs --json --strict`.
+6. Done: strict mode exits `2` until every required family has a passed packet with no missing required evidence.
+7. Boundary: this reports physical validation status; it does not create physical evidence or claim that unprinted coupons passed.

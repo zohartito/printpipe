@@ -239,6 +239,20 @@ Every physical evidence packet should include:
 If the print has not happened yet, keep the status as `not_printed`. Do not add
 photo, adhesion, or flex claims from memory or from a planned print.
 
+To summarize whether the beta folder has enough real material-family evidence
+for release gating, run:
+
+```bash
+printpipe physical-status --runs-dir runs
+printpipe physical-status --runs-dir runs --json
+printpipe physical-status --runs-dir runs --strict
+```
+
+The strict form exits nonzero until PLA, PETG, and TPU each have a passed
+physical evidence packet with the required fields for that material family. A
+digital coupon artifact, `.3mf`, or slice receipt is useful software evidence,
+but it is not physical validation by itself.
+
 ## Feedback Expectations
 
 Good beta feedback is short and concrete:

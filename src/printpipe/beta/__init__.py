@@ -19,6 +19,10 @@ from printpipe.beta.physical import (
     render_physical_evidence_markdown,
     write_physical_evidence_files,
 )
+from printpipe.beta.physical_status import (
+    build_physical_validation_status,
+    render_physical_validation_status,
+)
 from printpipe.beta.regression import (
     ExpectedOutcome,
     RegressionCase,
@@ -44,12 +48,14 @@ __all__ = (
     "RegressionManifest",
     "build_failure_report",
     "build_physical_print_evidence",
+    "build_physical_validation_status",
     "case_from_run",
     "load_regression_manifest",
     "missing_required_evidence",
     "missing_required_headings",
     "parse_failure_report_sections",
     "render_physical_evidence_markdown",
+    "render_physical_validation_status",
     "render_command",
     "validate_regression_manifest",
     "write_physical_evidence_files",

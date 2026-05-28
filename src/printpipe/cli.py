@@ -450,6 +450,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print written evidence paths and missing evidence as JSON.",
     )
 
+    physical_status = subparsers.add_parser(
+        "physical-status",
+        help="Summarize PLA/PETG/TPU physical validation evidence across run folders.",
+    )
+    physical_status.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders to scan.",
+    )
+    physical_status.add_argument(
+        "--json",
+        action="store_true",
+        help="Print physical validation status as JSON.",
+    )
+    physical_status.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless all required material families have passed evidence.",
+    )
+
     return parser
 
 
@@ -662,6 +683,13 @@ def main(argv: list[str] | None = None) -> int:
         except FileNotFoundError:
             parser.error(f"run root does not exist: {args.run_root}")
 
+    if args.command == "physical-status":
+        return _physical_status(
+            runs_dir=args.runs_dir,
+            json_output=args.json,
+            strict=args.strict,
+        )
+
     parser.print_help()
     return 0
 
@@ -670,6 +698,22 @@ def _serve(*, host: str, port: int, runs_dir: Path) -> int:
     from printpipe.web import server
 
     server.serve(host=host, port=port, runs_dir=runs_dir)
+    return 0
+
+
+def _physical_status(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
+    from printpipe.beta.physical_status import (
+        build_physical_validation_status,
+        render_physical_validation_status,
+    )
+
+    status = build_physical_validation_status(runs_dir)
+    if json_output:
+        print(json.dumps(status, indent=2, sort_keys=True))
+    else:
+        print(render_physical_validation_status(status), end="")
+    if strict and status["overall_status"] != "passed":
+        return 2
     return 0
 
 
