@@ -8,6 +8,7 @@ from printpipe.contracts import ArtifactKind, InputKind, StageStatus
 from printpipe.meshgen import (
     ExistingMeshProvider,
     Hunyuan3DProvider,
+    MediaCommandMeshProvider,
     MeshGenCost,
     MeshGenError,
     MeshGenProvider,
@@ -126,6 +127,7 @@ def test_registry_exposes_existing_hunyuan3d_and_placeholder_providers():
     assert available_provider_ids(registry) == (
         "existing_mesh",
         "hunyuan3d",
+        "media_command",
         "meshy",
         "replicate",
         "rodin",
@@ -141,6 +143,13 @@ def test_registry_exposes_existing_hunyuan3d_and_placeholder_providers():
     assert hunyuan.capabilities.output_formats == ("glb", "stl", "obj")
     assert hunyuan.capabilities.supports_local is True
     assert hunyuan.capabilities.supports_cloud is False
+    media_command = get_provider("media_command", registry)
+    assert media_command.display_name == "Generic media meshgen command"
+    assert media_command.capabilities.input_kinds == (
+        InputKind.IMAGE,
+        InputKind.GIF,
+        InputKind.VIDEO,
+    )
 
     custom = {}
     register_provider(ExistingMeshProvider(), custom)
@@ -239,6 +248,53 @@ def test_hunyuan3d_provider_runs_local_command_and_copies_output(tmp_path: Path)
     assert summary["cost"] == {"currency": "USD", "amount": 0.0, "estimated": False}
     assert summary["output_paths"]["normalized_mesh_path"] == "20_meshgen/hunyuan3d.glb"
     assert summary["artifact"]["metadata"]["source_output_path"] == str(command_output)
+
+
+def test_media_command_provider_runs_generic_command_and_writes_receipts(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    command_output = tmp_path / "generic-output.stl"
+    calls = []
+
+    def fake_runner(argv, *, timeout_seconds):
+        calls.append((tuple(argv), timeout_seconds))
+        command_output.write_text("solid media\nendsolid media\n", encoding="ascii")
+        return subprocess.CompletedProcess(
+            argv,
+            0,
+            stdout=json.dumps({"output_path": str(command_output)}),
+            stderr="",
+        )
+
+    layout = create_run(source, tmp_path / "runs", run_id="run-media-command")
+    provider = MediaCommandMeshProvider(command=("media-meshgen",), runner=fake_runner)
+    request = MeshGenRequest(
+        input_kind=InputKind.IMAGE,
+        source_paths=(layout.original_input,),
+        output_formats=("stl",),
+        prompt_hint="printable desk hook",
+    )
+
+    health = provider.healthcheck()
+    result = provider.generate(request, layout)
+
+    assert health.status == StageStatus.SUCCEEDED
+    assert "Generic media meshgen command is configured" in health.message
+    argv, timeout_seconds = calls[0]
+    assert argv[0] == "media-meshgen"
+    assert argv[argv.index("--source") + 1] == str(layout.original_input)
+    assert argv[argv.index("--output-format") + 1] == "stl"
+    assert argv[argv.index("--prompt") + 1] == "printable desk hook"
+    assert timeout_seconds == request.timeout_seconds
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.provider_id == "media_command"
+    assert result.model_id == "generic-media-command"
+    assert result.normalized_mesh_path == layout.meshgen_dir / "media_command.stl"
+    assert result.artifact.label == "Generated mesh from Generic media meshgen command"
+
+    summary = json.loads((layout.meshgen_dir / "summary.json").read_text())
+    assert summary["provider_id"] == "media_command"
+    assert summary["output_paths"]["normalized_mesh_path"] == "20_meshgen/media_command.stl"
 
 
 def test_placeholder_providers_are_healthy_but_not_implemented(tmp_path: Path):

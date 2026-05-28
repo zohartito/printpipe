@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,7 +38,9 @@ from printpipe.mesh.repair import repair_mesh_file_to_receipt
 from printpipe.meshgen import (
     ExistingMeshProvider,
     Hunyuan3DProvider,
+    MEDIA_MESHGEN_COMMAND_ENV,
     MEDIA_MESHGEN_UNAVAILABLE_MESSAGE,
+    MediaCommandMeshProvider,
     MeshGenProvider,
     MeshGenRequest,
     MeshGenResult,
@@ -58,7 +61,8 @@ from printpipe.runs import (
 
 NON_MESH_MESHGEN_MESSAGE = (
     MEDIA_MESHGEN_UNAVAILABLE_MESSAGE
-    + " Set PRINTPIPE_HUNYUAN3D_COMMAND for the local Hunyuan3D adapter."
+    + " Set PRINTPIPE_MEDIA_MESHGEN_COMMAND for a generic adapter "
+    "or PRINTPIPE_HUNYUAN3D_COMMAND for the local Hunyuan3D adapter."
 )
 DEFAULT_BED = BedSize(width_mm=256.0, depth_mm=256.0)
 DEFAULT_PROFILE_IDS = BambuProfileIds(
@@ -269,7 +273,7 @@ def run_existing_mesh_pipeline_on_layout(
             )
             raise PipelineError(failure_message, result)
 
-        provider = meshgen_provider or Hunyuan3DProvider()
+        provider = meshgen_provider or _default_media_meshgen_provider()
         provider_input_kind = InputKind.IMAGE if input_kind == InputKind.PROMPT else input_kind
         request = MeshGenRequest(
             input_kind=provider_input_kind,
@@ -1364,6 +1368,12 @@ def _slice_gate_status(stages: Sequence[StageReceipt]) -> Mapping[str, Any] | No
 
 def _mesh_output_format(path: Path) -> str:
     return path.suffix.lower().lstrip(".") or "stl"
+
+
+def _default_media_meshgen_provider() -> MeshGenProvider:
+    if os.environ.get(MEDIA_MESHGEN_COMMAND_ENV, "").strip():
+        return MediaCommandMeshProvider()
+    return Hunyuan3DProvider()
 
 
 __all__ = [

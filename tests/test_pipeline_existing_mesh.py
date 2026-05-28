@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -373,6 +374,48 @@ def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_p
         "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
     ]
     assert (result.layout.reports_dir / "run_report.html").exists()
+
+
+def test_media_pipeline_uses_generic_media_command_from_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source_mesh = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    fake_meshgen = tmp_path / "fake_media_meshgen.py"
+    fake_meshgen.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--output', required=True)",
+                "args, _ = parser.parse_known_args()",
+                f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(
+        "PRINTPIPE_MEDIA_MESHGEN_COMMAND",
+        f"{sys.executable} {fake_meshgen}",
+    )
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+
+    result = run_existing_mesh_pipeline(source, tmp_path / "runs")
+
+    stages = {receipt.stage: receipt for receipt in result.stages}
+    assert stages["meshgen"].status == StageStatus.SUCCEEDED
+    assert stages["meshgen"].metrics["provider_id"] == "media_command"
+    assert (result.layout.meshgen_dir / "media_command.stl").exists()
+    assert (result.layout.bundle_dir / "generated_mesh_media_command.3mf").exists()
 
 
 def test_non_stl_existing_mesh_fails_at_repair_when_trimesh_unavailable(

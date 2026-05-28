@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 159: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 162: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 159 closed the last backend item from the Opus audit punch-list. Mesh repair now catches loader/format exceptions such as legacy/corrupt GLB `NotImplementedError` and records a failed `mesh_repair` receipt with stats JSON instead of throwing a raw traceback. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
+Latest status: Wave 162 added a generic media meshgen command provider alongside the Hunyuan-specific adapter. Image/GIF/video/prompt-to-mesh runs can now use `PRINTPIPE_MEDIA_MESHGEN_COMMAND` for any local or hosted-wrapper adapter that follows PrintPipe's command protocol, while `PRINTPIPE_HUNYUAN3D_COMMAND` remains supported. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured live media meshgen provider for non-mesh inputs.
 
 ## Goal
 
@@ -277,7 +277,7 @@ These items are not part of the original 142 count. They come from Wave 13 verif
 - [x] F1. Fix or document macOS Desktop/TCC permission recovery for the primary checkout.
 - [x] F2. Add a `printpipe doctor` check that warns when the current workspace or external artifact paths are unreadable.
 - [x] F3. Add a run option that deliberately invokes live Bambu CLI slicing against the generated `.3mf` and records the real receipt.
-- [x] F4. Wire image/GIF/video runs through Hunyuan3D meshgen, repair, orientation, bundle, and report.
+- [x] F4. Wire image/GIF/video runs through configurable media meshgen, repair, orientation, bundle, and report.
 - [x] F5. Add real mesh preview screenshots or deterministic rendered previews, not only SVG/contact-sheet previews.
 - [x] F6. Add one-click "open bundle/report folder" affordance for local macOS/Windows flows.
 - [x] F7. Create a flex-coupon generator and include it as the first TPU validation artifact.

@@ -36,9 +36,9 @@ Local CLI / local app
 | Input | Pipeline status | Receipt behavior |
 | --- | --- | --- |
 | Existing mesh | Production spine for v1 foundation. | Imports existing geometry, repairs it, writes oriented STL, preview artifacts, Bambu `.3mf`, validation report, and optional slice receipt. |
-| Image/GIF/video | Wired through the configured local Hunyuan3D adapter. | Writes extracted/selected references and contact sheet artifacts, then either generates a mesh and continues through repair/orient/bundle/report, or fails `meshgen` with a provider-configuration receipt when `PRINTPIPE_HUNYUAN3D_COMMAND` is unset. |
+| Image/GIF/video | Wired through a configured media meshgen command adapter. | Writes extracted/selected references and contact sheet artifacts, then either generates a mesh and continues through repair/orient/bundle/report, or fails `meshgen` with a provider-configuration receipt when neither `PRINTPIPE_MEDIA_MESHGEN_COMMAND` nor `PRINTPIPE_HUNYUAN3D_COMMAND` is set. |
 | Prompt + image | CLI and local web wired. | `printpipe run image.png --prompt "..."` and the local web file-plus-prompt form prepare the reference image normally and pass the prompt through as `MeshGenRequest.prompt_hint`. |
-| Prompt only | CLI and local web wired through selectable reference-image providers. | `printpipe run --prompt "..."` and prompt-only web runs write `00_input/prompt.txt`, then use `auto`, `command`, or `openai` prompt-image provider selection to create a reference image before continuing through the same Hunyuan3D/repair/orient/bundle spine. If no provider is configured, the run fails at `prompt_reference_generation` with receipts; the run-detail workbench and static run reports surface provider quote/budget/privacy receipts when present. |
+| Prompt only | CLI and local web wired through selectable reference-image providers. | `printpipe run --prompt "..."` and prompt-only web runs write `00_input/prompt.txt`, then use `auto`, `command`, or `openai` prompt-image provider selection to create a reference image before continuing through the same media-meshgen/repair/orient/bundle spine. If no provider is configured, the run fails at `prompt_reference_generation` with receipts; the run-detail workbench and static run reports surface provider quote/budget/privacy receipts when present. |
 
 ## Hard Gates
 
@@ -56,9 +56,10 @@ The current end-to-end command target uses an existing mesh:
 printpipe run input.stl --slice
 ```
 
-Image/GIF/video now uses the same repair/orient/bundle path after the configured Hunyuan3D command writes a mesh:
+Image/GIF/video now uses the same repair/orient/bundle path after a configured media meshgen command writes a mesh. Use the generic hook for any adapter that accepts PrintPipe's command arguments, or the Hunyuan-specific hook for that local adapter:
 
 ```bash
+export PRINTPIPE_MEDIA_MESHGEN_COMMAND="/path/to/media_meshgen_adapter"
 export PRINTPIPE_HUNYUAN3D_COMMAND="/path/to/hunyuan_adapter"
 export PRINTPIPE_PROMPT_IMAGE_COMMAND="/path/to/image_adapter --prompt-file {prompt_file} --output {output}"
 export OPENAI_API_KEY="sk-..."  # optional when --prompt-image-provider openai is selected

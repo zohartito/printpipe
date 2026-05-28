@@ -54,6 +54,27 @@ def test_environment_report_combines_dependencies_bambu_and_profile_detection(
     assert report["summary"]["dependency_status_counts"]["ok"] == 3
 
 
+def test_environment_report_counts_generic_media_command_provider(tmp_path: Path):
+    report = build_environment_report(
+        platform_name="linux",
+        env={"PRINTPIPE_MEDIA_MESHGEN_COMMAND": "media-meshgen"},
+        workspace_paths=(tmp_path,),
+        bambu_studio_roots=(),
+        profile_base_paths=(),
+    )
+
+    providers = {
+        provider["provider_id"]: provider
+        for provider in report["meshgen"]["providers"]
+    }
+    assert report["meshgen"]["overall_status"] == "ready"
+    assert report["meshgen"]["live_media_provider_count"] == 1
+    assert providers["media_command"]["status"] == "succeeded"
+    assert "Generic media meshgen command is configured" in (
+        providers["media_command"]["message"]
+    )
+
+
 def test_environment_report_warns_about_unreadable_workspace_and_artifact_paths(
     monkeypatch,
     tmp_path: Path,

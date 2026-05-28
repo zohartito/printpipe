@@ -1771,3 +1771,14 @@ Status: complete for the run-detail static-tab UX audit item.
 4. Done: tab styling still reads as compact chips, but anchors now have real `href` targets and no JavaScript dependency.
 5. Done: regression coverage proves the run-detail response includes the anchor targets and no longer renders the inert `Bed Fit` span.
 6. Boundary: this does not add multi-state tab content or a 3D viewer. It makes the existing server-rendered workbench navigation honest and usable.
+
+## Wave 162 - Generic Media Meshgen Command Provider
+
+Status: partial progress for the remaining live media-meshgen gate.
+
+1. Done: added `MediaCommandMeshProvider`, a generic image/GIF/video local command provider activated by `PRINTPIPE_MEDIA_MESHGEN_COMMAND`.
+2. Done: kept the existing `Hunyuan3DProvider` and `PRINTPIPE_HUNYUAN3D_COMMAND` path intact, but generalized the shared command-provider copy so receipts use provider-specific labels and environment variables.
+3. Done: default media runs now prefer the generic provider when `PRINTPIPE_MEDIA_MESHGEN_COMMAND` is set, otherwise they preserve the old Hunyuan fallback and failure copy.
+4. Done: `printpipe doctor`/readiness now count the generic media command as a live media provider when configured, and missing-provider actions name both generic and Hunyuan hooks.
+5. Done: regression coverage proves generic command generation writes receipts, environment doctor counts it as live, and the normal media pipeline can build a Bambu bundle from a generic command output.
+6. Boundary: this still does not install or configure a real mesh model/provider on Zohar's machine. The readiness gate stays action-required until `PRINTPIPE_MEDIA_MESHGEN_COMMAND` or `PRINTPIPE_HUNYUAN3D_COMMAND` points at a working adapter.

@@ -47,9 +47,11 @@ printpipe open-folder runs/<run-id> --target bundle
 printpipe open-folder runs/<run-id> --target report
 ```
 
-If `printpipe run` reports that the Hunyuan3D local command is not configured,
-set `PRINTPIPE_HUNYUAN3D_COMMAND` to the local adapter command before running
-image/GIF/video inputs. Existing mesh inputs do not need that provider.
+If `printpipe run` reports that no media meshgen command is configured, set
+`PRINTPIPE_MEDIA_MESHGEN_COMMAND` to any adapter that accepts PrintPipe's
+`--source`, `--output`, `--output-format`, and related arguments. The older
+Hunyuan-specific hook still works via `PRINTPIPE_HUNYUAN3D_COMMAND`. Existing
+mesh inputs do not need either provider.
 `printpipe doctor` and `printpipe readiness --strict` show the same provider
 gap before you start a media run.
 

@@ -34,6 +34,7 @@ from .contracts import (
 
 MESH_SUFFIXES = {".stl", ".glb", ".gltf", ".obj", ".3mf"}
 HUNYUAN3D_COMMAND_ENV = "PRINTPIPE_HUNYUAN3D_COMMAND"
+MEDIA_MESHGEN_COMMAND_ENV = "PRINTPIPE_MEDIA_MESHGEN_COMMAND"
 MEDIA_MESHGEN_INPUT_KINDS = (InputKind.IMAGE, InputKind.GIF, InputKind.VIDEO)
 MEDIA_MESHGEN_UNAVAILABLE_MESSAGE = (
     "No live image/GIF/video meshgen provider is configured."
@@ -295,6 +296,7 @@ class Hunyuan3DProvider:
     display_name = "Hunyuan3D local command"
     adapter_version = "0.1.0"
     model_id = "hunyuan3d-local-command"
+    command_env = HUNYUAN3D_COMMAND_ENV
     capabilities = MeshGenCapabilities(
         input_kinds=(InputKind.IMAGE, InputKind.GIF, InputKind.VIDEO),
         output_formats=("glb", "stl", "obj"),
@@ -319,8 +321,8 @@ class Hunyuan3DProvider:
                 cost=MeshGenCost(currency="USD", amount=0.0, estimated=False),
                 estimated_seconds=None,
                 message=(
-                    "Hunyuan3D local command is not configured; set "
-                    f"{HUNYUAN3D_COMMAND_ENV} or pass a command path."
+                    f"{self.display_name} is not configured; set "
+                    f"{self.command_env} or pass a command path."
                 ),
             )
 
@@ -329,7 +331,7 @@ class Hunyuan3DProvider:
             status=StageStatus.SUCCEEDED,
             cost=MeshGenCost(currency="USD", amount=0.0, estimated=False),
             estimated_seconds=None,
-            message="Hunyuan3D local command is configured; adapter cost is local/free.",
+            message=f"{self.display_name} is configured; adapter cost is local/free.",
         )
 
     def healthcheck(self) -> ProviderHealth:
@@ -338,8 +340,8 @@ class Hunyuan3DProvider:
                 provider_id=self.provider_id,
                 status=StageStatus.SKIPPED,
                 message=(
-                    "Hunyuan3D local command is not configured. Set "
-                    f"{HUNYUAN3D_COMMAND_ENV} to enable this provider."
+                    f"{self.display_name} is not configured. Set "
+                    f"{self.command_env} to enable this provider."
                 ),
                 checked_at=utc_now(),
             )
@@ -347,7 +349,7 @@ class Hunyuan3DProvider:
         return ProviderHealth(
             provider_id=self.provider_id,
             status=StageStatus.SUCCEEDED,
-            message=f"Hunyuan3D local command is configured: {self.command[0]}",
+            message=f"{self.display_name} is configured: {self.command[0]}",
             checked_at=utc_now(),
         )
 
@@ -359,8 +361,8 @@ class Hunyuan3DProvider:
             result = self._failure_result(
                 category="provider_unavailable",
                 message=(
-                    "Hunyuan3D local command is not configured; set "
-                    f"{HUNYUAN3D_COMMAND_ENV} or pass a command path."
+                    f"{self.display_name} is not configured; set "
+                    f"{self.command_env} or pass a command path."
                 ),
                 retryable=False,
                 started_at=started_at,
@@ -386,7 +388,7 @@ class Hunyuan3DProvider:
             result = self._failure_result(
                 category="invalid_request",
                 message=(
-                    "Hunyuan3D local command cannot produce requested output formats: "
+                    f"{self.display_name} cannot produce requested output formats: "
                     f"{', '.join(request.output_formats)}"
                 ),
                 retryable=False,
@@ -403,7 +405,7 @@ class Hunyuan3DProvider:
         except subprocess.TimeoutExpired as exc:
             result = self._failure_result(
                 category="provider_timeout",
-                message=f"Hunyuan3D local command timed out after {request.timeout_seconds}s.",
+                message=f"{self.display_name} timed out after {request.timeout_seconds}s.",
                 retryable=True,
                 started_at=started_at,
                 wall_seconds=_duration(started_perf),
@@ -414,7 +416,7 @@ class Hunyuan3DProvider:
         except OSError as exc:
             result = self._failure_result(
                 category="provider_command_error",
-                message=f"Hunyuan3D local command could not be started: {exc}",
+                message=f"{self.display_name} could not be started: {exc}",
                 retryable=False,
                 started_at=started_at,
                 wall_seconds=_duration(started_perf),
@@ -426,7 +428,7 @@ class Hunyuan3DProvider:
         if completed.returncode != 0:
             result = self._failure_result(
                 category="provider_command_failed",
-                message=f"Hunyuan3D local command exited with code {completed.returncode}.",
+                message=f"{self.display_name} exited with code {completed.returncode}.",
                 retryable=False,
                 started_at=started_at,
                 wall_seconds=_duration(started_perf),
@@ -440,7 +442,7 @@ class Hunyuan3DProvider:
             result = self._failure_result(
                 category="provider_output_missing",
                 message=(
-                    "Hunyuan3D local command succeeded but did not create the requested "
+                    f"{self.display_name} succeeded but did not create the requested "
                     "mesh output or report an output_path."
                 ),
                 retryable=False,
@@ -461,7 +463,7 @@ class Hunyuan3DProvider:
         artifact = Artifact(
             kind=ArtifactKind.GENERATED_MESH,
             path=destination,
-            label="Generated mesh from Hunyuan3D",
+            label=f"Generated mesh from {self.display_name}",
             metadata={
                 "provider_id": self.provider_id,
                 "command": argv,
@@ -496,7 +498,7 @@ class Hunyuan3DProvider:
     def delete_remote_artifacts(self, result: MeshGenResult) -> DeleteResult:
         return DeleteResult(
             status=StageStatus.SKIPPED,
-            message="Hunyuan3D local command creates no remote artifacts.",
+            message=f"{self.display_name} creates no remote artifacts.",
         )
 
     def _configured_command(
@@ -504,7 +506,7 @@ class Hunyuan3DProvider:
         command: str | Path | Sequence[str | Path] | None,
     ) -> tuple[str, ...]:
         if command is None:
-            env_value = os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip()
+            env_value = os.environ.get(self.command_env, "").strip()
             return tuple(shlex.split(env_value)) if env_value else ()
         if isinstance(command, Path):
             return (str(command),)
@@ -528,7 +530,7 @@ class Hunyuan3DProvider:
 
     def _validate_request(self, request: MeshGenRequest) -> str | None:
         if request.input_kind not in self.capabilities.input_kinds:
-            return "hunyuan3d provider only accepts image, gif, or video input"
+            return f"{self.provider_id} provider only accepts image, gif, or video input"
         if not request.source_paths:
             return "hunyuan3d provider requires at least one source reference path"
         missing = [
@@ -662,6 +664,13 @@ class Hunyuan3DProvider:
         )
 
 
+class MediaCommandMeshProvider(Hunyuan3DProvider):
+    provider_id = "media_command"
+    display_name = "Generic media meshgen command"
+    model_id = "generic-media-command"
+    command_env = MEDIA_MESHGEN_COMMAND_ENV
+
+
 class PlaceholderMeshProvider:
     adapter_version = "0.1.0"
 
@@ -790,7 +799,10 @@ def build_media_meshgen_readiness(
         "action": (
             "No action needed."
             if ready
-            else f"Set {HUNYUAN3D_COMMAND_ENV} or configure a hosted mesh provider."
+            else (
+                f"Set {MEDIA_MESHGEN_COMMAND_ENV}, set {HUNYUAN3D_COMMAND_ENV}, "
+                "or configure a hosted mesh provider."
+            )
         ),
         "providers": provider_summaries,
     }
@@ -800,6 +812,7 @@ def default_registry() -> dict[str, MeshGenProvider]:
     registry: dict[str, MeshGenProvider] = {}
     register_provider(ExistingMeshProvider(), registry)
     register_provider(Hunyuan3DProvider(), registry)
+    register_provider(MediaCommandMeshProvider(), registry)
     register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
     register_provider(PlaceholderMeshProvider("meshy", "Meshy"), registry)
     register_provider(PlaceholderMeshProvider("rodin", "Rodin"), registry)
@@ -810,12 +823,15 @@ def _default_readiness_registry(
     *,
     env: Mapping[str, str] | None,
 ) -> dict[str, MeshGenProvider]:
-    command = None
+    hunyuan_command = None
+    media_command = None
     if env is not None:
-        command = env.get(HUNYUAN3D_COMMAND_ENV, "")
+        hunyuan_command = env.get(HUNYUAN3D_COMMAND_ENV, "")
+        media_command = env.get(MEDIA_MESHGEN_COMMAND_ENV, "")
     registry: dict[str, MeshGenProvider] = {}
     register_provider(ExistingMeshProvider(), registry)
-    register_provider(Hunyuan3DProvider(command=command), registry)
+    register_provider(Hunyuan3DProvider(command=hunyuan_command), registry)
+    register_provider(MediaCommandMeshProvider(command=media_command), registry)
     register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
     register_provider(PlaceholderMeshProvider("meshy", "Meshy"), registry)
     register_provider(PlaceholderMeshProvider("rodin", "Rodin"), registry)

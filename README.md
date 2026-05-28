@@ -38,7 +38,7 @@ Current input support is intentionally explicit:
 | Input mode | Current behavior |
 | --- | --- |
 | Existing STL/OBJ/3MF mesh | Runs end-to-end through import, repair, orientation, Bambu 3MF bundling, reports, and optional Bambu CLI slice gate. |
-| Image, GIF, video | Prepares references/contact sheets, then runs the configured Hunyuan3D local adapter through repair, orientation, Bambu 3MF bundling, and reports. If `PRINTPIPE_HUNYUAN3D_COMMAND` is not set, the run fails honestly at `meshgen` with provider-configuration receipts. |
+| Image, GIF, video | Prepares references/contact sheets, then runs a configured media meshgen adapter through repair, orientation, Bambu 3MF bundling, and reports. `PRINTPIPE_MEDIA_MESHGEN_COMMAND` is the generic command hook; `PRINTPIPE_HUNYUAN3D_COMMAND` remains the Hunyuan-specific hook. If neither is set, the run fails honestly at `meshgen` with provider-configuration receipts. |
 | Prompt plus image | CLI supports `printpipe run image.png --prompt "..."`; the local web UI supports file plus prompt. The prompt is passed through to configured mesh providers as `prompt_hint`. |
 | Prompt only | CLI supports `printpipe run --prompt "..."`; the local web UI supports prompt-only new runs. It writes `00_input/prompt.txt`, then uses the selected prompt-image provider to produce a reference image before the normal meshgen path. If no provider is configured, the run fails honestly at `prompt_reference_generation` with receipts. |
 
