@@ -422,6 +422,26 @@ class PrintPipeWebApp:
             catalog["materials"],
             selected_id=defaults["material_id"],
         )
+        prompt_image_provider_options = _render_select_options(
+            (
+                {
+                    "id": "auto",
+                    "label": "Auto",
+                    "description": "Use a configured command first, then OpenAI when an API key is available.",
+                },
+                {
+                    "id": "command",
+                    "label": "Configured command",
+                    "description": "Use PRINTPIPE_PROMPT_IMAGE_COMMAND.",
+                },
+                {
+                    "id": "openai",
+                    "label": "OpenAI",
+                    "description": "Use the OpenAI Images API with OPENAI_API_KEY.",
+                },
+            ),
+            selected_id="auto",
+        )
         return "\n".join(
             [
                 '    <section class="panel create-panel">',
@@ -443,6 +463,10 @@ class PrintPipeWebApp:
                 "          <label>",
                 "            <span>Filament</span>",
                 f'            <select name="material_id">{material_options}</select>',
+                "          </label>",
+                "          <label>",
+                "            <span>Prompt image provider</span>",
+                f'            <select name="prompt_image_provider">{prompt_image_provider_options}</select>',
                 "          </label>",
                 "          <label>",
                 "            <span>Target length (mm)</span>",
@@ -631,6 +655,9 @@ class PrintPipeWebApp:
                         use_case="web run",
                         settings_changes=(form.launch_options,),
                         prompt_hint=form.prompt or None,
+                        prompt_image_provider=str(
+                            form.launch_options.get("prompt_image_provider", "auto")
+                        ),
                     )
                 except PipelineError as exc:
                     result = exc.result
@@ -652,6 +679,7 @@ class PrintPipeWebApp:
                 printer=str(form.launch_options.get("printer_id", "Unknown printer")),
                 use_case="web run",
                 settings_changes=(form.launch_options,),
+                prompt_image_provider=str(form.launch_options.get("prompt_image_provider", "auto")),
             )
         except PipelineError as exc:
             result = exc.result
@@ -886,6 +914,7 @@ def _launch_options(fields: dict[str, str], uploaded_filename: str | None) -> di
     printer_id = fields.get("printer_id") or defaults["printer_id"]
     material_id = fields.get("material_id") or defaults["material_id"]
     prompt = fields.get("prompt", "").strip()
+    prompt_image_provider = fields.get("prompt_image_provider") or "auto"
 
     printer_labels = {str(option.get("id", "")): str(option.get("label", "")) for option in catalog["printers"]}
     material_labels = {str(option.get("id", "")): str(option.get("label", "")) for option in catalog["materials"]}
@@ -893,10 +922,16 @@ def _launch_options(fields: dict[str, str], uploaded_filename: str | None) -> di
         raise _FormError(HTTPStatus.BAD_REQUEST, f"Unknown printer selection: {printer_id}.")
     if material_id not in material_labels:
         raise _FormError(HTTPStatus.BAD_REQUEST, f"Unknown material selection: {material_id}.")
+    if prompt_image_provider not in {"auto", "command", "openai"}:
+        raise _FormError(
+            HTTPStatus.BAD_REQUEST,
+            f"Unknown prompt image provider: {prompt_image_provider}.",
+        )
 
     options: dict[str, Any] = {
         "source": "web_form",
         "input_mode": _input_mode(uploaded_filename=uploaded_filename, prompt=prompt),
+        "prompt_image_provider": prompt_image_provider,
         "printer_id": printer_id,
         "printer_label": printer_labels[printer_id],
         "material_id": material_id,

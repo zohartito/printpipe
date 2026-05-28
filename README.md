@@ -40,7 +40,7 @@ Current input support is intentionally explicit:
 | Existing STL/OBJ/3MF mesh | Runs end-to-end through import, repair, orientation, Bambu 3MF bundling, reports, and optional Bambu CLI slice gate. |
 | Image, GIF, video | Prepares references/contact sheets, then runs the configured Hunyuan3D local adapter through repair, orientation, Bambu 3MF bundling, and reports. If `PRINTPIPE_HUNYUAN3D_COMMAND` is not set, the run fails honestly at `meshgen` with provider-configuration receipts. |
 | Prompt plus image | CLI supports `printpipe run image.png --prompt "..."`; the local web UI supports file plus prompt. The prompt is passed through to configured mesh providers as `prompt_hint`. |
-| Prompt only | CLI supports `printpipe run --prompt "..."`; the local web UI supports prompt-only new runs. It writes `00_input/prompt.txt`, then requires `PRINTPIPE_PROMPT_IMAGE_COMMAND` to produce a reference image before the normal meshgen path. If unset, the run fails honestly at `prompt_reference_generation` with receipts. |
+| Prompt only | CLI supports `printpipe run --prompt "..."`; the local web UI supports prompt-only new runs. It writes `00_input/prompt.txt`, then uses the selected prompt-image provider to produce a reference image before the normal meshgen path. If no provider is configured, the run fails honestly at `prompt_reference_generation` with receipts. |
 
 Optional media cleanup hooks:
 
@@ -51,6 +51,27 @@ export PRINTPIPE_PROMPT_IMAGE_COMMAND='your-image-tool --prompt-file {prompt_fil
 ```
 
 When unset, those stages stay as explicit no-op/copy receipts.
+
+Prompt-only runs can use either a configured command or the OpenAI Images API:
+
+```bash
+# Existing local/custom hook.
+printpipe run --prompt "small ergonomic desk hook" \
+  --prompt-image-provider command
+
+# Built-in OpenAI prompt-image adapter.
+export OPENAI_API_KEY='sk-...'
+printpipe run --prompt "small ergonomic desk hook" \
+  --prompt-image-provider openai
+```
+
+OpenAI prompt-image defaults are conservative and configurable:
+
+```bash
+export PRINTPIPE_OPENAI_IMAGE_MODEL='gpt-image-2'
+export PRINTPIPE_OPENAI_IMAGE_SIZE='1024x1024'
+export PRINTPIPE_OPENAI_IMAGE_QUALITY='low'
+```
 
 Flexible-material runs, including TPU, also emit `40_geometry/flex_coupon_40x15x3.stl` as the first validation print artifact.
 

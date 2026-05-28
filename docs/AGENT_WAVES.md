@@ -718,3 +718,16 @@ Status: partial progress for prompt/reference generation. The local web UI now m
 5. Done: file-plus-prompt web runs preserve the prompt in `manifest.json` launch options and pass it to meshgen as `prompt_hint`.
 6. Done: launch metadata now records `input_mode` as `file`, `prompt`, or `file+prompt`.
 7. Remaining: real prompt-image model adapter, hosted/local provider selection UI, and physical validation stay open.
+
+## Wave 65 - Prompt Image Provider Selection
+
+Status: partial progress for prompt/reference generation. Prompt-only runs now have a provider-aware reference image layer instead of only a raw command hook, but physical validation remains outside software.
+
+1. Done: added explicit prompt-image provider resolution for `auto`, `command`, and `openai`.
+2. Done: preserved `PRINTPIPE_PROMPT_IMAGE_COMMAND` as the command provider and as the first `auto` choice.
+3. Done: added an OpenAI Images API prompt-image adapter using `OPENAI_API_KEY`.
+4. Done: OpenAI model, size, quality, background, output format, and base URL are configurable through env vars.
+5. Done: failed prompt-image setup now records provider-specific receipts instead of a generic command-only failure.
+6. Done: added `printpipe run --prompt-image-provider auto|command|openai`.
+7. Done: added a local web `Prompt image provider` selector and persisted the selected provider in launch metadata.
+8. Remaining: real live OpenAI/API-key run evidence, hosted cost/quality policy, and physical validation stay open.

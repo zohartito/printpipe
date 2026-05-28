@@ -61,6 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Prompt text to use with a reference input, or by itself with a configured prompt-image command.",
     )
     run.add_argument(
+        "--prompt-image-provider",
+        choices=("auto", "command", "openai"),
+        default="auto",
+        help="Prompt-only reference image provider. auto uses a configured command first, then OpenAI when OPENAI_API_KEY is set.",
+    )
+    run.add_argument(
         "--runs-dir",
         type=Path,
         default=Path("runs"),
@@ -486,6 +492,7 @@ def main(argv: list[str] | None = None) -> int:
                     material=args.material,
                     printer=args.printer,
                     use_case=args.use_case,
+                    prompt_image_provider=args.prompt_image_provider,
                 )
             else:
                 result = run_existing_mesh_pipeline(
@@ -497,6 +504,7 @@ def main(argv: list[str] | None = None) -> int:
                     run_slice=args.slice,
                     slice_executable=args.bambu_cli,
                     prompt_hint=args.prompt,
+                    prompt_image_provider=args.prompt_image_provider,
                 )
             layout = result.layout
             report_json = layout.reports_dir / "run_report.json"

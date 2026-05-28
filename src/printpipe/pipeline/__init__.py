@@ -124,6 +124,7 @@ def run_existing_mesh_pipeline(
     slice_executable: str | Path | None = None,
     meshgen_provider: MeshGenProvider | None = None,
     prompt_hint: str | None = None,
+    prompt_image_provider: str | None = None,
 ) -> PipelineResult:
     """Run the currently wired pipeline spine for mesh or media input."""
 
@@ -138,6 +139,7 @@ def run_existing_mesh_pipeline(
         slice_executable=slice_executable,
         meshgen_provider=meshgen_provider,
         prompt_hint=prompt_hint,
+        prompt_image_provider=prompt_image_provider,
     )
 
 
@@ -150,6 +152,7 @@ def run_prompt_pipeline(
     use_case: str = "print",
     settings_changes: Sequence[Mapping[str, Any] | str] = (),
     meshgen_provider: MeshGenProvider | None = None,
+    prompt_image_provider: str | None = None,
 ) -> PipelineResult:
     """Run prompt-only input through configured reference generation and meshgen."""
 
@@ -162,6 +165,7 @@ def run_prompt_pipeline(
         settings_changes=settings_changes,
         meshgen_provider=meshgen_provider,
         prompt_hint=prompt,
+        prompt_image_provider=prompt_image_provider,
     )
 
 
@@ -179,13 +183,18 @@ def run_existing_mesh_pipeline_on_layout(
     slice_executable: str | Path | None = None,
     meshgen_provider: MeshGenProvider | None = None,
     prompt_hint: str | None = None,
+    prompt_image_provider: str | None = None,
 ) -> PipelineResult:
     """Run the mesh pipeline inside a pre-created run layout."""
 
     source_mesh = Path(source_mesh_path) if source_mesh_path is not None else layout.original_input
     selected_reference_artifacts: tuple[Artifact, ...] = ()
     if source_mesh_path is None:
-        input_result = prepare_input(layout.original_input, layout.frames_dir)
+        input_result = prepare_input(
+            layout.original_input,
+            layout.frames_dir,
+            prompt_image_provider=prompt_image_provider,
+        )
         stages = [*initial_stages, *input_result.receipts]
         input_kind = input_result.kind
         source_artifact = input_result.mesh_artifact

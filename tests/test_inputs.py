@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import base64
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -206,6 +209,122 @@ def test_clean_references_runs_configured_background_and_lighting_commands(
     assert receipt_by_stage["background_removal"].metrics["semantic_background_removed"] is True
     assert receipt_by_stage["normalize_lighting"].metrics["command_configured"] is True
     assert receipt_by_stage["normalize_lighting"].metrics["lighting_normalized"] is True
+
+
+def test_prepare_prompt_reports_missing_provider_configuration(tmp_path: Path):
+    prompt_path = tmp_path / "prompt.txt"
+    prompt_path.write_text("small ergonomic desk hook\n", encoding="utf-8")
+
+    result = prepare_input(prompt_path, tmp_path / "work")
+
+    assert result.kind == InputKind.PROMPT
+    assert result.selected_references == ()
+    receipt_by_stage = {receipt.stage: receipt for receipt in result.receipts}
+    receipt = receipt_by_stage["prompt_reference_generation"]
+    assert receipt.status == StageStatus.FAILED
+    assert "prompt image provider is not configured" in receipt.message
+    assert "PRINTPIPE_PROMPT_IMAGE_COMMAND" in receipt.message
+    assert "OPENAI_API_KEY" in receipt.message
+    assert receipt.metrics["provider"] == "none"
+
+
+def test_prepare_prompt_openai_provider_requires_api_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    prompt_path = tmp_path / "prompt.txt"
+    prompt_path.write_text("small ergonomic desk hook\n", encoding="utf-8")
+    monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_PROVIDER", "openai")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    result = prepare_input(prompt_path, tmp_path / "work")
+
+    receipt = {receipt.stage: receipt for receipt in result.receipts}["prompt_reference_generation"]
+    assert receipt.status == StageStatus.FAILED
+    assert receipt.message == "OpenAI prompt image provider requires OPENAI_API_KEY"
+    assert receipt.metrics["provider"] == "openai"
+    assert receipt.metrics["provider_configured"] is False
+
+
+def test_prepare_prompt_openai_provider_writes_reference_image(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    requests: list[dict[str, object]] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            content_length = int(self.headers["Content-Length"])
+            body = self.rfile.read(content_length)
+            requests.append(
+                {
+                    "path": self.path,
+                    "authorization": self.headers.get("Authorization"),
+                    "json": json.loads(body.decode("utf-8")),
+                }
+            )
+            response = {
+                "data": [
+                    {
+                        "b64_json": base64.b64encode(b"fake openai png bytes").decode("ascii"),
+                    }
+                ],
+                "usage": {"total_tokens": 7},
+            }
+            encoded = json.dumps(response).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        prompt_path = tmp_path / "prompt.txt"
+        prompt_path.write_text("small ergonomic desk hook\n", encoding="utf-8")
+        monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_PROVIDER", "openai")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+        monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_BASE_URL", f"http://127.0.0.1:{server.server_port}/v1")
+        monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_MODEL", "gpt-image-test")
+        monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_SIZE", "1024x1024")
+        monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_QUALITY", "low")
+
+        result = prepare_input(prompt_path, tmp_path / "work")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+    assert requests == [
+        {
+            "path": "/v1/images/generations",
+            "authorization": "Bearer test-api-key",
+            "json": {
+                "model": "gpt-image-test",
+                "prompt": "small ergonomic desk hook",
+                "n": 1,
+                "size": "1024x1024",
+                "quality": "low",
+                "background": "auto",
+                "output_format": "png",
+            },
+        }
+    ]
+    assert result.selected_references[0].path.read_bytes() == b"fake openai png bytes"
+    assert result.selected_references[0].metadata["extraction_method"] == "openai_image_generation"
+    assert result.selected_references[0].metadata["prompt_image_provider"] == "openai"
+    assert result.selected_references[0].metadata["model"] == "gpt-image-test"
+
+    receipt = {receipt.stage: receipt for receipt in result.receipts}["prompt_reference_generation"]
+    assert receipt.status == StageStatus.SUCCEEDED
+    assert receipt.metrics["provider"] == "openai"
+    assert receipt.metrics["model"] == "gpt-image-test"
+    assert receipt.metrics["usage"] == {"total_tokens": 7}
 
 
 def test_prepare_gif_and_video_skip_frame_extraction_when_no_runner_is_available(tmp_path: Path):

@@ -129,7 +129,7 @@ def test_run_prompt_only_without_generator_writes_failed_receipts(
     )
     assert f"run root: {run_root}" in captured.out
     assert "failed stage: prompt_reference_generation" in captured.out
-    assert "PRINTPIPE_PROMPT_IMAGE_COMMAND" in captured.err
+    assert "prompt image provider is not configured" in captured.err
 
     report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
     stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
@@ -139,8 +139,37 @@ def test_run_prompt_only_without_generator_writes_failed_receipts(
     manifest = json.loads((run_root / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["input"]["kind"] == "prompt"
     assert report["warnings"] == [
-        "prompt image generation command is not configured; set PRINTPIPE_PROMPT_IMAGE_COMMAND"
+        "prompt image provider is not configured; set PRINTPIPE_PROMPT_IMAGE_COMMAND or set "
+        "PRINTPIPE_PROMPT_IMAGE_PROVIDER=openai with OPENAI_API_KEY"
     ]
+
+
+def test_run_prompt_only_with_openai_provider_without_key_writes_failed_receipts(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    runs_dir = tmp_path / "runs"
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    exit_code = main(
+        [
+            "run",
+            "--prompt",
+            "small ergonomic desk hook",
+            "--prompt-image-provider",
+            "openai",
+            "--runs-dir",
+            str(runs_dir),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "OpenAI prompt image provider requires OPENAI_API_KEY" in captured.err
+    run_root = next(runs_dir.iterdir())
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    assert report["warnings"] == ["OpenAI prompt image provider requires OPENAI_API_KEY"]
 
 
 def test_run_prompt_only_with_configured_reference_and_hunyuan_writes_bundle(

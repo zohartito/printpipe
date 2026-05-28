@@ -123,6 +123,7 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'name="prompt"' in response.text
     assert "Bambu Lab P2S" in response.text
     assert "SUNLU TPU 90A Slipper" in response.text
+    assert "Prompt image provider" in response.text
     assert "Target length (mm)" in response.text
     assert "run-ui-001" in response.text
     assert "succeeded" in response.text
@@ -734,6 +735,7 @@ def test_post_runs_accepts_prompt_only_creates_prompt_run_and_failed_receipts(tm
             "prompt": "small ergonomic wall hook with rounded screw tabs",
             "printer_id": "bambu-p2s-0-4-nozzle",
             "material_id": "pla",
+            "prompt_image_provider": "command",
             "target_length_mm": "80",
         }
     )
@@ -756,6 +758,7 @@ def test_post_runs_accepts_prompt_only_creates_prompt_run_and_failed_receipts(tm
     assert manifest["input"]["kind"] == "prompt"
     assert manifest["input"]["prompt"] == "small ergonomic wall hook with rounded screw tabs"
     assert manifest["launch_options"]["input_mode"] == "prompt"
+    assert manifest["launch_options"]["prompt_image_provider"] == "command"
     assert manifest["launch_options"]["prompt"] == "small ergonomic wall hook with rounded screw tabs"
     assert "uploaded_filename" not in manifest["launch_options"]
 
@@ -765,7 +768,7 @@ def test_post_runs_accepts_prompt_only_creates_prompt_run_and_failed_receipts(tm
     assert ("prompt_reference_generation", "failed") in stages
     assert report["settings_changes"] == [manifest["launch_options"]]
     assert report["warnings"] == [
-        "prompt image generation command is not configured; set PRINTPIPE_PROMPT_IMAGE_COMMAND"
+        "prompt image command provider requires PRINTPIPE_PROMPT_IMAGE_COMMAND"
     ]
 
 

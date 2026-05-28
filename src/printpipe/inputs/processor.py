@@ -8,16 +8,19 @@ or lighting processing exists.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import shlex
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 from html import escape
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from printpipe.contracts import Artifact, ArtifactKind, InputKind, StageReceipt, StageStatus
 
@@ -30,6 +33,19 @@ DEFAULT_MAX_EXTRACTED_FRAMES = 8
 BACKGROUND_REMOVAL_COMMAND_ENV = "PRINTPIPE_BACKGROUND_REMOVAL_COMMAND"
 LIGHTING_NORMALIZATION_COMMAND_ENV = "PRINTPIPE_LIGHTING_NORMALIZATION_COMMAND"
 PROMPT_IMAGE_COMMAND_ENV = "PRINTPIPE_PROMPT_IMAGE_COMMAND"
+PROMPT_IMAGE_PROVIDER_ENV = "PRINTPIPE_PROMPT_IMAGE_PROVIDER"
+OPENAI_API_KEY_ENV = "OPENAI_API_KEY"
+OPENAI_IMAGE_BASE_URL_ENV = "PRINTPIPE_OPENAI_IMAGE_BASE_URL"
+OPENAI_IMAGE_MODEL_ENV = "PRINTPIPE_OPENAI_IMAGE_MODEL"
+OPENAI_IMAGE_SIZE_ENV = "PRINTPIPE_OPENAI_IMAGE_SIZE"
+OPENAI_IMAGE_QUALITY_ENV = "PRINTPIPE_OPENAI_IMAGE_QUALITY"
+OPENAI_IMAGE_BACKGROUND_ENV = "PRINTPIPE_OPENAI_IMAGE_BACKGROUND"
+OPENAI_IMAGE_OUTPUT_FORMAT_ENV = "PRINTPIPE_OPENAI_IMAGE_OUTPUT_FORMAT"
+DEFAULT_OPENAI_IMAGE_MODEL = "gpt-image-2"
+DEFAULT_OPENAI_IMAGE_SIZE = "1024x1024"
+DEFAULT_OPENAI_IMAGE_QUALITY = "low"
+DEFAULT_OPENAI_IMAGE_BACKGROUND = "auto"
+DEFAULT_OPENAI_IMAGE_OUTPUT_FORMAT = "png"
 
 
 class FrameExtractor(Protocol):
@@ -119,6 +135,7 @@ def prepare_input(
     max_references: int = 4,
     *,
     frame_extractor: FrameExtractor | None = None,
+    prompt_image_provider: str | None = None,
     use_system_ffmpeg: bool = True,
     max_extracted_frames: int = DEFAULT_MAX_EXTRACTED_FRAMES,
 ) -> InputProcessingResult:
@@ -170,6 +187,7 @@ def prepare_input(
         work_dir,
         input_kind,
         frame_extractor=frame_extractor,
+        prompt_image_provider=prompt_image_provider,
         use_system_ffmpeg=use_system_ffmpeg,
         max_frames=max_extracted_frames,
     )
@@ -223,6 +241,7 @@ def extract_references(
     input_kind: InputKind | None = None,
     *,
     frame_extractor: FrameExtractor | None = None,
+    prompt_image_provider: str | None = None,
     use_system_ffmpeg: bool = True,
     max_frames: int = DEFAULT_MAX_EXTRACTED_FRAMES,
 ) -> tuple[tuple[Artifact, ...], StageReceipt]:
@@ -259,7 +278,11 @@ def extract_references(
         )
 
     if input_kind == InputKind.PROMPT:
-        return _generate_prompt_reference(input_path, work_dir)
+        return _generate_prompt_reference(
+            input_path,
+            work_dir,
+            prompt_image_provider=prompt_image_provider,
+        )
 
     if input_kind in {InputKind.GIF, InputKind.VIDEO}:
         extractor = _resolve_frame_extractor(frame_extractor, use_system_ffmpeg=use_system_ffmpeg)
@@ -357,19 +380,37 @@ def extract_references(
 def _generate_prompt_reference(
     prompt_path: Path,
     work_dir: Path,
+    *,
+    prompt_image_provider: str | None = None,
 ) -> tuple[tuple[Artifact, ...], StageReceipt]:
-    command_template = os.environ.get(PROMPT_IMAGE_COMMAND_ENV)
-    if not command_template:
+    try:
+        provider = _resolve_prompt_image_provider(prompt_image_provider)
+    except FrameExtractionError as exc:
+        return (
+            (),
+            StageReceipt(
+                stage="prompt_reference_generation",
+                status=StageStatus.FAILED,
+                message=str(exc),
+                metrics={
+                    "provider": str(prompt_image_provider or os.environ.get(PROMPT_IMAGE_PROVIDER_ENV) or "auto"),
+                    "provider_configured": False,
+                    "candidate_count": 0,
+                },
+            ),
+        )
+    if provider is None:
         return (
             (),
             StageReceipt(
                 stage="prompt_reference_generation",
                 status=StageStatus.FAILED,
                 message=(
-                    "prompt image generation command is not configured; "
-                    f"set {PROMPT_IMAGE_COMMAND_ENV}"
+                    "prompt image provider is not configured; "
+                    f"set {PROMPT_IMAGE_COMMAND_ENV} or set "
+                    f"{PROMPT_IMAGE_PROVIDER_ENV}=openai with {OPENAI_API_KEY_ENV}"
                 ),
-                metrics={"command_configured": False, "candidate_count": 0},
+                metrics={"provider": "none", "provider_configured": False, "candidate_count": 0},
             ),
         )
 
@@ -377,8 +418,8 @@ def _generate_prompt_reference(
     output_dir = work_dir / "prompt_reference"
     output_path = output_dir / "prompt_reference.png"
     try:
-        _run_prompt_image_command(
-            command_template,
+        metadata, receipt_metrics = _run_prompt_image_provider(
+            provider,
             prompt_path=prompt_path,
             prompt=prompt,
             output_path=output_path,
@@ -390,7 +431,11 @@ def _generate_prompt_reference(
                 stage="prompt_reference_generation",
                 status=StageStatus.FAILED,
                 message=str(exc),
-                metrics={"command_configured": True, "candidate_count": 0},
+                metrics={
+                    "provider": provider,
+                    "provider_configured": False,
+                    "candidate_count": 0,
+                },
             ),
         )
 
@@ -403,8 +448,8 @@ def _generate_prompt_reference(
             "source_path": str(prompt_path),
             "frame_index": 0,
             "processing_stage": "prompt_reference",
-            "extraction_method": "configured_prompt_image_command",
             "prompt": prompt,
+            **metadata,
         },
     )
     return (
@@ -412,15 +457,153 @@ def _generate_prompt_reference(
         StageReceipt(
             stage="prompt_reference_generation",
             status=StageStatus.SUCCEEDED,
-            message="generated prompt-only reference image with configured command",
+            message=f"generated prompt-only reference image with {provider} provider",
             artifacts=(reference,),
             metrics={
+                "provider": provider,
+                "provider_configured": True,
                 "candidate_count": 1,
-                "command_configured": True,
                 "output_dir": str(output_dir),
+                **receipt_metrics,
             },
         ),
     )
+
+
+def _resolve_prompt_image_provider(requested_provider: str | None) -> str | None:
+    requested = (requested_provider or os.environ.get(PROMPT_IMAGE_PROVIDER_ENV) or "auto").strip().lower()
+    if requested in {"", "auto"}:
+        if os.environ.get(PROMPT_IMAGE_COMMAND_ENV):
+            return "command"
+        if os.environ.get(OPENAI_API_KEY_ENV):
+            return "openai"
+        return None
+    if requested in {"command", "openai"}:
+        return requested
+    raise FrameExtractionError(
+        f"unsupported prompt image provider: {requested}; expected auto, command, or openai"
+    )
+
+
+def _run_prompt_image_provider(
+    provider: str,
+    *,
+    prompt_path: Path,
+    prompt: str,
+    output_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    if provider == "command":
+        command_template = os.environ.get(PROMPT_IMAGE_COMMAND_ENV)
+        if not command_template:
+            raise FrameExtractionError(
+                f"prompt image command provider requires {PROMPT_IMAGE_COMMAND_ENV}"
+            )
+        _run_prompt_image_command(
+            command_template,
+            prompt_path=prompt_path,
+            prompt=prompt,
+            output_path=output_path,
+        )
+        return (
+            {
+                "extraction_method": "configured_prompt_image_command",
+                "prompt_image_provider": "command",
+            },
+            {"command_configured": True},
+        )
+    if provider == "openai":
+        return _run_openai_prompt_image_provider(prompt=prompt, output_path=output_path)
+    raise FrameExtractionError(
+        f"unsupported prompt image provider: {provider}; expected auto, command, or openai"
+    )
+
+
+def _run_openai_prompt_image_provider(
+    *,
+    prompt: str,
+    output_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    api_key = os.environ.get(OPENAI_API_KEY_ENV)
+    if not api_key:
+        raise FrameExtractionError(f"OpenAI prompt image provider requires {OPENAI_API_KEY_ENV}")
+
+    model = os.environ.get(OPENAI_IMAGE_MODEL_ENV, DEFAULT_OPENAI_IMAGE_MODEL)
+    size = os.environ.get(OPENAI_IMAGE_SIZE_ENV, DEFAULT_OPENAI_IMAGE_SIZE)
+    quality = os.environ.get(OPENAI_IMAGE_QUALITY_ENV, DEFAULT_OPENAI_IMAGE_QUALITY)
+    background = os.environ.get(OPENAI_IMAGE_BACKGROUND_ENV, DEFAULT_OPENAI_IMAGE_BACKGROUND)
+    output_format = os.environ.get(OPENAI_IMAGE_OUTPUT_FORMAT_ENV, DEFAULT_OPENAI_IMAGE_OUTPUT_FORMAT)
+    base_url = os.environ.get(OPENAI_IMAGE_BASE_URL_ENV, "https://api.openai.com/v1").rstrip("/")
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "n": 1,
+        "size": size,
+        "quality": quality,
+        "background": background,
+        "output_format": output_format,
+    }
+    request = urllib.request.Request(
+        f"{base_url}/images/generations",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=180) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace").strip()
+        message = f"OpenAI prompt image request failed with HTTP {exc.code}"
+        if detail:
+            message = f"{message}: {detail}"
+        raise FrameExtractionError(message) from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise FrameExtractionError(f"OpenAI prompt image request failed: {exc}") from exc
+
+    image_b64 = _openai_image_b64(response_payload)
+    try:
+        image_bytes = base64.b64decode(image_b64, validate=True)
+    except ValueError as exc:
+        raise FrameExtractionError("OpenAI prompt image response contained invalid base64") from exc
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(image_bytes)
+    usage = response_payload.get("usage")
+    receipt_metrics: dict[str, Any] = {
+        "model": model,
+        "size": size,
+        "quality": quality,
+        "background": background,
+        "output_format": output_format,
+    }
+    if isinstance(usage, dict):
+        receipt_metrics["usage"] = usage
+    return (
+        {
+            "extraction_method": "openai_image_generation",
+            "prompt_image_provider": "openai",
+            "model": model,
+        },
+        receipt_metrics,
+    )
+
+
+def _openai_image_b64(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        raise FrameExtractionError("OpenAI prompt image response was not a JSON object")
+    data = payload.get("data")
+    if not isinstance(data, list) or not data:
+        raise FrameExtractionError("OpenAI prompt image response did not include data")
+    first = data[0]
+    if not isinstance(first, dict):
+        raise FrameExtractionError("OpenAI prompt image response data item was invalid")
+    image_b64 = first.get("b64_json")
+    if not isinstance(image_b64, str) or not image_b64:
+        raise FrameExtractionError("OpenAI prompt image response did not include data[0].b64_json")
+    return image_b64
 
 
 def clean_references(

@@ -38,7 +38,7 @@ Local CLI / local app
 | Existing mesh | Production spine for v1 foundation. | Imports existing geometry, repairs it, writes oriented STL, preview artifacts, Bambu `.3mf`, validation report, and optional slice receipt. |
 | Image/GIF/video | Wired through the configured local Hunyuan3D adapter. | Writes extracted/selected references and contact sheet artifacts, then either generates a mesh and continues through repair/orient/bundle/report, or fails `meshgen` with a provider-configuration receipt when `PRINTPIPE_HUNYUAN3D_COMMAND` is unset. |
 | Prompt + image | CLI and local web wired. | `printpipe run image.png --prompt "..."` and the local web file-plus-prompt form prepare the reference image normally and pass the prompt through as `MeshGenRequest.prompt_hint`. |
-| Prompt only | CLI and local web wired through a configured reference-image generator. | `printpipe run --prompt "..."` and prompt-only web runs write `00_input/prompt.txt`, call `PRINTPIPE_PROMPT_IMAGE_COMMAND` to create a reference image, then continue through the same Hunyuan3D/repair/orient/bundle spine. If the prompt-image command is unset, the run fails at `prompt_reference_generation` with receipts. |
+| Prompt only | CLI and local web wired through selectable reference-image providers. | `printpipe run --prompt "..."` and prompt-only web runs write `00_input/prompt.txt`, then use `auto`, `command`, or `openai` prompt-image provider selection to create a reference image before continuing through the same Hunyuan3D/repair/orient/bundle spine. If no provider is configured, the run fails at `prompt_reference_generation` with receipts. |
 
 ## Hard Gates
 
@@ -61,12 +61,13 @@ Image/GIF/video now uses the same repair/orient/bundle path after the configured
 ```bash
 export PRINTPIPE_HUNYUAN3D_COMMAND="/path/to/hunyuan_adapter"
 export PRINTPIPE_PROMPT_IMAGE_COMMAND="/path/to/image_adapter --prompt-file {prompt_file} --output {output}"
+export OPENAI_API_KEY="sk-..."  # optional when --prompt-image-provider openai is selected
 printpipe run input.gif \
   --printer "Bambu Lab P2S" \
   --material "SUNLU TPU 90A" \
   --use-case "wearable slipper"
 
-printpipe run --prompt "small ergonomic desk hook"
+printpipe run --prompt "small ergonomic desk hook" --prompt-image-provider openai
 ```
 
 The first real milestone is not a polished UI. It is a reproducible run folder with a slice-verified `.3mf` and receipts.
