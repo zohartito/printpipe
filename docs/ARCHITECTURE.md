@@ -62,6 +62,8 @@ Image/GIF/video now uses the same repair/orient/bundle path after the configured
 export PRINTPIPE_HUNYUAN3D_COMMAND="/path/to/hunyuan_adapter"
 export PRINTPIPE_PROMPT_IMAGE_COMMAND="/path/to/image_adapter --prompt-file {prompt_file} --output {output}"
 export OPENAI_API_KEY="sk-..."  # optional when --prompt-image-provider openai is selected
+export PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD="0.012"
+export PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD="0.05"
 printpipe run input.gif \
   --printer "Bambu Lab P2S" \
   --material "SUNLU TPU 90A" \
@@ -69,6 +71,11 @@ printpipe run input.gif \
 
 printpipe run --prompt "small ergonomic desk hook" --prompt-image-provider openai
 ```
+
+OpenAI prompt-image cost is treated as a user-configured estimate, not a hardcoded
+pricing promise. If `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` is set and the estimate
+is missing or above the cap, the prompt-reference stage fails before making the
+remote API request.
 
 The first real milestone is not a polished UI. It is a reproducible run folder with a slice-verified `.3mf` and receipts.
 

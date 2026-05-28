@@ -731,3 +731,15 @@ Status: partial progress for prompt/reference generation. Prompt-only runs now h
 6. Done: added `printpipe run --prompt-image-provider auto|command|openai`.
 7. Done: added a local web `Prompt image provider` selector and persisted the selected provider in launch metadata.
 8. Remaining: real live OpenAI/API-key run evidence, hosted cost/quality policy, and physical validation stay open.
+
+## Wave 66 - Prompt Image Quote and Budget Receipts
+
+Status: partial progress for hosted/provider safety. Prompt-image runs now record cost/privacy/latency quote metadata and enforce a fail-closed cost cap before remote API calls.
+
+1. Done: command prompt-image provider records a local/user-configured zero-cost quote.
+2. Done: OpenAI prompt-image provider records remote API privacy mode, estimated latency, estimated cost, and max-cost metadata.
+3. Done: OpenAI estimated cost is user-configured through `PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD`, not hardcoded as a pricing promise.
+4. Done: `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` fails before the API call when the estimate is missing.
+5. Done: `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` fails before the API call when the estimate exceeds the cap.
+6. Done: CLI reports and run reports include the provider quote metadata on blocked cost-cap runs.
+7. Remaining: real live OpenAI/API-key evidence, provider quality comparison, and physical validation stay open.

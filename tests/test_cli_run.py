@@ -172,6 +172,40 @@ def test_run_prompt_only_with_openai_provider_without_key_writes_failed_receipts
     assert report["warnings"] == ["OpenAI prompt image provider requires OPENAI_API_KEY"]
 
 
+def test_run_prompt_only_with_openai_provider_respects_cost_cap(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    runs_dir = tmp_path / "runs"
+    monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+    monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD", "0.25")
+    monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD", "0.05")
+
+    exit_code = main(
+        [
+            "run",
+            "--prompt",
+            "small ergonomic desk hook",
+            "--prompt-image-provider",
+            "openai",
+            "--runs-dir",
+            str(runs_dir),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "estimated cost 0.25 USD exceeds cap 0.05 USD" in captured.err
+    run_root = next(runs_dir.iterdir())
+    report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
+    prompt_stage = next(
+        stage for stage in report["stages"] if stage["stage"] == "prompt_reference_generation"
+    )
+    assert prompt_stage["metrics"]["provider_quote"]["estimated_cost_usd"] == 0.25
+    assert prompt_stage["metrics"]["provider_quote"]["max_cost_usd"] == 0.05
+
+
 def test_run_prompt_only_with_configured_reference_and_hunyuan_writes_bundle(
     tmp_path: Path,
     capsys,

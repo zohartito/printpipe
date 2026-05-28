@@ -244,6 +244,8 @@ def test_prepare_prompt_openai_provider_requires_api_key(
     assert receipt.message == "OpenAI prompt image provider requires OPENAI_API_KEY"
     assert receipt.metrics["provider"] == "openai"
     assert receipt.metrics["provider_configured"] is False
+    assert receipt.metrics["provider_quote"]["privacy_mode"] == "remote_api"
+    assert receipt.metrics["provider_quote"]["estimated_cost_usd"] is None
 
 
 def test_prepare_prompt_openai_provider_writes_reference_image(
@@ -293,6 +295,8 @@ def test_prepare_prompt_openai_provider_writes_reference_image(
         monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_MODEL", "gpt-image-test")
         monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_SIZE", "1024x1024")
         monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_QUALITY", "low")
+        monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD", "0.012")
+        monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD", "0.05")
 
         result = prepare_input(prompt_path, tmp_path / "work")
     finally:
@@ -325,6 +329,104 @@ def test_prepare_prompt_openai_provider_writes_reference_image(
     assert receipt.metrics["provider"] == "openai"
     assert receipt.metrics["model"] == "gpt-image-test"
     assert receipt.metrics["usage"] == {"total_tokens": 7}
+    assert receipt.metrics["provider_quote"] == {
+        "provider": "openai",
+        "privacy_mode": "remote_api",
+        "estimated_seconds": 45.0,
+        "estimated_cost_usd": 0.012,
+        "cost_estimate_configured": True,
+        "max_cost_usd": 0.05,
+        "remote_upload": True,
+        "stores_prompt_with_provider": True,
+    }
+
+
+def test_prepare_prompt_openai_provider_fails_closed_when_cost_cap_has_no_estimate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    prompt_path = tmp_path / "prompt.txt"
+    prompt_path.write_text("small ergonomic desk hook\n", encoding="utf-8")
+    monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+    monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD", "0.01")
+    monkeypatch.delenv("PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD", raising=False)
+
+    result = prepare_input(prompt_path, tmp_path / "work")
+
+    receipt = {receipt.stage: receipt for receipt in result.receipts}["prompt_reference_generation"]
+    assert receipt.status == StageStatus.FAILED
+    assert receipt.message == (
+        "OpenAI prompt image cost cap cannot be checked because "
+        "PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD is not set"
+    )
+    assert receipt.metrics["provider"] == "openai"
+    assert receipt.metrics["provider_quote"]["max_cost_usd"] == 0.01
+    assert receipt.metrics["provider_quote"]["estimated_cost_usd"] is None
+
+
+def test_prepare_prompt_openai_provider_blocks_cost_above_cap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    prompt_path = tmp_path / "prompt.txt"
+    prompt_path.write_text("small ergonomic desk hook\n", encoding="utf-8")
+    monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+    monkeypatch.setenv("PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD", "0.25")
+    monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD", "0.05")
+
+    result = prepare_input(prompt_path, tmp_path / "work")
+
+    receipt = {receipt.stage: receipt for receipt in result.receipts}["prompt_reference_generation"]
+    assert receipt.status == StageStatus.FAILED
+    assert receipt.message == "OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD"
+    assert receipt.metrics["provider"] == "openai"
+    assert receipt.metrics["provider_quote"]["estimated_cost_usd"] == 0.25
+    assert receipt.metrics["provider_quote"]["max_cost_usd"] == 0.05
+
+
+def test_prepare_prompt_command_provider_records_local_zero_cost_quote(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    prompt_path = tmp_path / "prompt.txt"
+    prompt_path.write_text("small ergonomic desk hook\n", encoding="utf-8")
+    fake_prompt_image = tmp_path / "fake_prompt_image.py"
+    fake_prompt_image.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--prompt-file', required=True)",
+                "parser.add_argument('--output', required=True)",
+                "args = parser.parse_args()",
+                "Path(args.output).write_bytes(b'fake png')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(
+        "PRINTPIPE_PROMPT_IMAGE_COMMAND",
+        f"{sys.executable} {fake_prompt_image} --prompt-file {{prompt_file}} --output {{output}}",
+    )
+
+    result = prepare_input(prompt_path, tmp_path / "work", prompt_image_provider="command")
+
+    receipt = {receipt.stage: receipt for receipt in result.receipts}["prompt_reference_generation"]
+    assert receipt.status == StageStatus.SUCCEEDED
+    assert receipt.metrics["provider_quote"] == {
+        "provider": "command",
+        "privacy_mode": "local_or_user_configured",
+        "estimated_seconds": None,
+        "estimated_cost_usd": 0.0,
+        "cost_estimate_configured": True,
+        "max_cost_usd": None,
+        "remote_upload": "unknown",
+        "stores_prompt_with_provider": "unknown",
+    }
 
 
 def test_prepare_gif_and_video_skip_frame_extraction_when_no_runner_is_available(tmp_path: Path):

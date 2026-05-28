@@ -71,7 +71,13 @@ OpenAI prompt-image defaults are conservative and configurable:
 export PRINTPIPE_OPENAI_IMAGE_MODEL='gpt-image-2'
 export PRINTPIPE_OPENAI_IMAGE_SIZE='1024x1024'
 export PRINTPIPE_OPENAI_IMAGE_QUALITY='low'
+export PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD='0.012'
+export PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD='0.05'
 ```
+
+When a max cost is set, OpenAI prompt-image runs fail before the API call if the
+estimate is missing or above the cap. The estimate is user-configured because
+provider pricing can drift.
 
 Flexible-material runs, including TPU, also emit `40_geometry/flex_coupon_40x15x3.stl` as the first validation print artifact.
 

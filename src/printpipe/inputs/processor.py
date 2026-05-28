@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import os
 import shlex
 import shutil
@@ -41,11 +42,15 @@ OPENAI_IMAGE_SIZE_ENV = "PRINTPIPE_OPENAI_IMAGE_SIZE"
 OPENAI_IMAGE_QUALITY_ENV = "PRINTPIPE_OPENAI_IMAGE_QUALITY"
 OPENAI_IMAGE_BACKGROUND_ENV = "PRINTPIPE_OPENAI_IMAGE_BACKGROUND"
 OPENAI_IMAGE_OUTPUT_FORMAT_ENV = "PRINTPIPE_OPENAI_IMAGE_OUTPUT_FORMAT"
+OPENAI_IMAGE_ESTIMATED_COST_USD_ENV = "PRINTPIPE_OPENAI_IMAGE_ESTIMATED_COST_USD"
+OPENAI_IMAGE_ESTIMATED_SECONDS_ENV = "PRINTPIPE_OPENAI_IMAGE_ESTIMATED_SECONDS"
+PROMPT_IMAGE_MAX_COST_USD_ENV = "PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD"
 DEFAULT_OPENAI_IMAGE_MODEL = "gpt-image-2"
 DEFAULT_OPENAI_IMAGE_SIZE = "1024x1024"
 DEFAULT_OPENAI_IMAGE_QUALITY = "low"
 DEFAULT_OPENAI_IMAGE_BACKGROUND = "auto"
 DEFAULT_OPENAI_IMAGE_OUTPUT_FORMAT = "png"
+DEFAULT_OPENAI_IMAGE_ESTIMATED_SECONDS = 45.0
 
 
 class FrameExtractor(Protocol):
@@ -414,6 +419,26 @@ def _generate_prompt_reference(
             ),
         )
 
+    provider_quote: dict[str, Any]
+    try:
+        provider_quote = _prompt_image_provider_quote(provider)
+        _check_prompt_image_budget(provider, provider_quote)
+    except FrameExtractionError as exc:
+        return (
+            (),
+            StageReceipt(
+                stage="prompt_reference_generation",
+                status=StageStatus.FAILED,
+                message=str(exc),
+                metrics={
+                    "provider": provider,
+                    "provider_configured": False,
+                    "candidate_count": 0,
+                    "provider_quote": provider_quote if "provider_quote" in locals() else None,
+                },
+            ),
+        )
+
     prompt = prompt_path.read_text(encoding="utf-8").strip()
     output_dir = work_dir / "prompt_reference"
     output_path = output_dir / "prompt_reference.png"
@@ -435,6 +460,7 @@ def _generate_prompt_reference(
                     "provider": provider,
                     "provider_configured": False,
                     "candidate_count": 0,
+                    "provider_quote": provider_quote,
                 },
             ),
         )
@@ -464,6 +490,7 @@ def _generate_prompt_reference(
                 "provider_configured": True,
                 "candidate_count": 1,
                 "output_dir": str(output_dir),
+                "provider_quote": provider_quote,
                 **receipt_metrics,
             },
         ),
@@ -516,6 +543,83 @@ def _run_prompt_image_provider(
     raise FrameExtractionError(
         f"unsupported prompt image provider: {provider}; expected auto, command, or openai"
     )
+
+
+def _prompt_image_provider_quote(provider: str) -> dict[str, Any]:
+    max_cost_usd = _optional_env_float(PROMPT_IMAGE_MAX_COST_USD_ENV)
+    if provider == "command":
+        return {
+            "provider": "command",
+            "privacy_mode": "local_or_user_configured",
+            "estimated_seconds": None,
+            "estimated_cost_usd": 0.0,
+            "cost_estimate_configured": True,
+            "max_cost_usd": max_cost_usd,
+            "remote_upload": "unknown",
+            "stores_prompt_with_provider": "unknown",
+        }
+    if provider == "openai":
+        estimated_cost = _optional_env_float(OPENAI_IMAGE_ESTIMATED_COST_USD_ENV)
+        estimated_seconds = _env_float(
+            OPENAI_IMAGE_ESTIMATED_SECONDS_ENV,
+            default=DEFAULT_OPENAI_IMAGE_ESTIMATED_SECONDS,
+        )
+        return {
+            "provider": "openai",
+            "privacy_mode": "remote_api",
+            "estimated_seconds": estimated_seconds,
+            "estimated_cost_usd": estimated_cost,
+            "cost_estimate_configured": estimated_cost is not None,
+            "max_cost_usd": max_cost_usd,
+            "remote_upload": True,
+            "stores_prompt_with_provider": True,
+        }
+    raise FrameExtractionError(
+        f"unsupported prompt image provider: {provider}; expected auto, command, or openai"
+    )
+
+
+def _check_prompt_image_budget(provider: str, provider_quote: dict[str, Any]) -> None:
+    if provider != "openai":
+        return
+    max_cost = provider_quote.get("max_cost_usd")
+    if max_cost is None:
+        return
+    estimated_cost = provider_quote.get("estimated_cost_usd")
+    if estimated_cost is None:
+        raise FrameExtractionError(
+            "OpenAI prompt image cost cap cannot be checked because "
+            f"{OPENAI_IMAGE_ESTIMATED_COST_USD_ENV} is not set"
+        )
+    if float(estimated_cost) > float(max_cost):
+        raise FrameExtractionError(
+            f"OpenAI prompt image estimated cost {estimated_cost:g} USD exceeds cap "
+            f"{float(max_cost):g} USD"
+        )
+
+
+def _optional_env_float(name: str) -> float | None:
+    value = os.environ.get(name)
+    if value in {None, ""}:
+        return None
+    return _parse_env_float(name, value)
+
+
+def _env_float(name: str, *, default: float) -> float:
+    value = os.environ.get(name)
+    if value in {None, ""}:
+        return default
+    return _parse_env_float(name, value)
+
+
+def _parse_env_float(name: str, value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as exc:
+        raise FrameExtractionError(f"{name} must be a numeric value") from exc
+    if not math.isfinite(parsed) or parsed < 0:
+        raise FrameExtractionError(f"{name} must be a non-negative finite number")
+    return parsed
 
 
 def _run_openai_prompt_image_provider(
