@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 150: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 151: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 150 brought the dedicated physical action-plan panel up to the same print-handoff standard as final-readiness. The home page now shows physical validation context, coupon files, bundle receipts, handoff sheets, slice commands, print-handoff commands, and record-after-print commands beside each material action, while still making clear that digital artifacts are not physical proof. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 151 brought the dedicated release distribution panel up to the same signing-handoff standard as final-readiness. The home page now shows required signing/tool inputs, setup prerequisites such as the Windows standalone ZIP build, release handoff commands, handoff sheets, build/check commands, and follow-up checks beside each release action, while still making clear that generated plans are not signed distribution evidence. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 

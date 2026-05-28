@@ -1654,3 +1654,13 @@ Status: partial progress for physical-validation execution UX. This makes the de
 3. Done: physical rows now separate setup, starter-packet, print-handoff/open-folder, slice-if-needed, and `Record after print` commands.
 4. Done: focused web regression coverage proves a started PLA validation packet exposes context, files, slice command, print handoff, and record-after-print copy.
 5. Boundary: UI parity still does not create physical evidence. PLA, PETG, and TPU gates remain open until real printed coupons or small objects are observed, photographed, and recorded with explicit outcomes.
+
+## Wave 151 - Release Distribution Plan UI Parity
+
+Status: partial progress for release-distribution execution UX. This makes the dedicated home-page release plan show the same signing and installer handoff fields that final-readiness can show.
+
+1. Done: release action cards now render required signing/tool inputs.
+2. Done: Windows release rows now show the setup prerequisite command for building the standalone runtime ZIP before installer signing.
+3. Done: release rows now label release handoff, build/check, and follow-up check commands instead of showing unlabeled command blocks.
+4. Done: focused web regression coverage proves macOS required signing inputs and Windows setup/signing prerequisites render in the home release panel.
+5. Boundary: UI parity still does not create signed artifacts. macOS remains open until Developer ID signing/notarization evidence exists, and Windows remains open until a signed installer is verified.

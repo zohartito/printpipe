@@ -1006,12 +1006,39 @@ class PrintPipeWebApp:
         status = str(action.get("status", "unknown"))
         label = str(action.get("label") or action.get("id") or "Release action")
         detail = str(action.get("detail") or "Release distribution action required.")
+        required = action.get("required_inputs")
+        required_text = (
+            ", ".join(str(item) for item in required)
+            if isinstance(required, list)
+            else ""
+        )
+        required_markup = (
+            f'          <p class="muted">Required inputs: {escape(required_text)}</p>'
+            if required_text
+            else ""
+        )
+        setup = str(action.get("setup_command") or "")
         start = str(action.get("start_command") or "")
         handoff = str(action.get("handoff_markdown_path") or "")
         command = str(action.get("command") or "")
         followup = str(action.get("followup_command") or "")
+        setup_markup = (
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Setup prerequisite:</strong></p>',
+                    f"          <pre><code>{escape(setup)}</code></pre>",
+                ]
+            )
+            if setup
+            else ""
+        )
         start_markup = (
-            f"          <pre><code>{escape(start)}</code></pre>"
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Release handoff:</strong></p>',
+                    f"          <pre><code>{escape(start)}</code></pre>",
+                ]
+            )
             if start
             else ""
         )
@@ -1021,8 +1048,23 @@ class PrintPipeWebApp:
             if handoff
             else ""
         )
+        command_markup = (
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Build/check:</strong></p>',
+                    f"          <pre><code>{escape(command)}</code></pre>",
+                ]
+            )
+            if command
+            else ""
+        )
         followup_markup = (
-            f"          <pre><code>{escape(followup)}</code></pre>"
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Follow-up check:</strong></p>',
+                    f"          <pre><code>{escape(followup)}</code></pre>",
+                ]
+            )
             if followup
             else ""
         )
@@ -1032,9 +1074,11 @@ class PrintPipeWebApp:
                 f"          <span>{escape(label)}</span>",
                 f"          <strong>{escape(status)}</strong>",
                 f"          <p>{escape(detail)}</p>",
+                required_markup,
+                setup_markup,
                 start_markup,
                 handoff_markup,
-                f"          <pre><code>{escape(command)}</code></pre>",
+                command_markup,
                 followup_markup,
                 "        </article>",
             ]

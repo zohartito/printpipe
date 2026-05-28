@@ -404,6 +404,10 @@ def test_home_response_renders_release_distribution_plan(monkeypatch, tmp_path: 
                     "label": "macOS distribution",
                     "status": "action_required",
                     "detail": "Developer ID signing and notarization are missing.",
+                    "required_inputs": [
+                        "Developer ID Application certificate",
+                        "notarytool keychain profile",
+                    ],
                     "start_command": "printpipe release-start --release-dir dist/release --runs-dir runs",
                     "handoff_markdown_path": str(tmp_path / "release_handoffs" / "release_distribution_handoff.md"),
                     "command": "printpipe build-release --developer-id-identity ...",
@@ -414,6 +418,14 @@ def test_home_response_renders_release_distribution_plan(monkeypatch, tmp_path: 
                     "label": "Windows distribution",
                     "status": "action_required",
                     "detail": "Signed Windows installer is missing.",
+                    "required_inputs": [
+                        "Windows standalone ZIP",
+                        "signtool",
+                        "Code-signing certificate",
+                    ],
+                    "setup_command": "printpipe build-windows-standalone --output dist/release/PrintPipe-Windows-standalone.zip --json",
+                    "start_command": "printpipe release-start --release-dir dist/release --runs-dir runs",
+                    "handoff_markdown_path": str(tmp_path / "release_handoffs" / "release_distribution_handoff.md"),
                     "command": "printpipe build-windows-installer ...",
                     "followup_command": "printpipe build-release --windows-installer-exe ...",
                 },
@@ -439,8 +451,21 @@ def test_home_response_renders_release_distribution_plan(monkeypatch, tmp_path: 
     assert "Windows distribution" in response.text
     assert "printpipe release-start --release-dir dist/release --runs-dir runs" in response.text
     assert "release_distribution_handoff.md" in response.text
+    assert (
+        "Required inputs: Developer ID Application certificate, "
+        "notarytool keychain profile"
+    ) in response.text
+    assert (
+        "Required inputs: Windows standalone ZIP, signtool, "
+        "Code-signing certificate"
+    ) in response.text
+    assert "Setup prerequisite:" in response.text
+    assert "printpipe build-windows-standalone" in response.text
+    assert "Release handoff:" in response.text
+    assert "Build/check:" in response.text
     assert "printpipe build-release --developer-id-identity" in response.text
     assert "printpipe build-windows-installer" in response.text
+    assert "Follow-up check:" in response.text
     assert 'href="/release-plan.json"' in response.text
 
 
