@@ -97,6 +97,25 @@ def test_trusted_user_feedback_status_requires_three_unique_trusted_users(
     assert passed["trusted_users"] == ["Lee", "Maya", "Sam"]
 
 
+def test_trusted_user_feedback_status_does_not_count_not_run_as_completed_feedback(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_feedback(runs_dir / "run-sam", tester="Sam", outcome="failed")
+    _write_feedback(runs_dir / "run-lee-not-run", tester="Lee", outcome="not_run")
+
+    status = build_trusted_user_feedback_status(runs_dir)
+
+    assert status["overall_status"] == "insufficient_feedback"
+    assert status["trusted_user_packet_count"] == 3
+    assert status["completed_trusted_user_count"] == 2
+    assert status["unique_trusted_user_count"] == 2
+    assert status["missing_trusted_user_count"] == 1
+    assert status["trusted_users"] == ["Maya", "Sam"]
+    assert status["not_run_trusted_users"] == ["Lee"]
+
+
 def test_render_trusted_user_feedback_status_names_missing_count(tmp_path: Path) -> None:
     status = build_trusted_user_feedback_status(tmp_path / "runs")
 
@@ -127,6 +146,22 @@ def test_trusted_user_feedback_plan_lists_missing_tester_actions(tmp_path: Path)
     assert "--tester" in action["record_command"]
     assert "--outcome passed" in action["record_command"]
     assert "runs/<run-id>" in action["record_command"]
+
+
+def test_trusted_user_feedback_plan_ignores_not_run_packets(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_feedback(runs_dir / "run-sam", tester="Sam", outcome="failed")
+    _write_feedback(runs_dir / "run-lee-not-run", tester="Lee", outcome="not_run")
+
+    plan = build_trusted_user_feedback_plan(runs_dir)
+
+    assert plan["overall_status"] == "action_required"
+    assert plan["trusted_user_count"] == 2
+    assert plan["trusted_users"] == ["Maya", "Sam"]
+    assert plan["missing_trusted_user_count"] == 1
+    assert plan["action_count"] == 1
+    assert plan["actions"][0]["slot"] == 3
 
 
 def test_trusted_user_feedback_plan_ready_after_three_users(tmp_path: Path) -> None:

@@ -1187,3 +1187,14 @@ Status: complete for endgame action visibility. This does not create physical, t
 4. Done: the final plan preserves the ordered remaining sequence: physical validation, trusted-user beta, then release distribution.
 5. Done: the plan sums action counts across `physical-plan`, `beta-feedback-plan`, and `release-plan` while keeping each source proof boundary visible.
 6. Boundary: a generated final plan is not evidence; PLA/PETG/TPU passed print packets, three trusted-user feedback packets, Developer ID/notary credentials, and a signed Windows installer artifact remain external gates.
+
+## Wave 108 - Trusted-User Not-Run Gate Hardening
+
+Status: complete for trusted-user beta evidence semantics. This does not create tester feedback evidence.
+
+1. Root cause: `build_trusted_user_feedback_status()` counted every `tester_type=trusted_user` packet as a completed trusted-user slot, including `outcome=not_run`.
+2. Done: added regression coverage proving a `not_run` trusted-user packet does not satisfy the trusted-user beta gate.
+3. Done: trusted feedback status now reports completed trusted users separately from all trusted-user packets.
+4. Done: `not_run_trusted_users` remains visible for auditability, but `unique_trusted_user_count` and `trusted_users` only include completed feedback outcomes.
+5. Done: `beta-feedback-plan`, `beta-plan`, `final-plan`, readiness, and local web surfaces inherit the stricter count from the shared status builder.
+6. Boundary: failed and partial feedback still count as real feedback because they are completed reviews; only `not_run` is excluded from gate completion.

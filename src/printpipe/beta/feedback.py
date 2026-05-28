@@ -239,7 +239,17 @@ def build_trusted_user_feedback_status(
     trusted_packets = [
         packet for packet in packets if packet["tester_type"] == "trusted_user"
     ]
-    trusted_users = sorted({packet["tester"] for packet in trusted_packets})
+    completed_trusted_packets = [
+        packet for packet in trusted_packets if packet["outcome"] != "not_run"
+    ]
+    trusted_users = sorted({packet["tester"] for packet in completed_trusted_packets})
+    not_run_trusted_users = sorted(
+        {
+            packet["tester"]
+            for packet in trusted_packets
+            if packet["outcome"] == "not_run"
+        }
+    )
     missing_count = max(required_trusted_user_count - len(trusted_users), 0)
     outcome_counts = {
         outcome: sum(1 for packet in packets if packet["outcome"] == outcome)
@@ -251,10 +261,13 @@ def build_trusted_user_feedback_status(
         "overall_status": "passed" if missing_count == 0 else "insufficient_feedback",
         "required_trusted_user_count": required_trusted_user_count,
         "unique_trusted_user_count": len(trusted_users),
+        "completed_trusted_user_count": len(trusted_users),
         "missing_trusted_user_count": missing_count,
         "trusted_users": trusted_users,
+        "not_run_trusted_users": not_run_trusted_users,
         "packet_count": len(packets),
         "trusted_user_packet_count": len(trusted_packets),
+        "completed_trusted_user_packet_count": len(completed_trusted_packets),
         "outcome_counts": outcome_counts,
         "packets": packets,
     }
