@@ -61,18 +61,41 @@ def test_build_windows_standalone_package_zips_pyinstaller_runtime(
     assert result["runtime_kind"] == "pyinstaller"
     assert result["bundles_python_runtime"] is True
     assert result["bundles_bambu_studio"] is False
+    assert result["contains_start_menu_installer"] is True
+    assert result["contains_start_menu_uninstaller"] is True
+    assert result["contains_file_association_installer"] is True
+    assert result["contains_file_association_uninstaller"] is True
     assert result["signed"] is False
     assert output_path.exists()
 
     with zipfile.ZipFile(output_path) as archive:
         names = set(archive.namelist())
         readme = archive.read("PrintPipe/README.txt").decode("utf-8")
+        start_menu = archive.read("PrintPipe/install-start-menu.ps1").decode("utf-8")
+        file_assoc = archive.read("PrintPipe/install-file-associations.ps1").decode("utf-8")
+        file_assoc_uninstall = archive.read(
+            "PrintPipe/uninstall-file-associations.ps1"
+        ).decode("utf-8")
 
     assert "PrintPipe/PrintPipe.exe" in names
     assert "PrintPipe/_internal/python311.dll" in names
+    assert "PrintPipe/install-start-menu.ps1" in names
+    assert "PrintPipe/uninstall-start-menu.ps1" in names
+    assert "PrintPipe/install-file-associations.ps1" in names
+    assert "PrintPipe/uninstall-file-associations.ps1" in names
     assert "PrintPipe/README.txt" in names
+    assert "PrintPipe.exe" in start_menu
+    assert "PrintPipe.lnk" in start_menu
+    assert "HKCU:\\Software\\Classes" in file_assoc
+    assert "PrintPipe.exe" in file_assoc
+    assert "%1" in file_assoc
+    assert "Skip existing association" in file_assoc
+    assert "PrintPipe.stl" in file_assoc
+    assert "Remove-Item" in file_assoc_uninstall
     assert "bundles a Python runtime" in readme
     assert "not a signed Windows installer" in readme
+    assert "install-start-menu.ps1" in readme
+    assert "install-file-associations.ps1" in readme
 
 
 def test_cli_build_windows_standalone_json_reports_runtime_bundle(
@@ -101,6 +124,8 @@ def test_cli_build_windows_standalone_json_reports_runtime_bundle(
     assert payload["status"] == "ok"
     assert payload["archive_path"] == str(output_path)
     assert payload["bundles_python_runtime"] is True
+    assert payload["contains_start_menu_installer"] is True
+    assert payload["contains_file_association_installer"] is True
     assert output_path.exists()
 
 

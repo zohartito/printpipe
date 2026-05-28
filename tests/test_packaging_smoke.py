@@ -180,6 +180,8 @@ def test_packaging_doc_names_macos_package_smoke_command() -> None:
         "bundles python runtime",
         "printpipe-windows-standalone.zip",
         "printpipe/printpipe.exe",
+        "printpipe.lnk",
+        'printpipe.exe" "%1"',
         "not a signed windows installer",
         "printpipe build-macos-dmg --output dist/printpipe.dmg --adhoc-sign --json",
         "hdiutil imageinfo dist/printpipe.dmg",

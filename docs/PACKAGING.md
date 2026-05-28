@@ -367,6 +367,10 @@ The archive contains:
 
 - `PrintPipe/PrintPipe.exe`
 - `PrintPipe/_internal/...` PyInstaller runtime files
+- `PrintPipe/install-start-menu.ps1`
+- `PrintPipe/uninstall-start-menu.ps1`
+- `PrintPipe/install-file-associations.ps1`
+- `PrintPipe/uninstall-file-associations.ps1`
 - `PrintPipe/README.txt`
 
 What this proves:
@@ -375,6 +379,10 @@ What this proves:
 - `PrintPipe.exe` preserves CLI passthrough.
 - With no arguments, `PrintPipe.exe` starts the same local web UI launcher flow
   at `http://127.0.0.1:8765/` and uses `%USERPROFILE%\PrintPipe\runs`.
+- The optional Start Menu installer creates `PrintPipe.lnk` pointing directly at
+  `PrintPipe.exe`.
+- The optional file association installer opens mesh/media inputs with
+  `"PrintPipe.exe" "%1"`, which uses the standalone one-file document launcher.
 - The standalone executable can run the package-smoke pipeline and produce
   reports plus a Bambu `.3mf`.
 
@@ -386,6 +394,14 @@ Observed live on `desktop-zt`:
 - `PrintPipe.exe --version` returned `printpipe 0.1.0`
 - `PRINTPIPE_APP_DRY_RUN=1 PrintPipe.exe` printed the local web UI command for
   `http://127.0.0.1:8765/`
+- `install-start-menu.ps1` created
+  `C:\Users\zohar_4ta16fp\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe.lnk`
+- `uninstall-start-menu.ps1` removed that shortcut
+- `install-file-associations.ps1 -Extensions .printpipestandtest -ProgIdPrefix PrintPipeStandaloneSmoke -Force`
+  created a throwaway HKCU association whose command was
+  `"C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-standalone-live\extract\PrintPipe\PrintPipe.exe" "%1"`
+- `uninstall-file-associations.ps1 -Extensions .printpipestandtest -ProgIdPrefix PrintPipeStandaloneSmoke`
+  removed the throwaway association
 - `PrintPipe.exe package-smoke --platform windows ... --json` returned
   `status=ok`, generated reports, and wrote a Bambu `.3mf`
 - slice gate remains `manual_required` until Bambu Studio exists on the Windows

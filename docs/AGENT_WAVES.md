@@ -668,3 +668,16 @@ Status: partial progress for original item 122. The release folder can now carry
 5. Done: manifest records the copied artifact as `windows_standalone_zip` with `bundles_python_runtime=true`, `bundles_bambu_studio=false`, `signed=false`, and `notarized=false`.
 6. Done: release boundary text distinguishes macOS-only, Windows-only, and combined standalone-runtime release shapes.
 7. Remaining: signed Windows installer, live Windows+Bambu slice evidence, Developer ID notarization, and physical print validation stay open.
+
+## Wave 61 - Windows Standalone Helper Scripts
+
+Status: partial progress for original item 122. The Windows standalone runtime ZIP now includes reversible user-scope convenience scripts, but it remains unsigned and is not a native installer.
+
+1. Done: added `install-start-menu.ps1` and `uninstall-start-menu.ps1` to `PrintPipe-Windows-standalone.zip`.
+2. Done: added `install-file-associations.ps1` and `uninstall-file-associations.ps1` to `PrintPipe-Windows-standalone.zip`.
+3. Done: the Start Menu script creates `PrintPipe.lnk` pointing directly at `PrintPipe.exe`.
+4. Done: file associations run `"PrintPipe.exe" "%1"` so the standalone one-file document launcher processes the input and opens the local UI.
+5. Done: live-verified on `desktop-zt` that the shortcut installs and uninstalls cleanly.
+6. Done: live-verified a throwaway `.printpipestandtest` HKCU association installs with the expected command and uninstalls cleanly.
+7. Done: rebuilt standalone `PrintPipe.exe package-smoke --platform windows ... --json` returned `status=ok` with reports and a Bambu `.3mf`.
+8. Remaining: signed Windows installer, live Windows+Bambu slice evidence, Developer ID notarization, and physical print validation stay open.
