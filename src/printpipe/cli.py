@@ -11,6 +11,7 @@ from typing import Any
 from printpipe import __version__
 from printpipe.contracts import InputKind
 from printpipe.inputs import classify_input_path
+from printpipe.local_open import open_run_folder
 from printpipe.pipeline import PipelineError, run_edit_recipe_pipeline, run_existing_mesh_pipeline
 from printpipe.runs import create_run
 
@@ -72,6 +73,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the Markdown report path for a run.",
     )
     open_report.add_argument("run_root", type=Path, help="Run folder to inspect.")
+
+    open_folder = subparsers.add_parser(
+        "open-folder",
+        help="Open a local run, report, or bundle folder.",
+    )
+    open_folder.add_argument("run_root", type=Path, help="Run folder to open from.")
+    open_folder.add_argument(
+        "--target",
+        choices=("run", "report", "bundle"),
+        default="run",
+        help="Which local folder to open.",
+    )
+    open_folder.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the target folder without opening Finder/Explorer.",
+    )
 
     rebuild_edit = subparsers.add_parser(
         "rebuild-edit",
@@ -219,6 +237,16 @@ def main(argv: list[str] | None = None) -> int:
             print(html_report)
         else:
             print(run_root / "80_reports" / "run_report.md")
+        return 0
+
+    if args.command == "open-folder":
+        try:
+            result = open_run_folder(args.run_root, target=args.target, dry_run=args.dry_run)
+        except (FileNotFoundError, ValueError) as exc:
+            parser.error(str(exc))
+        print(result.path)
+        if args.dry_run:
+            print("dry run: not opened")
         return 0
 
     if args.command == "rebuild-edit":

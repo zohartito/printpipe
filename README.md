@@ -44,6 +44,13 @@ Current input support is intentionally explicit:
 
 Flexible-material runs, including TPU, also emit `40_geometry/flex_coupon_40x15x3.stl` as the first validation print artifact.
 
+Local handoff helpers:
+
+```bash
+printpipe open-folder runs/<run-id> --target bundle
+printpipe open-folder runs/<run-id> --target report
+```
+
 ## Development
 
 ```bash

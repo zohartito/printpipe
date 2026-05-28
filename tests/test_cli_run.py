@@ -248,6 +248,27 @@ def test_open_report_prints_html_path_without_launching_browser(tmp_path: Path, 
     assert captured.err == ""
 
 
+def test_open_folder_dry_run_prints_bundle_folder_without_launching(tmp_path: Path, capsys):
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    runs_dir = tmp_path / "runs"
+    assert main(["run", str(source), "--runs-dir", str(runs_dir)]) == 0
+    capsys.readouterr()
+    run_root = next(runs_dir.iterdir())
+
+    exit_code = main(["open-folder", str(run_root), "--target", "bundle", "--dry-run"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert str(run_root / "60_bundle") in captured.out
+    assert "dry run: not opened" in captured.out
+
+
 def test_rebuild_edit_rebuilds_saved_edit_recipe(tmp_path: Path, capsys):
     source = (
         Path(__file__).parent

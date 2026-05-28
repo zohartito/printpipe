@@ -6,7 +6,7 @@ import json
 import math
 import mimetypes
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from email.parser import BytesParser
 from email.policy import default as email_policy
@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
+from printpipe.local_open import open_run_folder
 from printpipe.pipeline import PipelineError, run_edit_recipe_pipeline, run_existing_mesh_pipeline
 from printpipe.runs import (
     EditRecipe,
@@ -29,6 +30,7 @@ from printpipe.runs import (
 )
 from printpipe.web.artifacts import discover_run_artifacts, resolve_artifact_request
 from printpipe.web.options import selector_catalog
+from printpipe.web.run_detail import render_run_detail_page
 from printpipe.web.status import build_run_status
 
 
@@ -145,9 +147,11 @@ class PrintPipeWebApp:
         static_roots: Iterable[str | Path] = (),
         *,
         runs_dir: str | Path | None = None,
+        path_opener: Callable[[Path], object] | None = None,
     ) -> None:
         self.static_roots = tuple(Path(root) for root in static_roots)
         self.runs_dir = Path(runs_dir) if runs_dir is not None else None
+        self.path_opener = path_opener
 
     def handle(
         self,
@@ -165,7 +169,12 @@ class PrintPipeWebApp:
             if path == "/runs":
                 return self.create_run_response(headers=headers, body=body)
             if path.startswith(_RUNS_PREFIX):
-                edit_run_id = _edit_route_id(path.removeprefix(_RUNS_PREFIX))
+                relative_run_path = path.removeprefix(_RUNS_PREFIX)
+                open_route = _open_folder_route(relative_run_path)
+                if open_route is not None:
+                    run_id, target = open_route
+                    return self.open_folder_response(run_id, target)
+                edit_run_id = _edit_route_id(relative_run_path)
                 if edit_run_id is not None:
                     return self.create_edit_response(edit_run_id, headers=headers, body=body)
             return self._method_not_allowed()
@@ -263,6 +272,16 @@ class PrintPipeWebApp:
 
         return WebResponse.redirect(f"/runs/{quote(edit_layout.run_id, safe='')}")
 
+    def open_folder_response(self, run_id: str, target: str) -> WebResponse:
+        run_root = self._run_root(run_id)
+        if run_root is None:
+            return self.not_found_response()
+        try:
+            open_run_folder(run_root, target=target, path_opener=self.path_opener)
+        except (FileNotFoundError, ValueError):
+            return self.not_found_response()
+        return WebResponse.redirect(f"/runs/{quote(run_id, safe='')}")
+
     def home_response(self) -> WebResponse:
         return WebResponse.html(self.render_home())
 
@@ -328,7 +347,7 @@ class PrintPipeWebApp:
             return self.not_found_response()
 
         return WebResponse.html(
-            _render_run_detail_page(
+            render_run_detail_page(
                 detail=detail,
                 artifact_links=artifact_links,
             )
@@ -619,13 +638,14 @@ def create_app(
     static_roots: Iterable[str | Path] = (),
     *,
     runs_dir: str | Path | None = None,
+    path_opener: Callable[[Path], object] | None = None,
 ) -> PrintPipeWebApp:
     """Create the local web app without binding a socket."""
 
     roots = [Path(root) for root in static_roots]
     if runs_dir is not None:
         roots.append(Path(runs_dir))
-    return PrintPipeWebApp(static_roots=roots, runs_dir=runs_dir)
+    return PrintPipeWebApp(static_roots=roots, runs_dir=runs_dir, path_opener=path_opener)
 
 
 def create_server(
@@ -967,6 +987,18 @@ def _edit_route_id(relative_url_path: str) -> str | None:
     return run_id
 
 
+def _open_folder_route(relative_url_path: str) -> tuple[str, str] | None:
+    parts = unquote(relative_url_path).strip("/").split("/")
+    if len(parts) != 3 or parts[1] != "open-folder":
+        return None
+    run_id, target = parts[0], parts[2]
+    if not run_id or "/" in run_id or "\\" in run_id:
+        return None
+    if target not in {"run", "report", "bundle"}:
+        return None
+    return run_id, target
+
+
 def _read_run_report(run_root: Path) -> dict[str, Any]:
     report_path = run_root / "80_reports" / "run_report.json"
     if not report_path.exists():
@@ -1179,7 +1211,10 @@ def _render_model_card(*, detail: dict[str, Any], artifact_links: list[Any]) -> 
             _render_metric("Fit issue", _fit_issue_label(detail)),
             _render_metric("Slice gate", _state_label(str(validation.get("slice_success", {}).get("state", "review")))),
             "            </div>",
-            _render_workbench_artifacts(artifact_links),
+            _render_workbench_artifacts(
+                str(detail.get("run_id", "unknown-run")),
+                artifact_links,
+            ),
             "          </article>",
         ]
     )
@@ -1232,7 +1267,7 @@ def _render_metric(label: str, value: str) -> str:
     )
 
 
-def _render_workbench_artifacts(artifact_links: list[Any]) -> str:
+def _render_workbench_artifacts(run_id: str, artifact_links: list[Any]) -> str:
     return "\n".join(
         [
             '            <section class="workbench-artifacts" aria-label="Primary artifacts">',
@@ -1241,9 +1276,29 @@ def _render_workbench_artifacts(artifact_links: list[Any]) -> str:
             "                <p>Open the files you need while editing this run.</p>",
             "              </div>",
             _render_artifact_tiles(artifact_links),
+            _render_open_folder_actions(run_id),
             "            </section>",
         ]
     )
+
+
+def _render_open_folder_actions(run_id: str) -> str:
+    safe_run_id = quote(run_id, safe="")
+    actions = (
+        ("bundle", "Open bundle folder"),
+        ("report", "Open report folder"),
+    )
+    forms = "\n".join(
+        "\n".join(
+            [
+                f'              <form method="post" action="/runs/{safe_run_id}/open-folder/{target}">',
+                f'                <button type="submit">{escape(label)}</button>',
+                "              </form>",
+            ]
+        )
+        for target, label in actions
+    )
+    return f'            <div class="open-folder-actions">\n{forms}\n            </div>'
 
 
 def _render_stage_panel(title: str, stages: list[dict[str, Any]], *, mode: str) -> str:
@@ -2368,6 +2423,20 @@ _CSS = """
     }
     .workbench-artifacts .links {
       grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+    .open-folder-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .open-folder-actions button {
+      background: #ffffff;
+      border: 1px solid #b8c6d4;
+      border-radius: 8px;
+      color: #17202a;
+      cursor: pointer;
+      font-weight: 800;
+      padding: 8px 10px;
     }
     .lower-grid {
       display: grid;

@@ -43,6 +43,8 @@ Inspect a run:
 ```bash
 printpipe status runs/<run-id>
 printpipe open-report runs/<run-id>
+printpipe open-folder runs/<run-id> --target bundle
+printpipe open-folder runs/<run-id> --target report
 ```
 
 If `printpipe run` reports that the Hunyuan3D local command is not configured,

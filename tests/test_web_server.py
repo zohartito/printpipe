@@ -9,6 +9,7 @@ from printpipe.reports.html import write_html_report
 from printpipe.runs.editing import load_edit_recipe
 from printpipe.runs.paths import create_run
 from printpipe.web import PrintPipeWebApp, create_app
+from printpipe.web import run_detail
 from printpipe.web import server as web_server
 
 
@@ -266,7 +267,14 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     assert "3MF bundle" in response.text
     assert "Slice report" in response.text
     assert 'href="/runs/run-workbench-001/artifacts/70_slice/slice_result.json"' in response.text
+    assert "Warning and Failure Receipts" in response.text
+    assert "Failed stages" in response.text
+    assert "No failed pipeline stages." in response.text
     assert 'class="workbench-artifacts"' in response.text
+    assert 'action="/runs/run-workbench-001/open-folder/bundle"' in response.text
+    assert "Open bundle folder" in response.text
+    assert 'action="/runs/run-workbench-001/open-folder/report"' in response.text
+    assert "Open report folder" in response.text
     assert response.text.find('class="workbench-artifacts"') < response.text.find('class="lower-grid"')
     assert response.text.find('class="workbench-artifacts"') < response.text.find('class="controls"')
     assert "Overall scale" in response.text
@@ -282,7 +290,7 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
 
 
 def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
-    css = web_server._CSS
+    css = web_server._CSS + run_detail.RUN_DETAIL_CSS
 
     assert "clip-path:" not in css
     assert "print-object" not in css
@@ -292,6 +300,8 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert ".run-context" in css
     assert ".verdict-strip-warn" in css
     assert ".workbench-artifacts" in css
+    assert ".warning-receipts" in css
+    assert ".open-folder-actions" in css
     assert ".edit-actions" in css
     assert "position: sticky" in css
     assert "bottom: 0" in css
@@ -453,6 +463,21 @@ def test_home_response_groups_run_artifacts_for_preview_report_and_download(tmp_
     assert 'href="/runs/run-artifacts-001/artifacts/80_reports/run_report.html"' in response.text
 
 
+def test_post_run_open_folder_opens_safe_bundle_folder_and_redirects(tmp_path: Path):
+    source = tmp_path / "reference.stl"
+    source.write_text("solid fake\nendsolid fake\n", encoding="utf-8")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-open-001")
+    opened: list[Path] = []
+    app = create_app(runs_dir=runs_dir, path_opener=opened.append)
+
+    response = app.handle("/runs/run-open-001/open-folder/bundle", method="POST")
+
+    assert response.status == 303
+    assert response.header("Location") == "/runs/run-open-001"
+    assert opened == [layout.bundle_dir]
+
+
 def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     app = create_app(runs_dir=runs_dir)
@@ -506,6 +531,12 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(t
         "Hunyuan3D local command is not configured; set "
         "PRINTPIPE_HUNYUAN3D_COMMAND or pass a command path."
     ]
+
+    workbench = app.handle(f"/runs/{run_root.name}")
+    assert workbench.status == 200
+    assert "Warning and Failure Receipts" in workbench.text
+    assert "Hunyuan3D local command is not configured" in workbench.text
+    assert "<strong>Mesh generation</strong>" in workbench.text
 
 
 def test_post_runs_existing_stl_creates_bundle_and_report(tmp_path: Path):

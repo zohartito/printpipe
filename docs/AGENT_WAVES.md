@@ -267,3 +267,13 @@ Status: complete for software artifact generation. Outputs are covered by `tests
 3. Done: the `flex_coupon_first` checklist item records the coupon artifact path in metadata.
 4. Done: web artifact discovery recognizes `calibration_mesh` artifacts so the coupon can be opened/downloaded from the run workbench.
 5. Remaining: physical F9 validation still needs real PLA/PETG/TPU coupon or small-object prints with photos and notes.
+
+## Wave 25 - Local Open-Folder Affordance
+
+Status: complete for local CLI/web affordances. Outputs are covered by `tests/test_cli_run.py` and `tests/test_web_server.py`.
+
+1. Done: added `printpipe open-folder <run> --target run|report|bundle`.
+2. Done: added `--dry-run` so tests and scripts can resolve the target folder without launching Finder/Explorer.
+3. Done: run-detail artifacts now include local POST buttons for opening bundle and report folders.
+4. Done: web folder opening uses a safe run-root lookup and injectable opener for tests.
+5. Remaining: direct "send to printer" remains separate from this local folder-opening affordance.
