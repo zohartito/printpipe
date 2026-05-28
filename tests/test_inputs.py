@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -163,6 +164,48 @@ def test_select_references_spreads_gif_video_frames_across_the_candidate_set(
         2,
         4,
     ]
+
+
+def test_clean_references_runs_configured_background_and_lighting_commands(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake png bytes")
+    command_script = tmp_path / "frame_command.py"
+    command_script.write_text(
+        "from pathlib import Path\n"
+        "import sys\n"
+        "source = Path(sys.argv[1])\n"
+        "target = Path(sys.argv[2])\n"
+        "prefix = sys.argv[3].encode('ascii')\n"
+        "target.parent.mkdir(parents=True, exist_ok=True)\n"
+        "target.write_bytes(prefix + b':' + source.read_bytes())\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(
+        "PRINTPIPE_BACKGROUND_REMOVAL_COMMAND",
+        f"{sys.executable} {command_script} {{input}} {{output}} bg",
+    )
+    monkeypatch.setenv(
+        "PRINTPIPE_LIGHTING_NORMALIZATION_COMMAND",
+        f"{sys.executable} {command_script} {{input}} {{output}} light",
+    )
+
+    result = prepare_input(source, tmp_path / "work")
+
+    selected = result.selected_references[0]
+    assert selected.path.read_bytes() == b"light:bg:fake png bytes"
+    assert selected.metadata["semantic_background_removed"] is True
+    assert selected.metadata["background_removal_method"] == "configured_command"
+    assert selected.metadata["lighting_normalized"] is True
+    assert selected.metadata["lighting_normalization_method"] == "configured_command"
+
+    receipt_by_stage = {receipt.stage: receipt for receipt in result.receipts}
+    assert receipt_by_stage["background_removal"].metrics["command_configured"] is True
+    assert receipt_by_stage["background_removal"].metrics["semantic_background_removed"] is True
+    assert receipt_by_stage["normalize_lighting"].metrics["command_configured"] is True
+    assert receipt_by_stage["normalize_lighting"].metrics["lighting_normalized"] is True
 
 
 def test_prepare_gif_and_video_skip_frame_extraction_when_no_runner_is_available(tmp_path: Path):

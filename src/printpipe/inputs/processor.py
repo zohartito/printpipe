@@ -9,6 +9,8 @@ or lighting processing exists.
 from __future__ import annotations
 
 import json
+import os
+import shlex
 import shutil
 import subprocess
 from html import escape
@@ -25,6 +27,8 @@ GIF_SUFFIXES = frozenset({".gif"})
 VIDEO_SUFFIXES = frozenset({".mov", ".mp4", ".m4v", ".avi", ".webm"})
 MESH_SUFFIXES = frozenset({".stl", ".glb", ".gltf", ".obj", ".3mf"})
 DEFAULT_MAX_EXTRACTED_FRAMES = 8
+BACKGROUND_REMOVAL_COMMAND_ENV = "PRINTPIPE_BACKGROUND_REMOVAL_COMMAND"
+LIGHTING_NORMALIZATION_COMMAND_ENV = "PRINTPIPE_LIGHTING_NORMALIZATION_COMMAND"
 
 
 class FrameExtractor(Protocol):
@@ -363,31 +367,66 @@ def clean_references(
             ),
         )
 
-    cleaned_dir = work_dir / "cleaned"
-    cleaned_references: list[Artifact] = []
-    for index, reference in enumerate(references):
-        cleaned_path = _copy_to_dir(reference.path, cleaned_dir)
-        metadata = dict(reference.metadata)
-        metadata.update(
-            {
-                "processing_stage": "cleaned_frame",
-                "source_frame_path": str(reference.path),
-                "semantic_background_removed": False,
-                "background_removal_method": "not_performed_copy",
-                "lighting_normalized": False,
-                "lighting_normalization_method": "not_performed",
-            }
+    background_command = os.environ.get(BACKGROUND_REMOVAL_COMMAND_ENV)
+    lighting_command = os.environ.get(LIGHTING_NORMALIZATION_COMMAND_ENV)
+    background_references, background_receipt = _background_removed_references(
+        references,
+        work_dir,
+        command_template=background_command,
+    )
+    cleaned_references, lighting_receipt = _lighting_normalized_references(
+        background_references,
+        work_dir,
+        command_template=lighting_command,
+        already_cleaned=background_command is None,
+    )
+    return cleaned_references, background_receipt, lighting_receipt
+
+
+def _background_removed_references(
+    references: tuple[Artifact, ...],
+    work_dir: Path,
+    *,
+    command_template: str | None,
+) -> tuple[tuple[Artifact, ...], StageReceipt]:
+    if command_template:
+        processed = _run_frame_command_stage(
+            references,
+            output_dir=work_dir / "background_removed",
+            command_template=command_template,
+            label_prefix="background_removed_frame",
+            metadata_updates={
+                "semantic_background_removed": True,
+                "background_removal_method": "configured_command",
+            },
         )
-        cleaned_references.append(
-            Artifact(
-                kind=ArtifactKind.CLEANED_FRAME,
-                path=cleaned_path,
-                label=f"cleaned_frame_{index:03d}",
-                metadata=metadata,
-            )
+        return (
+            processed,
+            StageReceipt(
+                stage="background_removal",
+                status=StageStatus.SUCCEEDED,
+                message="removed backgrounds with configured frame command",
+                artifacts=processed,
+                metrics={
+                    "frame_count": len(processed),
+                    "operation": "configured_command",
+                    "command_configured": True,
+                    "semantic_background_removed": True,
+                },
+            ),
         )
 
-    cleaned = tuple(cleaned_references)
+    cleaned = _copy_references_with_metadata(
+        references,
+        output_dir=work_dir / "cleaned",
+        label_prefix="cleaned_frame",
+        metadata_updates={
+            "semantic_background_removed": False,
+            "background_removal_method": "not_performed_copy",
+            "lighting_normalized": False,
+            "lighting_normalization_method": "not_performed",
+        },
+    )
     return (
         cleaned,
         StageReceipt(
@@ -398,9 +437,58 @@ def clean_references(
             metrics={
                 "frame_count": len(cleaned),
                 "operation": "copy",
+                "command_configured": False,
                 "semantic_background_removed": False,
             },
         ),
+    )
+
+
+def _lighting_normalized_references(
+    references: tuple[Artifact, ...],
+    work_dir: Path,
+    *,
+    command_template: str | None,
+    already_cleaned: bool,
+) -> tuple[tuple[Artifact, ...], StageReceipt]:
+    if command_template:
+        processed = _run_frame_command_stage(
+            references,
+            output_dir=work_dir / "cleaned",
+            command_template=command_template,
+            label_prefix="cleaned_frame",
+            metadata_updates={
+                "lighting_normalized": True,
+                "lighting_normalization_method": "configured_command",
+            },
+        )
+        return (
+            processed,
+            StageReceipt(
+                stage="normalize_lighting",
+                status=StageStatus.SUCCEEDED,
+                message="normalized lighting with configured frame command",
+                artifacts=processed,
+                metrics={
+                    "frame_count": len(processed),
+                    "operation": "configured_command",
+                    "command_configured": True,
+                    "lighting_normalized": True,
+                },
+            ),
+        )
+
+    cleaned = references if already_cleaned else _copy_references_with_metadata(
+        references,
+        output_dir=work_dir / "cleaned",
+        label_prefix="cleaned_frame",
+        metadata_updates={
+            "lighting_normalized": False,
+            "lighting_normalization_method": "not_performed",
+        },
+    )
+    return (
+        cleaned,
         StageReceipt(
             stage="normalize_lighting",
             status=StageStatus.SUCCEEDED,
@@ -409,10 +497,98 @@ def clean_references(
             metrics={
                 "frame_count": len(cleaned),
                 "operation": "no_op",
+                "command_configured": False,
                 "lighting_normalized": False,
             },
         ),
     )
+
+
+def _run_frame_command_stage(
+    references: tuple[Artifact, ...],
+    *,
+    output_dir: Path,
+    command_template: str,
+    label_prefix: str,
+    metadata_updates: dict[str, object],
+) -> tuple[Artifact, ...]:
+    processed: list[Artifact] = []
+    for index, reference in enumerate(references):
+        output_path = output_dir / reference.path.name
+        _run_configured_frame_command(command_template, reference.path, output_path)
+        metadata = _cleanup_metadata(reference, metadata_updates)
+        processed.append(
+            Artifact(
+                kind=ArtifactKind.CLEANED_FRAME,
+                path=output_path,
+                label=f"{label_prefix}_{index:03d}",
+                metadata=metadata,
+            )
+        )
+    return tuple(processed)
+
+
+def _copy_references_with_metadata(
+    references: tuple[Artifact, ...],
+    *,
+    output_dir: Path,
+    label_prefix: str,
+    metadata_updates: dict[str, object],
+) -> tuple[Artifact, ...]:
+    copied: list[Artifact] = []
+    for index, reference in enumerate(references):
+        output_path = _copy_to_dir(reference.path, output_dir)
+        metadata = _cleanup_metadata(reference, metadata_updates)
+        copied.append(
+            Artifact(
+                kind=ArtifactKind.CLEANED_FRAME,
+                path=output_path,
+                label=f"{label_prefix}_{index:03d}",
+                metadata=metadata,
+            )
+        )
+    return tuple(copied)
+
+
+def _cleanup_metadata(reference: Artifact, updates: dict[str, object]) -> dict[str, object]:
+    metadata: dict[str, object] = dict(reference.metadata)
+    metadata.update(
+        {
+            "processing_stage": "cleaned_frame",
+            "source_frame_path": str(reference.path),
+        }
+    )
+    metadata.update(updates)
+    return metadata
+
+
+def _run_configured_frame_command(
+    command_template: str,
+    input_path: Path,
+    output_path: Path,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    command = _frame_command_args(command_template, input_path=input_path, output_path=output_path)
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or "").strip()
+        message = "configured frame command failed"
+        if detail:
+            message = f"{message}: {detail}"
+        raise FrameExtractionError(message) from exc
+    if not output_path.exists():
+        raise FrameExtractionError(f"configured frame command did not write {output_path}")
+
+
+def _frame_command_args(command_template: str, *, input_path: Path, output_path: Path) -> list[str]:
+    tokens = shlex.split(command_template)
+    if "{input}" not in tokens or "{output}" not in tokens:
+        raise FrameExtractionError("configured frame command must include {input} and {output}")
+    return [
+        str(input_path) if token == "{input}" else str(output_path) if token == "{output}" else token
+        for token in tokens
+    ]
 
 
 def select_references(

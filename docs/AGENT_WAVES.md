@@ -430,3 +430,14 @@ Status: complete for original item 39. Media reference selection no longer blind
 4. Done: added regression coverage for 5 extracted frames -> selected frames 1, 3, and 5.
 5. Done: updated the roadmap count to 127 done / 15 partial.
 6. Remaining: background removal and lighting normalization are still honest no-op/copy stages until a real local or provider-backed implementation lands.
+
+## Wave 40 - Configurable Media Cleanup Commands
+
+Status: complete for original items 40 and 41. Background removal and lighting normalization can now run configured local/provider commands with receipts.
+
+1. Done: added `PRINTPIPE_BACKGROUND_REMOVAL_COMMAND` support using `{input}` and `{output}` placeholders.
+2. Done: added `PRINTPIPE_LIGHTING_NORMALIZATION_COMMAND` support using the same placeholder contract.
+3. Done: cleanup metadata records whether semantic background removal and lighting normalization actually ran.
+4. Done: cleanup receipts record `command_configured`, operation, and frame counts.
+5. Done: no configured command still yields honest no-op/copy receipts instead of pretending.
+6. Done: updated the roadmap count to 129 done / 13 partial.

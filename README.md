@@ -42,6 +42,15 @@ Current input support is intentionally explicit:
 | Prompt plus image | Supported only at the provider-contract level as an optional `prompt_hint`; not wired through CLI/web runs yet. |
 | Prompt only | Not supported yet. The pipeline needs an image/video/mesh source before it can produce geometry. |
 
+Optional media cleanup hooks:
+
+```bash
+export PRINTPIPE_BACKGROUND_REMOVAL_COMMAND='your-bg-tool {input} {output}'
+export PRINTPIPE_LIGHTING_NORMALIZATION_COMMAND='your-light-tool {input} {output}'
+```
+
+When unset, those stages stay as explicit no-op/copy receipts.
+
 Flexible-material runs, including TPU, also emit `40_geometry/flex_coupon_40x15x3.stl` as the first validation print artifact.
 
 Example TPU mesh run:
