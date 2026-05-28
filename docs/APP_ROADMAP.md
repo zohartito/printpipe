@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 29: 123 done, 19 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 30: 123 done, 19 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,7 +206,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 29 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs now prepare references, call the configured Hunyuan3D local adapter, and then continue through the same repair/orient/bundle/report spine. If `PRINTPIPE_HUNYUAN3D_COMMAND` is unset, media runs fail at `meshgen` with a provider-configuration receipt instead of silently pretending to generate geometry. The wide-upper slipper mesh has now run through PrintPipe itself with SUNLU TPU 90A material intent, TPU profile IDs/settings in the `.3mf`, 0 warnings, a watertight repair receipt, bed-fit receipt, bundle validation, and a generated flex-coupon artifact. Physical print evidence now has a structured beta packet for real coupon/object results, with material-specific required gaps for TPU, PLA, and PETG, but the actual PLA/PETG/TPU physical prints are still not complete. The run-detail UI and CLI both expose local open-folder affordances for bundle/report folders. `printpipe doctor` now reports workspace and configured artifact readability, web run status marks unreadable external artifacts without crashing, and troubleshooting docs include the macOS Desktop/TCC recovery path. Bambu Studio 2.6.00.51 on this macOS 26.5 machine still segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
+Wave 30 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs now prepare references, call the configured Hunyuan3D local adapter, and then continue through the same repair/orient/bundle/report spine. If `PRINTPIPE_HUNYUAN3D_COMMAND` is unset, media runs fail at `meshgen` with a provider-configuration receipt instead of silently pretending to generate geometry. The wide-upper slipper mesh has now run through PrintPipe itself with SUNLU TPU 90A material intent, TPU profile IDs/settings in the `.3mf`, 0 warnings, a watertight repair receipt, bed-fit receipt, bundle validation, and a generated flex-coupon artifact. Physical print evidence now has a structured beta packet for real coupon/object results, with material-specific required gaps for TPU, PLA, and PETG, but the actual PLA/PETG/TPU physical prints are still not complete. The macOS package smoke path now has a `printpipe package-smoke --platform macos` command that writes a generated ASCII STL, runs the real pipeline, and reports bundle/report evidence; this is not yet a signed or notarized `.app`, so original item 121 remains partial. The run-detail UI and CLI both expose local open-folder affordances for bundle/report folders. `printpipe doctor` now reports workspace and configured artifact readability, web run status marks unreadable external artifacts without crashing, and troubleshooting docs include the macOS Desktop/TCC recovery path. Bambu Studio 2.6.00.51 on this macOS 26.5 machine still segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
 
 ## Post-Wave 13 Findings Backlog
 
@@ -221,7 +221,7 @@ These items are not part of the original 142 count. They come from Wave 13 verif
 - [x] F7. Create a flex-coupon generator and include it as the first TPU validation artifact.
 - [x] F8. Run the slipper proof through PrintPipe, not the old external slipper repo.
 - [~] F9. Run one PLA, one PETG, and one TPU physical coupon or small object print and attach evidence; structured evidence packets are implemented, physical prints are still pending.
-- [ ] F10. Build a clean macOS app/package smoke path.
+- [x] F10. Build a clean macOS app/package smoke path.
 - [ ] F11. Build a clean Windows package smoke path.
 - [x] F12. Add a regression for unreadable external artifact paths so permission problems skip or report clearly instead of crashing.
 - [ ] F13. Isolate Bambu Studio 2.6.00.51 CLI `--slice` SIGSEGV on macOS 26.5; direct STL and generated `.3mf` both crash in `update_values_to_printer_extruders_for_multiple_filaments`.

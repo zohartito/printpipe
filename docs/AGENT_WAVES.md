@@ -321,3 +321,14 @@ Status: partial for F9. Evidence capture is implemented and tested, but the real
 4. Done: added Markdown rendering with required evidence headings and open-issue reporting.
 5. Done: updated beta onboarding and slipper dogfood docs to require physical evidence packets for real print claims.
 6. Remaining: print one PLA, one PETG, and one TPU coupon or small object, attach photos/notes, and keep F9 partial until those artifacts exist.
+
+## Wave 30 - macOS Package Smoke Path
+
+Status: complete for F10. This proves a clean macOS package smoke path around the `printpipe` entry point, not a signed/notarized app bundle.
+
+1. Done: added `printpipe.packaging.smoke` with a clean-environment macOS smoke plan.
+2. Done: added a generated ASCII STL fixture so the smoke path does not rely on repo test fixtures.
+3. Done: added `printpipe package-smoke --platform macos --runs-dir ... --json`.
+4. Done: the smoke command runs the real existing-mesh pipeline and records run root, reports, bundle paths, and slice-gate status.
+5. Done: updated `docs/PACKAGING.md` and `docs/APP_ROADMAP.md` with the F10 boundary.
+6. Remaining: original item 121 stays partial until there is a signed/notarized macOS app or installer flow; F13 still owns live Bambu CLI slicing.

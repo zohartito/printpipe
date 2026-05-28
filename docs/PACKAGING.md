@@ -156,3 +156,27 @@ printpipe doctor
 When Bambu Studio is installed, add a Bambu path/profile detection check and a
 slice-gate smoke check. When it is not installed, verify that the package reports
 that limitation clearly.
+
+## macOS Package Smoke Path
+
+F10 is now backed by a non-interactive smoke command:
+
+```bash
+printpipe package-smoke --platform macos --runs-dir runs/package-smoke/macos --json
+```
+
+What this proves:
+
+- The installed `printpipe` entry point starts.
+- A generated ASCII STL fixture can be written without relying on repo test
+  fixtures.
+- The existing-mesh pipeline creates a run folder, reports, and a Bambu `.3mf`.
+- `status` and `open-report` have real paths to inspect after the run.
+
+What this does not prove:
+
+- It is not a signed or notarized .app.
+- It does not prove an installer drag/drop flow.
+- It does not complete the live Bambu CLI slice gate. That check is recorded as
+  `manual_required` in the smoke result while F13 owns the current Bambu Studio
+  2.6.00.51 / macOS 26.5 CLI segfault.

@@ -158,6 +158,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override platform detection for diagnostics and tests.",
     )
 
+    package_smoke = subparsers.add_parser(
+        "package-smoke",
+        help="Run or describe local packaging smoke checks.",
+    )
+    package_smoke.add_argument(
+        "--platform",
+        choices=("macos",),
+        default="macos",
+        help="Platform smoke path to run.",
+    )
+    package_smoke.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs/package-smoke/macos"),
+        help="Directory where package-smoke run folders are created.",
+    )
+    package_smoke.add_argument(
+        "--plan",
+        action="store_true",
+        help="Print the smoke plan without running the pipeline.",
+    )
+    package_smoke.add_argument(
+        "--json",
+        action="store_true",
+        help="Print package-smoke output as JSON.",
+    )
+
     return parser
 
 
@@ -292,6 +319,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "doctor":
         return _doctor(json_output=args.json, platform_name=args.platform)
 
+    if args.command == "package-smoke":
+        return _package_smoke(
+            platform_name=args.platform,
+            runs_dir=args.runs_dir,
+            plan_only=args.plan,
+            json_output=args.json,
+        )
+
     parser.print_help()
     return 0
 
@@ -312,6 +347,61 @@ def _doctor(*, json_output: bool, platform_name: str | None) -> int:
     else:
         print(render_environment_report(report), end="")
     return 0
+
+
+def _package_smoke(
+    *,
+    platform_name: str,
+    runs_dir: Path,
+    plan_only: bool,
+    json_output: bool,
+) -> int:
+    if platform_name != "macos":
+        raise ValueError(f"unsupported package-smoke platform: {platform_name}")
+
+    from printpipe.packaging.smoke import (
+        build_macos_package_smoke_plan,
+        run_macos_package_smoke,
+    )
+
+    payload = (
+        build_macos_package_smoke_plan(runs_dir=runs_dir).to_dict()
+        if plan_only
+        else run_macos_package_smoke(runs_dir=runs_dir).to_dict()
+    )
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(_render_package_smoke(payload), end="")
+    return 0 if payload.get("status", "ok") != "failed" else 2
+
+
+def _render_package_smoke(payload: dict[str, Any]) -> str:
+    lines = [
+        f"platform: {payload.get('platform', 'unknown')}",
+        f"runs dir: {payload.get('runs_dir', 'unknown')}",
+    ]
+    if "status" in payload:
+        lines.append(f"status: {payload['status']}")
+    if payload.get("run_root"):
+        lines.append(f"run root: {payload['run_root']}")
+    checks = payload.get("checks")
+    if isinstance(checks, list):
+        lines.append("checks:")
+        for check in checks:
+            if isinstance(check, dict):
+                lines.append(
+                    f"- {check.get('id', 'unknown')}: {check.get('status', 'unknown')}"
+                )
+    steps = payload.get("steps")
+    if isinstance(steps, list):
+        lines.append("steps:")
+        for step in steps:
+            if isinstance(step, dict):
+                lines.append(
+                    f"- {step.get('id', 'unknown')}: {step.get('command', '')}"
+                )
+    return "\n".join(lines) + "\n"
 
 
 def _print_pipeline_error(error: PipelineError) -> None:
