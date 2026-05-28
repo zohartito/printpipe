@@ -1138,30 +1138,119 @@ class PrintPipeWebApp:
         )
         setup_command = str(action.get("setup_command") or "")
         setup_markup = (
-            f"          <pre><code>{escape(setup_command)}</code></pre>"
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Setup:</strong></p>',
+                    f"          <pre><code>{escape(setup_command)}</code></pre>",
+                ]
+            )
             if setup_command
             else ""
         )
         start_command = str(action.get("start_command") or "")
         start_markup = (
-            f"          <pre><code>{escape(start_command)}</code></pre>"
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Start packet:</strong></p>',
+                    f"          <pre><code>{escape(start_command)}</code></pre>",
+                ]
+            )
             if start_command
             else ""
         )
-        command = str(action.get("record_command") or "")
+        handoff_command = str(action.get("command") or "")
+        handoff_command_markup = (
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Print handoff:</strong></p>',
+                    f"          <pre><code>{escape(handoff_command)}</code></pre>",
+                ]
+            )
+            if handoff_command
+            else ""
+        )
+        slice_command = str(action.get("slice_command") or "")
+        slice_command_markup = (
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Slice if needed:</strong></p>',
+                    f"          <pre><code>{escape(slice_command)}</code></pre>",
+                ]
+            )
+            if slice_command
+            else ""
+        )
+        record_command = str(action.get("record_command") or "")
+        record_command_markup = (
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Record after print:</strong></p>',
+                    f"          <pre><code>{escape(record_command)}</code></pre>",
+                ]
+            )
+            if record_command
+            else ""
+        )
+        context = self._physical_action_context(action)
+        context_markup = (
+            f'          <p class="muted">Physical context: {escape(context)}</p>'
+            if context
+            else ""
+        )
+        file_markup = self._physical_action_files(action)
         return "\n".join(
             [
                 f'        <article class="physical-action physical-action-{_class_name(status)}">',
                 f"          <span>{escape(family)}</span>",
                 f"          <strong>{escape(status)}</strong>",
                 f"          <p>{escape(reason)}</p>",
+                context_markup,
                 f'          <p class="muted">Required: {escape(required_text or "not recorded")}</p>',
+                file_markup,
                 setup_markup,
                 start_markup,
-                f"          <pre><code>{escape(command)}</code></pre>",
+                handoff_command_markup,
+                slice_command_markup,
+                record_command_markup,
                 "        </article>",
             ]
         )
+
+    def _physical_action_context(self, action: dict[str, Any]) -> str:
+        pairs = (
+            ("material_hint", "Material"),
+            ("material", "Material"),
+            ("object_label", "Object"),
+            ("print_type", "Print type"),
+            ("run_root", "Run"),
+        )
+        seen_labels: set[str] = set()
+        parts: list[str] = []
+        for key, label in pairs:
+            value = str(action.get(key) or "")
+            if not value or label in seen_labels:
+                continue
+            seen_labels.add(label)
+            parts.append(f"{label}: {value}")
+        return "; ".join(parts)
+
+    def _physical_action_files(self, action: dict[str, Any]) -> str:
+        rows: list[str] = []
+        for key, label in (
+            ("coupon_stl_path", "Coupon artifact"),
+            ("coupon_json_path", "Coupon sidecar"),
+            ("bundle_path", "Bundle"),
+            ("bundle_validation_path", "Bundle validation"),
+            ("slice_result_path", "Slice receipt"),
+            ("handoff_markdown_path", "Handoff"),
+        ):
+            value = str(action.get(key) or "")
+            if value:
+                rows.append(
+                    f'          <p class="muted">{escape(label)}: '
+                    f"{escape(value)}</p>"
+                )
+        return "\n".join(rows)
 
     def _render_trusted_feedback_gate_panel(self) -> str:
         if self.runs_dir is None:

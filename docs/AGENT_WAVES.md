@@ -1644,3 +1644,13 @@ Status: partial progress for trusted-user beta execution UX. This makes the dedi
 3. Done: action cards separate the immediate review handoff command from the later `Record after review` command.
 4. Done: focused web regression coverage proves the home page exposes context and files for a handoff-backed trusted-user review.
 5. Boundary: UI parity still does not create trusted-user evidence. The beta gate remains open until three unique trusted users return completed feedback packets with supporting evidence.
+
+## Wave 150 - Physical Action Plan UI Parity
+
+Status: partial progress for physical-validation execution UX. This makes the dedicated home-page physical action plan show the same print-day context and files that final-readiness can show.
+
+1. Done: physical action cards now render `Physical context` for material, object label, print type, and run folder.
+2. Done: started physical rows now show coupon STL, coupon sidecar, Bambu bundle, bundle-validation receipt, slice receipt when present, and physical handoff path.
+3. Done: physical rows now separate setup, starter-packet, print-handoff/open-folder, slice-if-needed, and `Record after print` commands.
+4. Done: focused web regression coverage proves a started PLA validation packet exposes context, files, slice command, print handoff, and record-after-print copy.
+5. Boundary: UI parity still does not create physical evidence. PLA, PETG, and TPU gates remain open until real printed coupons or small objects are observed, photographed, and recorded with explicit outcomes.

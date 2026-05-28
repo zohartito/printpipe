@@ -9,6 +9,7 @@ from printpipe.beta.physical import (
     build_physical_print_evidence,
     write_physical_evidence_files,
 )
+from printpipe.beta.physical_start import start_physical_validation
 from printpipe.beta.feedback import (
     build_trusted_user_feedback,
     start_trusted_user_feedback,
@@ -298,6 +299,40 @@ def test_home_response_renders_physical_action_plan(tmp_path: Path):
     assert "printpipe physical-start" in response.text
     assert "printpipe record-physical-evidence" in response.text
     assert "printpipe physical-plan --runs-dir runs" in response.text
+
+
+def test_home_response_renders_started_physical_action_context_and_files(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    result = start_physical_validation(
+        runs_dir,
+        family="pla",
+        operator="Zohar",
+    )
+    run_root = runs_dir / "physical-pla-validation"
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Physical action plan" in response.text
+    assert (
+        "Physical context: Material: Bambu PLA Basic; "
+        "Object: PLA validation coupon; Print type: coupon; "
+        f"Run: {run_root.resolve()}"
+    ) in response.text
+    assert f"Coupon artifact: {result['coupon_stl_path']}" in response.text
+    assert f"Coupon sidecar: {result['coupon_json_path']}" in response.text
+    assert f"Bundle: {result['bundle_path']}" in response.text
+    assert f"Bundle validation: {result['bundle_validation_path']}" in response.text
+    assert f"Handoff: {result['handoff_markdown_path']}" in response.text
+    assert "printpipe physical-slice --family pla" in response.text
+    assert (
+        f"printpipe open-folder &quot;{run_root.resolve()}&quot; --target run"
+        in response.text
+    )
+    assert "Record after print:" in response.text
 
 
 def test_beta_plan_json_endpoint_returns_action_plan(tmp_path: Path):

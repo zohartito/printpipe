@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 149: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 150: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 149 brought the dedicated trusted-user action-plan panel up to the same review-handoff standard as final-readiness. The home page now shows trusted-user review context plus handoff, run-report, and bundle paths beside each review action, while still making clear that generated plans are not tester evidence. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 150 brought the dedicated physical action-plan panel up to the same print-handoff standard as final-readiness. The home page now shows physical validation context, coupon files, bundle receipts, handoff sheets, slice commands, print-handoff commands, and record-after-print commands beside each material action, while still making clear that digital artifacts are not physical proof. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 
