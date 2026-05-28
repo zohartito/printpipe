@@ -774,3 +774,13 @@ Status: complete for report-copy cleanup. Static Markdown and HTML reports no lo
 3. Done: replaced HTML pre-print empty copy with `No pre-print checklist recorded for this report.`
 4. Done: added regression coverage that rejects the stale `pending final slice gate integration` wording.
 5. Boundary: this does not create slice receipts, checklist items, or physical print evidence; it only keeps missing evidence language accurate.
+
+## Wave 70 - Physical Evidence in Static Reports
+
+Status: complete for evidence portability. Physical print evidence packets now surface in the static JSON, Markdown, and HTML run reports when a packet is recorded.
+
+1. Done: `build_run_report_dict()` and `write_run_report()` accept optional `physical_evidence`.
+2. Done: Markdown reports render a `Physical Evidence` section with status, object, operator, material, printer, packet links, artifact links, and missing-evidence summary.
+3. Done: HTML reports render a `Physical Evidence` section with the same evidence packet and artifact links.
+4. Done: `printpipe record-physical-evidence` refreshes existing `80_reports/run_report.json`, `.md`, and `.html` when a run report already exists.
+5. Boundary: recording evidence still does not upgrade a run to physically validated unless the packet itself contains credible real print status and required evidence.

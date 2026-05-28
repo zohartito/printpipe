@@ -284,6 +284,47 @@ def test_render_html_report_uses_honest_empty_slice_and_preflight_copy(
     assert "pending final slice gate integration" not in html
 
 
+def test_render_html_report_surfaces_physical_evidence_packet(tmp_path: Path) -> None:
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-html-physical")
+    report_dict = build_run_report_dict(
+        layout,
+        stages=(),
+        physical_evidence={
+            "print_status": "passed",
+            "object_label": "flex coupon",
+            "operator": "Zohar",
+            "material": "SUNLU TPU 90A",
+            "printer": "Bambu Lab P2S",
+            "missing_required_evidence": [],
+            "packet_paths": {
+                "json": "90_physical/physical_evidence.json",
+                "markdown": "90_physical/physical_evidence.md",
+            },
+            "artifacts": [
+                {
+                    "label": "Flexed coupon photo",
+                    "kind": "photo",
+                    "path": "90_physical/artifacts/coupon.jpg",
+                }
+            ],
+        },
+    )
+
+    html = render_html_report(report_dict, layout=layout)
+
+    assert 'class="report-section section-physical-evidence"' in html
+    assert "Physical Evidence" in html
+    assert "passed" in html
+    assert "flex coupon" in html
+    assert "Zohar" in html
+    assert "No missing required evidence" in html
+    assert 'href="../90_physical/physical_evidence.json"' in html
+    assert 'href="../90_physical/physical_evidence.md"' in html
+    assert 'href="../90_physical/artifacts/coupon.jpg"' in html
+
+
 def test_render_html_report_embeds_preview_cards_and_highlights_print_artifacts(
     tmp_path: Path,
 ):

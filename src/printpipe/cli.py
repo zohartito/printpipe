@@ -19,7 +19,7 @@ from printpipe.pipeline import (
     run_existing_mesh_pipeline,
     run_prompt_pipeline,
 )
-from printpipe.runs import create_run
+from printpipe.runs import create_run, load_run
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -955,6 +955,7 @@ def _record_physical_evidence(args: argparse.Namespace) -> int:
         )
     except FileNotFoundError:
         raise FileNotFoundError(run_root)
+    result.update(_refresh_reports_with_physical_evidence(run_root, result))
 
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
@@ -967,6 +968,42 @@ def _record_physical_evidence(args: argparse.Namespace) -> int:
         else:
             print("missing required evidence: none")
     return 0
+
+
+def _refresh_reports_with_physical_evidence(
+    run_root: Path,
+    evidence_result: dict[str, Any],
+) -> dict[str, str]:
+    from printpipe.reports import write_run_report_dict
+    from printpipe.reports.html import write_html_report
+
+    try:
+        layout = load_run(run_root)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError):
+        return {}
+    report_json = layout.reports_dir / "run_report.json"
+    if not report_json.exists():
+        return {}
+
+    evidence_json = Path(str(evidence_result["json_path"]))
+    evidence_payload = json.loads(evidence_json.read_text(encoding="utf-8"))
+    evidence_payload["missing_required_evidence"] = list(
+        evidence_result.get("missing_required_evidence", [])
+    )
+    evidence_payload["packet_paths"] = {
+        "json": "90_physical/physical_evidence.json",
+        "markdown": "90_physical/physical_evidence.md",
+    }
+
+    report_payload = json.loads(report_json.read_text(encoding="utf-8"))
+    report_payload["physical_evidence"] = evidence_payload
+    write_run_report_dict(layout, report_payload)
+    write_html_report(layout, report_payload)
+    return {
+        "report_json_path": str(layout.reports_dir / "run_report.json"),
+        "report_markdown_path": str(layout.reports_dir / "run_report.md"),
+        "report_html_path": str(layout.reports_dir / "run_report.html"),
+    }
 
 
 def _parse_physical_artifact(value: str) -> Any:

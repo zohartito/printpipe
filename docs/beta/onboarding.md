@@ -218,7 +218,9 @@ printpipe record-physical-evidence runs/<run-id> \
 ```
 
 Attached files are copied into `90_physical/artifacts/`, and the run-detail
-workbench reads `90_physical/physical_evidence.json` when it exists. A copied
+workbench reads `90_physical/physical_evidence.json` when it exists. If the run
+already has `80_reports/run_report.json`, the command also refreshes the static
+JSON, Markdown, and HTML reports with a `Physical Evidence` section. A copied
 photo is evidence only for what was actually printed; it does not make a planned
 print physically validated.
 

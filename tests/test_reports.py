@@ -149,3 +149,39 @@ def test_write_run_report_promotes_prompt_reference_quote_in_markdown(tmp_path: 
     assert "- Remote upload: true" in markdown
     assert "- Provider prompt storage: true" in markdown
     assert "OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD" in markdown
+
+
+def test_write_run_report_embeds_physical_evidence_in_json_and_markdown(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-physical-report")
+
+    write_run_report(
+        layout,
+        stages=(),
+        physical_evidence={
+            "print_status": "passed",
+            "object_label": "flex coupon",
+            "operator": "Zohar",
+            "material": "SUNLU TPU 90A",
+            "printer": "Bambu Lab P2S",
+            "missing_required_evidence": [],
+            "packet_paths": {
+                "json": "90_physical/physical_evidence.json",
+                "markdown": "90_physical/physical_evidence.md",
+            },
+        },
+    )
+
+    report_json = json.loads((layout.reports_dir / "run_report.json").read_text())
+    markdown = (layout.reports_dir / "run_report.md").read_text(encoding="utf-8")
+
+    assert report_json["physical_evidence"]["print_status"] == "passed"
+    assert "## Physical Evidence" in markdown
+    assert "- Print status: passed" in markdown
+    assert "- Object: flex coupon" in markdown
+    assert "- Operator: Zohar" in markdown
+    assert "- Evidence JSON: [90_physical/physical_evidence.json](../90_physical/physical_evidence.json)" in markdown
+    assert "No missing required evidence" in markdown

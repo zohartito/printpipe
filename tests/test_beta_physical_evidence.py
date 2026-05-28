@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 
 from printpipe.cli import main
+from printpipe.reports import write_run_report
+from printpipe.reports.html import write_html_report
+from printpipe.runs.paths import create_run
 from printpipe.beta.physical import (
     PHYSICAL_EVIDENCE_REQUIRED_HEADINGS,
     PhysicalArtifact,
@@ -303,3 +306,83 @@ def test_cli_record_physical_evidence_copies_photos_into_run_packet(
             "notes": "manual Bambu Studio screenshot",
         },
     ]
+
+
+def test_cli_record_physical_evidence_refreshes_static_run_reports(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    run_root = create_run(
+        source,
+        tmp_path / "runs",
+        run_id="run-tpu-report-refresh",
+    )
+    write_run_report(run_root, stages=())
+    write_html_report(
+        run_root,
+        {
+            "schema_version": 1,
+            "run_id": run_root.run_id,
+            "stages": [],
+            "artifacts": [],
+            "warnings": [],
+            "settings_changes": [],
+            "pre_print_checklist": [],
+        },
+    )
+    photo = tmp_path / "coupon.jpg"
+    photo.write_bytes(b"photo")
+
+    exit_code = main(
+        [
+            "record-physical-evidence",
+            str(run_root.root),
+            "--material",
+            "SUNLU TPU 90A",
+            "--printer",
+            "Bambu Lab P2S",
+            "--object-label",
+            "flex coupon",
+            "--print-type",
+            "coupon",
+            "--print-status",
+            "passed",
+            "--operator",
+            "Zohar",
+            "--filament-drying",
+            "50 C for 6 h",
+            "--layer-bonding",
+            "no splits after bending",
+            "--flex-recovery",
+            "returned flat after 20 flexes",
+            "--photo",
+            str(photo),
+            "--json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    report_payload = json.loads(
+        (run_root.reports_dir / "run_report.json").read_text(encoding="utf-8")
+    )
+    markdown = (run_root.reports_dir / "run_report.md").read_text(encoding="utf-8")
+    html = (run_root.reports_dir / "run_report.html").read_text(encoding="utf-8")
+
+    assert exit_code == 0
+    assert payload["report_json_path"].endswith("80_reports/run_report.json")
+    assert payload["report_markdown_path"].endswith("80_reports/run_report.md")
+    assert payload["report_html_path"].endswith("80_reports/run_report.html")
+    assert report_payload["physical_evidence"]["print_status"] == "passed"
+    assert report_payload["physical_evidence"]["packet_paths"] == {
+        "json": "90_physical/physical_evidence.json",
+        "markdown": "90_physical/physical_evidence.md",
+    }
+    assert "## Physical Evidence" in markdown
+    assert "- Print status: passed" in markdown
+    assert "No missing required evidence" in markdown
+    assert 'class="report-section section-physical-evidence"' in html
+    assert "Flexed coupon photo" not in html
+    assert "Physical print photo 1" in html

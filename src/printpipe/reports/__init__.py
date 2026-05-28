@@ -47,6 +47,7 @@ def build_run_report_dict(
     warnings: Sequence[str] = (),
     settings_changes: Sequence[Mapping[str, Any] | str] = (),
     pre_print_checklist: Sequence[Mapping[str, Any] | str] = (),
+    physical_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the structured run report payload."""
 
@@ -57,7 +58,7 @@ def build_run_report_dict(
         for artifact in stage["artifacts"]
     ]
 
-    return {
+    report = {
         "schema_version": 1,
         "run_id": layout.run_id,
         "stages": stage_dicts,
@@ -66,6 +67,12 @@ def build_run_report_dict(
         "settings_changes": _json_friendly(settings_changes, run_root=layout.root),
         "pre_print_checklist": _json_friendly(pre_print_checklist, run_root=layout.root),
     }
+    if physical_evidence is not None:
+        report["physical_evidence"] = _json_friendly(
+            physical_evidence,
+            run_root=layout.root,
+        )
+    return report
 
 
 def render_markdown_report(
@@ -75,33 +82,61 @@ def render_markdown_report(
     warnings: Sequence[str] = (),
     settings_changes: Sequence[Mapping[str, Any] | str] = (),
     pre_print_checklist: Sequence[Mapping[str, Any] | str] = (),
+    physical_evidence: Mapping[str, Any] | None = None,
 ) -> str:
     """Render a local Markdown run report."""
 
+    report_dict = build_run_report_dict(
+        layout,
+        stages=stages,
+        warnings=warnings,
+        settings_changes=settings_changes,
+        pre_print_checklist=pre_print_checklist,
+        physical_evidence=physical_evidence,
+    )
+    return render_markdown_report_dict(layout, report_dict)
+
+
+def render_markdown_report_dict(
+    layout: RunLayout,
+    report_dict: Mapping[str, Any],
+) -> str:
+    """Render a local Markdown run report from a structured report dictionary."""
+
+    stages = _as_list(report_dict.get("stages"))
+    artifacts = _as_list(report_dict.get("artifacts"))
+    warnings = _as_list(report_dict.get("warnings"))
+    settings_changes = _as_list(report_dict.get("settings_changes"))
+    pre_print_checklist = _as_list(report_dict.get("pre_print_checklist"))
+    physical_evidence = _mapping(report_dict.get("physical_evidence"))
+
     lines = [
-        f"# PrintPipe Run Report: {layout.run_id}",
+        f"# PrintPipe Run Report: {report_dict.get('run_id', layout.run_id)}",
         "",
         "## Stages",
     ]
 
     if stages:
-        for receipt in stages:
-            lines.extend(_render_stage(layout, receipt))
+        for stage in stages:
+            lines.extend(_render_stage_mapping(layout, stage))
     else:
         lines.append("")
         lines.append("No stages recorded yet.")
 
-    prompt_reference_lines = _render_prompt_reference_section(stages)
+    prompt_reference_lines = _render_prompt_reference_section_from_mappings(stages)
     if prompt_reference_lines:
         lines.extend(["", *prompt_reference_lines])
 
     lines.extend(["", "## Artifacts"])
-    artifacts = [artifact for receipt in stages for artifact in receipt.artifacts]
     if artifacts:
         for artifact in artifacts:
-            lines.append(_render_artifact(layout, artifact))
+            lines.append(_render_artifact_mapping(layout, artifact))
     else:
         lines.append("No artifacts recorded yet.")
+
+    physical_lines = _render_physical_evidence_section(layout, physical_evidence)
+    if physical_lines:
+        lines.extend(["", *physical_lines])
 
     lines.extend(["", "## Warnings"])
     if warnings:
@@ -134,12 +169,9 @@ def write_run_report(
     warnings: Sequence[str] = (),
     settings_changes: Sequence[Mapping[str, Any] | str] = (),
     pre_print_checklist: Sequence[Mapping[str, Any] | str] = (),
+    physical_evidence: Mapping[str, Any] | None = None,
 ) -> tuple[Artifact, Artifact]:
     """Write JSON and Markdown run reports into the run layout reports directory."""
-
-    layout.reports_dir.mkdir(parents=True, exist_ok=True)
-    json_path = layout.reports_dir / "run_report.json"
-    markdown_path = layout.reports_dir / "run_report.md"
 
     report_dict = build_run_report_dict(
         layout,
@@ -147,16 +179,23 @@ def write_run_report(
         warnings=warnings,
         settings_changes=settings_changes,
         pre_print_checklist=pre_print_checklist,
+        physical_evidence=physical_evidence,
     )
-    json_path.write_text(json.dumps(report_dict, indent=2) + "\n", encoding="utf-8")
+    return write_run_report_dict(layout, report_dict)
 
-    markdown = render_markdown_report(
-        layout,
-        stages=stages,
-        warnings=warnings,
-        settings_changes=settings_changes,
-        pre_print_checklist=pre_print_checklist,
-    )
+
+def write_run_report_dict(
+    layout: RunLayout,
+    report_dict: Mapping[str, Any],
+) -> tuple[Artifact, Artifact]:
+    """Write JSON and Markdown reports from a structured report dictionary."""
+
+    layout.reports_dir.mkdir(parents=True, exist_ok=True)
+    json_path = layout.reports_dir / "run_report.json"
+    markdown_path = layout.reports_dir / "run_report.md"
+
+    json_path.write_text(json.dumps(report_dict, indent=2) + "\n", encoding="utf-8")
+    markdown = render_markdown_report_dict(layout, report_dict)
     markdown_path.write_text(markdown, encoding="utf-8")
 
     return (
@@ -165,67 +204,116 @@ def write_run_report(
     )
 
 
-def _render_stage(layout: RunLayout, receipt: StageReceipt) -> list[str]:
+def _render_stage_mapping(layout: RunLayout, stage: Any) -> list[str]:
+    if not isinstance(stage, Mapping):
+        return ["", f"### {_format_report_value(stage, run_root=layout.root)}", ""]
     lines = [
         "",
-        f"### {receipt.stage} - {receipt.status.value}",
+        f"### {stage.get('stage', 'unknown')} - {stage.get('status', 'unknown')}",
         "",
-        receipt.message,
+        str(stage.get("message", "")),
     ]
-    if receipt.artifacts:
+    artifacts = _as_list(stage.get("artifacts"))
+    if artifacts:
         lines.append("")
         lines.append("Artifacts:")
-        for artifact in receipt.artifacts:
-            lines.append(_render_artifact(layout, artifact))
-    if receipt.metrics:
+        for artifact in artifacts:
+            lines.append(_render_artifact_mapping(layout, artifact))
+    metrics = stage.get("metrics")
+    if metrics:
         lines.append("")
-        lines.append(f"Metrics: {_format_report_value(receipt.metrics, run_root=layout.root)}")
+        lines.append(f"Metrics: {_format_report_value(metrics, run_root=layout.root)}")
     return lines
 
 
-def _render_artifact(layout: RunLayout, artifact: Artifact) -> str:
-    display_path = _path_to_string(artifact.path, root=layout.root)
-    link_path = _path_to_link(artifact.path, base_dir=layout.reports_dir)
-    return f"- {artifact.label} ({artifact.kind.value}): [{display_path}]({link_path})"
+def _render_artifact_mapping(layout: RunLayout, artifact: Any) -> str:
+    if not isinstance(artifact, Mapping):
+        return f"- {_format_report_value(artifact, run_root=layout.root)}"
+    label = str(artifact.get("label") or "Artifact")
+    kind = str(artifact.get("kind") or "artifact")
+    path = artifact.get("path")
+    if not path:
+        return f"- {label} ({kind})"
+    display_path = str(path)
+    link_path = _path_string_to_link(display_path, layout=layout)
+    return f"- {label} ({kind}): [{display_path}]({link_path})"
 
 
-def _render_prompt_reference_section(stages: Sequence[StageReceipt]) -> list[str]:
-    receipt = _prompt_reference_receipt(stages)
+def _render_prompt_reference_section_from_mappings(stages: Sequence[Any]) -> list[str]:
+    receipt = _prompt_reference_mapping(stages)
     if receipt is None:
         return []
-    quote = _prompt_provider_quote(receipt.metrics)
-    provider = str(quote.get("provider") or receipt.metrics.get("provider") or "unknown")
+    metrics = _mapping(receipt.get("metrics"))
+    quote = _mapping(metrics.get("provider_quote"))
+    provider = str(quote.get("provider") or metrics.get("provider") or "unknown")
+    message = str(receipt.get("message", ""))
     lines = [
         "## Prompt Reference",
         f"- Provider: {provider}",
-        f"- Status: {receipt.status.value}",
-        f"- Message: {receipt.message}",
+        f"- Status: {receipt.get('status', 'unknown')}",
+        f"- Message: {message}",
         f"- Privacy: {quote.get('privacy_mode', 'not recorded')}",
         f"- Estimated cost: {_format_money(quote.get('estimated_cost_usd'))}",
         f"- Max cost: {_format_money(quote.get('max_cost_usd'))}",
         f"- Estimated latency: {_format_seconds(quote.get('estimated_seconds'))}",
-        f"- Budget: {_prompt_budget_status(receipt)}",
+        f"- Budget: {_prompt_budget_status_from_mapping(receipt)}",
         f"- Remote upload: {_format_bool(quote.get('remote_upload'))}",
         f"- Provider prompt storage: {_format_bool(quote.get('stores_prompt_with_provider'))}",
     ]
     return lines
 
 
-def _prompt_reference_receipt(stages: Sequence[StageReceipt]) -> StageReceipt | None:
+def _render_physical_evidence_section(
+    layout: RunLayout,
+    physical_evidence: Mapping[str, Any],
+) -> list[str]:
+    if not physical_evidence:
+        return []
+    lines = [
+        "## Physical Evidence",
+        f"- Print status: {physical_evidence.get('print_status', 'not recorded')}",
+        f"- Object: {physical_evidence.get('object_label', 'not recorded')}",
+        f"- Operator: {physical_evidence.get('operator', 'not recorded')}",
+        f"- Material: {physical_evidence.get('material', 'not recorded')}",
+        f"- Printer: {physical_evidence.get('printer', 'not recorded')}",
+    ]
+    packet_paths = _mapping(physical_evidence.get("packet_paths"))
+    for label, path in (
+        ("Evidence JSON", packet_paths.get("json")),
+        ("Evidence Markdown", packet_paths.get("markdown")),
+    ):
+        if path:
+            path_text = str(path)
+            lines.append(
+                f"- {label}: [{path_text}]({_path_string_to_link(path_text, layout=layout)})"
+            )
+    artifacts = _as_list(physical_evidence.get("artifacts"))
+    if artifacts:
+        lines.append("")
+        lines.append("Physical artifacts:")
+        for artifact in artifacts:
+            lines.append(_render_artifact_mapping(layout, artifact))
+    missing = [str(item) for item in _as_list(physical_evidence.get("missing_required_evidence"))]
+    if missing:
+        lines.append("")
+        lines.append("Missing required evidence: " + ", ".join(missing))
+    else:
+        lines.append("")
+        lines.append("No missing required evidence")
+    return lines
+
+
+def _prompt_reference_mapping(stages: Sequence[Any]) -> Mapping[str, Any] | None:
     for receipt in stages:
-        if receipt.stage == "prompt_reference_generation":
+        if isinstance(receipt, Mapping) and receipt.get("stage") == "prompt_reference_generation":
             return receipt
     return None
 
 
-def _prompt_provider_quote(metrics: Mapping[str, Any]) -> Mapping[str, Any]:
-    quote = metrics.get("provider_quote")
-    return quote if isinstance(quote, Mapping) else {}
-
-
-def _prompt_budget_status(receipt: StageReceipt) -> str:
-    message = receipt.message.lower()
-    quote = _prompt_provider_quote(receipt.metrics)
+def _prompt_budget_status_from_mapping(receipt: Mapping[str, Any]) -> str:
+    message = str(receipt.get("message", "")).lower()
+    metrics = _mapping(receipt.get("metrics"))
+    quote = _mapping(metrics.get("provider_quote"))
     estimated_cost = quote.get("estimated_cost_usd")
     max_cost = quote.get("max_cost_usd")
     if "cost cap" in message or "exceeds cap" in message:
@@ -241,7 +329,7 @@ def _prompt_budget_status(receipt: StageReceipt) -> str:
         return "review"
     if estimate > cap:
         return "blocked"
-    if receipt.status.value == "succeeded":
+    if str(receipt.get("status", "")) == "succeeded":
         return "within_cap"
     return "within_cap_pending"
 
@@ -292,6 +380,20 @@ def _json_friendly(value: Any, *, run_root: Path | None = None) -> Any:
     return value
 
 
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
 def _format_report_value(value: Any, *, run_root: Path | None = None) -> str:
     friendly = _json_friendly(value, run_root=run_root)
     if isinstance(friendly, str):
@@ -317,10 +419,19 @@ def _path_to_link(path: Path, *, base_dir: Path) -> str:
     return Path(os.path.relpath(resolved_path, start=resolved_base)).as_posix()
 
 
+def _path_string_to_link(path: str, *, layout: RunLayout) -> str:
+    candidate = Path(path).expanduser()
+    if not candidate.is_absolute():
+        candidate = layout.root / candidate
+    return _path_to_link(candidate, base_dir=layout.reports_dir)
+
+
 __all__ = [
     "artifact_to_dict",
     "build_run_report_dict",
     "render_markdown_report",
+    "render_markdown_report_dict",
     "stage_receipt_to_dict",
     "write_run_report",
+    "write_run_report_dict",
 ]

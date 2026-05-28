@@ -26,6 +26,7 @@ def render_html_report(
     warnings = _as_list(report_dict.get("warnings"))
     settings_changes = _as_list(report_dict.get("settings_changes"))
     pre_print_checklist = _as_list(report_dict.get("pre_print_checklist"))
+    physical_evidence = _mapping(report_dict.get("physical_evidence"))
 
     return "\n".join(
         [
@@ -52,6 +53,7 @@ def render_html_report(
             _render_warnings_section(warnings),
             _render_settings_changes_section(settings_changes),
             _render_pre_print_checklist_section(pre_print_checklist),
+            _render_physical_evidence_section(physical_evidence, layout=layout),
             _render_stages(stages, layout=layout),
             _render_artifacts(artifacts, layout=layout),
             "  </main>",
@@ -365,6 +367,58 @@ def _render_pre_print_checklist_section(pre_print_checklist: list[Any]) -> str:
         '<ul class="checklist">\n' + "\n".join(items) + "\n    </ul>",
         classes=("section-pre-print-checklist",),
     )
+
+
+def _render_physical_evidence_section(
+    physical_evidence: Mapping[str, Any],
+    *,
+    layout: RunLayout | None,
+) -> str:
+    if not physical_evidence:
+        return ""
+    packet_paths = _mapping(physical_evidence.get("packet_paths"))
+    packet_artifacts = [
+        {
+            "label": label,
+            "kind": "physical_evidence",
+            "path": path,
+        }
+        for label, path in (
+            ("Evidence JSON", packet_paths.get("json")),
+            ("Evidence Markdown", packet_paths.get("markdown")),
+        )
+        if path
+    ]
+    physical_artifacts = _as_list(physical_evidence.get("artifacts"))
+    missing = [str(item) for item in _as_list(physical_evidence.get("missing_required_evidence"))]
+    missing_label = (
+        "No missing required evidence"
+        if not missing
+        else "Missing required evidence: " + ", ".join(missing)
+    )
+    body = "\n".join(
+        [
+            '<div class="physical-evidence-summary">',
+            "      "
+            + _render_value(
+                {
+                    "print_status": physical_evidence.get("print_status", "not recorded"),
+                    "object": physical_evidence.get("object_label", "not recorded"),
+                    "operator": physical_evidence.get("operator", "not recorded"),
+                    "material": physical_evidence.get("material", "not recorded"),
+                    "printer": physical_evidence.get("printer", "not recorded"),
+                }
+            ),
+            f'      <p class="evidence-missing">{_as_text(missing_label)}</p>',
+            "    </div>",
+            _render_artifact_cards(
+                [*packet_artifacts, *physical_artifacts],
+                layout=layout,
+                empty="No physical evidence artifacts recorded yet.",
+            ),
+        ]
+    )
+    return _section("Physical Evidence", body, classes=("section-physical-evidence",))
 
 
 def _render_stage_cards(stages: list[Any]) -> str:
@@ -864,6 +918,10 @@ def _as_list(value: Any) -> list[Any]:
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         return list(value)
     return [value]
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
 
 
 def _as_text(value: Any) -> str:
