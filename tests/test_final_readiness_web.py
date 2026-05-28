@@ -117,6 +117,9 @@ def test_build_final_readiness_view_keeps_row_record_after_print_command() -> No
                             "command": "printpipe open-folder runs/pla --target run",
                             "record_command": "printpipe record-physical-evidence runs/pla",
                             "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+                            "bundle_path": "runs/pla/60_bundle/coupon.3mf",
+                            "bundle_validation_path": "runs/pla/60_bundle/coupon_validation.json",
+                            "slice_result_path": "runs/pla/70_slice/slice_result.json",
                         }
                     ],
                 }
@@ -127,6 +130,13 @@ def test_build_final_readiness_view_keeps_row_record_after_print_command() -> No
     assert view["actions"][0]["command"] == "printpipe open-folder runs/pla --target run"
     assert view["actions"][0]["record_command"] == (
         "printpipe record-physical-evidence runs/pla"
+    )
+    assert view["actions"][0]["bundle_path"] == "runs/pla/60_bundle/coupon.3mf"
+    assert view["actions"][0]["bundle_validation_path"] == (
+        "runs/pla/60_bundle/coupon_validation.json"
+    )
+    assert view["actions"][0]["slice_result_path"] == (
+        "runs/pla/70_slice/slice_result.json"
     )
 
 
@@ -175,6 +185,9 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                         "runs/pla/40_geometry/"
                         "physical_validation_coupon_40x15x3.stl"
                     ),
+                    "bundle_path": "runs/pla/60_bundle/coupon.3mf",
+                    "bundle_validation_path": "runs/pla/60_bundle/coupon_validation.json",
+                    "slice_result_path": "runs/pla/70_slice/slice_result.json",
                     "handoff_markdown_path": (
                         "runs/pla/90_physical/"
                         "physical_print_handoff.md"
@@ -195,6 +208,12 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "Next action handoff:" in html
     assert "Coupon artifact:" in html
     assert "physical_validation_coupon_40x15x3.stl" in html
+    assert "Bundle:" in html
+    assert "runs/pla/60_bundle/coupon.3mf" in html
+    assert "Bundle validation:" in html
+    assert "runs/pla/60_bundle/coupon_validation.json" in html
+    assert "Slice receipt:" in html
+    assert "runs/pla/70_slice/slice_result.json" in html
     assert "Handoff:" in html
     assert "physical_print_handoff.md" in html
     assert "PLA physical validation" in html

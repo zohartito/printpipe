@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 129: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 130: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 129 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
+Wave 130 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
 
-The latest completed wave aligned the web final-readiness checklist rows with the top next-action panel. Every already-started physical validation row can now show the immediate handoff command and the post-print `record-physical-evidence` command, while starter/setup actions still hide premature record commands.
+The latest completed wave made the web final-readiness rows self-contained for physical validation. Each material row can now show the coupon STL, Bambu `.3mf`, bundle-validation JSON, slice receipt, handoff Markdown, immediate handoff command, and post-print record command.
+
+Wave 129 aligned the web final-readiness checklist rows with the top next-action panel. Every already-started physical validation row can now show the immediate handoff command and the post-print `record-physical-evidence` command, while starter/setup actions still hide premature record commands.
 
 Wave 128 made the final next-action handoff more complete without changing the immediate command. `final-next` and the web final-readiness panel still point first at `printpipe open-folder ... --target run`, but now also carry and render the post-print `record-physical-evidence` command as `record after print`.
 

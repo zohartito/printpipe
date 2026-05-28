@@ -1433,3 +1433,12 @@ Status: partial progress for physical-validation execution UX. This aligns the w
 3. Done: the web final-readiness checklist renders a row-level `Record after print` command block.
 4. Done: regression coverage verifies both the row view model and rendered HTML behavior.
 5. Boundary: row-level record commands are instructions only. They do not close physical validation until run with real observations and existing photo artifacts.
+
+## Wave 130 - Final Readiness Row Artifact Links
+
+Status: partial progress for physical-validation execution UX. This makes each web checklist row self-contained for print-day artifact lookup.
+
+1. Done: final-readiness action rows now preserve `bundle_path`, `bundle_validation_path`, and `slice_result_path`.
+2. Done: the web checklist renders row-level Bundle, Bundle validation, and Slice receipt links.
+3. Done: regression coverage verifies the row view model and rendered HTML include those paths.
+4. Boundary: these links are software and handoff evidence only. Physical validation still requires real printed coupons, real observations, and existing photo artifacts.

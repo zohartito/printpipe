@@ -231,6 +231,9 @@ def _action_item(
         "record_command": _action_record_command(action),
         "coupon_stl_path": str(action.get("coupon_stl_path") or ""),
         "coupon_json_path": str(action.get("coupon_json_path") or ""),
+        "bundle_path": str(action.get("bundle_path") or ""),
+        "bundle_validation_path": str(action.get("bundle_validation_path") or ""),
+        "slice_result_path": str(action.get("slice_result_path") or ""),
         "handoff_markdown_path": str(action.get("handoff_markdown_path") or ""),
     }
 
@@ -338,6 +341,9 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     command = str(action.get("command") or "")
     record_command = str(action.get("record_command") or "")
     coupon_stl_path = str(action.get("coupon_stl_path") or "")
+    bundle_path = str(action.get("bundle_path") or "")
+    bundle_validation_path = str(action.get("bundle_validation_path") or "")
+    slice_result_path = str(action.get("slice_result_path") or "")
     handoff_markdown_path = str(action.get("handoff_markdown_path") or "")
     command_markup = (
         f'            <pre><code>{escape(command)}</code></pre>'
@@ -366,18 +372,30 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
         if handoff_markdown_path
         else ""
     )
+    bundle_markup = _file_row("Bundle", bundle_path)
+    bundle_validation_markup = _file_row("Bundle validation", bundle_validation_path)
+    slice_markup = _file_row("Slice receipt", slice_result_path)
     return "\n".join(
         [
             f'          <li class="final-readiness-action final-readiness-action-{_class_name(status)}">',
             f'            <p class="action-title"><strong>{escape(section_label)}</strong> · {escape(label)}</p>',
             f'            <p class="muted">{escape(detail)}</p>',
             coupon_markup,
+            bundle_markup,
+            bundle_validation_markup,
+            slice_markup,
             handoff_markup,
             command_markup,
             record_markup,
             "          </li>",
         ]
     )
+
+
+def _file_row(label: str, value: str) -> str:
+    if not value:
+        return ""
+    return f'            <p class="muted">{escape(label)}: <code>{escape(value)}</code></p>'
 
 
 def _class_name(value: str) -> str:
