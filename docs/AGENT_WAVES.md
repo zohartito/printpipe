@@ -1243,3 +1243,15 @@ Status: complete for endgame action orchestration and home-page visibility. This
 5. Done: final-plan JSON now selects the first actionable gate in the existing order and action-specific commands are preferred when present.
 6. Current local result: `printpipe final-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json --json` reports nine actions and a next action of `physical_validation` / `PLA`, with the PLA `physical-start` command as the immediate command.
 7. Boundary: this is routing and visibility only; PLA/PETG/TPU physical packets, three trusted-user feedback packets, Developer ID/notary credentials, and signed Windows installer evidence remain external gates.
+
+## Wave 113 - Physical Starter Packet Handoff
+
+Status: partial progress for physical validation. This creates local starter packets, not passed physical evidence.
+
+1. Done: ran `printpipe physical-start --family pla --runs-dir runs --operator Zohar --json`.
+2. Done: ran `printpipe physical-start --family petg --runs-dir runs --operator Zohar --json`.
+3. Done: ran `printpipe physical-start --family tpu --runs-dir runs --operator Zohar --json`.
+4. Done: local ignored packets now exist under `runs/physical-pla-validation/90_physical/`, `runs/physical-petg-validation/90_physical/`, and `runs/physical-tpu-validation/90_physical/`.
+5. Done: hardened physical-evidence Markdown so `not_printed` packets list `Physical print not recorded yet` under Open Issues.
+6. Current local result: `physical-status --runs-dir runs --json` reports all three families as `recorded_but_not_passed`; `final-plan` still reports nine actions and now points to the PLA `record-physical-evidence` command as the next action.
+7. Boundary: the starter packets are local handoff files in ignored `runs/`; they do not satisfy F9 or the physical validation gate until real prints, observations, and photo artifacts are recorded.

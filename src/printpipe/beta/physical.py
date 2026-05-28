@@ -204,7 +204,7 @@ def render_physical_evidence_markdown(evidence: PhysicalPrintEvidence) -> str:
     artifacts = _artifact_lines(evidence.artifacts)
     notes = _list_lines(evidence.notes) or "- None recorded"
     missing = missing_required_evidence(evidence)
-    missing_lines = _list_lines(missing) if missing else "- No missing required evidence"
+    missing_lines = _open_issue_lines(evidence=evidence, missing=missing)
 
     return f"""# PrintPipe Physical Print Evidence
 
@@ -318,6 +318,18 @@ def _copy_artifacts_into_packet(
         copied.append(replace(artifact, path=relative_path))
 
     return tuple(copied)
+
+
+def _open_issue_lines(
+    *,
+    evidence: PhysicalPrintEvidence,
+    missing: Sequence[str],
+) -> str:
+    lines: list[str] = []
+    if evidence.print_status.lower() not in PRINTED_STATUSES:
+        lines.append("- Physical print not recorded yet")
+    lines.extend(f"- {item}" for item in missing)
+    return "\n".join(lines) if lines else "- No missing required evidence"
 
 
 def _safe_artifact_name(name: str) -> str:

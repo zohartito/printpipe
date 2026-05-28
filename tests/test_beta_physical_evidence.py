@@ -151,6 +151,24 @@ def test_not_printed_evidence_does_not_require_photos_yet() -> None:
     assert missing_required_evidence(evidence) == ["operator"]
 
 
+def test_not_printed_markdown_names_unprinted_status_as_open_issue() -> None:
+    evidence = build_physical_print_evidence(
+        run_id="run-not-printed",
+        material="Generic PLA",
+        printer="Bambu Lab P2S",
+        object_label="tiny tetrahedron",
+        print_type="small_object",
+        print_status="not_printed",
+        operator="Zohar",
+    )
+
+    markdown = render_physical_evidence_markdown(evidence)
+
+    assert "## Open Issues" in markdown
+    assert "- Physical print not recorded yet" in markdown
+    assert "- No missing required evidence" not in markdown
+
+
 def test_render_physical_evidence_markdown_contains_required_sections(tmp_path: Path) -> None:
     photo = tmp_path / "coupon.jpg"
     evidence = build_physical_print_evidence(
