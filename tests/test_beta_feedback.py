@@ -12,6 +12,7 @@ from printpipe.beta.feedback import (
     missing_required_feedback_headings,
     render_trusted_user_feedback_plan,
     render_trusted_user_feedback_status,
+    start_trusted_user_feedback,
     write_trusted_user_feedback_files,
 )
 from printpipe.cli import main
@@ -236,6 +237,7 @@ def test_trusted_user_feedback_plan_lists_missing_tester_actions(tmp_path: Path)
     action = plan["actions"][0]
     assert action["slot"] == 3
     assert action["status"] == "action_required"
+    assert "beta-feedback-start" in action["start_command"]
     assert "record-beta-feedback" in action["record_command"]
     assert "--tester" in action["record_command"]
     assert "--outcome passed" in action["record_command"]
@@ -279,8 +281,49 @@ def test_render_trusted_user_feedback_plan_names_actions(tmp_path: Path) -> None
     assert "PrintPipe Trusted-User Feedback Plan" in text
     assert "overall: action_required" in text
     assert "trusted users: 0 / 3" in text
+    assert "beta-feedback-start" in text
     assert "record-beta-feedback" in text
     assert "not trusted-user evidence" in text
+
+
+def test_beta_feedback_start_writes_handoff_without_satisfying_gate(
+    tmp_path: Path,
+) -> None:
+    run_root = tmp_path / "runs" / "run-ready-for-review"
+    report = run_root / "80_reports" / "run_report.html"
+    bundle = run_root / "60_bundle" / "ready.3mf"
+    report.parent.mkdir(parents=True)
+    bundle.parent.mkdir(parents=True)
+    report.write_text("<h1>report</h1>\n", encoding="utf-8")
+    bundle.write_text("bundle\n", encoding="utf-8")
+
+    result = start_trusted_user_feedback(
+        run_root,
+        tester="Maya",
+        input_type="existing_stl",
+        material="Bambu PLA Basic",
+        printer="Bambu Lab P2S",
+    )
+
+    handoff_path = run_root / "90_beta" / "trusted_user_feedback_handoff_maya.md"
+    status = build_trusted_user_feedback_status(tmp_path / "runs")
+    plan = build_trusted_user_feedback_plan(tmp_path / "runs")
+    handoff_text = handoff_path.read_text(encoding="utf-8")
+
+    assert result["status"] == "started"
+    assert result["handoff_markdown_path"] == str(handoff_path.resolve())
+    assert result["report_path"] == str(report.resolve())
+    assert result["bundle_path"] == str(bundle.resolve())
+    assert not (run_root / "90_beta" / "trusted_user_feedback.json").exists()
+    assert "PrintPipe Trusted-User Beta Review Handoff" in handoff_text
+    assert str(report.resolve()) in handoff_text
+    assert str(bundle.resolve()) in handoff_text
+    assert "Only completed trusted-user feedback packets count" in handoff_text
+    assert result["record_command"] in handoff_text
+    assert status["overall_status"] == "insufficient_feedback"
+    assert status["unique_trusted_user_count"] == 0
+    assert plan["actions"][0]["handoff_markdown_path"] == str(handoff_path.resolve())
+    assert "handoff: " in render_trusted_user_feedback_plan(plan)
 
 
 def test_cli_record_beta_feedback_and_status(tmp_path: Path, capsys) -> None:
@@ -346,7 +389,45 @@ def test_cli_beta_feedback_plan_prints_json(tmp_path: Path, capsys) -> None:
     assert payload["overall_status"] == "action_required"
     assert payload["action_count"] == 3
     assert payload["actions"][0]["slot"] == 1
+    assert "beta-feedback-start" in payload["actions"][0]["start_command"]
     assert "record-beta-feedback" in payload["actions"][0]["record_command"]
+
+
+def test_cli_beta_feedback_start_prints_json_and_does_not_count_feedback(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    run_root = tmp_path / "runs" / "run-review"
+    report = run_root / "80_reports" / "run_report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text("<h1>report</h1>\n", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "beta-feedback-start",
+            str(run_root),
+            "--tester",
+            "Maya",
+            "--input-type",
+            "existing_stl",
+            "--material",
+            "Bambu PLA Basic",
+            "--printer",
+            "Bambu Lab P2S",
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    status = build_trusted_user_feedback_status(tmp_path / "runs")
+
+    assert exit_code == 0
+    assert payload["status"] == "started"
+    assert payload["handoff_markdown_path"].endswith(
+        "90_beta/trusted_user_feedback_handoff_maya.md"
+    )
+    assert "record-beta-feedback" in payload["record_command"]
+    assert status["unique_trusted_user_count"] == 0
 
 
 def _write_feedback(

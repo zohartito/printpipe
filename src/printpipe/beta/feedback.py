@@ -38,7 +38,7 @@ TRUSTED_FEEDBACK_REQUIRED_FIELDS = (
     "recommendation",
 )
 TRUSTED_FEEDBACK_PLAN_PROOF_BOUNDARY = (
-    "A generated feedback plan is not trusted-user evidence. Only recorded "
+    "A generated feedback plan is not trusted-user evidence. Only completed "
     "trusted-user feedback packets count toward the beta gate."
 )
 
@@ -239,6 +239,60 @@ def write_trusted_user_feedback_files(
     }
 
 
+def start_trusted_user_feedback(
+    run_root: str | os.PathLike[str],
+    *,
+    tester: str,
+    input_type: str,
+    material: str,
+    printer: str,
+) -> dict[str, Any]:
+    """Create a trusted-user review handoff without recording feedback evidence."""
+
+    root = Path(run_root).expanduser().resolve()
+    if not root.exists():
+        raise FileNotFoundError(root)
+    normalized_tester = tester.strip()
+    if not normalized_tester:
+        raise ValueError("trusted-user feedback handoff requires a tester")
+
+    output_dir = root / "90_beta"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = _first_existing(root / "80_reports", ("run_report.html", "run_report.md"))
+    bundle_path = _first_glob(root / "60_bundle", "*.3mf")
+    handoff_path = output_dir / f"trusted_user_feedback_handoff_{_slug(normalized_tester)}.md"
+    record_command = _feedback_record_command(
+        run_root=str(root),
+        tester=normalized_tester,
+        input_type=input_type,
+        material=material,
+        printer=printer,
+        report_path=str(report_path) if report_path else "",
+    )
+    handoff_path.write_text(
+        _render_feedback_handoff(
+            run_root=root,
+            tester=normalized_tester,
+            input_type=input_type,
+            material=material,
+            printer=printer,
+            report_path=report_path,
+            bundle_path=bundle_path,
+            record_command=record_command,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "status": "started",
+        "run_root": str(root),
+        "tester": normalized_tester,
+        "handoff_markdown_path": str(handoff_path.resolve()),
+        "report_path": str(report_path.resolve()) if report_path else "",
+        "bundle_path": str(bundle_path.resolve()) if bundle_path else "",
+        "record_command": record_command,
+    }
+
+
 def build_trusted_user_feedback_status(
     runs_dir: str | Path,
     *,
@@ -345,9 +399,17 @@ def build_trusted_user_feedback_plan(
     current = int(status.get("unique_trusted_user_count") or 0)
     required = int(status.get("required_trusted_user_count") or required_trusted_user_count)
     missing = max(required - current, 0)
+    handoff_paths = _feedback_handoff_paths(Path(runs_dir).expanduser().resolve())
     actions = [
-        _trusted_feedback_action(slot=slot)
-        for slot in range(current + 1, required + 1)
+        _trusted_feedback_action(
+            slot=slot,
+            handoff_path=(
+                handoff_paths[index]
+                if index < len(handoff_paths)
+                else ""
+            ),
+        )
+        for index, slot in enumerate(range(current + 1, required + 1))
     ]
     return {
         "schema_version": TRUSTED_FEEDBACK_SCHEMA_VERSION,
@@ -394,13 +456,19 @@ def render_trusted_user_feedback_plan(plan: Mapping[str, Any]) -> str:
         if detail:
             lines.append(f"  detail: {detail}")
         command = str(item.get("record_command") or "")
+        start_command = str(item.get("start_command") or "")
+        if start_command:
+            lines.append(f"  start: {start_command}")
+        handoff_path = str(item.get("handoff_markdown_path") or "")
+        if handoff_path:
+            lines.append(f"  handoff: {handoff_path}")
         if command:
             lines.append(f"  record: {command}")
     lines.append("")
     return "\n".join(lines)
 
 
-def _trusted_feedback_action(*, slot: int) -> dict[str, Any]:
+def _trusted_feedback_action(*, slot: int, handoff_path: str = "") -> dict[str, Any]:
     return {
         "slot": slot,
         "label": f"Trusted tester {slot}",
@@ -409,6 +477,13 @@ def _trusted_feedback_action(*, slot: int) -> dict[str, Any]:
             "Give a trusted user a PrintPipe run to review, collect their outcome, "
             "and attach relevant screenshots, logs, or photos."
         ),
+        "start_command": (
+            'printpipe beta-feedback-start "runs/<run-id>" '
+            f'--tester "<trusted-user-{slot}>" '
+            '--input-type existing_stl --material "<material>" '
+            '--printer "Bambu Lab P2S"'
+        ),
+        "handoff_markdown_path": handoff_path,
         "record_command": (
             'printpipe record-beta-feedback "runs/<run-id>" '
             f'--tester "<trusted-user-{slot}>" '
@@ -443,6 +518,104 @@ def _load_feedback_packets(runs_dir: Path) -> list[dict[str, Any]]:
             continue
         packets.append(_packet_summary(payload, feedback_path=feedback_path))
     return packets
+
+
+def _render_feedback_handoff(
+    *,
+    run_root: Path,
+    tester: str,
+    input_type: str,
+    material: str,
+    printer: str,
+    report_path: Path | None,
+    bundle_path: Path | None,
+    record_command: str,
+) -> str:
+    return "\n".join(
+        [
+            "# PrintPipe Trusted-User Beta Review Handoff",
+            "",
+            "## Run Context",
+            f"- Run folder: {run_root}",
+            f"- Input type: {input_type}",
+            f"- Material: {material}",
+            f"- Printer: {printer}",
+            f"- Report: {report_path.resolve() if report_path else 'not found'}",
+            f"- Bundle: {bundle_path.resolve() if bundle_path else 'not found'}",
+            "",
+            "## Tester",
+            f"- Name: {tester}",
+            "- Type: trusted_user",
+            "",
+            "## Review Instructions",
+            "- Open the run report and inspect the verdict, warnings, artifacts, and settings.",
+            "- Decide whether the output looks understandable and printable.",
+            "- Note any issue, confusing copy, missing artifact, bad preview, or risky setting.",
+            "- Capture screenshots, logs, or photos when they explain the feedback.",
+            "",
+            "## Record Feedback After Review",
+            "Replace the placeholders with the tester's real outcome and summary, then run:",
+            "",
+            "```bash",
+            record_command,
+            "```",
+            "",
+            "## Proof Boundary",
+            TRUSTED_FEEDBACK_PLAN_PROOF_BOUNDARY,
+            "",
+        ]
+    )
+
+
+def _feedback_record_command(
+    *,
+    run_root: str,
+    tester: str,
+    input_type: str,
+    material: str,
+    printer: str,
+    report_path: str,
+) -> str:
+    artifact = (
+        f" --artifact {_quote(f'Run report|report|{report_path}|reviewed by tester')}"
+        if report_path
+        else ""
+    )
+    return (
+        f"printpipe record-beta-feedback {_quote(run_root)} "
+        f"--tester {_quote(tester)} "
+        f"--input-type {_quote(input_type)} "
+        f"--material {_quote(material)} "
+        f"--printer {_quote(printer)} "
+        "--outcome passed "
+        "--summary \"<what happened>\" "
+        "--would-print no "
+        "--recommendation needs_review"
+        f"{artifact}"
+    )
+
+
+def _feedback_handoff_paths(runs_dir: Path) -> list[str]:
+    if not runs_dir.exists():
+        return []
+    return [
+        str(path.resolve())
+        for path in sorted(runs_dir.glob("*/90_beta/trusted_user_feedback_handoff_*.md"))
+    ]
+
+
+def _first_existing(directory: Path, names: Sequence[str]) -> Path | None:
+    for name in names:
+        candidate = directory / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _first_glob(directory: Path, pattern: str) -> Path | None:
+    if not directory.exists():
+        return None
+    return next(iter(sorted(directory.glob(pattern))), None)
 
 
 def _packet_summary(
@@ -553,6 +726,23 @@ def _safe_artifact_name(name: str) -> str:
     return f"{safe_stem or 'artifact'}{suffix}"
 
 
+def _slug(value: str) -> str:
+    safe = "".join(
+        character.lower()
+        if character.isalnum()
+        else "-"
+        for character in value.strip()
+    ).strip("-")
+    while "--" in safe:
+        safe = safe.replace("--", "-")
+    return safe or "tester"
+
+
+def _quote(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def _unique_destination(directory: Path, name: str, used_names: set[str]) -> Path:
     candidate = directory / name
     stem = candidate.stem
@@ -614,5 +804,6 @@ __all__ = [
     "render_trusted_user_feedback_plan",
     "render_trusted_user_feedback_markdown",
     "render_trusted_user_feedback_status",
+    "start_trusted_user_feedback",
     "write_trusted_user_feedback_files",
 ]

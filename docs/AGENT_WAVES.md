@@ -1279,3 +1279,15 @@ Status: partial progress for physical validation. This makes the physical starte
 5. Done: the home-page final-readiness panel renders handoff paths beside coupon paths in physical-validation action rows.
 6. Current local result: the ignored PLA, PETG, and TPU starter folders each contain `90_physical/physical_print_handoff.md`; `physical-status --runs-dir runs --json` still reports all three families as `recorded_but_not_passed`.
 7. Boundary: handoff sheets are instructions and file pointers only. They do not satisfy F9 or the physical validation gate until the coupons are physically printed, observed, photographed, and recorded as credible evidence packets.
+
+## Wave 116 - Trusted-User Beta Review Handoff Sheets
+
+Status: partial progress for trusted-user beta. This creates local tester-review handoff sheets, not completed trusted-user feedback.
+
+1. Done: added `printpipe beta-feedback-start <run-root>` to create a trusted-user beta review handoff without writing `trusted_user_feedback.json`.
+2. Done: the handoff sheet includes the run folder, input type, material, printer, report path, bundle path, tester name, review instructions, exact later `record-beta-feedback` command, and completed-feedback proof boundary.
+3. Done: `beta-feedback-start --json` returns the handoff path, report path, bundle path, and record command; non-JSON output prints those paths for human use.
+4. Done: `beta-feedback-plan --runs-dir runs` now includes a `start_command` for each missing tester slot and surfaces existing handoff paths when present.
+5. Done: local ignored handoff sheets now exist for `trusted-user-1`, `trusted-user-2`, and `trusted-user-3` against the slipper proof run.
+6. Current local result: `beta-feedback-status --runs-dir runs --json` still reports `insufficient_feedback`, zero completed trusted users, and zero feedback packets.
+7. Boundary: handoff sheets are review instructions only. They do not satisfy Phase 16 item 129 until real trusted users complete reviews and their `trusted_user_feedback.json` packets are recorded.

@@ -815,6 +815,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print written feedback packet paths as JSON.",
     )
 
+    beta_feedback_start = subparsers.add_parser(
+        "beta-feedback-start",
+        help="Create a trusted-user beta review handoff without recording feedback.",
+    )
+    beta_feedback_start.add_argument(
+        "run_root",
+        type=Path,
+        help="Run folder to prepare for trusted-user review.",
+    )
+    beta_feedback_start.add_argument("--tester", required=True, help="Trusted tester name.")
+    beta_feedback_start.add_argument("--input-type", required=True, help="Input category for the run.")
+    beta_feedback_start.add_argument("--material", required=True, help="Material or filament label.")
+    beta_feedback_start.add_argument("--printer", required=True, help="Printer/profile used for the run.")
+    beta_feedback_start.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the beta handoff paths and later record command as JSON.",
+    )
+
     beta_feedback_status = subparsers.add_parser(
         "beta-feedback-status",
         help="Summarize trusted-user beta feedback packets across run folders.",
@@ -1299,6 +1318,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "record-beta-feedback":
         return _record_beta_feedback(args)
 
+    if args.command == "beta-feedback-start":
+        return _beta_feedback_start(args)
+
     if args.command == "beta-feedback-status":
         return _beta_feedback_status(
             runs_dir=args.runs_dir,
@@ -1532,6 +1554,31 @@ def _record_beta_feedback(args: argparse.Namespace) -> int:
     else:
         print(f"trusted feedback json: {result['json_path']}")
         print(f"trusted feedback markdown: {result['markdown_path']}")
+    return 0
+
+
+def _beta_feedback_start(args: argparse.Namespace) -> int:
+    from printpipe.beta.feedback import start_trusted_user_feedback
+
+    payload = start_trusted_user_feedback(
+        args.run_root,
+        tester=args.tester,
+        input_type=args.input_type,
+        material=args.material,
+        printer=args.printer,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"status: {payload['status']}")
+        print(f"tester: {payload['tester']}")
+        print(f"run root: {payload['run_root']}")
+        if payload.get("report_path"):
+            print(f"report: {payload['report_path']}")
+        if payload.get("bundle_path"):
+            print(f"bundle: {payload['bundle_path']}")
+        print(f"review handoff: {payload['handoff_markdown_path']}")
+        print(f"record after review: {payload['record_command']}")
     return 0
 
 
