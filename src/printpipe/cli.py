@@ -289,6 +289,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print Windows portable package output as JSON.",
     )
 
+    build_windows_standalone = subparsers.add_parser(
+        "build-windows-standalone",
+        help="Build a PyInstaller Windows ZIP with a bundled Python runtime.",
+    )
+    build_windows_standalone.add_argument(
+        "--output",
+        type=Path,
+        default=Path("dist/PrintPipe-Windows-standalone.zip"),
+        help="Path for the generated Windows standalone ZIP.",
+    )
+    build_windows_standalone.add_argument(
+        "--pyinstaller",
+        default=os.environ.get("PRINTPIPE_PYINSTALLER", "pyinstaller"),
+        help=(
+            "PyInstaller command to run. Use "
+            "'uvx --from pyinstaller pyinstaller' when pyinstaller is not on PATH."
+        ),
+    )
+    build_windows_standalone.add_argument(
+        "--json",
+        action="store_true",
+        help="Print Windows standalone package output as JSON.",
+    )
+
     build_release = subparsers.add_parser(
         "build-release",
         help="Build current release handoff artifacts plus a checksum manifest.",
@@ -570,6 +594,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "build-windows-portable":
         return _build_windows_portable(output_path=args.output, json_output=args.json)
 
+    if args.command == "build-windows-standalone":
+        return _build_windows_standalone(
+            output_path=args.output,
+            json_output=args.json,
+            pyinstaller_command=args.pyinstaller,
+        )
+
     if args.command == "build-release":
         return _build_release(
             output_dir=args.output_dir,
@@ -734,6 +765,28 @@ def _build_windows_portable(*, output_path: Path, json_output: bool) -> int:
         print(f"zipapp: {payload['zipapp_path']}")
         print(f"cmd launcher: {payload['cmd_launcher']}")
         print(f"PowerShell launcher: {payload['powershell_launcher']}")
+        print("signed: false")
+    return 0
+
+
+def _build_windows_standalone(
+    *,
+    output_path: Path,
+    json_output: bool,
+    pyinstaller_command: str,
+) -> int:
+    from printpipe.packaging.windows_standalone import build_windows_standalone_package
+
+    payload = build_windows_standalone_package(
+        output_path=output_path,
+        pyinstaller_command=pyinstaller_command,
+    )
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Windows standalone ZIP: {payload['archive_path']}")
+        print(f"executable: {payload['executable_path']}")
+        print(f"bundles Python runtime: {str(payload['bundles_python_runtime']).lower()}")
         print("signed: false")
     return 0
 

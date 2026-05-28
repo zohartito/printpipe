@@ -213,7 +213,8 @@ What the Windows command should prove when run on Windows:
 What it does not prove yet:
 
 - It is not a signed Windows installer.
-- It has not been executed on a real Windows host from this Mac session.
+- It is a smoke command, not a packaged artifact by itself; packaged zipapp,
+  portable ZIP, and standalone ZIP evidence is recorded below.
 - Live Bambu CLI slicing still needs a target-machine check after F13 or a
   Windows-specific workaround.
 
@@ -353,6 +354,48 @@ Observed on `desktop-zt`:
   `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-portable\runs\20260528-071414-package-smoke-tiny-tetrahedron`
 - slice gate remains `manual_required` until Bambu Studio exists on the Windows
   target
+
+## Windows Standalone Runtime ZIP Artifact
+
+Wave 59 adds a PyInstaller-backed Windows ZIP that bundles a Python runtime:
+
+```powershell
+printpipe build-windows-standalone --output dist/PrintPipe-Windows-standalone.zip --pyinstaller "pyinstaller" --json
+```
+
+The archive contains:
+
+- `PrintPipe/PrintPipe.exe`
+- `PrintPipe/_internal/...` PyInstaller runtime files
+- `PrintPipe/README.txt`
+
+What this proves:
+
+- A Windows tester can run PrintPipe without installing Python separately.
+- `PrintPipe.exe` preserves CLI passthrough.
+- With no arguments, `PrintPipe.exe` starts the same local web UI launcher flow
+  at `http://127.0.0.1:8765/` and uses `%USERPROFILE%\PrintPipe\runs`.
+- The standalone executable can run the package-smoke pipeline and produce
+  reports plus a Bambu `.3mf`.
+
+Observed live on `desktop-zt`:
+
+- `bundles_python_runtime=true`
+- `bundles_bambu_studio=false`
+- ZIP size was `9669184` bytes
+- `PrintPipe.exe --version` returned `printpipe 0.1.0`
+- `PRINTPIPE_APP_DRY_RUN=1 PrintPipe.exe` printed the local web UI command for
+  `http://127.0.0.1:8765/`
+- `PrintPipe.exe package-smoke --platform windows ... --json` returned
+  `status=ok`, generated reports, and wrote a Bambu `.3mf`
+- slice gate remains `manual_required` until Bambu Studio exists on the Windows
+  target
+
+What this does not prove:
+
+- It is not a signed Windows installer.
+- It does not create Start Menu entries or file associations by itself.
+- It does not bundle Bambu Studio.
 
 ## Windows Bambu CLI Boundary
 
