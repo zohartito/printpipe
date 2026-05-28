@@ -57,6 +57,10 @@ If an OBJ, GLB, GLTF, or 3MF input fails at `mesh_repair` with a
 `printpipe[mesh-repair]` message, install the optional mesh repair dependencies
 or convert the model to ASCII STL before importing it.
 
+If `record-physical-evidence` says `photo/artifact file not found`, replace the
+placeholder `--photo /path/to/...` or `--artifact ...|/path/to/file|...` value
+with a real file path from the machine running the command.
+
 ## macOS Desktop and Privacy Permissions
 
 macOS privacy/TCC can block Terminal, Codex, Cursor, VS Code, or another shell

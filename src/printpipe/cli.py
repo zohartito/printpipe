@@ -2475,8 +2475,9 @@ def _record_physical_evidence(args: argparse.Namespace) -> int:
             evidence=evidence,
             copy_artifacts=True,
         )
-    except FileNotFoundError:
-        raise FileNotFoundError(run_root)
+    except FileNotFoundError as exc:
+        missing_path = _missing_file_path(exc)
+        raise ValueError(f"photo/artifact file not found: {missing_path}") from exc
     result.update(_refresh_reports_with_physical_evidence(run_root, result))
 
     if args.json:
@@ -2490,6 +2491,15 @@ def _record_physical_evidence(args: argparse.Namespace) -> int:
         else:
             print("missing required evidence: none")
     return 0
+
+
+def _missing_file_path(exc: FileNotFoundError) -> str:
+    filename = getattr(exc, "filename", None)
+    if filename:
+        return os.fspath(filename)
+    if exc.args:
+        return os.fspath(exc.args[0])
+    return "unknown"
 
 
 def _refresh_reports_with_physical_evidence(

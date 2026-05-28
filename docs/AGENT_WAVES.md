@@ -1708,3 +1708,13 @@ Status: partial progress for import-path honesty. This closes the Opus audit S4-
 4. Done: repair stats JSON is updated to match the failed gate when the stats artifact exists.
 5. Done: regression coverage proves an OBJ with simulated missing `trimesh` fails at `mesh_repair` with the actionable message.
 6. Boundary: this does not add native non-STL geometry processing without `trimesh`; it makes the dependency gate honest and early.
+
+## Wave 156 - Physical Evidence Missing Artifact Error
+
+Status: partial progress for physical-validation UX honesty. This closes the Opus audit S4-5 path where a missing placeholder photo could be reported as a missing run root.
+
+1. Done: `record-physical-evidence` still checks the run root first and reports a missing run root when the run folder truly does not exist.
+2. Done: missing copied photos or attached artifacts now raise a `ValueError` with `photo/artifact file not found: <path>`.
+3. Done: the CLI parser displays the missing photo/artifact path instead of the existing run root.
+4. Done: regression coverage proves an existing run plus a nonexistent `--photo` path exits with the artifact-specific message.
+5. Boundary: this does not create physical evidence or accept placeholder photos. Printed statuses still require a real existing photo artifact before the physical gate can pass.

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import main
 from printpipe.reports import write_run_report
 from printpipe.reports.html import write_html_report
@@ -324,6 +326,43 @@ def test_cli_record_physical_evidence_copies_photos_into_run_packet(
             "notes": "manual Bambu Studio screenshot",
         },
     ]
+
+
+def test_cli_record_physical_evidence_reports_missing_photo_path(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    run_root = tmp_path / "runs" / "run-tpu-printed-001"
+    run_root.mkdir(parents=True)
+    missing_photo = tmp_path / "missing-photo.jpg"
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            [
+                "record-physical-evidence",
+                str(run_root),
+                "--material",
+                "SUNLU TPU 90A",
+                "--printer",
+                "Bambu Lab P2S",
+                "--object-label",
+                "flex coupon",
+                "--print-type",
+                "coupon",
+                "--print-status",
+                "passed",
+                "--operator",
+                "Zohar",
+                "--photo",
+                str(missing_photo),
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert "photo/artifact file not found" in captured.err
+    assert str(missing_photo) in captured.err
+    assert "run root does not exist" not in captured.err
 
 
 def test_cli_record_physical_evidence_refreshes_static_run_reports(

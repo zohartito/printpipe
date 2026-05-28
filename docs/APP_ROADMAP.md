@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 155: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 156: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 155 fixed the non-STL import failure path from the Opus audit. If OBJ/GLB/3MF import reaches repair while optional mesh-repair dependencies are unavailable, the pipeline now fails at `mesh_repair` with an actionable `printpipe[mesh-repair]` message instead of falling through to orientation and reporting a misleading ASCII-STL-only error. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
+Latest status: Wave 156 fixed the physical-evidence placeholder photo error from the Opus audit. `record-physical-evidence` now reports `photo/artifact file not found: <path>` when an attached photo or artifact is missing, instead of re-labeling that failure as a missing run root. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
 
 ## Goal
 
