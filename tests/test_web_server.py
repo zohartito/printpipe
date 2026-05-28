@@ -333,6 +333,38 @@ def test_beta_feedback_status_json_endpoint_returns_trusted_user_status(
     assert payload["outcome_counts"]["failed"] == 1
 
 
+def test_beta_feedback_plan_json_endpoint_returns_action_plan(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    _write_trusted_feedback(runs_dir / "run-maya", tester="Maya")
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/beta-feedback-plan.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "action_required"
+    assert payload["trusted_user_count"] == 1
+    assert payload["action_count"] == 2
+    assert "record-beta-feedback" in payload["actions"][0]["record_command"]
+    assert "not trusted-user evidence" in payload["proof_boundary"]
+
+
+def test_home_response_renders_trusted_user_feedback_action_plan(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Trusted-user action plan" in response.text
+    assert "3 action required" in response.text
+    assert "A generated feedback plan is not trusted-user evidence" in response.text
+    assert "Tester slot 1" in response.text
+    assert "printpipe record-beta-feedback" in response.text
+    assert "printpipe beta-feedback-plan --runs-dir runs" in response.text
+    assert 'href="/beta-feedback-plan.json"' in response.text
+
+
 def test_home_response_renders_trusted_user_feedback_gate(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     _write_trusted_feedback(runs_dir / "run-maya", tester="Maya")

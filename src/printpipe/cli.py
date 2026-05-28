@@ -780,6 +780,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Return exit code 2 unless at least three trusted users recorded feedback.",
     )
 
+    beta_feedback_plan = subparsers.add_parser(
+        "beta-feedback-plan",
+        help="Turn missing trusted-user feedback into exact next actions.",
+    )
+    beta_feedback_plan.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders to scan.",
+    )
+    beta_feedback_plan.add_argument(
+        "--json",
+        action="store_true",
+        help="Print trusted-user feedback action plan as JSON.",
+    )
+
     beta_failure = subparsers.add_parser(
         "record-beta-failure",
         help="Write a beta failure packet and optionally append a regression case.",
@@ -1218,6 +1234,9 @@ def main(argv: list[str] | None = None) -> int:
             strict=args.strict,
         )
 
+    if args.command == "beta-feedback-plan":
+        return _beta_feedback_plan(runs_dir=args.runs_dir, json_output=args.json)
+
     if args.command == "record-beta-failure":
         return _record_beta_failure(args)
 
@@ -1457,6 +1476,20 @@ def _beta_feedback_status(*, runs_dir: Path, json_output: bool, strict: bool) ->
         print(render_trusted_user_feedback_status(status), end="")
     if strict and status["overall_status"] != "passed":
         return 2
+    return 0
+
+
+def _beta_feedback_plan(*, runs_dir: Path, json_output: bool) -> int:
+    from printpipe.beta.feedback import (
+        build_trusted_user_feedback_plan,
+        render_trusted_user_feedback_plan,
+    )
+
+    plan = build_trusted_user_feedback_plan(runs_dir)
+    if json_output:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    else:
+        print(render_trusted_user_feedback_plan(plan), end="")
     return 0
 
 

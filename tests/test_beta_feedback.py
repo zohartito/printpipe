@@ -6,9 +6,11 @@ from pathlib import Path
 from printpipe.beta.feedback import (
     TRUSTED_FEEDBACK_REQUIRED_HEADINGS,
     FeedbackArtifact,
+    build_trusted_user_feedback_plan,
     build_trusted_user_feedback,
     build_trusted_user_feedback_status,
     missing_required_feedback_headings,
+    render_trusted_user_feedback_plan,
     render_trusted_user_feedback_status,
     write_trusted_user_feedback_files,
 )
@@ -105,6 +107,53 @@ def test_render_trusted_user_feedback_status_names_missing_count(tmp_path: Path)
     assert "trusted users: 0 / 3" in text
 
 
+def test_trusted_user_feedback_plan_lists_missing_tester_actions(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_feedback(runs_dir / "run-sam", tester="Sam", outcome="failed")
+
+    plan = build_trusted_user_feedback_plan(runs_dir)
+
+    assert plan["overall_status"] == "action_required"
+    assert plan["trusted_user_count"] == 2
+    assert plan["required_trusted_user_count"] == 3
+    assert plan["action_count"] == 1
+    assert plan["trusted_users"] == ["Maya", "Sam"]
+    assert "not trusted-user evidence" in plan["proof_boundary"]
+    action = plan["actions"][0]
+    assert action["slot"] == 3
+    assert action["status"] == "action_required"
+    assert "record-beta-feedback" in action["record_command"]
+    assert "--tester" in action["record_command"]
+    assert "--outcome passed" in action["record_command"]
+    assert "runs/<run-id>" in action["record_command"]
+
+
+def test_trusted_user_feedback_plan_ready_after_three_users(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    _write_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_feedback(runs_dir / "run-sam", tester="Sam", outcome="failed")
+    _write_feedback(runs_dir / "run-lee", tester="Lee", outcome="partial")
+
+    plan = build_trusted_user_feedback_plan(runs_dir)
+
+    assert plan["overall_status"] == "ready"
+    assert plan["action_count"] == 0
+    assert plan["actions"] == []
+
+
+def test_render_trusted_user_feedback_plan_names_actions(tmp_path: Path) -> None:
+    plan = build_trusted_user_feedback_plan(tmp_path / "runs")
+
+    text = render_trusted_user_feedback_plan(plan)
+
+    assert "PrintPipe Trusted-User Feedback Plan" in text
+    assert "overall: action_required" in text
+    assert "trusted users: 0 / 3" in text
+    assert "record-beta-feedback" in text
+    assert "not trusted-user evidence" in text
+
+
 def test_cli_record_beta_feedback_and_status(tmp_path: Path, capsys) -> None:
     run_root = tmp_path / "runs" / "run-trusted-001"
     report = run_root / "80_reports" / "run_report.html"
@@ -156,6 +205,19 @@ def test_cli_record_beta_feedback_and_status(tmp_path: Path, capsys) -> None:
     assert status_exit == 2
     assert status_payload["overall_status"] == "insufficient_feedback"
     assert status_payload["unique_trusted_user_count"] == 1
+
+
+def test_cli_beta_feedback_plan_prints_json(tmp_path: Path, capsys) -> None:
+    runs_dir = tmp_path / "runs"
+
+    exit_code = main(["beta-feedback-plan", "--runs-dir", str(runs_dir), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "action_required"
+    assert payload["action_count"] == 3
+    assert payload["actions"][0]["slot"] == 1
+    assert "record-beta-feedback" in payload["actions"][0]["record_command"]
 
 
 def _write_feedback(

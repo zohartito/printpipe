@@ -25,6 +25,10 @@ TRUSTED_FEEDBACK_REQUIRED_HEADINGS = (
 OUTCOMES = ("passed", "failed", "partial", "not_run")
 TESTER_TYPES = ("trusted_user", "internal", "coordinator")
 WOULD_PRINT_VALUES = ("yes", "no", "unknown")
+TRUSTED_FEEDBACK_PLAN_PROOF_BOUNDARY = (
+    "A generated feedback plan is not trusted-user evidence. Only recorded "
+    "trusted-user feedback packets count toward the beta gate."
+)
 
 
 @dataclass(frozen=True)
@@ -277,6 +281,107 @@ def render_trusted_user_feedback_status(status: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def build_trusted_user_feedback_plan(
+    runs_dir: str | Path,
+    *,
+    required_trusted_user_count: int = DEFAULT_REQUIRED_TRUSTED_USERS,
+) -> dict[str, Any]:
+    """Turn missing trusted-user feedback into exact next actions."""
+
+    status = build_trusted_user_feedback_status(
+        runs_dir,
+        required_trusted_user_count=required_trusted_user_count,
+    )
+    current = int(status.get("unique_trusted_user_count") or 0)
+    required = int(status.get("required_trusted_user_count") or required_trusted_user_count)
+    missing = max(required - current, 0)
+    actions = [
+        _trusted_feedback_action(slot=slot)
+        for slot in range(current + 1, required + 1)
+    ]
+    return {
+        "schema_version": TRUSTED_FEEDBACK_SCHEMA_VERSION,
+        "runs_dir": str(Path(runs_dir).expanduser().resolve()),
+        "overall_status": "ready" if not actions else "action_required",
+        "required_trusted_user_count": required,
+        "trusted_user_count": current,
+        "missing_trusted_user_count": missing,
+        "trusted_users": status.get("trusted_users", []),
+        "packet_count": status.get("packet_count", 0),
+        "proof_boundary": TRUSTED_FEEDBACK_PLAN_PROOF_BOUNDARY,
+        "action_count": len(actions),
+        "actions": actions,
+    }
+
+
+def render_trusted_user_feedback_plan(plan: Mapping[str, Any]) -> str:
+    """Render a trusted-user feedback action plan."""
+
+    current = int(plan.get("trusted_user_count") or 0)
+    required = int(plan.get("required_trusted_user_count") or 0)
+    lines = [
+        "PrintPipe Trusted-User Feedback Plan",
+        f"runs dir: {plan.get('runs_dir', 'unknown')}",
+        f"overall: {plan.get('overall_status', 'unknown')}",
+        f"trusted users: {current} / {required}",
+        f"action required: {plan.get('action_count', 0)}",
+        "",
+        str(plan.get("proof_boundary", TRUSTED_FEEDBACK_PLAN_PROOF_BOUNDARY)),
+        "",
+    ]
+    actions = plan.get("actions")
+    if not isinstance(actions, list) or not actions:
+        lines.append("No trusted-user feedback actions required.")
+        lines.append("")
+        return "\n".join(lines)
+    lines.append("Actions:")
+    for action in actions:
+        item = action if isinstance(action, dict) else {}
+        lines.append(
+            f"- tester slot {item.get('slot', '?')}: {item.get('status', 'unknown')}"
+        )
+        detail = str(item.get("detail") or "")
+        if detail:
+            lines.append(f"  detail: {detail}")
+        command = str(item.get("record_command") or "")
+        if command:
+            lines.append(f"  record: {command}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _trusted_feedback_action(*, slot: int) -> dict[str, Any]:
+    return {
+        "slot": slot,
+        "label": f"Trusted tester {slot}",
+        "status": "action_required",
+        "detail": (
+            "Give a trusted user a PrintPipe run to review, collect their outcome, "
+            "and attach relevant screenshots, logs, or photos."
+        ),
+        "record_command": (
+            'printpipe record-beta-feedback "runs/<run-id>" '
+            f'--tester "<trusted-user-{slot}>" '
+            '--input-type existing_stl --material "<material>" '
+            '--printer "Bambu Lab P2S" --outcome passed '
+            '--summary "<what happened>" --would-print no '
+            '--recommendation needs_review '
+            '--artifact "Run report|report|runs/<run-id>/80_reports/run_report.html|reviewed by tester"'
+        ),
+        "required_fields": [
+            "tester",
+            "run_root",
+            "input_type",
+            "material",
+            "printer",
+            "outcome",
+            "summary",
+            "would_print",
+            "recommendation",
+        ],
+    }
+
+
 def _load_feedback_packets(runs_dir: Path) -> list[dict[str, Any]]:
     if not runs_dir.exists():
         return []
@@ -431,12 +536,15 @@ __all__ = [
     "TESTER_TYPES",
     "TRUSTED_FEEDBACK_REQUIRED_HEADINGS",
     "TRUSTED_FEEDBACK_SCHEMA_VERSION",
+    "TRUSTED_FEEDBACK_PLAN_PROOF_BOUNDARY",
     "FeedbackArtifact",
     "TrustedUserFeedback",
     "build_trusted_user_feedback",
+    "build_trusted_user_feedback_plan",
     "build_trusted_user_feedback_status",
     "missing_required_feedback_headings",
     "parse_trusted_feedback_sections",
+    "render_trusted_user_feedback_plan",
     "render_trusted_user_feedback_markdown",
     "render_trusted_user_feedback_status",
     "write_trusted_user_feedback_files",

@@ -19,7 +19,10 @@ from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from printpipe.beta.beta_plan import build_beta_action_plan
-from printpipe.beta.feedback import build_trusted_user_feedback_status
+from printpipe.beta.feedback import (
+    build_trusted_user_feedback_plan,
+    build_trusted_user_feedback_status,
+)
 from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_status import build_physical_validation_status
@@ -227,6 +230,8 @@ class PrintPipeWebApp:
             )
         if path == "/beta-feedback-status.json":
             return self.beta_feedback_status_response()
+        if path == "/beta-feedback-plan.json":
+            return self.beta_feedback_plan_response()
         if path == "/physical-plan.json":
             return self.physical_plan_response()
         if path == "/physical-status.json":
@@ -439,6 +444,22 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
+    def beta_feedback_plan_response(self) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            return WebResponse.json(build_trusted_user_feedback_plan(self.runs_dir))
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
     def physical_plan_response(self) -> WebResponse:
         if self.runs_dir is None:
             return WebResponse.from_text(
@@ -587,6 +608,7 @@ class PrintPipeWebApp:
                 self._render_physical_beta_gate_panel(),
                 self._render_physical_action_plan_panel(),
                 self._render_trusted_feedback_gate_panel(),
+                self._render_trusted_feedback_action_plan_panel(),
                 self._render_beta_action_plan_panel(),
                 self._render_recent_runs_panel(),
                 '    <section class="panel">',
@@ -596,6 +618,7 @@ class PrintPipeWebApp:
                 f'      <p><a href="{escape(self._service_href("/readiness.json"), quote=True)}">Readiness JSON</a></p>',
                 '      <p><a href="/physical-plan.json">Physical plan JSON</a></p>',
                 '      <p><a href="/beta-feedback-status.json">Trusted-user feedback JSON</a></p>',
+                '      <p><a href="/beta-feedback-plan.json">Trusted-user feedback plan JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/beta-plan.json"), quote=True)}">Beta plan JSON</a></p>',
                 '      <p><a href="/doctor.json">Environment doctor JSON</a></p>',
                 "    </section>",
@@ -972,6 +995,55 @@ class PrintPipeWebApp:
                 f"          <strong>{escape(status)}</strong>",
                 f"          <p>{escape(detail)}</p>",
                 f'          <p class="muted">{escape(note)}</p>',
+                "        </article>",
+            ]
+        )
+
+    def _render_trusted_feedback_action_plan_panel(self) -> str:
+        if self.runs_dir is None:
+            return ""
+        try:
+            plan = build_trusted_user_feedback_plan(self.runs_dir)
+        except (OSError, ValueError):
+            return ""
+
+        overall = str(plan.get("overall_status", "unknown"))
+        action_count = str(plan.get("action_count", 0))
+        proof_boundary = str(plan.get("proof_boundary", ""))
+        actions = _as_dicts(plan.get("actions"))
+        action_cards = "\n".join(
+            self._render_trusted_feedback_action_card(action)
+            for action in actions
+        )
+        if not action_cards:
+            action_cards = '<p class="muted">No trusted-user feedback actions required.</p>'
+        command = "printpipe beta-feedback-plan --runs-dir runs"
+        return "\n".join(
+            [
+                '    <section class="panel feedback-plan-panel">',
+                "      <div>",
+                "        <h2>Trusted-user action plan</h2>",
+                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
+                f"        <p>{escape(proof_boundary)}</p>",
+                "      </div>",
+                f'      <div class="physical-action-grid">{action_cards}</div>',
+                f'      <code>{escape(command)}</code>',
+                "    </section>",
+            ]
+        )
+
+    def _render_trusted_feedback_action_card(self, action: dict[str, Any]) -> str:
+        slot = str(action.get("slot", "?"))
+        status = str(action.get("status", "unknown"))
+        detail = str(action.get("detail") or "Trusted-user feedback action required.")
+        command = str(action.get("record_command") or "")
+        return "\n".join(
+            [
+                f'        <article class="physical-action physical-action-{_class_name(status)}">',
+                f"          <span>Tester slot {escape(slot)}</span>",
+                f"          <strong>{escape(status)}</strong>",
+                f"          <p>{escape(detail)}</p>",
+                f"          <pre><code>{escape(command)}</code></pre>",
                 "        </article>",
             ]
         )

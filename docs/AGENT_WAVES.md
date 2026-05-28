@@ -1155,3 +1155,13 @@ Status: complete for beta-plan dogfood evidence scanning. This does not create p
 4. Done: incomplete dogfood evidence stays action-required and reports the slipper status plus the non-slipper count.
 5. Current local result: `printpipe beta-plan --runs-dir runs --regression-manifest regressions/dogfood_failures.json --json` reports dogfood ready and reduces action-required items from 3 to 2.
 6. Boundary: physical PLA/PETG/TPU prints and three trusted-user feedback packets remain separate action-required gates.
+
+## Wave 105 - Trusted-User Feedback Action Plan
+
+Status: complete for trusted-user beta planning. This does not create tester feedback evidence.
+
+1. Done: added `build_trusted_user_feedback_plan()` and `render_trusted_user_feedback_plan()`.
+2. Done: added `printpipe beta-feedback-plan --runs-dir runs` with JSON and text output.
+3. Done: added `/beta-feedback-plan.json` and a home-page `Trusted-user action plan` panel.
+4. Done: the plan turns missing trusted-user slots into exact `record-beta-feedback` commands.
+5. Boundary: a generated feedback plan is not trusted-user evidence; only recorded feedback packets count toward the beta gate.
