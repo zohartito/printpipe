@@ -1134,3 +1134,13 @@ Status: complete for captured software failures. The real Wave 100 dogfood failu
 4. Done: recorded ignored failure packets for the networkx repair import failure, the open-rim cup/vase repair failure, and the flat-bracket off-bed slice failure.
 5. Done: committed `regressions/dogfood_failures.json` with three expected-success cases; `run-regressions regressions/dogfood_failures.json --strict` passes all three.
 6. Boundary: this closes software failure capture/regression promotion for current dogfood failures. Real trusted-user beta feedback and physical PLA/PETG/TPU print evidence remain external gates.
+
+## Wave 103 - Physical Evidence UI Hardening
+
+Status: complete for run-detail physical evidence visibility. This does not create physical print evidence.
+
+1. Done: audited the live run-detail contract and confirmed `build_run_detail()` already reads `90_physical/physical_evidence.json`.
+2. Done: added regression coverage for no packet, `not_printed`, `partial`, `failed`, `passed`, missing required fields, and artifact links.
+3. Done: updated the physical evidence panel to show material, printer, started, and completed fields next to operator, missing evidence, packet links, and artifact links.
+4. Done: preserved the boundary that generated flex-coupon artifacts do not count as physical proof and `not_printed`/incomplete packets stay review/incomplete.
+5. Boundary: physical PLA/PETG/TPU prints, trusted-user beta feedback, and signed release credentials remain separate gates.
