@@ -288,3 +288,14 @@ Status: complete for F2 and F12. Outputs are covered by `tests/test_env_doctor.p
 4. Done: web run status now resolves artifact access into `present`, `inside_run_root`, `readable`, and `state`.
 5. Done: unreadable external artifacts are counted as unusable and reported instead of crashing status generation.
 6. Remaining: F1 still owns any broader macOS Desktop/TCC recovery guidance for the primary checkout.
+
+## Wave 27 - macOS TCC Recovery Guidance
+
+Status: complete for F1. Outputs are covered by `tests/test_troubleshooting_docs.py`.
+
+1. Done: added a troubleshooting section for macOS Desktop, Documents, Downloads, external-drive, and cloud-folder privacy/TCC blocks.
+2. Done: documented why `chmod` is usually the wrong first fix for TCC-denied paths.
+3. Done: documented the preferred recovery path: move to `~/Projects` or grant Full Disk Access to Terminal/iTerm/Codex/Cursor/VS Code/the packaged app.
+4. Done: documented the required quit/reopen step after changing macOS privacy grants.
+5. Done: documented `PRINTPIPE_ARTIFACT_PATHS=... printpipe doctor` for checking external artifact readability.
+6. Remaining: real packaged-app permission prompts belong with F10 macOS packaging smoke work.

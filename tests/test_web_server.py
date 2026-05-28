@@ -304,8 +304,8 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert ".open-folder-actions" in css
     assert ".edit-actions" in css
     assert "position: sticky" in css
-    assert "bottom: 0" in css
-    assert "@media (max-width: 1180px)" in css
+    assert "bottom:0" in css
+    assert "@media (max-width:1180px)" in css
 
 
 def test_run_detail_response_rejects_unknown_run(tmp_path: Path):

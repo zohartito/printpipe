@@ -51,6 +51,41 @@ If `printpipe run` reports that the Hunyuan3D local command is not configured,
 set `PRINTPIPE_HUNYUAN3D_COMMAND` to the local adapter command before running
 image/GIF/video inputs. Existing mesh inputs do not need that provider.
 
+## macOS Desktop and Privacy Permissions
+
+macOS privacy/TCC can block Terminal, Codex, Cursor, VS Code, or another shell
+from reading files in protected folders such as Desktop, Documents, Downloads,
+external drives, or synced cloud folders. This is different from normal Unix
+file permissions, so `chmod` is usually the wrong first fix.
+
+Common symptoms:
+
+- `printpipe doctor` shows a filesystem warning for the workspace or an
+  external artifact path.
+- `printpipe status` or the local web UI marks an artifact as `unreadable`.
+- A path exists in Finder, but Python, git, or PrintPipe cannot read it.
+
+Recovery path:
+
+1. Prefer moving the checkout and run folders to an unprotected workspace such
+   as `~/Projects/printpipe` or `~/Code/printpipe`.
+2. If the project must stay on Desktop or another protected location, open
+   System Settings -> Privacy & Security -> Full Disk Access and grant access
+   to every app that launches PrintPipe: Terminal, iTerm, Codex, Cursor, VS
+   Code, or the packaged PrintPipe app.
+3. Quit and reopen the granted app. macOS usually applies TCC grants only after
+   the process restarts.
+4. Re-run `printpipe doctor`.
+5. For external artifacts, run doctor with explicit artifact paths:
+
+```bash
+PRINTPIPE_ARTIFACT_PATHS="/path/to/model.stl:/path/to/other/folder" printpipe doctor
+```
+
+If only one referenced artifact is unreadable, copy that file into the run
+folder or another readable folder and rebuild the run. If the primary checkout
+is unreadable, fix that first before debugging meshgen, slicing, or the web UI.
+
 ## `printpipe serve`
 
 Start the local web UI:

@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 26: 122 done, 20 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 27: 122 done, 20 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,13 +206,13 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 26 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs now prepare references, call the configured Hunyuan3D local adapter, and then continue through the same repair/orient/bundle/report spine. If `PRINTPIPE_HUNYUAN3D_COMMAND` is unset, media runs fail at `meshgen` with a provider-configuration receipt instead of silently pretending to generate geometry. Flexible-material runs now include a generated flex-coupon STL and checklist metadata before the user commits to a long TPU print. The run-detail UI and CLI both expose local open-folder affordances for bundle/report folders. `printpipe doctor` now reports workspace and configured artifact readability, and web run status marks unreadable external artifacts without crashing. Bambu Studio 2.6.00.51 on this macOS 26.5 machine still segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
+Wave 27 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs now prepare references, call the configured Hunyuan3D local adapter, and then continue through the same repair/orient/bundle/report spine. If `PRINTPIPE_HUNYUAN3D_COMMAND` is unset, media runs fail at `meshgen` with a provider-configuration receipt instead of silently pretending to generate geometry. Flexible-material runs now include a generated flex-coupon STL and checklist metadata before the user commits to a long TPU print. The run-detail UI and CLI both expose local open-folder affordances for bundle/report folders. `printpipe doctor` now reports workspace and configured artifact readability, web run status marks unreadable external artifacts without crashing, and troubleshooting docs include the macOS Desktop/TCC recovery path. Bambu Studio 2.6.00.51 on this macOS 26.5 machine still segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
 
 ## Post-Wave 13 Findings Backlog
 
 These items are not part of the original 142 count. They come from Wave 13 verification and should be treated as the next execution backlog.
 
-- [ ] F1. Fix or document macOS Desktop/TCC permission recovery for the primary checkout.
+- [x] F1. Fix or document macOS Desktop/TCC permission recovery for the primary checkout.
 - [x] F2. Add a `printpipe doctor` check that warns when the current workspace or external artifact paths are unreadable.
 - [x] F3. Add a run option that deliberately invokes live Bambu CLI slicing against the generated `.3mf` and records the real receipt.
 - [x] F4. Wire image/GIF/video runs through Hunyuan3D meshgen, repair, orientation, bundle, and report.
