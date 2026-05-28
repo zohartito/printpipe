@@ -281,6 +281,61 @@ def test_run_detail_uses_real_bed_fit_and_slice_receipt_metrics(tmp_path: Path):
     assert detail["print_verdict"]["state"] == "blocked"
 
 
+def test_run_detail_surfaces_prompt_reference_failure_and_provider_quote(tmp_path: Path):
+    source = tmp_path / "prompt.txt"
+    source.write_text("small ergonomic wall hook\n", encoding="utf-8")
+    layout = create_run(source, tmp_path / "runs", run_id="prompt-openai-budget-blocked")
+    stages = (
+        StageReceipt(
+            stage="classify_input",
+            status=StageStatus.SUCCEEDED,
+            message="classified input as prompt",
+        ),
+        StageReceipt(
+            stage="prompt_reference_generation",
+            status=StageStatus.FAILED,
+            message="OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD",
+            metrics={
+                "provider": "openai",
+                "provider_configured": False,
+                "candidate_count": 0,
+                "provider_quote": {
+                    "provider": "openai",
+                    "privacy_mode": "remote_api",
+                    "estimated_seconds": 45.0,
+                    "estimated_cost_usd": 0.25,
+                    "cost_estimate_configured": True,
+                    "max_cost_usd": 0.05,
+                    "remote_upload": True,
+                    "stores_prompt_with_provider": True,
+                },
+            },
+        ),
+    )
+    write_run_report(layout, stages=stages)
+
+    detail = build_run_detail(layout.root)
+
+    input_stage = next(stage for stage in detail["pipeline"] if stage["key"] == "input_reference")
+    assert input_stage["status"] == "failed"
+    assert "estimated cost 0.25 USD exceeds cap 0.05 USD" in input_stage["message"]
+    assert detail["prompt_reference"] == {
+        "available": True,
+        "provider": "openai",
+        "stage_status": "failed",
+        "stage_message": "OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD",
+        "privacy_mode": "remote_api",
+        "estimated_seconds": 45.0,
+        "estimated_cost_usd": 0.25,
+        "max_cost_usd": 0.05,
+        "cost_estimate_configured": True,
+        "remote_upload": True,
+        "stores_prompt_with_provider": True,
+        "budget_status": "blocked",
+    }
+    assert detail["print_verdict"]["state"] == "blocked"
+
+
 def test_run_detail_contract_loads_physical_evidence_packet(tmp_path: Path):
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")

@@ -21,7 +21,13 @@ _PIPELINE_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "input_reference",
         "Input / reference",
-        ("input", "classify_input", "extract_references", "select_references"),
+        (
+            "input",
+            "classify_input",
+            "extract_references",
+            "prompt_reference_generation",
+            "select_references",
+        ),
     ),
     ("mesh_generation", "Mesh generation", ("mesh_generation", "meshgen", "generated_mesh")),
     ("repair", "Repair", ("repair", "mesh_repair")),
@@ -42,6 +48,8 @@ def build_run_detail(run_root: str | Path) -> dict[str, Any]:
     metrics = _combined_metrics(report)
     validation = _validation_checks(metrics=metrics, settings=settings)
     warnings = _strings(report.get("warnings"))
+    pipeline = _pipeline_contract(report)
+    prompt_reference = _prompt_reference_contract(report)
 
     return {
         "schema_version": RUN_DETAIL_SCHEMA_VERSION,
@@ -55,11 +63,12 @@ def build_run_detail(run_root: str | Path) -> dict[str, Any]:
         "material": {"label": _setting_label(settings, "material")},
         "profile": {"label": _setting_label(settings, "profile")},
         "geometry": _geometry_contract(metrics),
-        "print_verdict": _print_verdict(validation, warnings),
+        "print_verdict": _print_verdict(validation, warnings, pipeline=pipeline),
         "validation": validation,
-        "pipeline": _pipeline_contract(report),
+        "pipeline": pipeline,
         "artifacts": _artifact_groups(report, run_root=root),
         "warnings": warnings,
+        "prompt_reference": prompt_reference,
         "physical_evidence": _physical_evidence_contract(root),
         "edit_recipe": _edit_recipe_contract(root, manifest),
         "rebuild": {
@@ -270,8 +279,20 @@ def _slice_success_check(metrics: dict[str, Any]) -> dict[str, str]:
     )
 
 
-def _print_verdict(checks: list[dict[str, str]], warnings: list[str]) -> dict[str, str]:
+def _print_verdict(
+    checks: list[dict[str, str]],
+    warnings: list[str],
+    *,
+    pipeline: list[dict[str, Any]] | None = None,
+) -> dict[str, str]:
     states = {check["state"] for check in checks}
+    pipeline_states = {str(stage.get("status", "unknown")).lower() for stage in pipeline or []}
+    if "failed" in pipeline_states or "fail" in pipeline_states:
+        return {
+            "state": "blocked",
+            "label": "Not ready to print",
+            "reason": "One or more pipeline stages failed.",
+        }
     if "fail" in states:
         return {
             "state": "blocked",
@@ -306,8 +327,8 @@ def _pipeline_step_contract(
     aliases: tuple[str, ...],
     stages: list[Any],
 ) -> dict[str, Any]:
-    stage = _matching_stage(aliases, stages)
-    if not stage:
+    matching_stages = _matching_stages(aliases, stages)
+    if not matching_stages:
         return {
             "key": key,
             "label": label,
@@ -315,13 +336,70 @@ def _pipeline_step_contract(
             "message": "Not run yet.",
             "artifacts": [],
         }
+    stage = _representative_stage(matching_stages)
     return {
         "key": key,
         "label": label,
-        "status": str(stage.get("status", "unknown")),
+        "status": _summarized_stage_status(matching_stages),
         "message": str(stage.get("message", "")),
         "artifacts": _artifact_list(stage.get("artifacts")),
     }
+
+
+def _prompt_reference_contract(report: Mapping[str, Any]) -> dict[str, Any]:
+    stage = _first_stage_named(report, "prompt_reference_generation")
+    if not stage:
+        return {"available": False}
+    metrics = _mapping(stage.get("metrics"))
+    quote = _mapping(metrics.get("provider_quote"))
+    provider = str(quote.get("provider") or metrics.get("provider") or "unknown")
+    estimated_cost = quote.get("estimated_cost_usd")
+    max_cost = quote.get("max_cost_usd")
+    return {
+        "available": True,
+        "provider": provider,
+        "stage_status": str(stage.get("status", "unknown")),
+        "stage_message": str(stage.get("message", "")),
+        "privacy_mode": quote.get("privacy_mode"),
+        "estimated_seconds": quote.get("estimated_seconds"),
+        "estimated_cost_usd": estimated_cost,
+        "max_cost_usd": max_cost,
+        "cost_estimate_configured": quote.get("cost_estimate_configured"),
+        "remote_upload": quote.get("remote_upload"),
+        "stores_prompt_with_provider": quote.get("stores_prompt_with_provider"),
+        "budget_status": _prompt_budget_status(
+            stage_status=str(stage.get("status", "unknown")),
+            estimated_cost=estimated_cost,
+            max_cost=max_cost,
+            stage_message=str(stage.get("message", "")),
+        ),
+    }
+
+
+def _prompt_budget_status(
+    *,
+    stage_status: str,
+    estimated_cost: Any,
+    max_cost: Any,
+    stage_message: str,
+) -> str:
+    message = stage_message.lower()
+    if "cost cap" in message or "exceeds cap" in message:
+        return "blocked"
+    if max_cost is None:
+        return "not_capped"
+    if estimated_cost is None:
+        return "unchecked"
+    try:
+        estimate = float(estimated_cost)
+        cap = float(max_cost)
+    except (TypeError, ValueError):
+        return "review"
+    if estimate > cap:
+        return "blocked"
+    if stage_status.lower() == "succeeded":
+        return "within_cap"
+    return "within_cap_pending"
 
 
 def _artifact_groups(
@@ -431,8 +509,20 @@ def _combined_metrics(report: Mapping[str, Any]) -> dict[str, Any]:
     return metrics
 
 
-def _matching_stage(aliases: tuple[str, ...], stages: list[Any]) -> Mapping[str, Any] | None:
+def _first_stage_named(report: Mapping[str, Any], name: str) -> Mapping[str, Any] | None:
+    normalized_name = _normalize(name)
+    for stage in _as_list(report.get("stages")):
+        if not isinstance(stage, Mapping):
+            continue
+        stage_name = _normalize(str(stage.get("stage") or stage.get("name") or ""))
+        if stage_name == normalized_name:
+            return stage
+    return None
+
+
+def _matching_stages(aliases: tuple[str, ...], stages: list[Any]) -> list[Mapping[str, Any]]:
     normalized_aliases = {_normalize(alias) for alias in aliases}
+    matches: list[Mapping[str, Any]] = []
     for stage in stages:
         if not isinstance(stage, Mapping):
             continue
@@ -441,8 +531,31 @@ def _matching_stage(aliases: tuple[str, ...], stages: list[Any]) -> Mapping[str,
             alias in stage_name
             for alias in normalized_aliases
         ):
-            return stage
-    return None
+            matches.append(stage)
+    return matches
+
+
+def _representative_stage(stages: list[Mapping[str, Any]]) -> Mapping[str, Any]:
+    for status in ("failed", "fail", "error"):
+        for stage in stages:
+            if str(stage.get("status", "unknown")).lower() == status:
+                return stage
+    for status in ("succeeded", "success", "passed", "pass"):
+        for stage in reversed(stages):
+            if str(stage.get("status", "unknown")).lower() == status:
+                return stage
+    return stages[-1]
+
+
+def _summarized_stage_status(stages: list[Mapping[str, Any]]) -> str:
+    statuses = [str(stage.get("status", "unknown")).lower() for stage in stages]
+    if any(status in {"failed", "fail", "error"} for status in statuses):
+        return "failed"
+    if any(status in {"succeeded", "success", "passed", "pass"} for status in statuses):
+        return "succeeded"
+    if any(status == "skipped" for status in statuses):
+        return "skipped"
+    return statuses[-1] if statuses else "unknown"
 
 
 def _check(key: str, label: str, state: str, detail: str) -> dict[str, str]:

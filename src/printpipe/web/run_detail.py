@@ -38,6 +38,7 @@ def render_run_detail_page(*, detail: dict[str, Any], artifact_links: list[Any])
             _render_verdict_strip(detail),
             _render_run_context_strip(detail),
             _render_material_preflight_strip(detail, artifact_links),
+            _render_prompt_provider_panel(detail),
             _render_physical_evidence_panel(detail),
             _render_model_workbench(detail, artifact_links),
             "    </section>",
@@ -171,6 +172,35 @@ def _render_physical_evidence_panel(detail: dict[str, Any]) -> str:
             f'          <p class="evidence-missing">{escape(missing_label)}</p>',
             "        </div>",
             f'        <div class="evidence-links">{packet_links}{artifact_links}</div>',
+            "      </section>",
+        ]
+    )
+
+
+def _render_prompt_provider_panel(detail: dict[str, Any]) -> str:
+    prompt_reference = _mapping(detail.get("prompt_reference"))
+    if not prompt_reference.get("available"):
+        return ""
+    budget_status = _prompt_budget_status_label(prompt_reference)
+    items = [
+        ("Provider", _prompt_provider_label(prompt_reference.get("provider"))),
+        ("Privacy", _privacy_mode_label(prompt_reference.get("privacy_mode"))),
+        ("Estimated cost", _format_money(prompt_reference.get("estimated_cost_usd"))),
+        ("Max cost", _format_money(prompt_reference.get("max_cost_usd"))),
+        ("Latency", _format_seconds(prompt_reference.get("estimated_seconds"))),
+        ("Budget", budget_status),
+    ]
+    remote_note = _remote_prompt_note(prompt_reference)
+    return "\n".join(
+        [
+            '      <section class="prompt-provider" aria-label="Prompt image provider">',
+            "        <div>",
+            '          <p class="eyebrow">Prompt image provider</p>',
+            f"          <h2>{escape(_prompt_provider_heading(prompt_reference))}</h2>",
+            f"          <p>{escape(str(prompt_reference.get('stage_message') or 'No provider message recorded.'))}</p>",
+            f'          <p class="provider-note">{escape(remote_note)}</p>',
+            "        </div>",
+            f'        <div class="provider-grid">{_render_provider_items(items)}</div>',
             "      </section>",
         ]
     )
@@ -448,6 +478,13 @@ def _key_value_strip(class_name: str, aria_label: str, items: list[tuple[str, st
     return f'<section class="{escape(class_name, quote=True)}" aria-label="{escape(aria_label, quote=True)}">{rendered}</section>'
 
 
+def _render_provider_items(items: list[tuple[str, str]]) -> str:
+    return "".join(
+        f'<div class="provider-item"><span>{escape(label)}</span><strong>{escape(value)}</strong></div>'
+        for label, value in items
+    )
+
+
 def _validation_by_key(detail: dict[str, Any]) -> dict[str, dict[str, Any]]:
     checks: dict[str, dict[str, Any]] = {}
     for check in _as_list(detail.get("validation")):
@@ -511,6 +548,9 @@ def _fit_issue_label(detail: dict[str, Any]) -> str:
     warnings = [str(warning).lower() for warning in _as_list(detail.get("warnings"))]
     if any("narrow" in warning or "opening" in warning for warning in warnings):
         return "Needs geometry edit: upper/opening too narrow"
+    failed_stage = _first_failed_pipeline_stage(detail)
+    if failed_stage:
+        return f"Pipeline failed: {failed_stage}"
     checks = _validation_by_key(detail)
     bed_fit = checks.get("bed_fit")
     if bed_fit and _state_tone(str(bed_fit.get("state", "review"))) != "pass":
@@ -573,6 +613,9 @@ def _is_slipper_context(detail: dict[str, Any]) -> bool:
 
 def _next_action_label(detail: dict[str, Any]) -> str:
     state = str(_mapping(detail.get("print_verdict")).get("state", "review"))
+    failed_stage = _first_failed_pipeline_stage(detail)
+    if failed_stage:
+        return f"Fix the failed {failed_stage} stage, then rebuild this run."
     if _state_tone(state) == "fail":
         return "Fix the failed validation check, then rebuild this run."
     warnings = [str(warning).lower() for warning in _as_list(detail.get("warnings"))]
@@ -613,6 +656,13 @@ def _first_warning(detail: dict[str, Any]) -> str:
         return "None"
     first = warnings[0]
     return first if len(first) <= 96 else f"{first[:93]}..."
+
+
+def _first_failed_pipeline_stage(detail: dict[str, Any]) -> str:
+    for stage in _as_dicts(detail.get("pipeline")):
+        if _state_tone(str(stage.get("status", "unknown"))) == "fail":
+            return str(stage.get("label") or "pipeline")
+    return ""
 
 
 def _label_from_detail(detail: dict[str, Any], key: str, fallback: str) -> str:
@@ -687,6 +737,71 @@ def _physical_link(run_id: str, label: str, path: Any) -> str:
     path_text = str(path)
     href = f"/runs/{quote(run_id, safe='')}/artifacts/{quote(path_text, safe='/.')}"
     return f'<a href="{escape(href, quote=True)}">{escape(label)}</a>'
+
+
+def _prompt_provider_heading(prompt_reference: dict[str, Any]) -> str:
+    provider = _prompt_provider_label(prompt_reference.get("provider"))
+    status = _state_label(str(prompt_reference.get("stage_status", "review")))
+    return f"{provider} reference generation: {status}"
+
+
+def _prompt_provider_label(value: Any) -> str:
+    provider = str(value or "unknown").strip().lower()
+    if provider == "openai":
+        return "OpenAI"
+    if provider == "command":
+        return "Command"
+    return provider.title() if provider else "Unknown"
+
+
+def _privacy_mode_label(value: Any) -> str:
+    mode = str(value or "not recorded").strip().lower()
+    if mode == "remote_api":
+        return "remote API"
+    if mode == "local_or_user_configured":
+        return "local or user-configured"
+    return mode.replace("_", " ")
+
+
+def _prompt_budget_status_label(prompt_reference: dict[str, Any]) -> str:
+    status = str(prompt_reference.get("budget_status") or "review")
+    labels = {
+        "blocked": "Budget blocked before remote work",
+        "within_cap": "Within configured cap",
+        "within_cap_pending": "Within cap; provider did not finish",
+        "unchecked": "Cap set; estimate missing",
+        "not_capped": "No max cost cap recorded",
+    }
+    return labels.get(status, "Review budget receipt")
+
+
+def _remote_prompt_note(prompt_reference: dict[str, Any]) -> str:
+    remote_upload = prompt_reference.get("remote_upload")
+    stores_prompt = prompt_reference.get("stores_prompt_with_provider")
+    if remote_upload is True:
+        storage = "prompt may be stored by provider" if stores_prompt is True else "storage policy not recorded"
+        return f"Remote prompt/reference request; {storage}."
+    if remote_upload is False:
+        return "No remote upload recorded for this provider."
+    return "Remote upload behavior depends on the configured provider command."
+
+
+def _format_money(value: Any) -> str:
+    if value in {None, ""}:
+        return "not estimated"
+    try:
+        return f"${float(value):g}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _format_seconds(value: Any) -> str:
+    if value in {None, ""}:
+        return "not estimated"
+    try:
+        return f"{float(value):g} s"
+    except (TypeError, ValueError):
+        return str(value)
 
 
 def _requires_flex_coupon(detail: dict[str, Any]) -> bool:
@@ -781,7 +896,7 @@ RUN_DETAIL_CSS = """
     .shell { display: grid; gap: 16px; margin: 0 auto; max-width: 1620px; padding: clamp(14px,2vw,24px); }
     .verdict-strip { border-top: 4px solid transparent; display: grid; gap: 10px; grid-template-columns: 1.2fr repeat(5,minmax(110px,1fr)); }
     .verdict-strip-pass { border-color: #1f8a4c; } .verdict-strip-warn { border-color: #b7791f; } .verdict-strip-fail { border-color: #c23030; }
-    .verdict,.score,.model-card,.card,.controls,.run-context,.physical-evidence { background: rgba(255,255,255,.94); border: 1px solid #cfd8e3; border-radius: 8px; box-shadow: 0 18px 46px rgba(36,47,61,.1); }
+    .verdict,.score,.model-card,.card,.controls,.run-context,.prompt-provider,.physical-evidence { background: rgba(255,255,255,.94); border: 1px solid #cfd8e3; border-radius: 8px; box-shadow: 0 18px 46px rgba(36,47,61,.1); }
     .verdict { background: #17202a; color: #f8fafc; padding: 14px; } .verdict h2 { font-size: clamp(1.35rem,2.1vw,2rem); margin: 0 0 6px; } .verdict p { color: #d8e2ec; }
     .verdict-issue { color:#fff; display:block; font-size:.98rem; margin: 0 0 8px; overflow-wrap:anywhere; }
     .next-action { background: rgba(255,255,255,.08); border: 1px solid rgba(216,226,236,.22); border-radius: 8px; margin: 12px 0 0; padding: 9px 10px; }
@@ -790,6 +905,7 @@ RUN_DETAIL_CSS = """
     .score strong,.metric strong { display: block; font-size: 1.18rem; margin-top: 6px; overflow-wrap: anywhere; }
     .score-pass strong { color: #126237; } .score-warn strong { color: #7c4a03; } .score-fail strong { color: #9b1c1c; }
     .run-context,.print-context { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); overflow: hidden; } .print-context { border-left: 4px solid #327d9e; } .context-item { background: #fff; min-width: 0; padding: 11px 12px; } .context-item strong { display: block; overflow-wrap: anywhere; }
+    .prompt-provider { align-items:center; border-left:4px solid #7c4a03; display:grid; gap:14px; grid-template-columns:minmax(0,1fr) minmax(300px,.72fr); padding:14px; } .prompt-provider h2{font-size:1.1rem;margin:0 0 4px}.prompt-provider p{color:#52606d;margin:4px 0}.provider-note{font-weight:800}.provider-grid{display:grid;gap:1px;grid-template-columns:repeat(2,minmax(0,1fr));overflow:hidden}.provider-item{background:#f8fafc;border:1px solid #e4e7eb;margin:-1px 0 0 -1px;min-width:0;padding:9px}.provider-item span{color:#607080;display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.68rem;font-weight:850;text-transform:uppercase}.provider-item strong{display:block;overflow-wrap:anywhere}
     .physical-evidence { align-items:center; display:grid; gap:14px; grid-template-columns:minmax(0,1fr) auto; padding:14px; } .physical-evidence h2{font-size:1.1rem;margin:0 0 4px}.physical-evidence p{color:#52606d;margin:4px 0}.evidence-missing{font-weight:800}.evidence-links{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}.evidence-links a{background:#eef6f9;border:1px solid #c6dfe9;border-radius:999px;color:#24566d;font-size:.84rem;font-weight:800;padding:7px 10px;text-decoration:none}
     .workbench { display: grid; gap: clamp(14px,2vw,24px); grid-template-columns: minmax(0,1fr) minmax(330px,410px); }
     .canvas-zone { display: grid; gap: 14px; grid-template-rows: minmax(420px,auto) auto auto; min-width: 0; }
@@ -813,7 +929,7 @@ RUN_DETAIL_CSS = """
     .controls { align-self:start; margin:0; overflow:hidden; } .control-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}.issue-line{background:#eef6f9;border:1px solid #c6dfe9;border-radius:8px;color:#24566d;font-weight:850;margin:0;padding:10px}.input-card{border-left:5px solid #327d9e;padding-left:12px}.input-card p,.muted{color:#52606d}.check-row{align-items:center;background:#f8fafc;border:1px solid #cfd8e3;border-radius:8px;color:#17202a;display:flex;gap:8px;justify-content:space-between;padding:10px;text-transform:none}.check-row input{min-height:auto;width:auto}.primary{background:#327d9e;max-width:none}.edit-actions{background:linear-gradient(rgba(255,255,255,.86),#fff);bottom:0;padding-top:8px;position:sticky;z-index:2}.recipe-preview{background:#eef6f9;border:1px solid #c6dfe9;border-radius:8px;color:#24566d;margin:0;padding:10px}
     .links{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}.workbench-artifacts .links{grid-template-columns:repeat(5,minmax(0,1fr))}.links a,.missing-artifact{background:#f8fafc;border:1px solid #cfd8e3;border-radius:8px;display:block;font-weight:850;padding:10px}.links span{color:#52606d;display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.72rem;margin-top:4px;overflow-wrap:anywhere}.open-folder-actions{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
     @media (max-width:1180px){.verdict-strip{grid-template-columns:repeat(3,minmax(0,1fr))}.verdict{grid-column:1/-1}.workbench{grid-template-columns:1fr}.controls{order:-1}}
-    @media (max-width:760px){.topbar,.verdict-strip,.lower-grid,.model-footer,.workbench-artifacts .links,.control-grid,.receipt-grid,.open-folder-actions,.physical-evidence{grid-template-columns:1fr}.status-chip{white-space:normal}.model-card{min-height:430px}.mesh-placeholder,.model-preview-image{width:86vw}.evidence-links{justify-content:flex-start}}
+    @media (max-width:760px){.topbar,.verdict-strip,.lower-grid,.model-footer,.workbench-artifacts .links,.control-grid,.receipt-grid,.open-folder-actions,.prompt-provider,.provider-grid,.physical-evidence{grid-template-columns:1fr}.status-chip{white-space:normal}.model-card{min-height:430px}.mesh-placeholder,.model-preview-image{width:86vw}.evidence-links{justify-content:flex-start}}
 """.strip()
 
 

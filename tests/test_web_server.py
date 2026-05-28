@@ -399,6 +399,57 @@ def test_run_detail_response_surfaces_physical_evidence_packet(tmp_path: Path):
     )
 
 
+def test_run_detail_response_surfaces_prompt_image_quote_receipt(tmp_path: Path):
+    source = tmp_path / "prompt.txt"
+    source.write_text("small ergonomic wall hook\n", encoding="utf-8")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="prompt-quote-ui-001")
+    stages = (
+        StageReceipt(
+            stage="classify_input",
+            status=StageStatus.SUCCEEDED,
+            message="classified input as prompt",
+        ),
+        StageReceipt(
+            stage="prompt_reference_generation",
+            status=StageStatus.FAILED,
+            message="OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD",
+            metrics={
+                "provider": "openai",
+                "provider_configured": False,
+                "candidate_count": 0,
+                "provider_quote": {
+                    "provider": "openai",
+                    "privacy_mode": "remote_api",
+                    "estimated_seconds": 45.0,
+                    "estimated_cost_usd": 0.25,
+                    "cost_estimate_configured": True,
+                    "max_cost_usd": 0.05,
+                    "remote_upload": True,
+                    "stores_prompt_with_provider": True,
+                },
+            },
+        ),
+    )
+    write_run_report(layout, stages=stages)
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/prompt-quote-ui-001")
+
+    assert response.status == 200
+    assert "Prompt image provider" in response.text
+    assert "OpenAI" in response.text
+    assert "remote API" in response.text
+    assert "Estimated cost" in response.text
+    assert "$0.25" in response.text
+    assert "Max cost" in response.text
+    assert "$0.05" in response.text
+    assert "Budget blocked before remote work" in response.text
+    assert "Pipeline failed: Input / reference" in response.text
+    assert "<strong>Input / reference</strong>" in response.text
+    assert "OpenAI prompt image estimated cost 0.25 USD exceeds cap 0.05 USD" in response.text
+
+
 def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     css = web_server._CSS + run_detail.RUN_DETAIL_CSS
 
@@ -410,6 +461,7 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert ".run-context" in css
     assert ".print-context" in css
     assert ".physical-evidence" in css
+    assert ".prompt-provider" in css
     assert ".verdict-strip-warn" in css
     assert ".verdict-issue" in css
     assert ".issue-line" in css

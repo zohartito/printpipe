@@ -743,3 +743,14 @@ Status: partial progress for hosted/provider safety. Prompt-image runs now recor
 5. Done: `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` fails before the API call when the estimate exceeds the cap.
 6. Done: CLI reports and run reports include the provider quote metadata on blocked cost-cap runs.
 7. Remaining: real live OpenAI/API-key evidence, provider quality comparison, and physical validation stay open.
+
+## Wave 67 - Prompt Provider Receipts in Run Detail
+
+Status: partial progress for prompt/reference trust. The workbench now exposes prompt-provider quote/budget receipts and no longer hides prompt-reference failures behind successful input classification.
+
+1. Done: added a `prompt_reference` run-detail contract slice from `prompt_reference_generation` stage metrics.
+2. Done: surfaced provider, privacy mode, estimated cost, max cost, latency, remote-upload note, and budget status in the run-detail UI.
+3. Done: `Input / reference` now summarizes all matching input/reference receipts and fails if any matching receipt failed.
+4. Done: prompt-reference failures now block the top-level print verdict instead of leaving the run in a generic review state.
+5. Done: regression coverage proves an OpenAI cost-cap failure is visible in both the contract and workbench.
+6. Remaining: real live OpenAI/API-key evidence, provider quality comparison, and physical validation stay open.
