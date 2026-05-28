@@ -328,9 +328,9 @@ def _trusted_user_action(status: Mapping[str, Any]) -> dict[str, str]:
         "command": (
             'printpipe record-beta-feedback "<run-root>" --tester "<name>" '
             '--input-type existing_stl --material "<material>" '
-            '--printer "Bambu Lab P2S" --outcome passed '
-            '--summary "<what happened>" --would-print no '
-            '--recommendation needs_review'
+            '--printer "Bambu Lab P2S" --outcome "<passed|failed|partial>" '
+            '--summary "<what happened>" --would-print "<yes|no|unknown>" '
+            '--recommendation "<recommendation>"'
         ),
     }
 

@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 142: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 143: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 142 aligned the beta docs and local physical handoff sheets with Wave 141's placeholder-outcome rule. Generated `record-physical-evidence` commands now preserve the concrete run folder, printer, material, object, and observation prompts, but require the operator to replace `--print-status "<passed|failed|partial>"` after the coupon is actually printed. The tracked beta docs and current local PLA/PETG/TPU handoff sheets no longer present a copy-pasteable passing physical record before evidence exists.
+Latest status: Wave 143 aligned the older beta action-plan fallback, beta onboarding docs, and local trusted-user handoff sheets with the explicit-outcome rule. Trusted-user record commands now require `--outcome "<passed|failed|partial>"`, `--would-print "<yes|no|unknown>"`, and `--recommendation "<recommendation>"` instead of preselecting `passed`, `no`, and `needs_review`. Physical record commands continue to require `--print-status "<passed|failed|partial>"`. The remaining open gates are real-world evidence gates, not missing local command templates.
 
 ## Goal
 

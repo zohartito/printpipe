@@ -54,6 +54,13 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert actions["trusted_user_beta"]["status"] == "action_required"
     assert "0 / 3 trusted users completed feedback" in actions["trusted_user_beta"]["detail"]
     assert "recorded feedback" not in actions["trusted_user_beta"]["detail"]
+    trusted_command = actions["trusted_user_beta"]["command"]
+    assert '--outcome "<passed|failed|partial>"' in trusted_command
+    assert '--would-print "<yes|no|unknown>"' in trusted_command
+    assert '--recommendation "<recommendation>"' in trusted_command
+    assert "--outcome passed" not in trusted_command
+    assert "--would-print no" not in trusted_command
+    assert "--recommendation needs_review" not in trusted_command
 
 
 def test_beta_action_plan_marks_dogfood_ready_from_software_evidence(

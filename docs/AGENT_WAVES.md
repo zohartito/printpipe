@@ -1569,3 +1569,14 @@ Status: partial progress for physical-validation evidence honesty. This removes 
 4. Done: the existing local PLA, PETG, and TPU physical handoff Markdown sheets were refreshed to show the placeholder outcome in their record-after-print commands.
 5. Current local result: `runs/physical-*/90_physical/physical_print_handoff.md` agrees with `/physical-plan.json` and `final-next`.
 6. Boundary: synchronized docs and handoff sheets still do not create physical evidence. Real printed coupons, observations, photos, and explicit outcomes remain required.
+
+## Wave 143 - Trusted-User Handoff and Fallback Placeholder Sync
+
+Status: partial progress for trusted-user beta evidence honesty. This removes stale fallback and handoff commands that contradicted Wave 140.
+
+1. Done: the older `beta-plan` trusted-user fallback command no longer defaults to `--outcome passed`.
+2. Done: the fallback now requires explicit `--outcome "<passed|failed|partial>"`, `--would-print "<yes|no|unknown>"`, and `--recommendation "<recommendation>"` values.
+3. Done: beta onboarding docs now show placeholder trusted-user feedback outcomes rather than preselected `passed`, `no`, and `needs_review` values.
+4. Done: the existing local slipper trusted-user handoff Markdown sheets were refreshed to match the safe concrete record commands already exposed by `beta-feedback-plan` and `final-plan`.
+5. Current local result: `runs/20260528-042826-slipper-size11-v2c-wide-upper-textured/90_beta/trusted_user_feedback_handoff_*.md` agrees with `/beta-feedback-plan.json` and `final-plan`.
+6. Boundary: synchronized trusted-user commands still do not create trusted-user evidence. The beta gate remains open until three unique trusted users return completed packets with supporting evidence.

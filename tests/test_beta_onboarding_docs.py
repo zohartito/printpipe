@@ -109,3 +109,14 @@ def test_onboarding_doc_does_not_preselect_passed_physical_evidence() -> None:
 
     assert '--print-status "<passed|failed|partial>"' in content
     assert "--print-status passed" not in content
+
+
+def test_onboarding_doc_does_not_preselect_trusted_feedback_outcome() -> None:
+    content = _read(ONBOARDING_DOC)
+
+    assert '--outcome "<passed|failed|partial>"' in content
+    assert '--would-print "<yes|no|unknown>"' in content
+    assert '--recommendation "<recommendation>"' in content
+    assert "--outcome passed" not in content
+    assert "--would-print no" not in content
+    assert "--recommendation needs_review" not in content

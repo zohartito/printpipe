@@ -259,7 +259,8 @@ but it is not physical validation by itself.
 After a fixture run, record the tester's beta feedback as its own packet. This
 is for setup, report clarity, confusing warnings, and whether the tester would
 trust the generated artifacts after manual review. It is separate from physical
-print proof.
+print proof. Replace the placeholders with the tester's actual outcome,
+summary, would-print answer, and recommendation after the review is complete.
 
 ```bash
 printpipe record-beta-feedback runs/<run-id> \
@@ -267,10 +268,10 @@ printpipe record-beta-feedback runs/<run-id> \
   --input-type existing_stl \
   --material "Bambu PLA Basic" \
   --printer "Bambu Lab P2S" \
-  --outcome passed \
-  --summary "Run completed and the report made sense." \
-  --would-print no \
-  --recommendation needs_review
+  --outcome "<passed|failed|partial>" \
+  --summary "<what happened>" \
+  --would-print "<yes|no|unknown>" \
+  --recommendation "<recommendation>"
 ```
 
 Use `--issue` for each concrete problem and `--artifact` for files that support
