@@ -574,6 +574,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the final action plan as JSON.",
     )
 
+    final_next = subparsers.add_parser(
+        "final-next",
+        help="Show only the immediate next final action and its supporting files.",
+    )
+    final_next.add_argument(
+        "--release-dir",
+        type=Path,
+        default=Path("dist/release"),
+        help="Release folder containing release_manifest.json.",
+    )
+    final_next.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory where beta and physical evidence run folders are stored.",
+    )
+    final_next.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Optional beta regression manifest to include in release planning.",
+    )
+    final_next.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the immediate final next action as JSON.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -1308,6 +1336,14 @@ def main(argv: list[str] | None = None) -> int:
             json_output=args.json,
         )
 
+    if args.command == "final-next":
+        return _final_next(
+            release_dir=args.release_dir,
+            runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
+            json_output=args.json,
+        )
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -1940,6 +1976,36 @@ def _final_plan(
         print(json.dumps(plan, indent=2, sort_keys=True))
     else:
         print(render_final_action_plan(plan), end="")
+    return 0
+
+
+def _final_next(
+    *,
+    release_dir: Path,
+    runs_dir: Path,
+    regression_manifest_path: Path | None,
+    json_output: bool,
+) -> int:
+    from printpipe.final_plan import build_final_action_plan, render_final_next_action
+
+    plan = build_final_action_plan(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
+    next_action = plan.get("next_action") if isinstance(plan.get("next_action"), dict) else {}
+    payload = {
+        "schema_version": int(plan.get("schema_version") or 1),
+        "overall_status": str(plan.get("overall_status") or "unknown"),
+        "action_count": int(plan.get("action_count") or 0),
+        "proof_boundary": str(plan.get("proof_boundary") or ""),
+        "next_action": next_action,
+        "next_command": str(plan.get("next_command") or next_action.get("command") or ""),
+    }
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(render_final_next_action(payload), end="")
     return 0
 
 

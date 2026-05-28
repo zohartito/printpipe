@@ -153,6 +153,40 @@ def render_final_action_plan(plan: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_final_next_action(plan: Mapping[str, Any]) -> str:
+    """Render only the immediate next action from a final action plan."""
+
+    next_action = _dict(plan.get("next_action"))
+    lines = [
+        "PrintPipe Final Next Action",
+        f"overall: {plan.get('overall_status', 'unknown')}",
+        f"action required: {plan.get('action_count', 0)}",
+        "",
+        str(plan.get("proof_boundary", FINAL_PLAN_PROOF_BOUNDARY)),
+        "",
+    ]
+    if not next_action:
+        lines.append("No next action recorded.")
+        return "\n".join(lines) + "\n"
+
+    lines.append(
+        (
+            f"{next_action.get('section_label', '')}: "
+            f"{next_action.get('label', '')} "
+            f"({next_action.get('status', 'unknown')})"
+        )
+    )
+    detail = str(next_action.get("detail") or "")
+    if detail:
+        lines.append(f"detail: {detail}")
+    command = str(next_action.get("command") or "")
+    if command:
+        lines.append(f"command: {command}")
+    for label, value in _supporting_path_lines(next_action):
+        lines.append(f"{label}: {value}")
+    return "\n".join(lines) + "\n"
+
+
 def _section(
     section_id: str,
     label: str,
@@ -344,4 +378,5 @@ __all__ = [
     "FINAL_PLAN_PROOF_BOUNDARY",
     "build_final_action_plan",
     "render_final_action_plan",
+    "render_final_next_action",
 ]

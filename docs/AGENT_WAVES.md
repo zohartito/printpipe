@@ -1325,3 +1325,14 @@ Status: partial progress for command-line execution UX. This aligns the human `f
 3. Done: regression coverage verifies that a PLA next action renders its coupon STL, coupon JSON sidecar, and physical handoff Markdown.
 4. Current local result: `printpipe final-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json` now shows the PLA record command plus the coupon STL, coupon JSON, and print handoff paths.
 5. Boundary: printing the supporting paths in terminal output does not satisfy any evidence gate. It only makes the first real physical-validation action easier to execute correctly.
+
+## Wave 120 - Final Next Command
+
+Status: partial progress for endgame command-line UX. This adds a focused immediate-next-action command; it does not close any physical, trusted-user, or signed-release gate.
+
+1. Done: added `printpipe final-next` with the same `--release-dir`, `--runs-dir`, `--regression-manifest`, and `--json` options as `final-plan`.
+2. Done: added `render_final_next_action()` for a concise human terminal view of only the immediate next action.
+3. Done: `final-next --json` returns `overall_status`, `action_count`, `proof_boundary`, `next_action`, and `next_command`.
+4. Done: regression coverage verifies parser support, JSON output, and the human renderer's supporting files.
+5. Current local result: `printpipe final-next --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json` points directly at the PLA physical-validation record command plus the coupon STL, coupon JSON, and physical handoff paths.
+6. Boundary: this command is an execution shortcut for the current plan. It does not create photo evidence, print evidence packets, tester feedback, or signed distribution artifacts.

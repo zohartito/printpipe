@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 
 from printpipe.cli import build_parser, main
-from printpipe.final_plan import build_final_action_plan, render_final_action_plan
+from printpipe.final_plan import (
+    build_final_action_plan,
+    render_final_action_plan,
+    render_final_next_action,
+)
 
 
 def test_final_action_plan_orders_remaining_external_gates(tmp_path: Path) -> None:
@@ -203,6 +207,38 @@ def test_render_final_action_plan_lists_next_action_supporting_paths(
     assert "handoff: runs/pla/90_physical/handoff.md" in rendered
 
 
+def test_render_final_next_action_shows_only_immediate_action() -> None:
+    plan = {
+        "overall_status": "action_required",
+        "action_count": 9,
+        "proof_boundary": "A final plan is not evidence.",
+        "next_action": {
+            "section_label": "Physical validation",
+            "label": "PLA",
+            "status": "recorded_but_not_passed",
+            "detail": "no passed physical evidence",
+            "command": "printpipe record-physical-evidence runs/pla",
+            "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+            "coupon_json_path": "runs/pla/40_geometry/coupon.json",
+            "handoff_markdown_path": "runs/pla/90_physical/handoff.md",
+        },
+        "sections": [
+            {"id": "physical_validation", "action_count": 3},
+            {"id": "trusted_user_beta", "action_count": 3},
+        ],
+    }
+
+    rendered = render_final_next_action(plan)
+
+    assert "PrintPipe Final Next Action" in rendered
+    assert "Physical validation: PLA (recorded_but_not_passed)" in rendered
+    assert "command: printpipe record-physical-evidence runs/pla" in rendered
+    assert "artifact: runs/pla/40_geometry/coupon.stl" in rendered
+    assert "sidecar: runs/pla/40_geometry/coupon.json" in rendered
+    assert "handoff: runs/pla/90_physical/handoff.md" in rendered
+    assert "trusted_user_beta" not in rendered
+
+
 def test_final_plan_parser_accepts_dirs_json_and_regression_manifest(
     tmp_path: Path,
 ) -> None:
@@ -220,6 +256,29 @@ def test_final_plan_parser_accepts_dirs_json_and_regression_manifest(
     )
 
     assert args.command == "final-plan"
+    assert args.release_dir == tmp_path / "release"
+    assert args.runs_dir == tmp_path / "runs"
+    assert args.regression_manifest == tmp_path / "regression_manifest.json"
+    assert args.json is True
+
+
+def test_final_next_parser_accepts_dirs_json_and_regression_manifest(
+    tmp_path: Path,
+) -> None:
+    args = build_parser().parse_args(
+        [
+            "final-next",
+            "--release-dir",
+            str(tmp_path / "release"),
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(tmp_path / "regression_manifest.json"),
+            "--json",
+        ]
+    )
+
+    assert args.command == "final-next"
     assert args.release_dir == tmp_path / "release"
     assert args.runs_dir == tmp_path / "runs"
     assert args.regression_manifest == tmp_path / "regression_manifest.json"
@@ -262,3 +321,53 @@ def test_cli_final_plan_prints_json(monkeypatch, tmp_path: Path, capsys) -> None
     assert exit_code == 0
     assert payload["overall_status"] == "action_required"
     assert payload["sections"][0]["id"] == "physical_validation"
+
+
+def test_cli_final_next_prints_next_action_json(monkeypatch, tmp_path: Path, capsys) -> None:
+    manifest_path = tmp_path / "regression_manifest.json"
+
+    def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert release_dir == tmp_path / "release"
+        assert runs_dir == tmp_path / "runs"
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "next_action": {
+                "section_id": "physical_validation",
+                "section_label": "Physical validation",
+                "action_id": "pla",
+                "label": "PLA",
+                "status": "recorded_but_not_passed",
+                "detail": "no passed physical evidence",
+                "command": "printpipe record-physical-evidence runs/pla",
+                "command_kind": "record_command",
+                "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+            },
+        }
+
+    monkeypatch.setattr(
+        "printpipe.final_plan.build_final_action_plan",
+        fake_final_plan,
+    )
+
+    exit_code = main(
+        [
+            "final-next",
+            "--release-dir",
+            str(tmp_path / "release"),
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(manifest_path),
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["overall_status"] == "action_required"
+    assert payload["next_action"]["action_id"] == "pla"
+    assert payload["next_action"]["coupon_stl_path"].endswith("coupon.stl")
