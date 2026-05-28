@@ -23,6 +23,7 @@ from printpipe.beta.physical_status import (
     build_physical_validation_status,
     render_physical_validation_status,
 )
+from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.regression import (
     ExpectedOutcome,
     RegressionCase,
@@ -47,6 +48,7 @@ __all__ = (
     "RegressionCase",
     "RegressionManifest",
     "build_failure_report",
+    "build_beta_readiness_report",
     "build_physical_print_evidence",
     "build_physical_validation_status",
     "case_from_run",

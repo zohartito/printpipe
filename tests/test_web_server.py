@@ -132,6 +132,7 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/runs/run-ui-001"' in response.text
     assert "Open workbench" in response.text
     assert 'href="/runs/run-ui-001/artifacts/60_bundle/ready.3mf"' in response.text
+    assert 'href="/readiness.json"' in response.text
     assert 'href="/doctor.json"' in response.text
 
 
@@ -250,6 +251,33 @@ def test_doctor_json_endpoint_returns_environment_report(monkeypatch, tmp_path: 
     assert response.header("Content-Type") == "application/json; charset=utf-8"
     assert payload["platform"]["normalized"] == "macos"
     assert payload["bambu_studio"]["installed_count"] == 1
+
+
+def test_readiness_json_endpoint_returns_combined_gate_report(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(
+        "printpipe.web.server.build_beta_readiness_report",
+        lambda runs_dir: {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "gates": [
+                {
+                    "id": "physical_validation",
+                    "status": "action_required",
+                    "detail": "Missing passed physical evidence.",
+                }
+            ],
+        },
+    )
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/readiness.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "action_required"
+    assert payload["gates"][0]["id"] == "physical_validation"
 
 
 def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_path: Path):

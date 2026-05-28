@@ -827,3 +827,14 @@ Status: complete for local app/API visibility. Environment, dependency, Bambu, f
 3. Done: home page service links now include `Environment doctor JSON`.
 4. Done: regression coverage proves the endpoint returns Bambu/environment readiness data.
 5. Boundary: this exposes readiness status only; it does not install dependencies, certificates, signing tools, Bambu Studio, or OS-native installers.
+
+## Wave 75 - Combined Beta Readiness Report
+
+Status: complete for gate visibility. PrintPipe now has one local readiness report that combines physical validation and environment/package prerequisites.
+
+1. Done: added `printpipe.beta.readiness.build_beta_readiness_report()`.
+2. Done: readiness gates cover physical validation, required dependencies, filesystem access, Bambu Studio, Bambu profile folders, and release signing.
+3. Done: report returns `ready` only when all actionable gates are ready.
+4. Done: added `GET /readiness.json`.
+5. Done: home page service links now include `Readiness JSON`.
+6. Boundary: this is a reporting layer; it does not print coupons, install tools, sign packages, or convert missing evidence into completion.

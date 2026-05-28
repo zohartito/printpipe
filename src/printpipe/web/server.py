@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
+from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.env.doctor import build_environment_report
 from printpipe.local_open import open_run_folder
@@ -197,6 +198,8 @@ class PrintPipeWebApp:
             return self.health_response()
         if path == "/doctor.json":
             return self.doctor_response()
+        if path == "/readiness.json":
+            return self.readiness_response()
         if path == "/physical-status.json":
             return self.physical_status_response()
         if path.startswith(_STATIC_PREFIX):
@@ -303,6 +306,22 @@ class PrintPipeWebApp:
     def doctor_response(self) -> WebResponse:
         try:
             return WebResponse.json(build_environment_report())
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+    def readiness_response(self) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            return WebResponse.json(build_beta_readiness_report(self.runs_dir))
         except (OSError, ValueError) as exc:
             return WebResponse.from_text(
                 f"{exc}\n",
@@ -430,6 +449,7 @@ class PrintPipeWebApp:
                 '    <section class="panel">',
                 "      <h2>Service</h2>",
                 '      <p><a href="/health">Health check</a></p>',
+                '      <p><a href="/readiness.json">Readiness JSON</a></p>',
                 '      <p><a href="/doctor.json">Environment doctor JSON</a></p>',
                 "    </section>",
                 '    <section class="panel">',
