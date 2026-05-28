@@ -411,14 +411,14 @@ def build_trusted_user_feedback_plan(
     current = int(status.get("unique_trusted_user_count") or 0)
     required = int(status.get("required_trusted_user_count") or required_trusted_user_count)
     missing = max(required - current, 0)
-    handoff_paths = _feedback_handoff_paths(Path(runs_dir).expanduser().resolve())
+    handoff_records = _feedback_handoff_records(Path(runs_dir).expanduser().resolve())
     actions = [
         _trusted_feedback_action(
             slot=slot,
-            handoff_path=(
-                handoff_paths[index]
-                if index < len(handoff_paths)
-                else ""
+            handoff_record=(
+                handoff_records[index]
+                if index < len(handoff_records)
+                else {}
             ),
         )
         for index, slot in enumerate(range(current + 1, required + 1))
@@ -474,13 +474,24 @@ def render_trusted_user_feedback_plan(plan: Mapping[str, Any]) -> str:
         handoff_path = str(item.get("handoff_markdown_path") or "")
         if handoff_path:
             lines.append(f"  handoff: {handoff_path}")
+        report_path = str(item.get("report_path") or "")
+        if report_path:
+            lines.append(f"  report: {report_path}")
+        bundle_path = str(item.get("bundle_path") or "")
+        if bundle_path:
+            lines.append(f"  bundle: {bundle_path}")
         if command:
             lines.append(f"  record: {command}")
     lines.append("")
     return "\n".join(lines)
 
 
-def _trusted_feedback_action(*, slot: int, handoff_path: str = "") -> dict[str, Any]:
+def _trusted_feedback_action(
+    *,
+    slot: int,
+    handoff_record: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    handoff = dict(handoff_record or {})
     return {
         "slot": slot,
         "label": f"Trusted tester {slot}",
@@ -495,7 +506,9 @@ def _trusted_feedback_action(*, slot: int, handoff_path: str = "") -> dict[str, 
             '--input-type existing_stl --material "<material>" '
             '--printer "Bambu Lab P2S"'
         ),
-        "handoff_markdown_path": handoff_path,
+        "handoff_markdown_path": handoff.get("handoff_markdown_path", ""),
+        "report_path": handoff.get("report_path", ""),
+        "bundle_path": handoff.get("bundle_path", ""),
         "record_command": (
             'printpipe record-beta-feedback "runs/<run-id>" '
             f'--tester "<trusted-user-{slot}>" '
@@ -607,13 +620,25 @@ def _feedback_record_command(
     )
 
 
-def _feedback_handoff_paths(runs_dir: Path) -> list[str]:
+def _feedback_handoff_records(runs_dir: Path) -> list[dict[str, str]]:
     if not runs_dir.exists():
         return []
-    return [
-        str(path.resolve())
-        for path in sorted(runs_dir.glob("*/90_beta/trusted_user_feedback_handoff_*.md"))
-    ]
+    records: list[dict[str, str]] = []
+    for path in sorted(runs_dir.glob("*/90_beta/trusted_user_feedback_handoff_*.md")):
+        run_root = path.parents[1]
+        report_path = _first_existing(
+            run_root / "80_reports",
+            ("run_report.html", "run_report.md", "run_report.json"),
+        )
+        bundle_path = _first_glob(run_root / "60_bundle", "*.3mf")
+        records.append(
+            {
+                "handoff_markdown_path": str(path.resolve()),
+                "report_path": str(report_path.resolve()) if report_path else "",
+                "bundle_path": str(bundle_path.resolve()) if bundle_path else "",
+            }
+        )
+    return records
 
 
 def _first_existing(directory: Path, names: Sequence[str]) -> Path | None:

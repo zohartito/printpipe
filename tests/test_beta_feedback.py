@@ -412,6 +412,35 @@ def test_beta_feedback_start_writes_handoff_without_satisfying_gate(
     assert "handoff: " in render_trusted_user_feedback_plan(plan)
 
 
+def test_trusted_user_feedback_plan_surfaces_handoff_report_and_bundle_paths(
+    tmp_path: Path,
+) -> None:
+    run_root = tmp_path / "runs" / "run-trusted-001"
+    report = run_root / "80_reports" / "run_report.html"
+    bundle = run_root / "60_bundle" / "part.3mf"
+    report.parent.mkdir(parents=True)
+    bundle.parent.mkdir(parents=True)
+    report.write_text("<html>report</html>", encoding="utf-8")
+    bundle.write_text("bundle", encoding="utf-8")
+
+    result = start_trusted_user_feedback(
+        run_root,
+        tester="Maya",
+        input_type="existing_stl",
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+    )
+    plan = build_trusted_user_feedback_plan(tmp_path / "runs")
+
+    action = plan["actions"][0]
+    assert action["handoff_markdown_path"] == result["handoff_markdown_path"]
+    assert action["report_path"] == str(report.resolve())
+    assert action["bundle_path"] == str(bundle.resolve())
+    rendered = render_trusted_user_feedback_plan(plan)
+    assert f"report: {report.resolve()}" in rendered
+    assert f"bundle: {bundle.resolve()}" in rendered
+
+
 def test_cli_record_beta_feedback_and_status(tmp_path: Path, capsys) -> None:
     run_root = tmp_path / "runs" / "run-trusted-001"
     report = run_root / "80_reports" / "run_report.html"

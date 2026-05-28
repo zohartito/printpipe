@@ -1442,3 +1442,13 @@ Status: partial progress for physical-validation execution UX. This makes each w
 2. Done: the web checklist renders row-level Bundle, Bundle validation, and Slice receipt links.
 3. Done: regression coverage verifies the row view model and rendered HTML include those paths.
 4. Boundary: these links are software and handoff evidence only. Physical validation still requires real printed coupons, real observations, and existing photo artifacts.
+
+## Wave 131 - Trusted-User Final Readiness Handoff Files
+
+Status: partial progress for trusted-user beta execution UX. This makes each trusted-user checklist row self-contained for review handoff without fabricating tester feedback.
+
+1. Done: `beta-feedback-plan` now preserves existing trusted-user handoff Markdown, run report, and Bambu `.3mf` bundle paths for each missing tester slot.
+2. Done: terminal trusted-user feedback plans render those report and bundle paths beside the handoff and record commands.
+3. Done: final-readiness web action rows now preserve `report_path` and render row-level Report links.
+4. Done: trusted-user beta rows can show the later `record-beta-feedback` command as `Record after review`, while physical validation rows continue to use `Record after print`.
+5. Boundary: review handoffs, reports, bundles, and record commands are instructions and supporting files only. The trusted-user beta gate still requires three unique completed feedback packets with supporting evidence.

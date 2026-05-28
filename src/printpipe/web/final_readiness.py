@@ -228,13 +228,15 @@ def _action_item(
         "label": _action_label(action),
         "detail": _action_detail(action),
         "command": _action_command(action),
-        "record_command": _action_record_command(action),
+        "record_command": _action_record_command(action, section_id=section_id),
+        "record_label": _action_record_label(section_id),
         "coupon_stl_path": str(action.get("coupon_stl_path") or ""),
         "coupon_json_path": str(action.get("coupon_json_path") or ""),
         "bundle_path": str(action.get("bundle_path") or ""),
         "bundle_validation_path": str(action.get("bundle_validation_path") or ""),
         "slice_result_path": str(action.get("slice_result_path") or ""),
         "handoff_markdown_path": str(action.get("handoff_markdown_path") or ""),
+        "report_path": str(action.get("report_path") or ""),
     }
 
 
@@ -300,14 +302,23 @@ def _action_command(action: Mapping[str, Any]) -> str:
     return ""
 
 
-def _action_record_command(action: Mapping[str, Any]) -> str:
+def _action_record_command(action: Mapping[str, Any], *, section_id: str) -> str:
     command = _action_command(action)
     record_command = str(action.get("record_command") or "")
     if not record_command or record_command == command:
         return ""
-    if action.get("start_command") or action.get("setup_command"):
+    if (
+        section_id != "trusted_user_beta"
+        and (action.get("start_command") or action.get("setup_command"))
+    ):
         return ""
     return record_command
+
+
+def _action_record_label(section_id: str) -> str:
+    if section_id == "trusted_user_beta":
+        return "Record after review"
+    return "Record after print"
 
 
 def _render_pillar_card(pillar: Mapping[str, Any]) -> str:
@@ -340,7 +351,12 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     detail = str(action.get("detail") or "")
     command = str(action.get("command") or "")
     record_command = str(action.get("record_command") or "")
+    record_label = str(
+        action.get("record_label")
+        or _action_record_label(str(action.get("section_id") or ""))
+    )
     coupon_stl_path = str(action.get("coupon_stl_path") or "")
+    report_path = str(action.get("report_path") or "")
     bundle_path = str(action.get("bundle_path") or "")
     bundle_validation_path = str(action.get("bundle_validation_path") or "")
     slice_result_path = str(action.get("slice_result_path") or "")
@@ -353,7 +369,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     record_markup = (
         "\n".join(
             [
-                '            <p class="muted"><strong>Record after print:</strong></p>',
+                f'            <p class="muted"><strong>{escape(record_label)}:</strong></p>',
                 f'            <pre><code>{escape(record_command)}</code></pre>',
             ]
         )
@@ -366,6 +382,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
         if coupon_stl_path
         else ""
     )
+    report_markup = _file_row("Report", report_path)
     handoff_markup = (
         "            <p class=\"muted\">Handoff: "
         f"<code>{escape(handoff_markdown_path)}</code></p>"
@@ -381,6 +398,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
             f'            <p class="action-title"><strong>{escape(section_label)}</strong> · {escape(label)}</p>',
             f'            <p class="muted">{escape(detail)}</p>',
             coupon_markup,
+            report_markup,
             bundle_markup,
             bundle_validation_markup,
             slice_markup,

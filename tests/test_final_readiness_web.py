@@ -140,6 +140,48 @@ def test_build_final_readiness_view_keeps_row_record_after_print_command() -> No
     )
 
 
+def test_build_final_readiness_view_keeps_trusted_user_supporting_paths_and_record_command() -> None:
+    view = build_final_readiness_view(
+        {
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "sections": [
+                {
+                    "id": "trusted_user_beta",
+                    "label": "Trusted-user beta",
+                    "status": "action_required",
+                    "action_count": 1,
+                    "actions": [
+                        {
+                            "slot": 1,
+                            "status": "action_required",
+                            "detail": "review run, then record",
+                            "start_command": "printpipe beta-feedback-start runs/demo",
+                            "record_command": "printpipe record-beta-feedback runs/demo",
+                            "handoff_markdown_path": (
+                                "runs/demo/90_beta/"
+                                "trusted_user_feedback_handoff_maya.md"
+                            ),
+                            "report_path": "runs/demo/80_reports/run_report.html",
+                            "bundle_path": "runs/demo/60_bundle/demo.3mf",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    action = view["actions"][0]
+    assert action["command"] == "printpipe beta-feedback-start runs/demo"
+    assert action["record_command"] == "printpipe record-beta-feedback runs/demo"
+    assert action["handoff_markdown_path"].endswith(
+        "trusted_user_feedback_handoff_maya.md"
+    )
+    assert action["report_path"] == "runs/demo/80_reports/run_report.html"
+    assert action["bundle_path"] == "runs/demo/60_bundle/demo.3mf"
+
+
 def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     html = render_final_readiness_panel(
         {
@@ -220,3 +262,41 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert html.count("Record after print:") == 2
     assert "final-readiness-checklist" in html
     assert 'href="/final-next.json"' in html
+
+
+def test_render_final_readiness_panel_labels_trusted_user_record_command_after_review() -> None:
+    html = render_final_readiness_panel(
+        {
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "pillars": [],
+            "actions": [
+                {
+                    "section_id": "trusted_user_beta",
+                    "section_label": "Trusted-user beta",
+                    "label": "Trusted-user feedback (tester slot 1)",
+                    "detail": "review run, then record",
+                    "status": "action_required",
+                    "command": "printpipe beta-feedback-start runs/demo",
+                    "record_command": "printpipe record-beta-feedback runs/demo",
+                    "handoff_markdown_path": (
+                        "runs/demo/90_beta/"
+                        "trusted_user_feedback_handoff_maya.md"
+                    ),
+                    "report_path": "runs/demo/80_reports/run_report.html",
+                    "bundle_path": "runs/demo/60_bundle/demo.3mf",
+                }
+            ],
+        }
+    )
+
+    assert "Report:" in html
+    assert "runs/demo/80_reports/run_report.html" in html
+    assert "Bundle:" in html
+    assert "runs/demo/60_bundle/demo.3mf" in html
+    assert "Handoff:" in html
+    assert "trusted_user_feedback_handoff_maya.md" in html
+    assert "Record after review:" in html
+    assert "printpipe record-beta-feedback runs/demo" in html
+    assert "Record after print:" not in html
