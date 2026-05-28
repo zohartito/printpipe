@@ -892,3 +892,14 @@ Status: complete for release-trust hardening. `verify-release` now rejects inter
 4. Done: added type-specific verifier checks for zipapp, macOS DMG, macOS standalone ZIP, Windows portable ZIP, Windows standalone ZIP, and Windows installer artifacts.
 5. Done: `verify-release` now reports explicit `artifact_metadata:*` failures alongside existence, size, SHA-256, and boundary checks.
 6. Boundary: this hardens manifest verification; it does not create Apple Developer certificates, a notary profile, Windows signing tools, a Windows signing certificate, or physical print evidence.
+
+## Wave 81 - Combined Release Status Command
+
+Status: complete for release gate visibility. PrintPipe now has one terminal command that combines release-folder verification with beta/readiness gates and next actions.
+
+1. Done: added `printpipe.packaging.release_status.build_release_status_report()`.
+2. Done: the report starts with a `release_bundle` gate from `verify_release_bundle()`.
+3. Done: the report appends the existing physical, dependency, Bambu, filesystem, and signing gates from `build_beta_readiness_report()`.
+4. Done: added `printpipe release-status --release-dir dist/release --runs-dir runs`.
+5. Done: added `--json` and `--strict`, returning exit code `2` unless release integrity and readiness gates are all ready.
+6. Boundary: this is a read-only status layer; it does not build a release, sign packages, install tools, or record physical evidence.

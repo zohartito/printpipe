@@ -450,6 +450,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print release verification output as JSON.",
     )
 
+    release_status = subparsers.add_parser(
+        "release-status",
+        help="Summarize release folder integrity plus beta readiness gates.",
+    )
+    release_status.add_argument(
+        "--release-dir",
+        type=Path,
+        default=Path("dist/release"),
+        help="Release folder containing release_manifest.json.",
+    )
+    release_status.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory where physical evidence run folders are stored.",
+    )
+    release_status.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the combined release status report as JSON.",
+    )
+    release_status.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless the release and readiness gates are ready.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -777,6 +804,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "verify-release":
         return _verify_release(release_dir=args.release_dir, json_output=args.json)
 
+    if args.command == "release-status":
+        return _release_status(
+            release_dir=args.release_dir,
+            runs_dir=args.runs_dir,
+            json_output=args.json,
+            strict=args.strict,
+        )
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -847,6 +882,28 @@ def _readiness(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(render_beta_readiness_report(report), end="")
+    if strict and report["overall_status"] != "ready":
+        return 2
+    return 0
+
+
+def _release_status(
+    *,
+    release_dir: Path,
+    runs_dir: Path,
+    json_output: bool,
+    strict: bool,
+) -> int:
+    from printpipe.packaging.release_status import (
+        build_release_status_report,
+        render_release_status_report,
+    )
+
+    report = build_release_status_report(release_dir=release_dir, runs_dir=runs_dir)
+    if json_output:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_release_status_report(report), end="")
     if strict and report["overall_status"] != "ready":
         return 2
     return 0

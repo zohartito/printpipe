@@ -634,6 +634,7 @@ printpipe build-release --output-dir dist/release --adhoc-sign --windows-standal
 printpipe build-release --output-dir dist/release --windows-installer-exe dist/PrintPipeSetup.exe --json
 printpipe build-release --output-dir dist/release --developer-id-identity "Developer ID Application: Your Name (TEAMID)" --notary-profile printpipe-notary --json
 printpipe verify-release dist/release --json
+printpipe release-status --release-dir dist/release --runs-dir runs --strict
 ```
 
 The release folder contains:
@@ -696,3 +697,8 @@ including missing artifacts, a sha256 mismatch from tampered bytes, boundary
 drift, a Windows installer that is not an `.exe` or not marked signed, a
 runtime-bundled artifact without `bundles_python_runtime=true`, or a notarized
 macOS DMG without `signed=true`.
+
+`release-status` combines `verify-release` with the beta/release readiness
+gates from `printpipe readiness`. It reports the release bundle gate first,
+then physical, dependency, Bambu, filesystem, and signing gates, and lists the
+next actions that still block a strict release handoff.
