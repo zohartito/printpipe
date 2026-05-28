@@ -86,6 +86,7 @@ python dist/printpipe.pyz package-smoke --platform macos --runs-dir runs/package
 printpipe build-windows-portable --output dist/PrintPipe-Windows-portable.zip
 
 printpipe build-release --output-dir dist/release --adhoc-sign
+printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller"
 printpipe verify-release dist/release --json
 
 printpipe build-macos-app --output dist/PrintPipe.app

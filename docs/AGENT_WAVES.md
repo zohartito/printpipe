@@ -631,3 +631,15 @@ Status: partial progress for original item 121. PrintPipe can now build a macOS 
 5. Done: live-built with `uvx --from pyinstaller pyinstaller`; resulting app reported `bundles_python_runtime=true`.
 6. Done: live executable returned `printpipe 0.1.0`; dry-run launch printed the `http://127.0.0.1:8765/` local web UI command.
 7. Remaining: Developer ID signing/notarization, making the standalone app part of the release bundle, signed Windows installer, Windows bundled runtime, live Windows+Bambu slice evidence, and physical print validation stay open.
+
+## Wave 58 - Optional Standalone Release Artifact
+
+Status: partial progress for original item 121. The release folder can now opt into carrying the runtime-bundled macOS app as a zipped artifact, while the default release remains lightweight.
+
+1. Done: added `build_release_bundle(include_standalone=True, pyinstaller_command=...)`.
+2. Done: added `printpipe build-release --include-standalone --pyinstaller ...`.
+3. Done: release output includes `PrintPipeStandalone-macOS.zip` when standalone inclusion is requested.
+4. Done: manifest records the standalone artifact as `macos_standalone_zip` with `bundles_python_runtime=true`.
+5. Done: release boundary text changes when a Python-runtime artifact is present.
+6. Done: `printpipe verify-release` validates both default and standalone-including release manifests.
+7. Remaining: Developer ID signing/notarization, signed Windows installer, Windows bundled runtime, live Windows+Bambu slice evidence, and physical print validation stay open.

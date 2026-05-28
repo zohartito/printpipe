@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import plistlib
 import shlex
 import shutil
 import stat
@@ -14,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from printpipe import __version__
-from printpipe.packaging.macos_app import DOCUMENT_EXTENSIONS, _adhoc_sign_app
+from printpipe.packaging.macos_app import DOCUMENT_EXTENSIONS
 
 
 DEFAULT_PYINSTALLER_COMMAND = "pyinstaller"
@@ -45,22 +44,23 @@ def build_macos_standalone_app(
     with tempfile.TemporaryDirectory(prefix="printpipe-pyinstaller-") as temp_dir:
         temp_root = Path(temp_dir)
         entrypoint = temp_root / "printpipe_standalone_entry.py"
+        spec_path = temp_root / f"{app_name}.spec"
         write_standalone_entrypoint(entrypoint)
+        write_standalone_spec(
+            spec_path,
+            entrypoint=entrypoint,
+            project_root=root,
+            app_name=app_name,
+        )
         dist_dir = temp_root / "dist"
         command = _pyinstaller_command(pyinstaller_command) + [
             "--noconfirm",
             "--clean",
-            "--onedir",
-            "--windowed",
-            "--name",
-            app_name,
             "--distpath",
             str(dist_dir),
             "--workpath",
             str(temp_root / "work"),
-            "--specpath",
-            str(temp_root / "spec"),
-            str(entrypoint),
+            str(spec_path),
         ]
         result = _run_pyinstaller(command, root=root)
         built_app = dist_dir / f"{app_name}.app"
@@ -69,15 +69,14 @@ def build_macos_standalone_app(
                 "PyInstaller finished but did not create the expected app bundle: "
                 f"{built_app}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
             )
-        shutil.copytree(built_app, target)
+        shutil.copytree(built_app, target, symlinks=True)
 
-    _patch_info_plist(target, app_name=app_name)
     executable = target / "Contents" / "MacOS" / app_name
     executable.chmod(executable.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    signing_identity = ""
-    if adhoc_sign:
-        _adhoc_sign_app(target)
-        signing_identity = "-"
+    signature_valid = _codesign_verify(target)
+    if adhoc_sign and not signature_valid:
+        raise RuntimeError("PyInstaller app did not pass local codesign verification")
+    signing_identity = "adhoc" if signature_valid else ""
 
     runtime_path = _bundled_python_runtime_path(target)
     return {
@@ -94,7 +93,7 @@ def build_macos_standalone_app(
         "default_url": "http://127.0.0.1:8765/",
         "document_launch_mode": "run-and-open-web-ui",
         "document_extensions": list(DOCUMENT_EXTENSIONS),
-        "signed": adhoc_sign,
+        "signed": signature_valid,
         "signing_identity": signing_identity,
         "notarized": False,
         "size_bytes": _directory_size(target),
@@ -105,6 +104,72 @@ def write_standalone_entrypoint(path: str | Path) -> None:
     """Write the Python entrypoint used inside the standalone app."""
 
     Path(path).write_text(_standalone_entrypoint_source(), encoding="utf-8")
+
+
+def write_standalone_spec(
+    path: str | Path,
+    *,
+    entrypoint: str | Path,
+    project_root: str | Path,
+    app_name: str,
+) -> None:
+    """Write the PyInstaller spec used for the standalone app."""
+
+    root = Path(project_root).expanduser().resolve()
+    entry = Path(entrypoint).expanduser().resolve()
+    spec = f"""# -*- mode: python ; coding: utf-8 -*-
+
+
+a = Analysis(
+    {[str(entry)]!r},
+    pathex={[str(root / "src")]!r},
+    binaries=[],
+    datas=[],
+    hiddenimports=[],
+    hookspath=[],
+    hooksconfig={{}},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name={app_name!r},
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name={app_name!r},
+)
+app = BUNDLE(
+    coll,
+    name={f"{app_name}.app"!r},
+    icon=None,
+    bundle_identifier="com.zohartito.printpipe.standalone",
+    info_plist={_standalone_info_plist(app_name)!r},
+)
+"""
+    Path(path).write_text(spec, encoding="utf-8")
 
 
 def _pyinstaller_command(command: str | list[str]) -> list[str]:
@@ -148,39 +213,13 @@ def _run_pyinstaller(
     return result
 
 
-def _patch_info_plist(app_path: Path, *, app_name: str) -> None:
-    plist_path = app_path / "Contents" / "Info.plist"
-    plist = plistlib.loads(plist_path.read_bytes()) if plist_path.exists() else {}
-    plist.update(
-        {
-            "CFBundleDevelopmentRegion": "en",
-            "CFBundleDisplayName": "PrintPipe",
-            "CFBundleExecutable": app_name,
-            "CFBundleIdentifier": "com.zohartito.printpipe.standalone",
-            "CFBundleInfoDictionaryVersion": "6.0",
-            "CFBundleName": app_name,
-            "CFBundlePackageType": "APPL",
-            "CFBundleShortVersionString": __version__,
-            "CFBundleVersion": __version__,
-            "CFBundleDocumentTypes": [
-                {
-                    "CFBundleTypeExtensions": list(DOCUMENT_EXTENSIONS),
-                    "CFBundleTypeName": "PrintPipe input",
-                    "CFBundleTypeRole": "Editor",
-                    "LSHandlerRank": "Alternate",
-                }
-            ],
-            "LSMinimumSystemVersion": "12.0",
-            "LSUIElement": True,
-            "NSHighResolutionCapable": True,
-        }
-    )
-    plist_path.write_bytes(plistlib.dumps(plist))
-
-
 def _bundled_python_runtime_path(app_path: Path) -> Path | None:
-    for path in app_path.rglob("Python.framework"):
-        if path.is_dir():
+    framework_paths = [path for path in app_path.rglob("Python.framework") if path.is_dir()]
+    for path in framework_paths:
+        if not path.is_symlink():
+            return path
+    for path in framework_paths:
+        if path.is_symlink():
             return path
     for path in app_path.rglob("python*"):
         if path.is_file() and "_internal" in path.parts:
@@ -190,6 +229,44 @@ def _bundled_python_runtime_path(app_path: Path) -> Path | None:
 
 def _directory_size(path: Path) -> int:
     return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
+
+
+def _codesign_verify(app_path: Path) -> bool:
+    codesign = shutil.which("codesign")
+    if codesign is None:
+        return False
+    result = subprocess.run(
+        [codesign, "--verify", "--deep", "--strict", str(app_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _standalone_info_plist(app_name: str) -> dict[str, Any]:
+    return {
+        "CFBundleDevelopmentRegion": "en",
+        "CFBundleDisplayName": "PrintPipe",
+        "CFBundleExecutable": app_name,
+        "CFBundleIdentifier": "com.zohartito.printpipe.standalone",
+        "CFBundleInfoDictionaryVersion": "6.0",
+        "CFBundleName": app_name,
+        "CFBundlePackageType": "APPL",
+        "CFBundleShortVersionString": __version__,
+        "CFBundleVersion": __version__,
+        "CFBundleDocumentTypes": [
+            {
+                "CFBundleTypeExtensions": list(DOCUMENT_EXTENSIONS),
+                "CFBundleTypeName": "PrintPipe input",
+                "CFBundleTypeRole": "Editor",
+                "LSHandlerRank": "Alternate",
+            }
+        ],
+        "LSMinimumSystemVersion": "12.0",
+        "LSUIElement": True,
+        "NSHighResolutionCapable": True,
+    }
 
 
 def _standalone_entrypoint_source() -> str:
@@ -277,4 +354,8 @@ raise SystemExit(main(sys.argv[1:]))
 '''
 
 
-__all__ = ["build_macos_standalone_app", "write_standalone_entrypoint"]
+__all__ = [
+    "build_macos_standalone_app",
+    "write_standalone_entrypoint",
+    "write_standalone_spec",
+]

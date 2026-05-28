@@ -436,7 +436,7 @@ What this proves:
 
 - `PrintPipeStandalone.app` is a macOS app bundle produced by PyInstaller.
 - `Contents/MacOS/PrintPipeStandalone` runs the PrintPipe CLI entrypoint.
-- `Contents/Resources/Python.framework` or an equivalent PyInstaller internal
+- `Contents/Frameworks/Python.framework` or an equivalent PyInstaller internal
   Python runtime is present.
 - The human CLI output reports whether the app bundles Python runtime.
 - The no-argument app path starts the same local web UI flow as the zipapp
@@ -447,7 +447,7 @@ Observed live on this Mac:
 
 - `bundles_python_runtime=true`
 - bundled runtime path:
-  `/tmp/.../PrintPipeStandalone.app/Contents/Resources/Python.framework`
+  `/tmp/.../PrintPipeStandalone.app/Contents/Frameworks/Python.framework`
 - `PrintPipeStandalone --version` returned `printpipe 0.1.0`
 - dry-run launch printed the local web UI command for
   `http://127.0.0.1:8765/`
@@ -486,6 +486,7 @@ writes checksums:
 
 ```bash
 printpipe build-release --output-dir dist/release --adhoc-sign --json
+printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller" --json
 printpipe verify-release dist/release --json
 ```
 
@@ -496,12 +497,24 @@ The release folder contains:
 - `PrintPipe-Windows-portable.zip`
 - `release_manifest.json`
 
+With `--include-standalone`, the release folder also contains:
+
+- `PrintPipeStandalone-macOS.zip`
+
 `release_manifest.json` records each artifact's relative path, size, SHA-256
-`sha256`, signing/notarization flags, and boundary claims. This is the highest
-confidence local handoff state currently available. It is still honest about the
-remaining gates: no bundled Python, no bundled Bambu Studio, no Developer ID
-notarization, no signed Windows installer, and physical print validation living
-in separate run evidence packets.
+`sha256`, signing/notarization flags, and boundary claims. The default release
+bundle is still honest about the remaining gates: no bundled Python, no bundled
+Bambu Studio, no Developer ID notarization, no signed Windows installer, and
+physical print validation living in separate run evidence packets.
+
+When `--include-standalone` is used, the manifest adds a
+`macos_standalone_zip` artifact with `bundles_python_runtime=true` and changes
+the Python-runtime boundary to: `macOS standalone artifact bundles Python; other
+artifacts do not.`
+
+The standalone ZIP preserves the PyInstaller app's symlinks. A live unzip smoke
+verified `codesign --verify --deep --strict`, `PrintPipeStandalone --version`,
+and the dry-run web launcher after extraction.
 
 `verify-release` re-reads that manifest and checks that each artifact still
 exists, has the recorded byte size, has the recorded SHA-256, and carries the

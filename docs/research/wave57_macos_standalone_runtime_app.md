@@ -36,7 +36,7 @@ Observed:
 - `status=ok`
 - `bundles_python_runtime=true`
 - runtime path:
-  `/tmp/.../PrintPipeStandalone.app/Contents/Resources/Python.framework`
+  `/tmp/.../PrintPipeStandalone.app/Contents/Frameworks/Python.framework`
 - app size: about `75M`
 - `Contents/MacOS/PrintPipeStandalone --version` returned `printpipe 0.1.0`
 - `PRINTPIPE_APP_DRY_RUN=1 Contents/MacOS/PrintPipeStandalone` printed the

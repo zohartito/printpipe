@@ -305,6 +305,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ad-hoc sign the embedded macOS app before creating the release DMG.",
     )
     build_release.add_argument(
+        "--include-standalone",
+        action="store_true",
+        help="Also build and include a zipped PyInstaller macOS standalone app.",
+    )
+    build_release.add_argument(
+        "--pyinstaller",
+        default=os.environ.get("PRINTPIPE_PYINSTALLER", "pyinstaller"),
+        help=(
+            "PyInstaller command for --include-standalone. Use "
+            "'uvx --from pyinstaller pyinstaller' when pyinstaller is not on PATH."
+        ),
+    )
+    build_release.add_argument(
         "--json",
         action="store_true",
         help="Print release build output as JSON.",
@@ -562,6 +575,8 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=args.output_dir,
             json_output=args.json,
             adhoc_sign=args.adhoc_sign,
+            include_standalone=args.include_standalone,
+            pyinstaller_command=args.pyinstaller,
         )
 
     if args.command == "verify-release":
@@ -723,10 +738,22 @@ def _build_windows_portable(*, output_path: Path, json_output: bool) -> int:
     return 0
 
 
-def _build_release(*, output_dir: Path, json_output: bool, adhoc_sign: bool) -> int:
+def _build_release(
+    *,
+    output_dir: Path,
+    json_output: bool,
+    adhoc_sign: bool,
+    include_standalone: bool,
+    pyinstaller_command: str,
+) -> int:
     from printpipe.packaging.release import build_release_bundle
 
-    payload = build_release_bundle(output_dir=output_dir, adhoc_sign=adhoc_sign)
+    payload = build_release_bundle(
+        output_dir=output_dir,
+        adhoc_sign=adhoc_sign,
+        include_standalone=include_standalone,
+        pyinstaller_command=pyinstaller_command,
+    )
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:

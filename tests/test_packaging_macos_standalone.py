@@ -25,7 +25,7 @@ from pathlib import Path
 
 args = sys.argv[1:]
 distpath = Path(args[args.index("--distpath") + 1])
-name = args[args.index("--name") + 1]
+name = Path(args[-1]).stem
 app = distpath / f"{name}.app"
 macos_dir = app / "Contents" / "MacOS"
 framework = app / "Contents" / "Frameworks" / "Python.framework"
@@ -34,12 +34,25 @@ framework.mkdir(parents=True)
 executable = macos_dir / name
 executable.write_text("#!/bin/sh\\nprintf 'printpipe 0.1.0\\\\n'\\n", encoding="utf-8")
 executable.chmod(executable.stat().st_mode | stat.S_IXUSR)
+(framework / "Python").write_text("runtime", encoding="utf-8")
+resources = app / "Contents" / "Resources"
+resources.mkdir(exist_ok=True)
+(resources / "Python.framework").symlink_to("../Frameworks/Python.framework")
 (app / "Contents" / "Info.plist").write_bytes(
     plistlib.dumps(
         {
             "CFBundleExecutable": name,
             "CFBundleName": name,
             "CFBundlePackageType": "APPL",
+            "CFBundleDocumentTypes": [
+                {
+                    "CFBundleTypeExtensions": [
+                        "stl",
+                        "obj",
+                        "3mf",
+                    ]
+                }
+            ],
         }
     )
 )
@@ -66,6 +79,7 @@ def test_build_macos_standalone_app_uses_pyinstaller_and_bundles_runtime(
 
     executable = app_path / "Contents" / "MacOS" / "PrintPipeStandalone"
     runtime = app_path / "Contents" / "Frameworks" / "Python.framework"
+    runtime_link = app_path / "Contents" / "Resources" / "Python.framework"
     plist = plistlib.loads((app_path / "Contents" / "Info.plist").read_bytes())
 
     assert result["status"] == "ok"
@@ -80,6 +94,7 @@ def test_build_macos_standalone_app_uses_pyinstaller_and_bundles_runtime(
     assert executable.exists()
     assert executable.stat().st_mode & stat.S_IXUSR
     assert runtime.exists()
+    assert runtime_link.is_symlink()
     assert plist["CFBundleExecutable"] == "PrintPipeStandalone"
     assert plist["CFBundleDocumentTypes"][0]["CFBundleTypeExtensions"][:3] == [
         "stl",
@@ -150,3 +165,24 @@ def test_macos_standalone_entrypoint_supports_cli_and_app_dry_run(tmp_path: Path
     assert dry_run.returncode == 0
     assert "PrintPipe standalone app launcher" in dry_run.stdout
     assert "http://127.0.0.1:8765/" in dry_run.stdout
+
+
+def test_macos_standalone_spec_contains_printpipe_metadata(tmp_path: Path) -> None:
+    from printpipe.packaging.macos_standalone import write_standalone_spec
+
+    entrypoint = tmp_path / "entry.py"
+    entrypoint.write_text("from printpipe.cli import main\n", encoding="utf-8")
+    spec = tmp_path / "PrintPipeStandalone.spec"
+
+    write_standalone_spec(
+        spec,
+        entrypoint=entrypoint,
+        project_root=REPO_ROOT,
+        app_name="PrintPipeStandalone",
+    )
+
+    source = spec.read_text(encoding="utf-8")
+
+    assert "com.zohartito.printpipe.standalone" in source
+    assert "CFBundleDocumentTypes" in source
+    assert "PrintPipeStandalone.app" in source

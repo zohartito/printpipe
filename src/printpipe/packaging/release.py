@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
+import stat
+import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any
 
 from printpipe import __version__
 from printpipe.packaging.macos_dmg import build_macos_dmg_package
+from printpipe.packaging.macos_standalone import build_macos_standalone_app
 from printpipe.packaging.windows_portable import build_windows_portable_package
 from printpipe.packaging.zipapp import build_zipapp_package
 
@@ -28,6 +33,8 @@ def build_release_bundle(
     project_root: str | Path = Path("."),
     output_dir: str | Path = Path("dist/release"),
     adhoc_sign: bool = False,
+    include_standalone: bool = False,
+    pyinstaller_command: str = "pyinstaller",
 ) -> dict[str, Any]:
     """Build current distributable artifacts and write a checksum manifest."""
 
@@ -75,6 +82,28 @@ def build_release_bundle(
             notarized=False,
         ),
     ]
+    if include_standalone:
+        with tempfile.TemporaryDirectory(prefix="printpipe-release-standalone-") as temp_dir:
+            standalone = build_macos_standalone_app(
+                project_root=root,
+                app_path=Path(temp_dir) / "PrintPipeStandalone.app",
+                pyinstaller_command=pyinstaller_command,
+                adhoc_sign=adhoc_sign,
+            )
+            standalone_zip = target / "PrintPipeStandalone-macOS.zip"
+            _zip_directory(
+                source_dir=Path(standalone["app_path"]),
+                target=standalone_zip,
+            )
+        artifacts.append(
+            _artifact_manifest(
+                kind="macos_standalone_zip",
+                path=target / "PrintPipeStandalone-macOS.zip",
+                metadata=standalone,
+                signed=bool(standalone["signed"]),
+                notarized=False,
+            )
+        )
 
     manifest = {
         "status": "ok",
@@ -82,7 +111,7 @@ def build_release_bundle(
         "version": __version__,
         "output_dir": str(target),
         "artifacts": artifacts,
-        "boundaries": RELEASE_BOUNDARIES,
+        "boundaries": _release_boundaries(artifacts),
     }
     manifest_path = target / "release_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -93,7 +122,7 @@ def build_release_bundle(
         "manifest_path": str(manifest_path),
         "artifact_count": len(artifacts),
         "artifacts": artifacts,
-        "boundaries": RELEASE_BOUNDARIES,
+        "boundaries": manifest["boundaries"],
     }
 
 
@@ -136,12 +165,13 @@ def verify_release_bundle(release_dir: str | Path) -> dict[str, Any]:
         message="manifest is valid JSON",
         path=str(manifest_path),
     )
+    expected_boundaries = _release_boundaries(_list_artifacts(manifest.get("artifacts")))
     _append_check(
         checks,
         check_id="boundaries",
-        ok=manifest.get("boundaries") == RELEASE_BOUNDARIES,
+        ok=manifest.get("boundaries") == expected_boundaries,
         message="release boundaries match current PrintPipe boundary claims",
-        expected=RELEASE_BOUNDARIES,
+        expected=expected_boundaries,
         actual=manifest.get("boundaries"),
     )
 
@@ -192,6 +222,38 @@ def _artifact_manifest(
         "bundles_python_runtime": bool(metadata["bundles_python_runtime"]),
         "bundles_bambu_studio": bool(metadata["bundles_bambu_studio"]),
     }
+
+
+def _release_boundaries(artifacts: list[dict[str, Any]]) -> list[str]:
+    bundles_python = any(bool(artifact.get("bundles_python_runtime")) for artifact in artifacts)
+    if not bundles_python:
+        return RELEASE_BOUNDARIES
+    return [
+        "macOS standalone artifact bundles Python; other artifacts do not.",
+        "No artifact bundles Bambu Studio.",
+        "macOS artifacts are not Developer ID signed or notarized.",
+        "Windows artifact is not a signed installer.",
+        "Physical print validation is still recorded separately in run evidence packets.",
+    ]
+
+
+def _list_artifacts(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _zip_directory(*, source_dir: Path, target: Path) -> None:
+    with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(source_dir.rglob("*")):
+            relative_path = path.relative_to(source_dir.parent).as_posix()
+            if path.is_symlink():
+                info = zipfile.ZipInfo(relative_path)
+                info.create_system = 3
+                info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                archive.writestr(info, os.readlink(path))
+            elif path.is_file():
+                archive.write(path, relative_path)
 
 
 def _verify_artifact(

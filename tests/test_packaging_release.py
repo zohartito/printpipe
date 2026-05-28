@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import stat
+import zipfile
 from pathlib import Path
 
 from printpipe.cli import main
@@ -92,6 +94,72 @@ def test_build_release_bundle_writes_manifest_with_checksums(tmp_path: Path) -> 
         assert artifact["sha256"] == digest
 
 
+def test_build_release_bundle_can_include_macos_standalone_runtime_zip(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    if shutil.which("hdiutil") is None:
+        return
+
+    import printpipe.packaging.release as release
+
+    def fake_standalone_builder(
+        *,
+        project_root: str | Path,
+        app_path: str | Path,
+        pyinstaller_command: str,
+        adhoc_sign: bool,
+    ) -> dict[str, object]:
+        app = Path(app_path)
+        executable = app / "Contents" / "MacOS" / "PrintPipeStandalone"
+        runtime = app / "Contents" / "Frameworks" / "Python.framework"
+        runtime_link = app / "Contents" / "Resources" / "Python.framework"
+        executable.parent.mkdir(parents=True)
+        runtime.mkdir(parents=True)
+        runtime_link.parent.mkdir(parents=True)
+        runtime_link.symlink_to("../Frameworks/Python.framework")
+        executable.write_text("#!/bin/sh\n", encoding="utf-8")
+        (runtime / "Python").write_text("runtime", encoding="utf-8")
+        return {
+            "status": "ok",
+            "app_path": str(app),
+            "executable_path": str(executable),
+            "runtime_kind": "pyinstaller",
+            "bundles_python_runtime": True,
+            "bundled_python_runtime_path": str(runtime),
+            "bundles_bambu_studio": False,
+            "signed": adhoc_sign,
+            "notarized": False,
+        }
+
+    monkeypatch.setattr(release, "build_macos_standalone_app", fake_standalone_builder)
+    output_dir = tmp_path / "release"
+
+    result = release.build_release_bundle(
+        project_root=REPO_ROOT,
+        output_dir=output_dir,
+        adhoc_sign=True,
+        include_standalone=True,
+        pyinstaller_command="fake-pyinstaller",
+    )
+    manifest = json.loads((output_dir / "release_manifest.json").read_text(encoding="utf-8"))
+    artifacts = {artifact["kind"]: artifact for artifact in manifest["artifacts"]}
+
+    assert result["artifact_count"] == 4
+    assert artifacts["macos_standalone_zip"]["path"] == "PrintPipeStandalone-macOS.zip"
+    assert artifacts["macos_standalone_zip"]["signed"] is True
+    assert artifacts["macos_standalone_zip"]["bundles_python_runtime"] is True
+    assert artifacts["macos_standalone_zip"]["bundles_bambu_studio"] is False
+    with zipfile.ZipFile(output_dir / "PrintPipeStandalone-macOS.zip") as archive:
+        names = archive.namelist()
+        runtime_link_info = archive.getinfo(
+            "PrintPipeStandalone.app/Contents/Resources/Python.framework"
+        )
+    assert "PrintPipeStandalone.app/Contents/MacOS/PrintPipeStandalone" in names
+    assert any(name.startswith("PrintPipeStandalone.app/Contents/Frameworks/Python.framework") for name in names)
+    assert stat.S_IFMT(runtime_link_info.external_attr >> 16) == stat.S_IFLNK
+
+
 def test_cli_build_release_json_reports_manifest(tmp_path: Path, capsys) -> None:
     if shutil.which("hdiutil") is None:
         return
@@ -115,6 +183,23 @@ def test_cli_build_release_json_reports_manifest(tmp_path: Path, capsys) -> None
     assert payload["status"] == "ok"
     assert payload["output_dir"] == str(output_dir)
     assert Path(payload["manifest_path"]).exists()
+
+
+def test_cli_build_release_parser_accepts_standalone_options() -> None:
+    from printpipe.cli import build_parser
+
+    args = build_parser().parse_args(
+        [
+            "build-release",
+            "--include-standalone",
+            "--pyinstaller",
+            "uvx --from pyinstaller pyinstaller",
+        ]
+    )
+
+    assert args.command == "build-release"
+    assert args.include_standalone is True
+    assert args.pyinstaller == "uvx --from pyinstaller pyinstaller"
 
 
 def test_verify_release_bundle_accepts_manifest_and_artifact_hashes(tmp_path: Path) -> None:
