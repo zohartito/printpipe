@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 134: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 135: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 134 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, optional live Bambu CLI slice receipts, physical print handoffs, trusted-user beta handoffs, and release distribution handoffs are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail/final-readiness UI that separates digital artifacts from physical, beta, or signed-distribution proof.
+Wave 135 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, optional live Bambu CLI slice receipts, physical print handoffs, trusted-user beta handoffs, and release distribution handoffs are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail/final-readiness UI that separates digital artifacts from physical, beta, or signed-distribution proof.
 
-The latest completed wave made terminal `final-plan` action rows self-contained, not just the top next action. Each physical, trusted-user, and release section row can now show details, required inputs, start/setup/build commands, follow-up checks, record-after-print/review commands, and supporting artifact/handoff paths. This still does not close any external gate; it just makes the complete terminal checklist operational.
+The latest completed wave made final-readiness run artifact paths actionable in the local web UI. Paths under `runs/<run-id>/...` now link to the existing safe `/runs/<run-id>/artifacts/...` route from the top next-action callout and checklist rows, while non-run local paths remain plain text. This still does not create evidence; it just reduces friction when opening reports, bundles, handoffs, and receipts.
+
+Wave 134 made terminal `final-plan` action rows self-contained, not just the top next action. Each physical, trusted-user, and release section row can now show details, required inputs, start/setup/build commands, follow-up checks, record-after-print/review commands, and supporting artifact/handoff paths. This still does not close any external gate; it just makes the complete terminal checklist operational.
 
 Wave 133 made `final-next` truthful when release distribution becomes the active top action. Release next-action payloads, terminal output, and the web top callout can now carry required signing/tool inputs, the immediate `release-start` handoff command, the actual build/check command to run after prerequisites, follow-up verification, and release handoff paths. This still does not count as signed distribution evidence; Developer ID/notary credentials and a signed Windows installer remain external gates.
 

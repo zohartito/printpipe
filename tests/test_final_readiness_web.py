@@ -315,6 +315,62 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert 'href="/final-next.json"' in html
 
 
+def test_render_final_readiness_panel_links_run_artifact_paths() -> None:
+    html = render_final_readiness_panel(
+        {
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A final plan is not evidence.",
+            "next_action": {
+                "section_label": "Physical validation",
+                "label": "PLA",
+                "status": "recorded_but_not_passed",
+                "detail": "print then record",
+                "command": "printpipe open-folder runs/physical-pla-validation --target run",
+                "coupon_stl_path": (
+                    "/Users/zohartito/Desktop/printpipe/runs/"
+                    "physical-pla-validation/40_geometry/coupon.stl"
+                ),
+                "handoff_markdown_path": (
+                    "runs/physical-pla-validation/90_physical/"
+                    "physical_print_handoff.md"
+                ),
+            },
+            "pillars": [],
+            "actions": [
+                {
+                    "section_label": "Trusted-user beta",
+                    "label": "Trusted-user feedback (tester slot 1)",
+                    "detail": "review then record",
+                    "status": "action_required",
+                    "report_path": (
+                        "/Users/zohartito/Desktop/printpipe/runs/"
+                        "run demo/80_reports/run_report.html"
+                    ),
+                    "bundle_path": "runs/run demo/60_bundle/demo file.3mf",
+                    "handoff_markdown_path": (
+                        "/Users/zohartito/Desktop/printpipe/dist/"
+                        "release_handoffs/release_distribution_handoff.md"
+                    ),
+                }
+            ],
+        }
+    )
+
+    assert (
+        'href="/runs/physical-pla-validation/artifacts/40_geometry/coupon.stl"'
+        in html
+    )
+    assert (
+        'href="/runs/physical-pla-validation/artifacts/90_physical/physical_print_handoff.md"'
+        in html
+    )
+    assert 'href="/runs/run%20demo/artifacts/80_reports/run_report.html"' in html
+    assert 'href="/runs/run%20demo/artifacts/60_bundle/demo%20file.3mf"' in html
+    assert "/runs/release_handoffs" not in html
+    assert "release_distribution_handoff.md" in html
+
+
 def test_render_final_readiness_panel_next_action_shows_release_commands() -> None:
     html = render_final_readiness_panel(
         {

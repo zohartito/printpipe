@@ -1482,3 +1482,13 @@ Status: partial progress for endgame execution UX. This makes the complete termi
 3. Done: trusted-user action rows use `record after review`; physical action rows use `record after print`.
 4. Done: action rows render supporting artifact, sidecar, handoff, report, bundle, bundle-validation, and slice paths when present.
 5. Boundary: richer terminal checklist rows are instructions only. Physical, trusted-user, and signed-distribution gates still require their real external evidence.
+
+## Wave 135 - Final Readiness Run Artifact Links
+
+Status: partial progress for web execution UX. This makes final-readiness file paths actionable when they point at safe run artifacts.
+
+1. Done: final-readiness top next-action file paths under `runs/<run-id>/...` now link to `/runs/<run-id>/artifacts/...`.
+2. Done: final-readiness checklist row paths under `runs/<run-id>/...` use the same safe artifact links.
+3. Done: absolute local paths containing a `runs/<run-id>/...` segment are normalized into safe artifact links.
+4. Done: non-run local paths, including release handoff paths under `dist/`, remain plain text instead of becoming arbitrary file links.
+5. Boundary: clickable links are navigation only. They do not create physical evidence, trusted-user evidence, or signed distribution artifacts.

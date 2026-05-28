@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from html import escape
 from typing import Any
+from urllib.parse import quote
 
 
 def build_final_readiness_view(
@@ -292,7 +293,7 @@ def _render_next_action_files(next_action: Mapping[str, Any]) -> str:
         if value:
             rows.append(
                 f'        <p class="muted">{escape(label)}: '
-                f"<code>{escape(value)}</code></p>"
+                f"{_path_code_or_link(value)}</p>"
             )
     return "\n".join(rows)
 
@@ -495,7 +496,10 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
 def _file_row(label: str, value: str) -> str:
     if not value:
         return ""
-    return f'            <p class="muted">{escape(label)}: <code>{escape(value)}</code></p>'
+    return (
+        f'            <p class="muted">{escape(label)}: '
+        f"{_path_code_or_link(value)}</p>"
+    )
 
 
 def _required_inputs_row(values: list[str]) -> str:
@@ -503,6 +507,34 @@ def _required_inputs_row(values: list[str]) -> str:
         return ""
     text = ", ".join(values)
     return f'            <p class="muted">Required inputs: {escape(text)}</p>'
+
+
+def _path_code_or_link(value: str) -> str:
+    href = _run_artifact_href(value)
+    code = f"<code>{escape(value)}</code>"
+    if not href:
+        return code
+    return f'<a href="{escape(href, quote=True)}">{code}</a>'
+
+
+def _run_artifact_href(value: str) -> str:
+    normalized = value.strip().replace("\\", "/")
+    parts = [part for part in normalized.split("/") if part]
+    try:
+        runs_index = parts.index("runs")
+    except ValueError:
+        return ""
+    if len(parts) <= runs_index + 2:
+        return ""
+    run_id = parts[runs_index + 1]
+    artifact_parts = parts[runs_index + 2 :]
+    if run_id in {"", ".", ".."} or any(
+        part in {"", ".", ".."} for part in artifact_parts
+    ):
+        return ""
+    safe_run_id = quote(run_id, safe="")
+    safe_artifact = "/".join(quote(part, safe="") for part in artifact_parts)
+    return f"/runs/{safe_run_id}/artifacts/{safe_artifact}"
 
 
 def _class_name(value: str) -> str:
