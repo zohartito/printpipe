@@ -1536,3 +1536,14 @@ Status: partial progress for trusted-user beta execution UX. This removes placeh
 4. Done: final plans inherit those concrete trusted-user commands, so final-readiness rows no longer tell agents or humans to record feedback into `runs/<run-id>`.
 5. Current local result: the three slipper trusted-user rows point at `/Users/zohartito/Desktop/printpipe/runs/20260528-042826-slipper-size11-v2c-wide-upper-textured` and use `SUNLU TPU 90A` in their record commands.
 6. Boundary: concrete commands are still instructions only. The trusted-user beta gate remains open until three unique trusted users return completed feedback packets with supporting evidence.
+
+## Wave 140 - Trusted-User Outcome Placeholder Honesty
+
+Status: partial progress for trusted-user beta evidence honesty. This prevents generated feedback commands from quietly defaulting to a passing review.
+
+1. Done: trusted-user `record-beta-feedback` templates no longer default to `--outcome passed`.
+2. Done: templates now require an explicit `"<passed|failed|partial>"` outcome after the tester completes the review.
+3. Done: templates now require explicit `"<yes|no|unknown>"` would-print and `"<recommendation>"` values instead of defaulting to `no` and `needs_review`.
+4. Done: concrete handoff rows still preserve the real run root, tester slot, input type, material, printer, and report artifact path.
+5. Current local result: the three slipper trusted-user rows still point at the real slipper run, but their record commands cannot be copied into a fake-positive `passed` packet without replacing the outcome placeholders.
+6. Boundary: placeholder honesty still does not create trusted-user evidence. The beta gate remains open until three unique trusted users return completed feedback packets with supporting evidence.

@@ -512,9 +512,9 @@ def _trusted_feedback_action(
         'printpipe record-beta-feedback "runs/<run-id>" '
         f'--tester "<trusted-user-{slot}>" '
         '--input-type existing_stl --material "<material>" '
-        '--printer "Bambu Lab P2S" --outcome passed '
-        '--summary "<what happened>" --would-print no '
-        '--recommendation needs_review '
+        '--printer "Bambu Lab P2S" --outcome "<passed|failed|partial>" '
+        '--summary "<what happened>" --would-print "<yes|no|unknown>" '
+        '--recommendation "<recommendation>" '
         '--artifact "Run report|report|runs/<run-id>/80_reports/run_report.html|reviewed by tester"'
     )
     return {
@@ -626,10 +626,10 @@ def _feedback_record_command(
         f"--input-type {_quote(input_type)} "
         f"--material {_quote(material)} "
         f"--printer {_quote(printer)} "
-        "--outcome passed "
+        f"--outcome {_quote('<passed|failed|partial>')} "
         "--summary \"<what happened>\" "
-        "--would-print no "
-        "--recommendation needs_review"
+        f"--would-print {_quote('<yes|no|unknown>')} "
+        f"--recommendation {_quote('<recommendation>')}"
         f"{artifact}"
     )
 

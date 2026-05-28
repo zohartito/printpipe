@@ -326,7 +326,8 @@ def test_trusted_user_feedback_plan_lists_missing_tester_actions(tmp_path: Path)
     assert "beta-feedback-start" in action["start_command"]
     assert "record-beta-feedback" in action["record_command"]
     assert "--tester" in action["record_command"]
-    assert "--outcome passed" in action["record_command"]
+    assert '--outcome "<passed|failed|partial>"' in action["record_command"]
+    assert "--outcome passed" not in action["record_command"]
     assert "runs/<run-id>" in action["record_command"]
 
 
@@ -406,6 +407,8 @@ def test_beta_feedback_start_writes_handoff_without_satisfying_gate(
     assert str(bundle.resolve()) in handoff_text
     assert "Only completed trusted-user feedback packets count" in handoff_text
     assert result["record_command"] in handoff_text
+    assert '--outcome "<passed|failed|partial>"' in result["record_command"]
+    assert "--outcome passed" not in result["record_command"]
     assert status["overall_status"] == "insufficient_feedback"
     assert status["unique_trusted_user_count"] == 0
     assert plan["actions"][0]["handoff_markdown_path"] == str(handoff_path.resolve())
@@ -469,6 +472,9 @@ def test_trusted_user_feedback_plan_uses_concrete_handoff_commands(
     assert f'"{run_root.resolve()}"' in action["record_command"]
     assert '--tester "Maya"' in action["record_command"]
     assert '--material "SUNLU TPU 90A"' in action["record_command"]
+    assert '--outcome "<passed|failed|partial>"' in action["record_command"]
+    assert "--outcome passed" not in action["record_command"]
+    assert '--would-print "<yes|no|unknown>"' in action["record_command"]
     assert f"Run report|report|{report.resolve()}|reviewed by tester" in action["record_command"]
     assert "runs/<run-id>" not in action["record_command"]
     assert "<material>" not in action["record_command"]
