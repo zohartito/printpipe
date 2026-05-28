@@ -1547,3 +1547,14 @@ Status: partial progress for trusted-user beta evidence honesty. This prevents g
 4. Done: concrete handoff rows still preserve the real run root, tester slot, input type, material, printer, and report artifact path.
 5. Current local result: the three slipper trusted-user rows still point at the real slipper run, but their record commands cannot be copied into a fake-positive `passed` packet without replacing the outcome placeholders.
 6. Boundary: placeholder honesty still does not create trusted-user evidence. The beta gate remains open until three unique trusted users return completed feedback packets with supporting evidence.
+
+## Wave 141 - Physical Print Status Placeholder Honesty
+
+Status: partial progress for physical-validation evidence honesty. This applies the same explicit-outcome rule to physical coupon print records.
+
+1. Done: physical validation `record-physical-evidence` templates no longer default to `--print-status passed`.
+2. Done: templates now require an explicit `--print-status "<passed|failed|partial>"` value after the coupon is physically printed.
+3. Done: concrete plan rows still preserve the actual run folder, printer, material, object label, material-specific observation prompts, and photo placeholder.
+4. Done: `physical-start` handoff sheets inherit the same non-passing record command, so starter packets cannot quietly create fake-positive print proof.
+5. Current local result: PLA, PETG, and TPU physical rows point at their existing validation coupon runs but require replacing the print-status placeholder before evidence can be recorded.
+6. Boundary: placeholder honesty still does not create physical evidence. The physical gate remains open until real coupons are printed, observed, photographed, and recorded.

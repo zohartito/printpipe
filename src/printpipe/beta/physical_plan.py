@@ -259,7 +259,7 @@ def _record_command(*, family: str, run_root: str) -> str:
         "--print-type",
         "coupon",
         "--print-status",
-        "passed",
+        _quote("<passed|failed|partial>"),
         "--operator",
         _quote("Zohar"),
     ]

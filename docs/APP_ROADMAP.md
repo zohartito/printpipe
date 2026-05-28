@@ -2,7 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 140: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 141: 138 done, 4 partial, 0 pending, 0 blocked.
+
+Latest status: Wave 141 tightened physical-validation honesty. Generated `record-physical-evidence` commands now preserve the concrete run folder, printer, material, object, and observation prompts, but require the operator to replace `--print-status "<passed|failed|partial>"` after the coupon is actually printed. The plan no longer emits a copy-pasteable `--print-status passed` command before physical evidence exists.
 
 ## Goal
 

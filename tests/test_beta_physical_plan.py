@@ -55,12 +55,13 @@ def test_physical_validation_plan_turns_missing_families_into_actions(
         f'printpipe record-physical-evidence "{tpu_run_root}" '
         '--material "SUNLU TPU 90A" --printer "Bambu Lab P2S" '
         '--object-label "TPU validation coupon" --print-type coupon '
-        '--print-status passed --operator "Zohar" '
+        '--print-status "<passed|failed|partial>" --operator "Zohar" '
         '--filament-drying "50 C for 4-8 h; external spool or dryer feed" '
         '--layer-bonding "no visible layer splits after hand flexing" '
         '--flex-recovery "returns close to original shape after 20 flexes" '
         '--photo /path/to/printed-tpu-coupon-photo.jpg'
     )
+    assert "--print-status passed" not in tpu_action["record_command"]
 
 
 def test_physical_validation_plan_omits_passed_family_and_targets_incomplete_packet(
@@ -128,6 +129,11 @@ def test_cli_physical_plan_prints_json(
     assert payload["actions"][0]["family"] == "pla"
     assert "physical-start" in payload["actions"][0]["start_command"]
     assert "record-physical-evidence" in payload["actions"][0]["record_command"]
+    assert (
+        '--print-status "<passed|failed|partial>"'
+        in payload["actions"][0]["record_command"]
+    )
+    assert "--print-status passed" not in payload["actions"][0]["record_command"]
 
 
 def test_physical_validation_plan_surfaces_started_coupon_artifacts(
@@ -180,6 +186,11 @@ def test_physical_validation_plan_surfaces_started_coupon_artifacts(
     assert "bundle: " in render_physical_validation_plan(plan)
     assert "slice: printpipe physical-slice" in render_physical_validation_plan(plan)
     assert "next: printpipe open-folder" in render_physical_validation_plan(plan)
+    assert (
+        '--print-status "<passed|failed|partial>"'
+        in pla_action["record_command"]
+    )
+    assert "--print-status passed" not in pla_action["record_command"]
 
 
 def test_start_physical_validation_writes_not_printed_starter_packet(
@@ -238,6 +249,8 @@ def test_start_physical_validation_writes_not_printed_starter_packet(
     assert result["record_command"].startswith(
         f'printpipe record-physical-evidence "{run_root.resolve()}"'
     )
+    assert '--print-status "<passed|failed|partial>"' in result["record_command"]
+    assert "--print-status passed" not in result["record_command"]
     assert evidence["material"] == "SUNLU TPU 90A"
     assert evidence["object_label"] == "TPU validation coupon"
     assert evidence["print_status"] == "not_printed"
