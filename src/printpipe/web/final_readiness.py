@@ -60,6 +60,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
         record_command = str(next_action.get("record_command") or "")
         record_label = _action_record_label(str(next_action.get("section_id") or ""))
         required_markup = _next_action_required_inputs(next_action)
+        evidence_fields_markup = _next_action_required_fields(next_action)
         setup_markup = _next_action_command_block(
             "Setup prerequisite",
             setup_command,
@@ -100,6 +101,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
                     else ""
                 ),
                 required_markup,
+                evidence_fields_markup,
                 setup_markup,
                 run_markup,
                 followup_markup,
@@ -259,6 +261,7 @@ def _action_item(
         "record_command": _action_record_command(action, section_id=section_id),
         "record_label": _action_record_label(section_id),
         "required_inputs": _string_list(action.get("required_inputs")),
+        "required_fields": _string_list(action.get("required_fields")),
         "coupon_stl_path": str(action.get("coupon_stl_path") or ""),
         "coupon_json_path": str(action.get("coupon_json_path") or ""),
         "bundle_path": str(action.get("bundle_path") or ""),
@@ -312,6 +315,16 @@ def _next_action_required_inputs(next_action: Mapping[str, Any]) -> str:
         return ""
     return (
         '        <p class="muted">Next action required inputs: '
+        f"{escape(', '.join(required))}</p>"
+    )
+
+
+def _next_action_required_fields(next_action: Mapping[str, Any]) -> str:
+    required = _string_list(next_action.get("required_fields"))
+    if not required:
+        return ""
+    return (
+        '        <p class="muted">Next action required evidence fields: '
         f"{escape(', '.join(required))}</p>"
     )
 
@@ -423,6 +436,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
         or _action_record_label(str(action.get("section_id") or ""))
     )
     required_inputs = _string_list(action.get("required_inputs"))
+    required_fields = _string_list(action.get("required_fields"))
     coupon_stl_path = str(action.get("coupon_stl_path") or "")
     coupon_json_path = str(action.get("coupon_json_path") or "")
     report_path = str(action.get("report_path") or "")
@@ -488,12 +502,14 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     bundle_validation_markup = _file_row("Bundle validation", bundle_validation_path)
     slice_markup = _file_row("Slice receipt", slice_result_path)
     required_markup = _required_inputs_row(required_inputs)
+    required_fields_markup = _required_fields_row(required_fields)
     return "\n".join(
         [
             f'          <li class="final-readiness-action final-readiness-action-{_class_name(status)}">',
             f'            <p class="action-title"><strong>{escape(section_label)}</strong> · {escape(label)}</p>',
             f'            <p class="muted">{escape(detail)}</p>',
             required_markup,
+            required_fields_markup,
             coupon_markup,
             coupon_sidecar_markup,
             report_markup,
@@ -525,6 +541,13 @@ def _required_inputs_row(values: list[str]) -> str:
         return ""
     text = ", ".join(values)
     return f'            <p class="muted">Required inputs: {escape(text)}</p>'
+
+
+def _required_fields_row(values: list[str]) -> str:
+    if not values:
+        return ""
+    text = ", ".join(values)
+    return f'            <p class="muted">Required evidence fields: {escape(text)}</p>'
 
 
 def _path_code_or_link(value: str) -> str:

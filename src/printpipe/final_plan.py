@@ -249,10 +249,14 @@ def _supporting_path_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
 
 
 def _supporting_info_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
+    lines: list[tuple[str, str]] = []
     required = _list(action.get("required_inputs"))
-    if not required:
-        return []
-    return [("required inputs", ", ".join(str(item) for item in required))]
+    if required:
+        lines.append(("required inputs", ", ".join(str(item) for item in required)))
+    required_fields = _list(action.get("required_fields"))
+    if required_fields:
+        lines.append(("required fields", ", ".join(str(item) for item in required_fields)))
+    return lines
 
 
 def _supporting_command_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
@@ -399,6 +403,9 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, Any]:
         required_inputs = _list(action.get("required_inputs"))
         if required_inputs:
             payload["required_inputs"] = [str(item) for item in required_inputs]
+        required_fields = _list(action.get("required_fields"))
+        if required_fields:
+            payload["required_fields"] = [str(item) for item in required_fields]
         run_command = _run_command(action, immediate_command=command)
         setup_command = str(action.get("setup_command") or "")
         if setup_command and setup_command != command:

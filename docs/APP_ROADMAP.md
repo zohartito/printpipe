@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 145: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 146: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 145 closed a final-readiness UI mismatch in the physical validation checklist. Physical action rows now render both the coupon STL artifact and the coupon JSON sidecar with the existing safe run-artifact links, matching the final-plan contract and earlier Wave 119/134 documentation. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 146 made final-plan and final-readiness surfaces show required evidence fields, not only commands and artifacts. Physical and trusted-user actions now keep and render `required_fields` separately from release `required_inputs`, so the checklist can say exactly which observations/outcomes must be recorded before a gate can close. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 

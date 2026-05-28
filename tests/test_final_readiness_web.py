@@ -48,6 +48,12 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
                                 "runs/pla/40_geometry/"
                                 "physical_validation_coupon_40x15x3.stl"
                             ),
+                            "required_fields": [
+                                "operator",
+                                "photo artifact",
+                                "first_layer",
+                                "adhesion",
+                            ],
                             "coupon_json_path": (
                                 "runs/pla/40_geometry/"
                                 "physical_validation_coupon_40x15x3.json"
@@ -96,6 +102,12 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
     assert view["actions"][0]["coupon_json_path"].endswith(
         "physical_validation_coupon_40x15x3.json"
     )
+    assert view["actions"][0]["required_fields"] == [
+        "operator",
+        "photo artifact",
+        "first_layer",
+        "adhesion",
+    ]
     assert view["actions"][0]["handoff_markdown_path"].endswith(
         "physical_print_handoff.md"
     )
@@ -297,6 +309,12 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                     "bundle_path": "runs/pla/60_bundle/coupon.3mf",
                     "bundle_validation_path": "runs/pla/60_bundle/coupon_validation.json",
                     "slice_result_path": "runs/pla/70_slice/slice_result.json",
+                    "required_fields": [
+                        "operator",
+                        "photo artifact",
+                        "first_layer",
+                        "adhesion",
+                    ],
                     "handoff_markdown_path": (
                         "runs/pla/90_physical/"
                         "physical_print_handoff.md"
@@ -319,6 +337,8 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "physical_validation_coupon_40x15x3.stl" in html
     assert "Coupon sidecar:" in html
     assert "physical_validation_coupon_40x15x3.json" in html
+    assert "Required evidence fields:" in html
+    assert "operator, photo artifact, first_layer, adhesion" in html
     assert "Bundle:" in html
     assert "runs/pla/60_bundle/coupon.3mf" in html
     assert "Bundle validation:" in html

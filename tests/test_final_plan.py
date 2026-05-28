@@ -160,6 +160,11 @@ def test_final_action_plan_prefers_print_handoff_command_before_record_command(
                     "command_kind": "print_handoff_command",
                     "record_command": "printpipe record-physical-evidence runs/pla",
                     "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
+                    "required_fields": [
+                        "operator",
+                        "photo artifact",
+                        "adhesion",
+                    ],
                 }
             ],
         },
@@ -175,6 +180,11 @@ def test_final_action_plan_prefers_print_handoff_command_before_record_command(
         == "printpipe record-physical-evidence runs/pla"
     )
     assert plan["next_action"]["coupon_stl_path"] == "runs/pla/40_geometry/coupon.stl"
+    assert plan["next_action"]["required_fields"] == [
+        "operator",
+        "photo artifact",
+        "adhesion",
+    ]
 
 
 def test_final_action_plan_release_next_action_keeps_commands_and_required_inputs(
@@ -322,6 +332,11 @@ def test_render_final_action_plan_lists_section_action_commands_and_files() -> N
                             ),
                             "report_path": "runs/demo/80_reports/run_report.html",
                             "bundle_path": "runs/demo/60_bundle/demo.3mf",
+                            "required_fields": [
+                                "tester",
+                                "outcome",
+                                "recommendation",
+                            ],
                         }
                     ],
                 },
@@ -358,6 +373,7 @@ def test_render_final_action_plan_lists_section_action_commands_and_files() -> N
 
     assert "  - action_required: Trusted tester 1" in rendered
     assert "    detail: review run, then record" in rendered
+    assert "    required fields: tester, outcome, recommendation" in rendered
     assert "    start: printpipe beta-feedback-start runs/demo" in rendered
     assert "    record after review: printpipe record-beta-feedback runs/demo" in rendered
     assert "    report: runs/demo/80_reports/run_report.html" in rendered
@@ -390,6 +406,7 @@ def test_render_final_next_action_shows_only_immediate_action() -> None:
             "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
             "coupon_json_path": "runs/pla/40_geometry/coupon.json",
             "handoff_markdown_path": "runs/pla/90_physical/handoff.md",
+            "required_fields": ["operator", "photo artifact", "adhesion"],
         },
         "sections": [
             {"id": "physical_validation", "action_count": 3},
@@ -402,6 +419,7 @@ def test_render_final_next_action_shows_only_immediate_action() -> None:
     assert "PrintPipe Final Next Action" in rendered
     assert "Physical validation: PLA (recorded_but_not_passed)" in rendered
     assert "command: printpipe open-folder runs/pla --target run" in rendered
+    assert "required fields: operator, photo artifact, adhesion" in rendered
     assert "record after print: printpipe record-physical-evidence runs/pla" in rendered
     assert "artifact: runs/pla/40_geometry/coupon.stl" in rendered
     assert "sidecar: runs/pla/40_geometry/coupon.json" in rendered

@@ -1602,3 +1602,14 @@ Status: partial progress for physical-validation execution UX. This aligns the f
 4. Done: focused web tests cover view-model preservation, rendered sidecar copy, and linked sidecar artifact paths.
 5. Current local result: `/` final-readiness rows can send Zohar to the STL, JSON sidecar, bundle, bundle-validation receipt, slice receipt, and handoff sheet from the same checklist.
 6. Boundary: artifact visibility still does not create physical print evidence. PLA, PETG, and TPU coupons still need real print observations, photos, and explicit outcome packets.
+
+## Wave 146 - Required Evidence Field Visibility
+
+Status: partial progress for final-gate execution UX. This makes the final checklist say what evidence fields must be filled, not only which command to run.
+
+1. Done: `final-plan` now preserves `required_fields` on the top next-action payload when an action carries evidence-field requirements.
+2. Done: terminal `final-plan` and `final-next` render `required fields` separately from release `required inputs`.
+3. Done: web final-readiness action rows preserve `required_fields` and render them as `Required evidence fields`.
+4. Done: the web top next-action callout can render `Next action required evidence fields` when the selected action carries them.
+5. Current local result: physical validation rows can show fields such as operator, photo artifact, first-layer, adhesion, filament drying, layer bonding, and flex recovery before Zohar records evidence.
+6. Boundary: visible required fields still do not create evidence. Real physical prints, trusted-user reviews, photos/artifacts, and explicit outcomes remain required.
