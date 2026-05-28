@@ -6,6 +6,7 @@ from pathlib import Path
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
 from printpipe.reports import build_run_report_dict, write_run_report
 from printpipe.reports.html import write_html_report
+from printpipe.runs.editing import load_edit_recipe
 from printpipe.runs.paths import create_run
 from printpipe.web import PrintPipeWebApp, create_app
 from printpipe.web import server as web_server
@@ -104,7 +105,271 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert "succeeded" in response.text
     assert "Open report" in response.text
     assert 'href="/static/run-ui-001/80_reports/run_report.html"' in response.text
+    assert 'href="/runs/run-ui-001"' in response.text
+    assert "Open workbench" in response.text
     assert 'href="/runs/run-ui-001/artifacts/60_bundle/ready.3mf"' in response.text
+
+
+def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-workbench-001")
+    generated_mesh = layout.meshgen_dir / "generated.stl"
+    repaired_mesh = layout.repair_dir / "repaired.stl"
+    oriented_mesh = layout.geometry_dir / "oriented.stl"
+    model_preview = layout.geometry_dir / "run_detail_model_preview.svg"
+    preview = layout.geometry_dir / "bed-fit.svg"
+    bundle = layout.bundle_dir / "ready.3mf"
+    slice_result = layout.slice_dir / "slice_result.json"
+    for artifact_path in (
+        generated_mesh,
+        repaired_mesh,
+        oriented_mesh,
+        model_preview,
+        preview,
+        bundle,
+        slice_result,
+    ):
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_text("artifact\n", encoding="utf-8")
+    stages = (
+        StageReceipt(
+            stage="mesh_generation",
+            status=StageStatus.SUCCEEDED,
+            message="Generated watertight candidate mesh.",
+            artifacts=(
+                Artifact(
+                    kind=ArtifactKind.GENERATED_MESH,
+                    path=generated_mesh,
+                    label="Generated mesh",
+                ),
+            ),
+        ),
+        StageReceipt(
+            stage="repair",
+            status=StageStatus.SUCCEEDED,
+            message="Closed small holes and repaired normals.",
+            artifacts=(
+                Artifact(
+                    kind=ArtifactKind.REPAIRED_MESH,
+                    path=repaired_mesh,
+                    label="Repaired mesh",
+                ),
+            ),
+            metrics={
+                "watertight": True,
+                "non_manifold_edges": 0,
+                "bounds_mm": [118.0, 76.0, 42.0],
+            },
+        ),
+        StageReceipt(
+            stage="orient_scale",
+            status=StageStatus.SUCCEEDED,
+            message="Fits Bambu Lab P2S plate.",
+            artifacts=(
+                Artifact(
+                    kind=ArtifactKind.ORIENTED_MESH,
+                    path=oriented_mesh,
+                    label="Final STL",
+                ),
+                Artifact(
+                    kind=ArtifactKind.PREVIEW,
+                    path=model_preview,
+                    label="Run detail model SVG preview",
+                ),
+                Artifact(
+                    kind=ArtifactKind.PREVIEW,
+                    path=preview,
+                    label="Bed fit preview",
+                ),
+            ),
+            metrics={"bed_fit": "fits", "support_risk": "medium"},
+        ),
+        StageReceipt(
+            stage="slice_report",
+            status=StageStatus.SUCCEEDED,
+            message="Bambu slice succeeded.",
+            artifacts=(
+                Artifact(
+                    kind=ArtifactKind.THREEMF,
+                    path=bundle,
+                    label="3MF bundle",
+                ),
+                Artifact(
+                    kind=ArtifactKind.SLICE_LOG,
+                    path=slice_result,
+                    label="Slice report",
+                ),
+            ),
+            metrics={"slice_success": True, "profile": "0.20mm Standard @BBL P2S"},
+        ),
+    )
+    report_dict = build_run_report_dict(
+        layout,
+        stages=stages,
+        settings_changes=(
+            {
+                "printer_label": "Bambu Lab P2S",
+                "material_label": "SUNLU PLA",
+                "target_length_mm": 120.0,
+            },
+        ),
+        warnings=("Support risk is medium around the arch.",),
+    )
+    write_run_report(
+        layout,
+        stages=stages,
+        settings_changes=report_dict["settings_changes"],
+        warnings=report_dict["warnings"],
+    )
+    write_html_report(layout, report_dict)
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/run-workbench-001")
+
+    assert response.status == 200
+    assert "Can this run print?" in response.text
+    assert 'class="verdict-strip"' in response.text
+    assert "Next action" in response.text
+    assert "Choose a support strategy, then rebuild or inspect the slice receipt." in response.text
+    assert "Needs geometry edit: upper/opening too narrow" in response.text
+    assert "Model workbench" in response.text
+    assert "Edit Geometry" in response.text
+    assert "Rebuild from edits" in response.text
+    assert "Manifold" in response.text
+    assert "Bed fit" in response.text
+    assert "TPU profile" in response.text
+    assert "Support" in response.text
+    assert "Slice" in response.text
+    assert "Model" in response.text
+    assert "Upper Fit" in response.text
+    assert "Support Risk" in response.text
+    assert '<button class="tab"' not in response.text
+    assert 'class="model-preview-image"' in response.text
+    assert 'src="/runs/run-workbench-001/artifacts/40_geometry/run_detail_model_preview.svg"' in (
+        response.text
+    )
+    assert "Large model preview placeholder" not in response.text
+    assert "Run detail model SVG preview" in response.text
+    assert "opening risk" in response.text
+    assert "Input / reference" in response.text
+    assert "Mesh generation" in response.text
+    assert "Orient / scale" in response.text
+    assert "Original mesh" in response.text
+    assert "Repaired mesh" in response.text
+    assert "Final STL" in response.text
+    assert ">3MF<" in response.text
+    assert "3MF bundle" in response.text
+    assert "Slice report" in response.text
+    assert "Overall scale" in response.text
+    assert "Widen / narrow opening" in response.text
+    assert "Raise / lower arch/opening" in response.text
+    assert "Freeform edit instruction" in response.text
+    assert 'action="/runs/run-workbench-001/edits" method="post"' in response.text
+    assert 'name="opening_delta_mm"' in response.text
+    assert 'name="arch_delta_mm"' in response.text
+    assert 'name="support_strategy"' in response.text
+    assert 'name="edit_instruction"' in response.text
+    assert 'href="/runs/run-workbench-001/artifacts/60_bundle/ready.3mf"' in response.text
+    assert 'href="/runs/run-workbench-001/artifacts/80_reports/run_report.html"' in response.text
+
+
+def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
+    css = web_server._CSS
+
+    assert "clip-path:" not in css
+    assert "print-object" not in css
+    assert "mesh-placeholder" in css
+    assert ".model-preview-image" in css
+    assert ".next-action" in css
+    assert ".edit-actions" in css
+    assert "position: sticky" in css
+    assert "bottom: 0" in css
+    assert "@media (max-width: 1180px)" in css
+
+
+def test_run_detail_response_rejects_unknown_run(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/runs/nope")
+
+    assert response.status == 404
+
+
+def test_post_run_edit_creates_non_destructive_edit_run(tmp_path: Path):
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-edit-001")
+    app = create_app(runs_dir=runs_dir)
+    body = (
+        "overall_scale=1.0&x_scale=1.0&y_scale=1.08&z_scale=1.0"
+        "&target_length_mm=295&target_width_mm=118&target_height_mm=72"
+        "&opening_delta_mm=14&arch_delta_mm=6&wall_thickness_mm=3.2"
+        "&flat_base=on&support_strategy=snug_tree_auto"
+        "&edit_instruction=Widen+the+upper+without+changing+sole+length"
+    ).encode("utf-8")
+
+    response = app.handle(
+        "/runs/run-edit-001/edits",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=body,
+    )
+
+    edit_root = runs_dir / "run-edit-001_edit_001"
+    recipe = load_edit_recipe(edit_root)
+    assert response.status == 303
+    assert response.header("Location") == "/runs/run-edit-001_edit_001"
+    assert edit_root.exists()
+    assert (edit_root / "00_input" / "tiny_tetrahedron.stl").read_bytes() == source.read_bytes()
+    assert layout.original_input.read_bytes() == source.read_bytes()
+    assert (edit_root / "60_bundle").exists()
+    assert any(path.suffix == ".3mf" for path in (edit_root / "60_bundle").iterdir())
+    assert (edit_root / "80_reports" / "run_report.html").exists()
+    assert recipe.parent_run_id == "run-edit-001"
+    assert recipe.scale.y == 1.08
+    assert recipe.targets_mm.length == 295.0
+    assert recipe.geometry_intent.upper_width_delta_mm == 14.0
+    assert recipe.geometry_intent.opening_width_delta_mm == 14.0
+    assert recipe.geometry_intent.arch_height_delta_mm == 6.0
+    assert recipe.geometry_intent.wall_thickness_mm == 3.2
+    assert recipe.geometry_intent.flat_base is True
+    assert recipe.support_strategy == "snug_tree_auto"
+    assert recipe.instruction == "Widen the upper without changing sole length"
+
+
+def test_post_run_edit_redirects_to_failed_child_rebuild_report(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    create_run(source, runs_dir, run_id="run-edit-media-001")
+    app = create_app(runs_dir=runs_dir)
+    body = b"overall_scale=1.0&support_strategy=auto"
+
+    response = app.handle(
+        "/runs/run-edit-media-001/edits",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=body,
+    )
+
+    edit_root = runs_dir / "run-edit-media-001_edit_001"
+    report_path = edit_root / "80_reports" / "run_report.json"
+    assert response.status == 303
+    assert response.header("Location") == "/runs/run-edit-media-001_edit_001"
+    assert report_path.exists()
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert ("edit_recipe.source_mesh", "failed") in {
+        (stage["stage"], stage["status"]) for stage in report["stages"]
+    }
+    assert report["warnings"]
 
 
 def test_home_response_groups_run_artifacts_for_preview_report_and_download(tmp_path: Path):
@@ -219,6 +484,8 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(t
     assert ("extract_references", "succeeded") in stages
     assert ("select_references", "succeeded") in stages
     assert ("contact_sheet", "succeeded") in stages
+    assert ("meshgen", "failed") in stages
+    assert report["warnings"] == ["image/video meshgen is not wired into the orchestrator yet"]
 
 
 def test_post_runs_existing_stl_creates_bundle_and_report(tmp_path: Path):

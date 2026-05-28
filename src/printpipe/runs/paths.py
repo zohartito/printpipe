@@ -110,3 +110,47 @@ def create_run(input_path: Path, runs_dir: Path = Path("runs"), run_id: str | No
         original_input=original_input,
     )
 
+
+def load_run(run_root: str | Path) -> RunLayout:
+    """Load a RunLayout from an existing run folder manifest."""
+
+    root = Path(run_root).expanduser().resolve()
+    manifest_path = root / "manifest.json"
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"expected JSON object: {manifest_path}")
+
+    stages = payload.get("stages")
+    if not isinstance(stages, dict):
+        raise ValueError(f"run manifest is missing stage directories: {manifest_path}")
+
+    dirs: dict[str, Path] = {}
+    for key, dirname in STAGE_DIRS:
+        directory = stages.get(key, dirname)
+        if not isinstance(directory, str) or not directory:
+            raise ValueError(f"run manifest has invalid stage directory for {key}")
+        dirs[key] = root / directory
+
+    input_info = payload.get("input")
+    if not isinstance(input_info, dict):
+        raise ValueError(f"run manifest is missing input metadata: {manifest_path}")
+    stored_path = input_info.get("stored_path")
+    if not isinstance(stored_path, str) or not stored_path:
+        raise ValueError(f"run manifest is missing input stored_path: {manifest_path}")
+
+    run_id = str(payload.get("run_id") or root.name)
+    return RunLayout(
+        run_id=run_id,
+        root=root,
+        input_dir=dirs["input"],
+        frames_dir=dirs["frames"],
+        meshgen_dir=dirs["meshgen"],
+        repair_dir=dirs["repair"],
+        geometry_dir=dirs["geometry"],
+        profiles_dir=dirs["profiles"],
+        bundle_dir=dirs["bundle"],
+        slice_dir=dirs["slice"],
+        reports_dir=dirs["reports"],
+        manifest_path=manifest_path,
+        original_input=root / stored_path,
+    )

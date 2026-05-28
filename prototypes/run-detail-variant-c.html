@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PrintPipe Run Detail - Variant C</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #16202a;
+      --muted: #697786;
+      --line: #d8e0ea;
+      --blue: #1d6fd6;
+      --blue-soft: #e8f1ff;
+      --green: #13845a;
+      --green-soft: #e4f6ee;
+      --amber: #a86500;
+      --amber-soft: #fff0d4;
+      --red: #b4233a;
+      --red-soft: #ffe3e8;
+      --shadow: 0 14px 40px rgba(23, 38, 56, 0.08);
+      --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.5;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    button, input, select, textarea { font: inherit; }
+    .page {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: clamp(16px, 2.5vw, 32px);
+    }
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      margin-bottom: 6px;
+      font-size: clamp(26px, 3vw, 42px);
+      letter-spacing: -0.04em;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .summary-pill {
+      background: var(--amber-soft);
+      color: var(--amber);
+      border: 1px solid #f4d498;
+      border-radius: 999px;
+      padding: 9px 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .sidebar {
+      display: grid;
+      gap: 14px;
+      position: sticky;
+      top: 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card h2 {
+      margin: 0;
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--line);
+      font-size: 16px;
+    }
+    .card-body {
+      padding: 16px;
+      display: grid;
+      gap: 13px;
+    }
+    .input-summary {
+      display: grid;
+      gap: 10px;
+      font-size: 14px;
+    }
+    .input-summary strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+    .input-summary span {
+      color: var(--muted);
+    }
+    .steps {
+      display: grid;
+      gap: 10px;
+      counter-reset: step;
+    }
+    .step-nav {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+      padding: 10px;
+      cursor: pointer;
+      color: inherit;
+      text-align: left;
+      width: 100%;
+    }
+    .step-nav.active {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+      box-shadow: 0 0 0 3px rgba(29,111,214,0.1);
+    }
+    .step-num {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: white;
+      font-weight: 900;
+    }
+    .step-nav h3 { margin-bottom: 0; font-size: 14px; }
+    .status {
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .pass { background: var(--green-soft); color: var(--green); }
+    .warn { background: var(--amber-soft); color: var(--amber); }
+    .fail { background: var(--red-soft); color: var(--red); }
+    .workspace {
+      display: grid;
+      gap: 18px;
+      min-width: 0;
+    }
+    .hero-step {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .hero-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      padding: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-head h2 {
+      margin: 0 0 7px;
+      font-size: clamp(22px, 2.5vw, 32px);
+      letter-spacing: -0.03em;
+    }
+    .hero-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+      gap: 18px;
+      padding: 18px;
+    }
+    .preview {
+      min-height: 360px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(22,32,42,0.06) 1px, transparent 1px) 0 0 / 36px 36px,
+        linear-gradient(rgba(22,32,42,0.06) 1px, transparent 1px) 0 0 / 36px 36px,
+        #f9fbfe;
+    }
+    .preview::after {
+      content: "model preview placeholder";
+      position: absolute;
+      left: 14px;
+      bottom: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .shape {
+      width: min(52vw, 520px);
+      aspect-ratio: 1.55;
+      border: 3px solid rgba(29,111,214,0.5);
+      clip-path: polygon(10% 82%, 13% 43%, 35% 17%, 68% 17%, 91% 45%, 93% 82%, 76% 88%, 55% 70%, 31% 88%);
+      background:
+        radial-gradient(circle at 51% 66%, transparent 0 17%, #f9fbfe 18% 28%, transparent 29%),
+        linear-gradient(145deg, rgba(29,111,214,0.18), rgba(19,132,90,0.12)),
+        repeating-linear-gradient(32deg, rgba(29,111,214,0.2) 0 1px, transparent 1px 18px);
+    }
+    .callout {
+      border: 1px solid #f4d498;
+      border-radius: 16px;
+      background: var(--amber-soft);
+      padding: 14px;
+    }
+    .callout h3 { margin-bottom: 5px; color: var(--amber); }
+    .checks {
+      display: grid;
+      gap: 9px;
+    }
+    .check {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 9px;
+    }
+    .check:last-child { border-bottom: 0; padding-bottom: 0; }
+    .check p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+    .editor {
+      display: grid;
+      gap: 12px;
+    }
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfdff;
+      color: var(--ink);
+      padding: 10px;
+    }
+    textarea { min-height: 92px; resize: vertical; text-transform: none; }
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fbfdff;
+      color: var(--ink);
+      text-transform: none;
+    }
+    .toggle input { width: auto; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .primary {
+      border: 0;
+      border-radius: 14px;
+      background: var(--blue);
+      color: white;
+      cursor: pointer;
+      font-weight: 900;
+      padding: 12px 16px;
+    }
+    .secondary {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 800;
+      padding: 11px 15px;
+    }
+    .artifact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+    .artifact-grid a {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdff;
+      padding: 12px;
+      font-weight: 850;
+    }
+    .artifact-grid span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+    @media (max-width: 1080px) {
+      .layout, .hero-body { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+    }
+    @media (max-width: 720px) {
+      header, .hero-head, .field-grid { grid-template-columns: 1fr; }
+      .summary-pill { white-space: normal; }
+      .preview { min-height: 280px; }
+      .shape { width: 76vw; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <p class="eyebrow">PrintPipe / step-by-step pipeline wizard</p>
+        <h1>Review and fix this run</h1>
+        <div class="meta">
+          <span>run_2026-05-25_arched-phone-stand</span>
+          <span>Input: image + prompt</span>
+          <span>Bambu P2S / PLA Matte White</span>
+        </div>
+      </div>
+      <div class="summary-pill">One issue blocks printing: support risk under arch</div>
+    </header>
+
+    <section class="layout">
+      <aside class="sidebar">
+        <article class="card">
+          <h2>Input Summary</h2>
+          <div class="card-body input-summary">
+            <div><strong>Prompt</strong><span>Minimal arched desk stand for a phone, cable pass-through, flat base, 2.5 mm walls.</span></div>
+            <div><strong>Reference</strong><span>00_input/arched-stand-reference.png</span></div>
+            <div><strong>Current mesh</strong><span>148k triangles, watertight after repair.</span></div>
+          </div>
+        </article>
+
+        <nav class="card" aria-label="Pipeline stages">
+          <h2>Steps</h2>
+          <div class="card-body steps">
+            <button class="step-nav active" type="button" data-step="0"><span class="step-num">1</span><h3>Input / reference</h3><span class="status pass">pass</span></button>
+            <button class="step-nav" type="button" data-step="1"><span class="step-num">2</span><h3>Mesh generation</h3><span class="status pass">pass</span></button>
+            <button class="step-nav" type="button" data-step="2"><span class="step-num">3</span><h3>Repair</h3><span class="status pass">pass</span></button>
+            <button class="step-nav" type="button" data-step="3"><span class="step-num">4</span><h3>Orient / scale</h3><span class="status pass">pass</span></button>
+            <button class="step-nav" type="button" data-step="4"><span class="step-num">5</span><h3>Print profile</h3><span class="status pass">pass</span></button>
+            <button class="step-nav" type="button" data-step="5"><span class="step-num">6</span><h3>3MF bundle</h3><span class="status pass">pass</span></button>
+            <button class="step-nav" type="button" data-step="6"><span class="step-num">7</span><h3>Slice report</h3><span class="status fail">fail</span></button>
+          </div>
+        </nav>
+      </aside>
+
+      <section class="workspace">
+        <article class="hero-step">
+          <div class="hero-head">
+            <div>
+              <p class="eyebrow" id="stepLabel">Step 7 of 7</p>
+              <h2 id="stepTitle">Slice report needs attention</h2>
+              <p id="stepText">The model is repaired and bundled, but the slice gate is blocking print handoff because the arch underside is likely to need support.</p>
+            </div>
+            <span class="status fail" id="stepStatus">fail</span>
+          </div>
+          <div class="hero-body">
+            <figure class="preview" aria-label="Model preview placeholder">
+              <div class="shape"></div>
+            </figure>
+            <aside class="editor">
+              <div class="callout">
+                <h3>What needs attention?</h3>
+                <p>The opening is printable, but its underside is too shallow for the selected no-support intent. Either raise the arch, widen the opening less, thicken the rib, or allow tree supports.</p>
+              </div>
+              <div class="checks">
+                <div class="check"><div><strong>Manifold / watertight</strong><p>0 boundary edges after repair.</p></div><span class="status pass">pass</span></div>
+                <div class="check"><div><strong>Bed fit</strong><p>118 x 78 mm footprint, 34.5 mm minimum margin.</p></div><span class="status pass">pass</span></div>
+                <div class="check"><div><strong>Material/profile sanity</strong><p>PLA 0.20 profile and P2S nozzle values valid.</p></div><span class="status pass">pass</span></div>
+                <div class="check"><div><strong>Support risk</strong><p>62 degree underside over 31 mm span.</p></div><span class="status warn">warn</span></div>
+                <div class="check"><div><strong>Slice success</strong><p>Blocked until edit recipe is rebuilt.</p></div><span class="status fail">fail</span></div>
+              </div>
+            </aside>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Edit Geometry</h2>
+          <div class="card-body editor">
+            <div class="field-grid">
+              <label>Overall scale <input type="number" value="1.00" step="0.01"></label>
+              <label>X scale <input type="number" value="1.00" step="0.01"></label>
+              <label>Y scale <input type="number" value="1.00" step="0.01"></label>
+              <label>Z scale <input type="number" value="1.00" step="0.01"></label>
+              <label>Target length <input type="number" value="118" step="0.1"></label>
+              <label>Target width <input type="number" value="78" step="0.1"></label>
+              <label>Target height <input type="number" value="92" step="0.1"></label>
+              <label>Wall thickness <input type="number" value="2.5" step="0.1"></label>
+              <label>Support strategy
+                <select>
+                  <option>Auto tree supports under arch only</option>
+                  <option>Prefer geometry edit, avoid supports</option>
+                  <option>Allow full supports</option>
+                  <option>Fail if supports required</option>
+                </select>
+              </label>
+            </div>
+            <div class="field-grid">
+              <label>Widen / narrow opening <input type="range" min="-12" max="12" value="4"></label>
+              <label>Raise / lower arch/opening <input type="range" min="-10" max="16" value="6"></label>
+              <label class="toggle">Flat base toggle <input type="checkbox" checked></label>
+            </div>
+            <label>Freeform edit instruction
+              <textarea>Raise the arch by 6 mm, keep the flat base, and preserve a smooth front face with no decorative texture.</textarea>
+            </label>
+            <div class="actions">
+              <button class="primary" id="rebuild" type="button">Rebuild from edits</button>
+              <button class="secondary" type="button">Preview edit recipe</button>
+              <span class="meta" id="state">No rebuild submitted in this static prototype.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Artifacts</h2>
+          <div class="card-body artifact-grid">
+            <a href="#">Original mesh<span>20_meshgen/draft.obj</span></a>
+            <a href="#">Repaired mesh<span>30_repair/repaired.stl</span></a>
+            <a href="#">Final STL<span>40_geometry/oriented.stl</span></a>
+            <a href="#">3MF<span>60_bundle/phone-stand.3mf</span></a>
+            <a href="#">Slice report<span>80_reports/slice.html</span></a>
+          </div>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const stepData = [
+      ["Step 1 of 7", "Input / reference is ready", "Reference image and prompt were stored. The selected image is usable for mesh generation.", "pass"],
+      ["Step 2 of 7", "Mesh generation succeeded", "The draft OBJ was generated from the prompt and reference image in 2m 41s.", "pass"],
+      ["Step 3 of 7", "Repair succeeded", "The mesh is watertight after filling 3 pinholes and welding 218 vertices.", "pass"],
+      ["Step 4 of 7", "Orient / scale succeeded", "PrintPipe found the flat base, corrected Z-up orientation, and scaled to 118 x 78 x 92 mm.", "pass"],
+      ["Step 5 of 7", "Print profile is sane", "Bambu P2S and PLA Matte profile values are valid for the bundle.", "pass"],
+      ["Step 6 of 7", "3MF bundle is built", "The Bambu-ready 3MF bundle validates and has the correct metadata signature.", "pass"],
+      ["Step 7 of 7", "Slice report needs attention", "The slice gate is blocking print handoff because the arch underside is likely to need support.", "fail"]
+    ];
+    const label = document.querySelector("#stepLabel");
+    const title = document.querySelector("#stepTitle");
+    const text = document.querySelector("#stepText");
+    const status = document.querySelector("#stepStatus");
+    document.querySelectorAll(".step-nav").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".step-nav").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        const [nextLabel, nextTitle, nextText, nextStatus] = stepData[Number(button.dataset.step)];
+        label.textContent = nextLabel;
+        title.textContent = nextTitle;
+        text.textContent = nextText;
+        status.textContent = nextStatus;
+        status.className = `status ${nextStatus}`;
+      });
+    });
+    document.querySelector("#rebuild").addEventListener("click", () => {
+      document.querySelector("#state").textContent = "Mock rebuild submitted with arch +6 mm and tree supports under arch only.";
+    });
+  </script>
+</body>
+</html>

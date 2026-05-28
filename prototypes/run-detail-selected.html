@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PrintPipe Run Detail - Selected Prototype</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    :root{color-scheme:light;--bg:#e9e2d7;--paper:#f8f4ed;--tool:#fffaf2;--ink:#211b16;--muted:#6f6256;--line:#cfc2b4;--blue:#246b8f;--green:#297853;--amber:#aa6a19;--red:#a33232;--green-soft:#dceee5;--amber-soft:#f9e7c5;--red-soft:#f4d6d6;--shadow:0 18px 50px rgba(56,42,28,.16);--mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;--sans:Avenir Next,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{margin:0;color:var(--ink);font-family:var(--sans);line-height:1.45;background:radial-gradient(circle at top left,rgba(255,255,255,.82),transparent 38rem),linear-gradient(135deg,#f0eadf 0%,var(--bg) 56%,#d9d0c4 100%)}
+    a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}button,input,select,textarea{font:inherit}
+    .app{min-height:100vh}.topbar{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;padding:18px clamp(18px,3vw,36px);border-bottom:1px solid var(--line);background:rgba(248,244,237,.88);backdrop-filter:blur(16px)}
+    .eyebrow{margin:0 0 4px;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}h1,h2,h3,p{margin-top:0}h1{margin-bottom:4px;font-size:clamp(24px,2.4vw,38px);letter-spacing:-.04em}
+    .run-meta{display:flex;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:13px}.status-chip{align-self:center;border:1px solid rgba(170,106,25,.45);background:#fff2d8;color:var(--amber);padding:9px 12px;border-radius:999px;font-weight:850;white-space:nowrap}
+    .shell{max-width:1620px;margin:0 auto;padding:clamp(14px,2vw,24px);display:grid;gap:16px}.verdict-strip{display:grid;grid-template-columns:1.2fr repeat(5,minmax(110px,1fr));gap:10px}
+    .verdict,.score{border:1px solid var(--line);background:rgba(248,244,237,.94);box-shadow:0 10px 32px rgba(56,42,28,.08);padding:14px}.verdict{background:var(--ink);color:#fff8ea}.verdict h2{margin:0 0 6px;font-size:clamp(22px,2.3vw,32px);letter-spacing:-.035em}.verdict p{margin:0;color:#dfd5c7}
+    .score span{display:block;color:var(--muted);font-family:var(--mono);font-size:11px;text-transform:uppercase}.score strong{display:block;margin-top:6px;font-size:21px}.score.pass strong{color:var(--green)}.score.warn strong{color:var(--amber)}.score.fail strong{color:var(--red)}
+    .workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(330px,410px);gap:clamp(14px,2vw,24px)}.canvas-zone{display:grid;grid-template-rows:minmax(420px,1fr) auto;gap:14px;min-width:0}
+    .model-card,.card,.controls{border:1px solid var(--line);background:rgba(248,244,237,.92);box-shadow:var(--shadow)}.model-card{min-height:520px;display:grid;grid-template-rows:auto minmax(0,1fr) auto}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:12px 14px}
+    .view-tabs{display:flex;flex-wrap:wrap;gap:6px}.tab{border:1px solid var(--line);background:var(--paper);color:var(--muted);padding:7px 10px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:750}.tab.active{background:var(--ink);border-color:var(--ink);color:#fff8ea}
+    .model-view{position:relative;overflow:hidden;display:grid;place-items:center;background:linear-gradient(90deg,rgba(36,107,143,.12) 1px,transparent 1px) 0 0/42px 42px,linear-gradient(rgba(36,107,143,.1) 1px,transparent 1px) 0 0/42px 42px,radial-gradient(circle at 50% 44%,rgba(36,107,143,.13),transparent 34%)}
+    .bed{position:absolute;width:min(82%,860px);height:min(48%,430px);bottom:8%;border:2px solid rgba(36,107,143,.38);border-radius:18px;transform:perspective(920px) rotateX(62deg);background:rgba(255,255,255,.28)}
+    .slipper{position:relative;z-index:1;width:min(58vw,700px);aspect-ratio:2.7;border:3px solid rgba(33,27,22,.68);border-radius:58% 42% 34% 48%/62% 56% 36% 34%;clip-path:polygon(4% 64%,12% 38%,30% 22%,55% 18%,79% 25%,95% 45%,98% 68%,89% 82%,58% 88%,23% 82%);background:radial-gradient(ellipse at 68% 47%,rgba(248,244,237,.98) 0 13%,transparent 14% 19%,rgba(170,106,25,.13) 20% 30%,transparent 31%),linear-gradient(135deg,rgba(36,107,143,.3),rgba(255,255,255,.54)),repeating-linear-gradient(24deg,rgba(33,27,22,.18) 0 1px,transparent 1px 19px);box-shadow:0 26px 65px rgba(33,27,22,.22)}
+    .risk-marker,.measure{position:absolute;z-index:2;border:1px dashed rgba(33,27,22,.5);background:rgba(255,250,242,.88);padding:4px 7px;font-family:var(--mono);font-size:12px}.risk-marker{top:43%;right:18%;border:2px solid var(--red);color:var(--red);font-weight:900}.measure.x{bottom:15%;left:19%}.measure.z{right:13%;top:25%}
+    .model-footer{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border-top:1px solid var(--line);background:var(--line)}.metric{background:var(--paper);padding:12px}.metric span{display:block;color:var(--muted);font-family:var(--mono);font-size:11px;text-transform:uppercase}.metric strong{font-size:18px}
+    .lower-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.card h2,.controls h2{margin:0;padding:13px 14px;border-bottom:1px solid var(--line);font-size:15px}.card-body,.controls-body{padding:14px;display:grid;gap:13px}
+    .stage-rail{display:grid;gap:8px}.stage{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:start;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.stage:last-child{border-bottom:0}.node{width:14px;height:14px;margin-top:3px;border-radius:50%;background:var(--green)}.node.warn{background:var(--amber)}.node.fail{background:var(--red)}.stage h3{margin-bottom:2px;font-size:14px}.stage p{margin-bottom:0;color:var(--muted);font-size:13px}
+    .badge{align-self:start;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900;text-transform:uppercase}.pass{background:var(--green-soft);color:var(--green)}.warn-b{background:var(--amber-soft);color:var(--amber)}.fail-b{background:var(--red-soft);color:var(--red)}
+    label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:850;text-transform:uppercase}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--tool);color:var(--ink);padding:9px 10px}textarea{min-height:96px;resize:vertical;text-transform:none}.control-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .toggle{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--tool);text-transform:none;color:var(--ink)}.toggle input{width:auto}.primary{border:0;border-radius:14px;background:var(--blue);color:white;cursor:pointer;font-weight:900;padding:12px 14px;width:100%}
+    .input-card{border-left:5px solid var(--blue);padding-left:12px}.input-card p{margin-bottom:6px;color:var(--muted)}.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.links a{display:block;border:1px solid var(--line);border-radius:12px;background:var(--tool);padding:10px;font-weight:850}.links span{display:block;margin-top:4px;color:var(--muted);font-family:var(--mono);font-size:11px;overflow-wrap:anywhere}
+    @media(max-width:1180px){.verdict-strip{grid-template-columns:repeat(3,minmax(0,1fr))}.verdict{grid-column:1/-1}.workbench{grid-template-columns:1fr}.controls{order:-1}}@media(max-width:760px){.topbar,.verdict-strip,.lower-grid,.model-footer,.control-grid{grid-template-columns:1fr}.status-chip{white-space:normal}.model-card{min-height:430px}.slipper{width:82vw}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PrintPipe / selected run-detail prototype</p>
+        <h1>TPU slipper rebuild</h1>
+        <div class="run-meta">
+          <span>run_2026-05-27_tpu-slipper-upper-fit</span><span>input: prompt + mesh</span><span>Bambu Lab P2S 0.4 nozzle</span><span>SUNLU TPU 90A Slipper</span>
+        </div>
+      </div>
+      <div class="status-chip">Needs geometry edit: upper/opening too narrow</div>
+    </header>
+    <section class="shell">
+      <section class="verdict-strip" aria-label="Can this run print verdict">
+        <article class="verdict">
+          <p class="eyebrow">Can this run print?</p>
+          <h2>Not yet: rebuild required</h2>
+          <p>Repair and bed fit passed, and a Bambu 3MF exists, but the slipper upper is too narrow and support/slice gates need a new geometry pass.</p>
+        </article>
+        <article class="score pass"><span>Manifold</span><strong>Pass</strong></article>
+        <article class="score pass"><span>Bed fit</span><strong>Pass</strong></article>
+        <article class="score pass"><span>TPU profile</span><strong>Pass</strong></article>
+        <article class="score warn"><span>Support</span><strong>Warn</strong></article>
+        <article class="score fail"><span>Slice</span><strong>Fail</strong></article>
+      </section>
+      <section class="workbench">
+        <div class="canvas-zone">
+          <article class="model-card">
+            <div class="toolbar">
+              <div class="view-tabs" aria-label="Preview modes">
+                <button class="tab active" type="button">Model</button><button class="tab" type="button">Bed Fit</button><button class="tab" type="button">Upper Fit</button><button class="tab" type="button">Support Risk</button><button class="tab" type="button">Slice</button>
+              </div>
+              <p class="eyebrow">slipper_size11_v2c_repaired_textured.stl / placeholder preview</p>
+            </div>
+            <figure class="model-view" aria-label="Large TPU slipper model preview placeholder">
+              <div class="bed"></div><div class="slipper"></div>
+              <figcaption class="risk-marker">narrow upper + support risk</figcaption>
+              <figcaption class="measure x">229.7 x 234.1 mm footprint</figcaption>
+              <figcaption class="measure z">height 63.0 mm</figcaption>
+            </figure>
+            <div class="model-footer">
+              <div class="metric"><span>Mesh</span><strong>Repaired</strong></div><div class="metric"><span>Bed margin</span><strong>~11 mm</strong></div><div class="metric"><span>Fit issue</span><strong>Upper narrow</strong></div><div class="metric"><span>Slice gate</span><strong>Blocked</strong></div>
+            </div>
+          </article>
+          <div class="lower-grid">
+            <article class="card">
+              <h2>Pipeline Stages</h2>
+              <div class="card-body stage-rail">
+                <div class="stage"><span class="node"></span><div><h3>Input / reference</h3><p>Prompt and imported repaired slipper STL captured.</p></div><span class="badge pass">pass</span></div>
+                <div class="stage"><span class="node"></span><div><h3>Mesh generation</h3><p>Existing mesh imported; AI meshgen skipped for this dogfood run.</p></div><span class="badge pass">pass</span></div>
+                <div class="stage"><span class="node"></span><div><h3>Repair</h3><p>Watertight mesh, 0 boundary and 0 non-manifold edges.</p></div><span class="badge pass">pass</span></div>
+                <div class="stage"><span class="node warn"></span><div><h3>Orient / scale</h3><p>Fits P2S bed, but upper/opening target is too narrow for fit intent.</p></div><span class="badge warn-b">warn</span></div>
+                <div class="stage"><span class="node"></span><div><h3>Print profile</h3><p>SUNLU TPU 90A profile selected; external spool recommended.</p></div><span class="badge pass">pass</span></div>
+                <div class="stage"><span class="node"></span><div><h3>3MF bundle</h3><p>Bambu-ready 3MF generated for review.</p></div><span class="badge pass">pass</span></div>
+                <div class="stage"><span class="node fail"></span><div><h3>Slice report</h3><p>Slice report blocks handoff until upper edit and support policy are rebuilt.</p></div><span class="badge fail-b">fail</span></div>
+              </div>
+            </article>
+            <article class="card">
+              <h2>Validation Results</h2>
+              <div class="card-body stage-rail">
+                <div class="stage"><span class="node"></span><div><h3>Manifold / watertight</h3><p>Repaired mesh is traceable to final STL and bundle.</p></div><span class="badge pass">pass</span></div>
+                <div class="stage"><span class="node"></span><div><h3>Bed fit</h3><p>Approx. 229.7 x 234.1 x 63.0 mm on a 256 mm P2S bed.</p></div><span class="badge pass">pass</span></div>
+                <div class="stage"><span class="node"></span><div><h3>Material/profile sanity</h3><p>TPU profile, nozzle, and filament settings are coherent.</p></div><span class="badge pass">pass</span></div>
+                <div class="stage"><span class="node warn"></span><div><h3>Support risk</h3><p>Upper lip and sole texture need support/cantilever review.</p></div><span class="badge warn-b">warn</span></div>
+                <div class="stage"><span class="node fail"></span><div><h3>Slice success</h3><p>Failed as a print-readiness gate because geometry intent changed.</p></div><span class="badge fail-b">fail</span></div>
+              </div>
+            </article>
+          </div>
+        </div>
+        <aside class="controls">
+          <h2>Edit Geometry</h2>
+          <div class="controls-body">
+            <section class="input-card">
+              <h3>Input prompt / mesh summary</h3>
+              <p>“Size 11 wearable TPU slipper with textured sole, rounded toe, flexible upper, and enough opening width for foot entry.”</p>
+              <p>Reference mesh: <a href="#">slipper_size11_v2c_repaired_textured.stl</a></p>
+              <p>Current issue: repaired mesh is printable-looking, but the generated upper/opening is too narrow and likely uncomfortable.</p>
+            </section>
+            <div class="control-grid">
+              <label>Overall scale <input type="number" value="1.00" step="0.01"></label><label>X scale <input type="number" value="1.02" step="0.01"></label>
+              <label>Y scale <input type="number" value="1.06" step="0.01"></label><label>Z scale <input type="number" value="1.00" step="0.01"></label>
+              <label>Target length <input type="number" value="282" step="0.1"></label><label>Target width <input type="number" value="112" step="0.1"></label>
+              <label>Target height <input type="number" value="63" step="0.1"></label><label>Wall thickness <input type="number" value="3.2" step="0.1"></label>
+            </div>
+            <label>Widen / narrow opening <input id="opening" type="range" min="-12" max="24" value="14"></label>
+            <label>Raise / lower arch/opening <input id="arch" type="range" min="-8" max="18" value="5"></label>
+            <label class="toggle">Flat base toggle <input type="checkbox" checked></label>
+            <label>Support strategy <select><option>Enable TPU-safe supports for upper lip and sole texture</option><option>Prefer geometry edit, avoid upper supports</option><option>Allow full supports for validation slice</option><option>Fail if supports required</option></select></label>
+            <label>Freeform edit instruction <textarea>Widen the foot opening by 14 mm, keep the sole length stable, preserve sole texture, and soften the upper lip so TPU flex does not pinch.</textarea></label>
+            <button class="primary" id="rebuild" type="button">Rebuild from edits</button>
+            <p id="recipe" class="run-meta">Recipe preview: opening +14 mm, upper arch +5 mm, Y scale 1.06.</p>
+            <section>
+              <h3>Artifact Links</h3>
+              <div class="links">
+                <a href="#">Original mesh<span>20_meshgen/slipper_v2c.glb</span></a><a href="#">Repaired mesh<span>30_repair/slipper_repaired.stl</span></a><a href="#">Final STL<span>40_geometry/slipper_oriented.stl</span></a><a href="#">3MF<span>60_bundle/Slipper_TPU90A_P2S.3mf</span></a><a href="#">Slice report<span>80_reports/slice_report.html</span></a>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </section>
+    </section>
+  </main>
+  <script>
+    const opening=document.querySelector("#opening");const arch=document.querySelector("#arch");const recipe=document.querySelector("#recipe");
+    const updateRecipe=()=>{recipe.textContent=`Recipe preview: opening ${Number(opening.value)>=0?"+":""}${opening.value} mm, upper arch ${Number(arch.value)>=0?"+":""}${arch.value} mm, Y scale 1.06.`};
+    document.querySelectorAll(".tab").forEach((tab)=>tab.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach((item)=>item.classList.remove("active"));tab.classList.add("active")}));
+    opening.addEventListener("input",updateRecipe);arch.addEventListener("input",updateRecipe);
+    document.querySelector("#rebuild").addEventListener("click",()=>{recipe.textContent+=" Mock rebuild submitted; print verdict will re-check upper fit, supports, and slice."});
+  </script>
+</body>
+</html>

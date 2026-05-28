@@ -8,6 +8,7 @@ from printpipe.geometry import (
     compute_bounds,
     read_ascii_stl_vertices,
     write_oriented_ascii_stl_artifacts,
+    write_scaled_ascii_stl_artifacts,
 )
 
 
@@ -130,3 +131,34 @@ def test_write_oriented_ascii_stl_fails_clearly_for_unsupported_input(tmp_path):
     assert receipt.artifacts == ()
     assert "only ASCII .stl inputs are supported" in receipt.message
 
+
+def test_write_scaled_ascii_stl_applies_axis_scale_and_records_recipe(tmp_path):
+    input_path = tmp_path / "source.stl"
+    write_fixture_stl(input_path)
+
+    receipt = write_scaled_ascii_stl_artifacts(
+        input_path,
+        tmp_path / "edited",
+        overall_scale=1.0,
+        axis_scale=(1.0, 2.0, 0.5),
+        stem="source_edit_recipe_source",
+        metadata={"support_strategy": "snug_tree_auto"},
+    )
+
+    assert receipt.status is StageStatus.SUCCEEDED
+    assert receipt.stage == "geometry.apply_edit_recipe"
+    assert receipt.metrics["semantic_geometry_applied"] is False
+    assert receipt.metrics["axis_scale"] == {"x": 1.0, "y": 2.0, "z": 0.5}
+    assert {artifact.kind for artifact in receipt.artifacts} == {
+        ArtifactKind.ORIGINAL_INPUT,
+        ArtifactKind.REPORT,
+    }
+
+    mesh_path = tmp_path / "edited" / "source_edit_recipe_source.stl"
+    sidecar_path = tmp_path / "edited" / "source_edit_recipe_source_edit_recipe.json"
+    bounds = compute_bounds(read_ascii_stl_vertices(mesh_path))
+    assert bounds.width_x == 20.0
+    assert bounds.depth_y == 20.0
+    assert bounds.height_z == 5.0
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    assert sidecar["metrics"]["edit_recipe"]["support_strategy"] == "snug_tree_auto"

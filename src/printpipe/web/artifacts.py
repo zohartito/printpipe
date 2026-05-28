@@ -422,6 +422,10 @@ def _label_for_path(category: str, path: Path) -> str:
         if path.suffix.lower() == ".svg":
             return "Bed fit SVG preview"
         return "Bed fit preview"
+    if category == CATEGORY_PREVIEW and _looks_like_model_preview(path):
+        if path.suffix.lower() == ".svg":
+            return "Run detail model SVG preview"
+        return "Run detail model preview"
     if category == CATEGORY_PREVIEW and _looks_like_contact_sheet(path):
         if path.suffix.lower() == ".html":
             return "Contact sheet HTML preview"
@@ -436,10 +440,12 @@ def _priority(category: str, path: str | Path, label: str) -> int:
         suffix = Path(path_text).suffix
         return {".html": 0, ".md": 1, ".json": 2}.get(suffix, 5)
     if category == CATEGORY_PREVIEW:
-        if _looks_like_bed_fit_text(f"{path_text} {label_text}"):
+        if _looks_like_model_preview_text(f"{path_text} {label_text}"):
             return 0
-        if _looks_like_contact_sheet_text(f"{path_text} {label_text}"):
+        if _looks_like_bed_fit_text(f"{path_text} {label_text}"):
             return 1
+        if _looks_like_contact_sheet_text(f"{path_text} {label_text}"):
+            return 2
         return 5
     if category == CATEGORY_BUNDLE:
         return 0 if path_text.endswith(".3mf") else 5
@@ -459,6 +465,15 @@ def _priority(category: str, path: str | Path, label: str) -> int:
 
 def _looks_like_bed_fit(path: Path) -> bool:
     return _looks_like_bed_fit_text(path.as_posix())
+
+
+def _looks_like_model_preview(path: Path) -> bool:
+    return _looks_like_model_preview_text(path.as_posix())
+
+
+def _looks_like_model_preview_text(text: str) -> bool:
+    lowered = text.lower()
+    return "model_preview" in lowered or "run_detail" in lowered
 
 
 def _looks_like_bed_fit_text(text: str) -> bool:

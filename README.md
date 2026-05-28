@@ -2,7 +2,7 @@
 
 Local-first reference-to-print pipeline.
 
-PrintPipe turns an image, GIF, video, or existing mesh plus printer/filament intent into a verified Bambu-ready print package:
+PrintPipe is being built to turn an image, GIF, video, or existing mesh plus printer/filament intent into a verified Bambu-ready print package:
 
 ```text
 input reference
@@ -28,10 +28,19 @@ The slipper project is the proof of concept, not the product boundary.
 
 ## Current Status
 
-Foundation repo. The 142-item execution map lives in:
+Foundation repo. The current end-to-end spine is existing mesh input. The 142-item execution map lives in:
 
 - [docs/APP_ROADMAP.md](docs/APP_ROADMAP.md)
 - [docs/AGENT_WAVES.md](docs/AGENT_WAVES.md)
+
+Current input support is intentionally explicit:
+
+| Input mode | Current behavior |
+| --- | --- |
+| Existing STL/OBJ/3MF mesh | Runs end-to-end through import, repair, orientation, Bambu 3MF bundling, reports, and optional slice gate. |
+| Image, GIF, video | Prepares references/contact sheets, then records a failed `meshgen` receipt because media-to-mesh orchestration is not wired yet. |
+| Prompt plus image | Supported only at the provider-contract level as an optional `prompt_hint`; not wired through CLI/web runs yet. |
+| Prompt only | Not supported yet. The pipeline needs an image/video/mesh source before it can produce geometry. |
 
 ## Development
 
@@ -42,4 +51,3 @@ python -m pip install -e ".[dev]"
 pytest
 printpipe --version
 ```
-

@@ -412,12 +412,23 @@ def test_slice_result_receipt_marks_failures_and_skips_absent_artifacts(tmp_path
     receipt = slice_result_to_receipt(result, layout)
 
     assert receipt.status is StageStatus.FAILED
-    assert receipt.message == "Bambu CLI slice failed."
+    assert receipt.message == "Bambu CLI slice failed: slicer exited with return code 1."
     assert receipt.metrics["warnings"] == ("warning before failure",)
     assert receipt.metrics["errors"] == ("slicer exited with return code 1",)
     assert [(artifact.path, artifact.label) for artifact in receipt.artifacts] == [
         (layout.slice_dir / "slice_result.json", "Slice result JSON"),
     ]
+
+
+def test_slice_result_receipt_promotes_signal_crash_message(tmp_path: Path):
+    layout = FakeRunLayout(tmp_path / "70_slice")
+    result = classify_slicer_output(stdout="", stderr="", return_code=-11)
+
+    receipt = slice_result_to_receipt(result, layout)
+
+    assert receipt.status is StageStatus.FAILED
+    assert receipt.message == "Bambu CLI slice failed: slicer terminated by signal 11 (SIGSEGV)."
+    assert receipt.metrics["errors"] == ("slicer terminated by signal 11 (SIGSEGV)",)
 
 
 def test_gate_slice_allows_success_with_noncritical_warnings():

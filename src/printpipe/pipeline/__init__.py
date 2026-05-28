@@ -19,6 +19,8 @@ from printpipe.geometry import (
     select_top_orientations,
     write_bed_fit_preview_artifacts,
     write_oriented_ascii_stl_artifacts,
+    write_run_detail_model_preview_artifacts,
+    write_scaled_ascii_stl_artifacts,
 )
 from printpipe.inputs import prepare_input
 from printpipe.mesh.repair import repair_mesh_file_to_receipt
@@ -31,7 +33,13 @@ from printpipe.meshgen import (
 from printpipe.preflight import build_pre_print_checklist
 from printpipe.reports import build_run_report_dict, write_run_report
 from printpipe.reports.html import write_html_report
-from printpipe.runs import RunLayout, create_run
+from printpipe.runs import (
+    RunLayout,
+    create_run,
+    edit_recipe_to_dict,
+    load_edit_recipe,
+    load_run,
+)
 
 
 NON_MESH_MESHGEN_MESSAGE = "image/video meshgen is not wired into the orchestrator yet"
@@ -74,15 +82,54 @@ def run_existing_mesh_pipeline(
     """Run the currently wired pipeline spine for an existing mesh input."""
 
     layout = create_run(input_path, runs_dir)
-    input_result = prepare_input(layout.original_input, layout.frames_dir)
-    stages = list(input_result.receipts)
+    return run_existing_mesh_pipeline_on_layout(
+        layout,
+        material=material,
+        printer=printer,
+        use_case=use_case,
+        settings_changes=settings_changes,
+        run_slice=run_slice,
+        slice_executable=slice_executable,
+    )
 
-    if input_result.kind != InputKind.MESH:
+
+def run_existing_mesh_pipeline_on_layout(
+    layout: RunLayout,
+    *,
+    source_mesh_path: Path | None = None,
+    initial_stages: Sequence[StageReceipt] = (),
+    initial_warnings: Sequence[str] = (),
+    material: str = "Generic PLA",
+    printer: str = DEFAULT_PROFILE_IDS.printer_model,
+    use_case: str = "print",
+    settings_changes: Sequence[Mapping[str, Any] | str] = (),
+    run_slice: bool = False,
+    slice_executable: str | Path | None = None,
+) -> PipelineResult:
+    """Run the existing-mesh pipeline inside a pre-created run layout."""
+
+    source_mesh = Path(source_mesh_path) if source_mesh_path is not None else layout.original_input
+    if source_mesh_path is None:
+        input_result = prepare_input(layout.original_input, layout.frames_dir)
+        stages = [*initial_stages, *input_result.receipts]
+        input_kind = input_result.kind
+        source_artifact = input_result.mesh_artifact
+    else:
+        stages = list(initial_stages)
+        input_kind = InputKind.MESH
+        source_artifact = Artifact(
+            kind=ArtifactKind.ORIGINAL_INPUT,
+            path=source_mesh,
+            label="Pipeline source mesh",
+            metadata={"source": "layout_override"},
+        )
+
+    if input_kind != InputKind.MESH:
         failure = StageReceipt(
             stage="meshgen",
             status=StageStatus.FAILED,
             message=NON_MESH_MESHGEN_MESSAGE,
-            metrics={"input_kind": input_result.kind.value},
+            metrics={"input_kind": input_kind.value},
         )
         stages.append(failure)
         result = _write_pipeline_reports(
@@ -96,14 +143,14 @@ def run_existing_mesh_pipeline(
         )
         raise PipelineError(NON_MESH_MESHGEN_MESSAGE, result)
 
-    if input_result.mesh_artifact is None:
+    if source_artifact is None:
         message = "existing mesh input did not produce a mesh artifact"
         stages.append(
             StageReceipt(
                 stage="meshgen",
                 status=StageStatus.FAILED,
                 message=message,
-                metrics={"input_kind": input_result.kind.value},
+                metrics={"input_kind": input_kind.value},
             )
         )
         result = _write_pipeline_reports(
@@ -120,14 +167,14 @@ def run_existing_mesh_pipeline(
     provider = ExistingMeshProvider()
     request = MeshGenRequest(
         input_kind=InputKind.MESH,
-        source_paths=(input_result.mesh_artifact.path,),
-        output_formats=(_mesh_output_format(input_result.mesh_artifact.path),),
+        source_paths=(Path(source_artifact.path),),
+        output_formats=(_mesh_output_format(Path(source_artifact.path)),),
         max_attempts=1,
     )
     mesh_result = generate_with_retries(provider, request, layout)
     stages.append(_meshgen_stage_receipt(mesh_result))
 
-    warnings = _warnings_for_mesh_result(mesh_result)
+    warnings = (*initial_warnings, *_warnings_for_mesh_result(mesh_result))
     if mesh_result.status != StageStatus.SUCCEEDED:
         result = _write_pipeline_reports(
             layout,
@@ -243,6 +290,13 @@ def run_existing_mesh_pipeline(
         stem="bed_fit",
     )
     stages.append(bed_preview_receipt)
+    model_preview_receipt = write_run_detail_model_preview_artifacts(
+        selected[0] if selected else candidates[0],
+        DEFAULT_BED,
+        layout.geometry_dir,
+        stem="run_detail_model_preview",
+    )
+    stages.append(model_preview_receipt)
 
     object_name = f"existing_stl_{imported_mesh.stem}"
     bundle_path = layout.bundle_dir / f"{object_name}.3mf"
@@ -303,6 +357,210 @@ def run_existing_mesh_pipeline(
         use_case=use_case,
         settings_changes=settings_changes,
     )
+
+
+def run_edit_recipe_pipeline(
+    edit_run_root: str | Path,
+    *,
+    material: str = "Generic PLA",
+    printer: str = DEFAULT_PROFILE_IDS.printer_model,
+    use_case: str = "print",
+    run_slice: bool = False,
+    slice_executable: str | Path | None = None,
+) -> PipelineResult:
+    """Rebuild an edit run from its saved edit_recipe.json."""
+
+    layout = load_run(edit_run_root)
+    recipe = load_edit_recipe(layout.root)
+    recipe_payload = edit_recipe_to_dict(recipe)
+    settings_changes: tuple[Mapping[str, Any], ...] = (
+        {"edit_recipe": recipe_payload, "source": "edit_recipe_rebuild"},
+    )
+
+    try:
+        source_mesh = _resolve_edit_source_mesh(layout)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        failure = StageReceipt(
+            stage="edit_recipe.source_mesh",
+            status=StageStatus.FAILED,
+            message=str(exc),
+            metrics={"parent_run_id": recipe.parent_run_id},
+        )
+        result = _write_pipeline_reports(
+            layout,
+            stages=(failure,),
+            warnings=(str(exc),),
+            material=material,
+            printer=printer,
+            use_case=use_case,
+            settings_changes=settings_changes,
+        )
+        raise PipelineError(str(exc), result) from exc
+
+    source_receipt = StageReceipt(
+        stage="edit_recipe.source_mesh",
+        status=StageStatus.SUCCEEDED,
+        message="selected source mesh for edit recipe rebuild",
+        artifacts=(
+            Artifact(
+                kind=ArtifactKind.ORIGINAL_INPUT,
+                path=source_mesh,
+                label="Edit rebuild source mesh",
+                metadata={"parent_run_id": recipe.parent_run_id},
+            ),
+        ),
+        metrics={"source_mesh": source_mesh},
+    )
+    edit_receipt = write_scaled_ascii_stl_artifacts(
+        source_mesh,
+        layout.input_dir,
+        overall_scale=recipe.scale.overall,
+        axis_scale=(recipe.scale.x, recipe.scale.y, recipe.scale.z),
+        stem=f"{source_mesh.stem}_edit_recipe_source",
+        metadata=recipe_payload,
+    )
+    initial_stages = (source_receipt, edit_receipt)
+    semantic_warnings = _edit_recipe_warnings(recipe_payload)
+    if edit_receipt.status != StageStatus.SUCCEEDED:
+        result = _write_pipeline_reports(
+            layout,
+            stages=initial_stages,
+            warnings=(*semantic_warnings, edit_receipt.message),
+            material=material,
+            printer=printer,
+            use_case=use_case,
+            settings_changes=settings_changes,
+        )
+        raise PipelineError(edit_receipt.message, result)
+
+    edited_source = _first_artifact_path(edit_receipt, "original_input")
+    if edited_source is None:
+        message = "edit recipe did not produce a rebuild source mesh"
+        result = _write_pipeline_reports(
+            layout,
+            stages=initial_stages,
+            warnings=(*semantic_warnings, message),
+            material=material,
+            printer=printer,
+            use_case=use_case,
+            settings_changes=settings_changes,
+        )
+        raise PipelineError(message, result)
+
+    return run_existing_mesh_pipeline_on_layout(
+        layout,
+        source_mesh_path=edited_source,
+        initial_stages=initial_stages,
+        initial_warnings=semantic_warnings,
+        material=material,
+        printer=printer,
+        use_case=use_case,
+        settings_changes=settings_changes,
+        run_slice=run_slice,
+        slice_executable=slice_executable,
+    )
+
+
+def _resolve_edit_source_mesh(layout: RunLayout) -> Path:
+    if _is_ascii_stl_path(layout.original_input):
+        return layout.original_input
+
+    manifest = _read_json_mapping(layout.manifest_path)
+    parent_run = manifest.get("parent_run")
+    if not isinstance(parent_run, Mapping):
+        raise ValueError("edit run manifest does not record a parent run")
+    parent_root_value = parent_run.get("run_root")
+    if not isinstance(parent_root_value, str) or not parent_root_value:
+        raise ValueError("edit run manifest does not record a parent run root")
+
+    parent_root = Path(parent_root_value).expanduser().resolve()
+    parent_report = _read_json_mapping(parent_root / "80_reports" / "run_report.json")
+    artifacts = parent_report.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("parent run report does not contain artifacts")
+
+    for preferred_kind in ("oriented_mesh", "repaired_mesh", "generated_mesh"):
+        for artifact in artifacts:
+            if not isinstance(artifact, Mapping) or artifact.get("kind") != preferred_kind:
+                continue
+            path_value = artifact.get("path")
+            if not isinstance(path_value, str) or not path_value:
+                continue
+            candidate = Path(path_value)
+            if not candidate.is_absolute():
+                candidate = parent_root / candidate
+            if _is_ascii_stl_path(candidate):
+                return candidate
+
+    raise ValueError("parent run has no ASCII STL mesh artifact to rebuild from")
+
+
+def _is_ascii_stl_path(path: Path) -> bool:
+    return path.exists() and path.suffix.lower() == ".stl" and _can_read_ascii_stl(path)
+
+
+def _read_json_mapping(path: Path) -> Mapping[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"expected JSON object: {path}")
+    return payload
+
+
+def _edit_recipe_warnings(recipe_payload: Mapping[str, Any]) -> tuple[str, ...]:
+    intent = recipe_payload.get("geometry_intent")
+    targets = recipe_payload.get("targets_mm")
+    warnings: list[str] = []
+
+    if isinstance(intent, Mapping):
+        semantic_fields = (
+            "upper_width_delta_mm",
+            "opening_width_delta_mm",
+            "arch_height_delta_mm",
+            "wall_thickness_mm",
+        )
+        has_semantic_intent = any(
+            _nonzero_or_present(intent.get(field_name))
+            for field_name in semantic_fields
+        )
+        if has_semantic_intent:
+            warnings.append(
+                "edit_recipe: deterministic rebuild applied scale fields only; "
+                "upper/opening/arch/wall-thickness intent is recorded for review "
+                "but not semantically sculpted yet"
+            )
+
+    if isinstance(targets, Mapping) and any(
+        _nonzero_or_present(targets.get(field_name))
+        for field_name in ("length", "width", "height")
+    ):
+        warnings.append(
+            "edit_recipe: target dimensions are recorded for review but are not "
+            "used to resize geometry yet; set scale fields for deterministic resizing"
+        )
+
+    support_strategy = str(recipe_payload.get("support_strategy") or "auto")
+    if support_strategy != "auto":
+        warnings.append(
+            "edit_recipe: support strategy is recorded for bundling/review but "
+            "does not change geometry in deterministic rebuilds yet"
+        )
+
+    instruction = str(recipe_payload.get("instruction") or "").strip()
+    if instruction:
+        warnings.append(
+            "edit_recipe: freeform instruction is recorded for review but is "
+            "not semantically interpreted by deterministic rebuilds yet"
+        )
+
+    return tuple(warnings)
+
+
+def _nonzero_or_present(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, int | float):
+        return value != 0
+    return True
 
 
 def _meshgen_stage_receipt(result: MeshGenResult) -> StageReceipt:
@@ -511,5 +769,7 @@ __all__ = [
     "NON_MESH_MESHGEN_MESSAGE",
     "PipelineError",
     "PipelineResult",
+    "run_edit_recipe_pipeline",
     "run_existing_mesh_pipeline",
+    "run_existing_mesh_pipeline_on_layout",
 ]

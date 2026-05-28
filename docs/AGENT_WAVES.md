@@ -158,3 +158,91 @@ Status: F3 complete as a PrintPipe feature; successful live slicing remains bloc
 4. Done: slice receipts now include `slice_requested=true`, command, executable, checked candidates, logs, return code, warnings, errors, and G-code-derived estimates when available.
 5. Done: negative subprocess return codes are classified as signals, including `SIGSEGV` for Bambu Studio crashes.
 6. Found: Bambu Studio 02.06.00.51 on macOS 26.5 crashes with signal 11 for CLI `--slice` on both a PrintPipe `.3mf` and a direct tiny STL; follow-up F13 owns isolating that Bambu CLI/runtime issue.
+
+## Wave 15 - Run Detail Contract and Edit Recipes
+
+Status: complete. Outputs are covered by `tests/test_run_detail_contract.py`, `tests/test_edit_recipes.py`, and `tests/test_web_server.py`.
+
+1. Done: added a typed run-detail contract that reads manifest/report/artifact state into a workbench-friendly payload.
+2. Done: added non-destructive edit recipe objects for scale, target dimensions, geometry intent, support strategy, and freeform instruction.
+3. Done: edit runs are created as sibling run folders with `parent_run` metadata and `edit_recipe.json`.
+4. Done: validation keeps edit recipe values positive, bounded, and explicit.
+5. Done: run detail data now includes verdict, validation, pipeline, artifact, warning, and rebuild context.
+6. Done: existing web route data contract remains backward-compatible for recent runs and reports.
+
+## Wave 16 - Workbench UI Integration
+
+Status: complete. Outputs are covered by `tests/test_web_server.py` and browser verification against a local run route.
+
+1. Done: `/runs/<id>` renders the top-level "Can this run print?" verdict strip.
+2. Done: model workbench layout now uses preview tabs, a large model/bed area, risk markers, and bottom metrics.
+3. Done: edit sidebar includes input/mesh summary, slipper fit context, scale/target/opening/arch controls, support strategy, and rebuild action.
+4. Done: artifact links are kept near the edit/rebuild workflow.
+5. Done: CSS keeps the workbench responsive without copying prototype-only decorative code.
+6. Done: Cursor prototype hierarchy was incorporated into the live stdlib web route.
+
+## Wave 17 - Non-Destructive Edit Route
+
+Status: complete. Outputs are covered by `tests/test_web_server.py`, `tests/test_edit_recipes.py`, and `tests/test_run_detail_contract.py`.
+
+1. Done: web `POST /runs/<id>/edits` parses form fields into an `EditRecipe`.
+2. Done: edit submissions preserve the parent run and redirect to the child workbench.
+3. Done: parent inputs are copied into the child run without mutating parent artifacts.
+4. Done: rebuild metadata is visible in the run-detail contract.
+5. Done: edit controls are wired to stable field names for future semantic geometry work.
+6. Done: invalid edit submissions fail before creating misleading output.
+
+## Wave 18 - Rebuild From Edit Recipes
+
+Status: complete. Outputs are covered by `tests/test_pipeline_existing_mesh.py`, `tests/test_cli_run.py`, `tests/test_geometry_artifacts.py`, and `tests/test_web_server.py`.
+
+1. Done: `load_run()` reconstructs `RunLayout` from an existing run manifest.
+2. Done: existing-mesh pipeline can operate inside a pre-created run layout.
+3. Done: `run_edit_recipe_pipeline()` resolves edit source meshes from child input or parent artifacts.
+4. Done: deterministic edit rebuild applies scale fields to ASCII STL geometry and records a sidecar report.
+5. Done: unsupported semantic fields such as targets, support strategy, freeform instruction, and opening/arch/wall intent are preserved as warnings instead of fake geometry claims.
+6. Done: `printpipe rebuild-edit` rebuilds saved edit runs from the CLI.
+
+## Wave 19 - Deterministic Run Preview
+
+Status: complete. Outputs are covered by `tests/test_geometry.py`, `tests/test_pipeline_existing_mesh.py`, `tests/test_web_artifacts.py`, and browser verification.
+
+1. Done: added bounds-only `run_detail_model_preview.svg` and JSON sidecar artifacts.
+2. Done: existing-mesh and edit-rebuild pipelines emit the model preview into `40_geometry/`.
+3. Done: web artifact discovery prioritizes the model preview ahead of bed-fit/contact-sheet previews.
+4. Done: run detail embeds the SVG preview image when available, with the placeholder kept only as fallback.
+5. Done: preview JSON explicitly records `semantic_claim=false`.
+6. Done: browser verification showed the generated 960x600 SVG loading in the live workbench.
+
+## Wave 20 - Input Truth Receipts
+
+Status: complete. Outputs are covered by `tests/test_cli_run.py`, `tests/test_web_server.py`, and `tests/test_pipeline_existing_mesh.py`.
+
+1. Done: CLI media runs now write reports with a failed `meshgen` receipt and return nonzero instead of looking complete.
+2. Done: web media uploads still create a run and redirect to the report/workbench, but the report carries `meshgen=failed`.
+3. Done: README and architecture docs include a current input support table.
+4. Done: existing mesh remains the only end-to-end printable spine.
+5. Done: prompt-plus-image is documented as provider-contract-only.
+6. Done: prompt-only is documented as unsupported.
+
+## Wave 21 - Slice Crash Message Surfacing
+
+Status: complete. Outputs are covered by `tests/test_bambu_slicer.py`, `tests/test_pipeline_existing_mesh.py`, and `tests/test_cli_run.py`.
+
+1. Done: failed slice receipts promote the first classified slicer error into the stage message.
+2. Done: signal crashes now surface as messages such as `Bambu CLI slice failed: slicer terminated by signal 11 (SIGSEGV).`
+3. Done: pipeline warnings and CLI errors inherit the concrete slice failure reason.
+4. Done: run-detail readiness reads real slice `return_code` and `errors`, not only synthetic `slice_success` metrics.
+5. Done: raw slice JSON metrics still preserve the full warning/error tuple.
+6. Remaining: F13 still owns isolating or bypassing the Bambu Studio 2.6.00.51/macOS 26.5 CLI crash itself.
+
+## Wave 22 - Documentation and GitHub Sync
+
+Status: complete for this pass once the orchestrator commit is pushed. Outputs are covered by the full test suite and this ledger.
+
+1. Done: updated roadmap/backlog to reflect Waves 15 through 21.
+2. Done: kept Cursor prototypes and UI reference review as design artifacts rather than rewriting them into app code blindly.
+3. Done: verified full test suite after each high-risk integration wave.
+4. Done: left Bambu CLI segfault as an explicit open frontier, not a hidden failure.
+5. Done: prepared all current work for a single GitHub commit.
+6. Next: continue with F4/F13 or physical/beta validation after this push.

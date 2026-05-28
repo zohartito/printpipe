@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PrintPipe Run Detail - Variant B</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --bg: #e9e2d7;
+      --paper: #f8f4ed;
+      --ink: #211b16;
+      --muted: #6f6256;
+      --line: #cfc2b4;
+      --tool: #fffaf2;
+      --blue: #246b8f;
+      --green: #297853;
+      --amber: #aa6a19;
+      --red: #a33232;
+      --shadow: 0 18px 50px rgba(56, 42, 28, 0.16);
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Avenir Next, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.82), transparent 38rem),
+        linear-gradient(135deg, #f0eadf 0%, var(--bg) 56%, #d9d0c4 100%);
+      line-height: 1.45;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    button, input, select, textarea { font: inherit; }
+    .app {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      padding: 18px clamp(18px, 3vw, 36px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(248,244,237,0.82);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      margin-bottom: 4px;
+      font-size: clamp(24px, 2.4vw, 38px);
+      letter-spacing: -0.04em;
+    }
+    .run-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .status-chip {
+      align-self: center;
+      border: 1px solid rgba(170,106,25,0.45);
+      background: #fff2d8;
+      color: var(--amber);
+      padding: 9px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .workbench {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(330px, 410px);
+      gap: clamp(14px, 2vw, 24px);
+      padding: clamp(14px, 2vw, 24px);
+      max-width: 1620px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    .canvas-zone {
+      display: grid;
+      grid-template-rows: minmax(420px, 1fr) auto;
+      gap: 14px;
+      min-width: 0;
+    }
+    .model-card {
+      border: 1px solid var(--line);
+      background: #fdf9f2;
+      box-shadow: var(--shadow);
+      min-height: 520px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+    }
+    .view-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--muted);
+      padding: 7px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .tab.active {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fff8ea;
+    }
+    .model-view {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(90deg, rgba(36,107,143,0.12) 1px, transparent 1px) 0 0 / 42px 42px,
+        linear-gradient(rgba(36,107,143,0.10) 1px, transparent 1px) 0 0 / 42px 42px,
+        radial-gradient(circle at 50% 44%, rgba(36,107,143,0.13), transparent 34%);
+    }
+    .bed {
+      position: absolute;
+      width: min(78%, 820px);
+      height: min(46%, 420px);
+      bottom: 9%;
+      border: 2px solid rgba(36,107,143,0.38);
+      border-radius: 18px;
+      transform: perspective(920px) rotateX(62deg);
+      background: rgba(255,255,255,0.28);
+    }
+    .model {
+      position: relative;
+      width: min(52vw, 640px);
+      aspect-ratio: 1.55;
+      z-index: 1;
+      border: 3px solid rgba(33,27,22,0.68);
+      border-radius: 42% 38% 24% 28%;
+      clip-path: polygon(8% 80%, 11% 43%, 33% 16%, 68% 13%, 91% 45%, 94% 80%, 75% 88%, 52% 70%, 28% 88%);
+      background:
+        radial-gradient(circle at 50% 68%, transparent 0 17%, rgba(248,244,237,0.95) 18% 27%, transparent 28%),
+        linear-gradient(135deg, rgba(36,107,143,0.34), rgba(255,255,255,0.55)),
+        repeating-linear-gradient(24deg, rgba(33,27,22,0.18) 0 1px, transparent 1px 19px);
+      box-shadow: 0 26px 65px rgba(33,27,22,0.22);
+    }
+    .measure {
+      position: absolute;
+      border: 1px dashed rgba(33,27,22,0.5);
+      color: var(--ink);
+      background: rgba(255,250,242,0.84);
+      padding: 4px 7px;
+      font-family: var(--mono);
+      font-size: 12px;
+      z-index: 2;
+    }
+    .measure.x { bottom: 16%; left: 25%; }
+    .measure.z { right: 15%; top: 29%; }
+    .model-footer {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      border-top: 1px solid var(--line);
+      background: var(--line);
+    }
+    .metric {
+      background: var(--paper);
+      padding: 12px;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .metric strong { font-size: 18px; }
+    .lower-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .card, .controls {
+      border: 1px solid var(--line);
+      background: rgba(248,244,237,0.9);
+      box-shadow: 0 10px 32px rgba(56,42,28,0.08);
+    }
+    .card h2, .controls h2 {
+      margin: 0;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 15px;
+    }
+    .card-body, .controls-body {
+      padding: 14px;
+      display: grid;
+      gap: 13px;
+    }
+    .stage-rail {
+      display: grid;
+      gap: 8px;
+    }
+    .stage {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .stage:last-child { border-bottom: 0; }
+    .node {
+      width: 14px;
+      height: 14px;
+      margin-top: 3px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .node.warn { background: var(--amber); }
+    .node.fail { background: var(--red); }
+    .stage h3 { margin-bottom: 2px; font-size: 14px; }
+    .stage p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+    .badge {
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .pass { background: #dceee5; color: var(--green); }
+    .warn-b { background: #f9e7c5; color: var(--amber); }
+    .fail-b { background: #f4d6d6; color: var(--red); }
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--tool);
+      color: var(--ink);
+      padding: 9px 10px;
+    }
+    textarea { min-height: 96px; resize: vertical; text-transform: none; }
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: var(--tool);
+      text-transform: none;
+      color: var(--ink);
+    }
+    .toggle input { width: auto; }
+    .primary {
+      border: 0;
+      border-radius: 14px;
+      background: var(--blue);
+      color: white;
+      cursor: pointer;
+      font-weight: 900;
+      padding: 12px 14px;
+      width: 100%;
+    }
+    .input-card {
+      border-left: 5px solid var(--blue);
+      padding-left: 12px;
+    }
+    .input-card p { margin-bottom: 6px; color: var(--muted); }
+    .links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+    }
+    .links a {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--tool);
+      padding: 10px;
+      font-weight: 800;
+    }
+    @media (max-width: 1120px) {
+      .workbench { grid-template-columns: 1fr; }
+      .controls { order: -1; }
+    }
+    @media (max-width: 760px) {
+      header, .lower-grid, .model-footer, .control-grid { grid-template-columns: 1fr; }
+      .model-card { min-height: 430px; }
+      .model { width: 78vw; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <p class="eyebrow">PrintPipe / visual workbench</p>
+        <h1>Arched phone stand rebuild</h1>
+        <div class="run-meta">
+          <span>run_2026-05-25_arched-phone-stand</span>
+          <span>image + prompt</span>
+          <span>Bambu Lab P2S</span>
+          <span>PLA Matte White</span>
+        </div>
+      </div>
+      <div class="status-chip">Needs geometry or support decision</div>
+    </header>
+
+    <section class="workbench">
+      <div class="canvas-zone">
+        <article class="model-card">
+          <div class="toolbar">
+            <div class="view-tabs" aria-label="Preview modes">
+              <button class="tab active" type="button">Model</button>
+              <button class="tab" type="button">Bed Fit</button>
+              <button class="tab" type="button">Support Risk</button>
+              <button class="tab" type="button">Slice</button>
+            </div>
+            <p class="eyebrow">oriented.stl / preview placeholder</p>
+          </div>
+          <figure class="model-view" aria-label="Large generated model preview placeholder">
+            <div class="bed"></div>
+            <div class="model"></div>
+            <figcaption class="measure x">length 118.0 mm</figcaption>
+            <figcaption class="measure z">height 92.3 mm</figcaption>
+          </figure>
+          <div class="model-footer">
+            <div class="metric"><span>Mesh</span><strong>Watertight</strong></div>
+            <div class="metric"><span>Bed margin</span><strong>34.5 mm</strong></div>
+            <div class="metric"><span>Risk zone</span><strong>Arch underside</strong></div>
+            <div class="metric"><span>Slice gate</span><strong>Blocked</strong></div>
+          </div>
+        </article>
+
+        <div class="lower-grid">
+          <article class="card">
+            <h2>Pipeline</h2>
+            <div class="card-body stage-rail">
+              <div class="stage"><span class="node"></span><div><h3>Input / reference</h3><p>Still reference selected and prompt stored.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node"></span><div><h3>Mesh generation</h3><p>Draft OBJ generated from image and geometry intent.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node"></span><div><h3>Repair</h3><p>3 pinholes filled, 0 boundary edges remain.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node"></span><div><h3>Orient / scale</h3><p>Flat base found, target size applied.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node"></span><div><h3>Print profile</h3><p>PLA 0.20 profile is internally consistent.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node"></span><div><h3>3MF bundle</h3><p>Bambu metadata validates and bundle opens.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node fail"></span><div><h3>Slice report</h3><p>Blocked by unsupported arch underside risk.</p></div><span class="badge fail-b">fail</span></div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h2>Validation Results</h2>
+            <div class="card-body stage-rail">
+              <div class="stage"><span class="node"></span><div><h3>Manifold / watertight</h3><p>0 non-manifold edges, 0 holes.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node"></span><div><h3>Bed fit</h3><p>118 x 78 footprint fits P2S with 34.5 mm margin.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node"></span><div><h3>Material/profile sanity</h3><p>PLA profile has valid nozzle, temp, speed enums.</p></div><span class="badge pass">pass</span></div>
+              <div class="stage"><span class="node warn"></span><div><h3>Support risk</h3><p>62 degree underside crosses support policy.</p></div><span class="badge warn-b">warn</span></div>
+              <div class="stage"><span class="node fail"></span><div><h3>Slice success</h3><p>Slice gate blocked until edit recipe is rebuilt.</p></div><span class="badge fail-b">fail</span></div>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <aside class="controls">
+        <h2>Edit Geometry</h2>
+        <div class="controls-body">
+          <section class="input-card">
+            <h3>Input prompt / mesh summary</h3>
+            <p>“Minimal arched desk stand for a phone, cable pass-through, flat base, 2.5 mm walls.”</p>
+            <p>Reference image: <a href="#">arched-stand-reference.png</a></p>
+            <p>Current mesh: 148k triangles, repaired to watertight STL.</p>
+          </section>
+
+          <div class="control-grid">
+            <label>Overall scale <input type="number" value="1.00" step="0.01"></label>
+            <label>X scale <input type="number" value="1.00" step="0.01"></label>
+            <label>Y scale <input type="number" value="1.00" step="0.01"></label>
+            <label>Z scale <input type="number" value="1.00" step="0.01"></label>
+            <label>Target length <input type="number" value="118" step="0.1"></label>
+            <label>Target width <input type="number" value="78" step="0.1"></label>
+            <label>Target height <input type="number" value="92" step="0.1"></label>
+            <label>Wall thickness <input type="number" value="2.5" step="0.1"></label>
+          </div>
+          <label>Widen / narrow opening <input id="opening" type="range" min="-12" max="12" value="4"></label>
+          <label>Raise / lower arch/opening <input id="arch" type="range" min="-10" max="16" value="6"></label>
+          <label class="toggle">Flat base toggle <input type="checkbox" checked></label>
+          <label>Support strategy
+            <select>
+              <option>Auto tree supports under arch only</option>
+              <option>Prefer geometry edit, avoid supports</option>
+              <option>Allow full supports</option>
+              <option>Fail if supports required</option>
+            </select>
+          </label>
+          <label>Freeform edit instruction
+            <textarea>Make the arch opening taller, thicken the rear ribs, and preserve the flat bottom face.</textarea>
+          </label>
+          <button class="primary" id="rebuild" type="button">Rebuild from edits</button>
+          <p id="recipe" class="run-meta">Recipe preview: opening +4 mm, arch +6 mm.</p>
+
+          <section>
+            <h3>Artifact Links</h3>
+            <div class="links">
+              <a href="#">Original mesh</a>
+              <a href="#">Repaired mesh</a>
+              <a href="#">Final STL</a>
+              <a href="#">3MF</a>
+              <a href="#">Slice report</a>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const opening = document.querySelector("#opening");
+    const arch = document.querySelector("#arch");
+    const recipe = document.querySelector("#recipe");
+    const updateRecipe = () => {
+      recipe.textContent = `Recipe preview: opening ${Number(opening.value) >= 0 ? "+" : ""}${opening.value} mm, arch ${Number(arch.value) >= 0 ? "+" : ""}${arch.value} mm.`;
+    };
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+        tab.classList.add("active");
+      });
+    });
+    opening.addEventListener("input", updateRecipe);
+    arch.addEventListener("input", updateRecipe);
+    document.querySelector("#rebuild").addEventListener("click", () => {
+      recipe.textContent += " Mock rebuild submitted.";
+    });
+  </script>
+</body>
+</html>

@@ -120,6 +120,115 @@ def write_oriented_ascii_stl_artifacts(
     )
 
 
+def write_scaled_ascii_stl_artifacts(
+    input_path: str | Path,
+    output_dir: str | Path,
+    *,
+    overall_scale: float = 1.0,
+    axis_scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    stem: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> StageReceipt:
+    """Apply deterministic axis scale to an ASCII STL for edit-run rebuilds."""
+
+    source_path = Path(input_path)
+    output_path = Path(output_dir)
+
+    try:
+        if overall_scale <= 0.0:
+            raise ValueError("overall_scale must be positive")
+        if any(scale <= 0.0 for scale in axis_scale):
+            raise ValueError("axis_scale values must be positive")
+        source_triangles = _read_ascii_stl_triangles(source_path)
+    except ValueError as exc:
+        return StageReceipt(
+            stage="geometry.apply_edit_recipe",
+            status=StageStatus.FAILED,
+            message=str(exc),
+            metrics={
+                "input_path": str(source_path),
+                "overall_scale": overall_scale,
+                "axis_scale": axis_scale,
+            },
+        )
+
+    source_vertices = tuple(vertex for triangle in source_triangles for vertex in triangle)
+    source_bounds = compute_bounds(source_vertices)
+    sx, sy, sz = axis_scale
+    scaled_vertices = tuple(
+        (
+            _clean_float((x - source_bounds.center_x) * overall_scale * sx),
+            _clean_float((y - source_bounds.center_y) * overall_scale * sy),
+            _clean_float((z - source_bounds.min_z) * overall_scale * sz),
+        )
+        for x, y, z in source_vertices
+    )
+    scaled_bounds = compute_bounds(scaled_vertices)
+    scaled_triangles = _group_triangles(scaled_vertices)
+
+    output_path.mkdir(parents=True, exist_ok=True)
+    mesh_stem = stem if stem is not None else f"{source_path.stem}_edit"
+    sidecar_stem = f"{mesh_stem}_edit_recipe"
+    mesh_path = output_path / f"{mesh_stem}.stl"
+    sidecar_path = output_path / f"{sidecar_stem}.json"
+    _write_ascii_stl(mesh_path, mesh_stem, scaled_triangles)
+
+    mesh_artifact = Artifact(
+        kind=ArtifactKind.ORIGINAL_INPUT,
+        path=mesh_path,
+        label="Edit recipe source STL",
+        metadata={
+            "format": "ascii_stl",
+            "source_path": str(source_path),
+        },
+    )
+    sidecar_artifact = Artifact(
+        kind=ArtifactKind.REPORT,
+        path=sidecar_path,
+        label="Edit recipe transform JSON",
+        metadata={"format": "json"},
+    )
+    metrics: dict[str, Any] = {
+        "input_format": "ascii_stl",
+        "overall_scale": float(overall_scale),
+        "axis_scale": {
+            "x": float(sx),
+            "y": float(sy),
+            "z": float(sz),
+        },
+        "transform_order": "center_xy_scale_axes_drop_z",
+        "triangle_count": len(scaled_triangles),
+        "vertex_count": len(scaled_vertices),
+        "source_bounds_mm": _bounds_to_dict(source_bounds),
+        "edited_bounds_mm": _bounds_to_dict(scaled_bounds),
+        "semantic_geometry_applied": False,
+    }
+    if metadata:
+        metrics["edit_recipe"] = metadata
+    payload = {
+        "input_path": str(source_path),
+        "output_mesh_path": str(mesh_path),
+        "metrics": metrics,
+        "artifacts": (
+            _artifact_to_dict(mesh_artifact),
+            _artifact_to_dict(sidecar_artifact),
+        ),
+        "heuristics": {
+            "basis": "ascii_stl_vertices_only",
+            "semantic_claim": False,
+        },
+    }
+    sidecar_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    return StageReceipt(
+        stage="geometry.apply_edit_recipe",
+        status=StageStatus.SUCCEEDED,
+        message="applied deterministic edit-recipe axis scale to ASCII STL",
+        artifacts=(mesh_artifact, sidecar_artifact),
+        metrics=metrics,
+    )
+
+
 def _read_ascii_stl_triangles(input_path: Path) -> tuple[Triangle, ...]:
     if input_path.suffix.lower() != ".stl":
         raise ValueError("only ASCII .stl inputs are supported")
@@ -230,4 +339,3 @@ def _clean_float(value: float) -> float:
     if math.isclose(value, nearest_int, abs_tol=1e-12):
         return float(nearest_int)
     return value
-

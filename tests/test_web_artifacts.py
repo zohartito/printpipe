@@ -141,6 +141,7 @@ def test_discover_run_artifacts_includes_geometry_frame_bundle_and_slice_outputs
     paths = (
         run_root / "10_frames" / "contact_sheet.html",
         run_root / "40_geometry" / "shoe_oriented.stl",
+        run_root / "40_geometry" / "run_detail_model_preview.svg",
         run_root / "40_geometry" / "bed_fit.svg",
         run_root / "60_bundle" / "shoe.3mf",
         run_root / "70_slice" / "slice_result.json",
@@ -165,6 +166,11 @@ def test_discover_run_artifacts_includes_geometry_frame_bundle_and_slice_outputs
         ("bundle", "Bambu bundle", "60_bundle/shoe.3mf"),
         ("slice_log", "Slice result JSON", "70_slice/slice_result.json"),
         ("slice_log", "Bambu slicer stdout log", "70_slice/bambu_slice_stdout.log"),
+        (
+            "preview",
+            "Run detail model SVG preview",
+            "40_geometry/run_detail_model_preview.svg",
+        ),
         ("preview", "Bed fit SVG preview", "40_geometry/bed_fit.svg"),
         ("preview", "Contact sheet HTML preview", "10_frames/contact_sheet.html"),
     ]
@@ -172,7 +178,8 @@ def test_discover_run_artifacts_includes_geometry_frame_bundle_and_slice_outputs
     assert links[3].media_type == "model/3mf"
     assert links[4].media_type == "application/json"
     assert links[6].media_type == "image/svg+xml"
-    assert links[7].media_type == "text/html"
+    assert links[7].media_type == "image/svg+xml"
+    assert links[8].media_type == "text/html"
 
 
 def test_resolve_artifact_request_rejects_traversal_and_symlink_escape(tmp_path: Path):

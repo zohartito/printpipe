@@ -728,6 +728,74 @@ def write_bed_fit_preview_artifacts(
     )
 
 
+def write_run_detail_model_preview_artifacts(
+    candidate_or_bounds: OrientationCandidate | Bounds3D | Iterable[Sequence[float]],
+    bed: BedSize,
+    output_dir: str | Path,
+    *,
+    stem: str = "run_detail_model_preview",
+) -> StageReceipt:
+    """Write a deterministic bounds-only model preview for run-detail UI."""
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    svg_path = output_path / f"{stem}.svg"
+    json_path = output_path / f"{stem}.json"
+
+    if isinstance(candidate_or_bounds, OrientationCandidate):
+        bounds = candidate_or_bounds.bounds
+        rotation_degrees = candidate_or_bounds.rotation_degrees
+    else:
+        bounds = _coerce_bounds(candidate_or_bounds)
+        rotation_degrees = None
+    bed_fit = fits_bed(bounds, bed)
+    payload = {
+        "bed": _bed_to_dict(bed),
+        "bounds": _bounds_to_dict(bounds),
+        "fit": _bed_fit_to_dict(bed_fit),
+        "orientation": {"rotation_degrees": rotation_degrees},
+        "preview": {
+            "kind": "run_detail_model_preview",
+            "projection": "bounds_only_isometric",
+        },
+        "heuristics": {
+            "basis": "bounds_only",
+            "semantic_claim": False,
+        },
+    }
+
+    svg_path.write_text(_render_run_detail_model_svg(bounds, bed, bed_fit), encoding="utf-8")
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    return StageReceipt(
+        stage="geometry.write_run_detail_model_preview_artifacts",
+        status=StageStatus.SUCCEEDED,
+        message="wrote deterministic run-detail model preview artifacts",
+        artifacts=(
+            Artifact(
+                kind=ArtifactKind.PREVIEW,
+                path=svg_path,
+                label="Run detail model SVG preview",
+                metadata={"format": "svg", "projection": "bounds_only_isometric"},
+            ),
+            Artifact(
+                kind=ArtifactKind.REPORT,
+                path=json_path,
+                label="Run detail model preview JSON",
+                metadata={"format": "json"},
+            ),
+        ),
+        metrics={
+            "fits": bed_fit.fits,
+            "bounds_mm": bounds.extents,
+            "min_margin_mm": bed_fit.min_margin_mm,
+            "rotation_degrees": rotation_degrees,
+            "basis": "bounds_only",
+            "semantic_claim": False,
+        },
+    )
+
+
 def _coerce_bounds(
     bounds_or_vertices: Bounds3D | Iterable[Sequence[float]],
 ) -> Bounds3D:
@@ -819,6 +887,74 @@ def _render_bed_fit_svg(bounds: Bounds3D, bed: BedSize, bed_fit: BedFitResult) -
             'fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 3" />',
             f'  <rect x="{part_x}" y="{part_y}" width="{part_width}" height="{part_depth}" '
             f'fill="{part_fill}" fill-opacity="0.28" stroke="{part_stroke}" stroke-width="2" />',
+            "</svg>",
+            "",
+        )
+    )
+
+
+def _render_run_detail_model_svg(bounds: Bounds3D, bed: BedSize, bed_fit: BedFitResult) -> str:
+    width = 960.0
+    height = 600.0
+    bed_scale = min(760.0 / bed.width_mm, 310.0 / bed.depth_mm)
+    bed_w = bed.width_mm * bed_scale
+    bed_d = bed.depth_mm * bed_scale
+    bed_x = (width - bed_w) / 2.0
+    bed_y = 250.0
+    part_w = min(bed_w, bounds.width_x * bed_scale)
+    part_d = min(bed_d, bounds.depth_y * bed_scale)
+    part_x = bed_x + ((bed_w - part_w) / 2.0)
+    part_y = bed_y + ((bed_d - part_d) / 2.0)
+    part_h = max(24.0, min(140.0, bounds.height_z * bed_scale * 0.8))
+    part_fill = "#dbeaf1" if bed_fit.fits else "#f6d5d5"
+    part_stroke = "#327d9e" if bed_fit.fits else "#b42323"
+    label = (
+        f"{_svg_float(bounds.width_x)} x {_svg_float(bounds.depth_y)} x "
+        f"{_svg_float(bounds.height_z)} mm"
+    )
+
+    return "\n".join(
+        (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            f'viewBox="0 0 {_svg_float(width)} {_svg_float(height)}" '
+            'width="960" height="600" role="img" aria-labelledby="title desc">',
+            '  <title id="title">Run detail model preview</title>',
+            '  <desc id="desc">Deterministic bounds-only model preview with bed footprint.</desc>',
+            "  <defs>",
+            '    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">',
+            '      <path d="M 28 0 L 0 0 0 28" fill="none" stroke="#d4dde5" stroke-width="1"/>',
+            "    </pattern>",
+            "  </defs>",
+            '  <rect width="960" height="600" fill="#f8fafc"/>',
+            '  <rect width="960" height="600" fill="url(#grid)" opacity="0.75"/>',
+            f'  <polygon points="{_svg_float(bed_x)},{_svg_float(bed_y + bed_d)} '
+            f'{_svg_float(bed_x + 95)},{_svg_float(bed_y)} '
+            f'{_svg_float(bed_x + bed_w)},{_svg_float(bed_y)} '
+            f'{_svg_float(bed_x + bed_w - 95)},{_svg_float(bed_y + bed_d)}" '
+            'fill="#ffffff" fill-opacity="0.45" stroke="#7aaabe" stroke-width="2"/>',
+            f'  <ellipse cx="{_svg_float(part_x + part_w / 2.0)}" '
+            f'cy="{_svg_float(part_y + part_d / 2.0)}" '
+            f'rx="{_svg_float(max(18.0, part_w / 2.0))}" '
+            f'ry="{_svg_float(max(12.0, part_d / 2.0))}" '
+            f'fill="{part_fill}" stroke="{part_stroke}" stroke-width="4" opacity="0.82"/>',
+            f'  <ellipse cx="{_svg_float(part_x + part_w * 0.62)}" '
+            f'cy="{_svg_float(part_y + part_d * 0.45)}" '
+            f'rx="{_svg_float(max(12.0, part_w * 0.18))}" '
+            f'ry="{_svg_float(max(8.0, part_d * 0.18))}" '
+            'fill="#ffffff" fill-opacity="0.78"/>',
+            f'  <path d="M {_svg_float(part_x + part_w * 0.12)} {_svg_float(part_y + part_d * 0.58)} '
+            f'C {_svg_float(part_x + part_w * 0.35)} {_svg_float(part_y + part_d * 0.28)}, '
+            f'{_svg_float(part_x + part_w * 0.65)} {_svg_float(part_y + part_d * 0.28)}, '
+            f'{_svg_float(part_x + part_w * 0.88)} {_svg_float(part_y + part_d * 0.55)}" '
+            f'fill="none" stroke="{part_stroke}" stroke-width="{_svg_float(max(5.0, part_h / 18.0))}" '
+            'stroke-linecap="round" opacity="0.62"/>',
+            f'  <text x="40" y="52" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" '
+            'font-size="18" font-weight="700" fill="#17202a">Bounds-only run preview</text>',
+            f'  <text x="40" y="84" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" '
+            f'font-size="15" fill="#52606d">{label}</text>',
+            f'  <text x="40" y="112" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" '
+            f'font-size="15" fill="#52606d">bed fit: {"pass" if bed_fit.fits else "fail"}, '
+            f'min margin {_svg_float(bed_fit.min_margin_mm)} mm</text>',
             "</svg>",
             "",
         )

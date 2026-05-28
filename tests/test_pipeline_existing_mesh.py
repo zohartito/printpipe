@@ -7,7 +7,8 @@ import pytest
 
 import printpipe.pipeline as pipeline_module
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
-from printpipe.pipeline import PipelineError, run_existing_mesh_pipeline
+from printpipe.pipeline import PipelineError, run_edit_recipe_pipeline, run_existing_mesh_pipeline
+from printpipe.runs.editing import EditRecipe, EditScale, EditTargets, GeometryIntent, create_edit_run
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "objects" / "existing_stl_pipeline"
@@ -67,6 +68,9 @@ def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_repor
     assert stages["mesh_repair"].status == StageStatus.SUCCEEDED
     assert stages["geometry.write_oriented_ascii_stl_artifacts"].status == StageStatus.SUCCEEDED
     assert stages["geometry.write_bed_fit_preview_artifacts"].status == StageStatus.SUCCEEDED
+    assert stages["geometry.write_run_detail_model_preview_artifacts"].status == (
+        StageStatus.SUCCEEDED
+    )
     assert stages["bundle"].status == StageStatus.SUCCEEDED
     assert stages["bundle_validation"].status == StageStatus.SUCCEEDED
     assert stages["slice"].status == StageStatus.SKIPPED
@@ -82,6 +86,8 @@ def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_repor
     oriented_mesh = result.layout.geometry_dir / "tiny_tetrahedron_oriented.stl"
     bed_fit_svg = result.layout.reports_dir / "bed_fit.svg"
     bed_fit_json = result.layout.reports_dir / "bed_fit.json"
+    model_preview_svg = result.layout.geometry_dir / "run_detail_model_preview.svg"
+    model_preview_json = result.layout.geometry_dir / "run_detail_model_preview.json"
     bundle = result.layout.bundle_dir / "existing_stl_tiny_tetrahedron.3mf"
     bundle_validation = result.layout.bundle_dir / "existing_stl_tiny_tetrahedron_bundle_validation.json"
 
@@ -92,6 +98,8 @@ def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_repor
     assert oriented_mesh in artifact_paths
     assert bed_fit_svg in artifact_paths
     assert bed_fit_json in artifact_paths
+    assert model_preview_svg in artifact_paths
+    assert model_preview_json in artifact_paths
     assert bundle in artifact_paths
     assert bundle_validation in artifact_paths
     assert result.layout.reports_dir / "run_report.json" in artifact_paths
@@ -106,6 +114,7 @@ def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_repor
     assert ("mesh_repair", "succeeded") in report_stages
     assert ("geometry.write_oriented_ascii_stl_artifacts", "succeeded") in report_stages
     assert ("geometry.write_bed_fit_preview_artifacts", "succeeded") in report_stages
+    assert ("geometry.write_run_detail_model_preview_artifacts", "succeeded") in report_stages
     assert ("bundle", "succeeded") in report_stages
     assert ("bundle_validation", "succeeded") in report_stages
     assert ("slice", "skipped") in report_stages
@@ -113,10 +122,70 @@ def test_existing_mesh_pipeline_imports_repairs_orients_bundles_and_writes_repor
     assert ("generated_mesh", "20_meshgen/tiny_tetrahedron.stl") in report_artifacts
     assert ("repaired_mesh", "30_repair/tiny_tetrahedron_repaired.stl") in report_artifacts
     assert ("oriented_mesh", "40_geometry/tiny_tetrahedron_oriented.stl") in report_artifacts
+    assert ("preview", "40_geometry/run_detail_model_preview.svg") in report_artifacts
+    assert ("report", "40_geometry/run_detail_model_preview.json") in report_artifacts
     assert ("3mf", "60_bundle/existing_stl_tiny_tetrahedron.3mf") in report_artifacts
     assert report["pre_print_checklist"]
     assert {item["id"] for item in report["pre_print_checklist"]} >= {"slice_gate", "layer_preview"}
     assert (result.layout.reports_dir / "run_report.html").exists()
+
+
+def test_edit_recipe_pipeline_rebuilds_child_run_without_touching_parent(tmp_path: Path):
+    parent = run_existing_mesh_pipeline(STL_FIXTURE, tmp_path / "runs")
+    parent_bundle = parent.layout.bundle_dir / "existing_stl_tiny_tetrahedron.3mf"
+    parent_bundle_bytes = parent_bundle.read_bytes()
+    recipe = EditRecipe(
+        parent_run_id=parent.layout.run_id,
+        scale=EditScale(y=1.25),
+        targets_mm=EditTargets(length=60.0, width=40.0),
+        geometry_intent=GeometryIntent(opening_width_delta_mm=8.0),
+        support_strategy="snug_tree_auto",
+        instruction="widen the opening without changing the sole length",
+    )
+    edit_layout = create_edit_run(parent.layout.root, recipe)
+
+    result = run_edit_recipe_pipeline(edit_layout.root)
+
+    assert result.layout.root == edit_layout.root
+    assert parent_bundle.read_bytes() == parent_bundle_bytes
+    assert (edit_layout.bundle_dir / "existing_stl_tiny_tetrahedron_edit_recipe_source.3mf").exists()
+    stages = {receipt.stage: receipt for receipt in result.stages}
+    assert stages["edit_recipe.source_mesh"].status == StageStatus.SUCCEEDED
+    assert stages["geometry.apply_edit_recipe"].status == StageStatus.SUCCEEDED
+    assert stages["meshgen"].status == StageStatus.SUCCEEDED
+    assert stages["bundle"].status == StageStatus.SUCCEEDED
+
+    report = json.loads((edit_layout.reports_dir / "run_report.json").read_text(encoding="utf-8"))
+    assert ("geometry.apply_edit_recipe", "succeeded") in {
+        (stage["stage"], stage["status"]) for stage in report["stages"]
+    }
+    assert any(
+        "deterministic rebuild applied scale fields only" in warning
+        for warning in report["warnings"]
+    )
+    assert report["settings_changes"][0]["edit_recipe"]["scale"]["y"] == 1.25
+    assert report["settings_changes"][0]["edit_recipe"]["support_strategy"] == "snug_tree_auto"
+
+
+def test_edit_recipe_pipeline_warns_for_recorded_but_unapplied_edit_fields(
+    tmp_path: Path,
+):
+    parent = run_existing_mesh_pipeline(STL_FIXTURE, tmp_path / "runs")
+    recipe = EditRecipe(
+        parent_run_id=parent.layout.run_id,
+        targets_mm=EditTargets(length=60.0, width=40.0),
+        support_strategy="snug_tree_auto",
+        instruction="make the opening roomier",
+    )
+    edit_layout = create_edit_run(parent.layout.root, recipe)
+
+    result = run_edit_recipe_pipeline(edit_layout.root)
+
+    report = json.loads((result.layout.reports_dir / "run_report.json").read_text(encoding="utf-8"))
+    warnings = "\n".join(report["warnings"])
+    assert "target dimensions are recorded for review" in warnings
+    assert "support strategy is recorded for bundling/review" in warnings
+    assert "freeform instruction is recorded for review" in warnings
 
 
 def test_existing_mesh_pipeline_runs_requested_slice_and_reports_success(
@@ -174,7 +243,7 @@ def test_existing_mesh_pipeline_preserves_requested_slice_failure_report(
         return StageReceipt(
             stage="slice",
             status=StageStatus.FAILED,
-            message="Bambu CLI slice failed.",
+            message="Bambu CLI slice failed: slicer terminated by signal 11 (SIGSEGV).",
             artifacts=(Artifact(ArtifactKind.SLICE_LOG, slice_result, "Slice result JSON"),),
             metrics={
                 "slice_requested": True,
@@ -185,7 +254,7 @@ def test_existing_mesh_pipeline_preserves_requested_slice_failure_report(
 
     monkeypatch.setattr(pipeline_module, "run_bambu_cli_slice_stage", fake_slice_stage)
 
-    with pytest.raises(PipelineError, match="Bambu CLI slice failed.") as raised:
+    with pytest.raises(PipelineError, match="slicer terminated by signal 11") as raised:
         run_existing_mesh_pipeline(STL_FIXTURE, tmp_path / "runs", run_slice=True)
 
     result = raised.value.result
@@ -202,7 +271,9 @@ def test_existing_mesh_pipeline_preserves_requested_slice_failure_report(
     assert ("slice_log", "70_slice/slice_result.json") in {
         (artifact["kind"], artifact["path"]) for artifact in report["artifacts"]
     }
-    assert "Bambu CLI slice failed." in report["warnings"]
+    assert "Bambu CLI slice failed: slicer terminated by signal 11 (SIGSEGV)." in (
+        report["warnings"]
+    )
     checklist = {item["id"]: item for item in report["pre_print_checklist"]}
     assert checklist["slice_gate"]["status"] == "failed"
 

@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 13: 121 done, 21 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 22: 122 done, 20 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -51,7 +51,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 - [x] 30. Store profile JSONs.
 - [x] 31. Store `.3mf`.
 - [x] 32. Store slice logs.
-- [~] 33. Store screenshots/previews.
+- [x] 33. Store screenshots/previews.
 - [x] 34. Store final run report.
 
 ## Phase 4 - Input Processing
@@ -206,7 +206,7 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 14 tightened the live slice gate: `printpipe run --slice` deliberately invokes Bambu Studio CLI, records slice receipts/logs, preserves report paths on failure, and parses G-code estimate headers when produced. Bambu Studio 2.6.00.51 on this macOS 26.5 machine currently segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
+Wave 22 leaves the product in an honest local-app state: existing mesh inputs run end-to-end into repaired/oriented geometry, deterministic previews, Bambu `.3mf`, reports, and optional slice-gate receipts. Image/GIF/video inputs create reference artifacts but now fail `meshgen` explicitly until F4 wires real media-to-mesh orchestration. Bambu Studio 2.6.00.51 on this macOS 26.5 machine still segfaults on CLI slicing even for a direct tiny STL, so original roadmap item 90 remains partial until the local Bambu CLI crash is isolated or bypassed.
 
 ## Post-Wave 13 Findings Backlog
 
@@ -216,7 +216,7 @@ These items are not part of the original 142 count. They come from Wave 13 verif
 - [ ] F2. Add a `printpipe doctor` check that warns when the current workspace or external artifact paths are unreadable.
 - [x] F3. Add a run option that deliberately invokes live Bambu CLI slicing against the generated `.3mf` and records the real receipt.
 - [ ] F4. Wire image/GIF/video runs through Hunyuan3D meshgen, repair, orientation, bundle, and report.
-- [ ] F5. Add real mesh preview screenshots or deterministic rendered previews, not only SVG/contact-sheet previews.
+- [x] F5. Add real mesh preview screenshots or deterministic rendered previews, not only SVG/contact-sheet previews.
 - [ ] F6. Add one-click "open bundle/report folder" affordance for local macOS/Windows flows.
 - [ ] F7. Create a flex-coupon generator and include it as the first TPU validation artifact.
 - [ ] F8. Run the slipper proof through PrintPipe, not the old external slipper repo.
@@ -225,3 +225,9 @@ These items are not part of the original 142 count. They come from Wave 13 verif
 - [ ] F11. Build a clean Windows package smoke path.
 - [ ] F12. Add a regression for unreadable external artifact paths so permission problems skip or report clearly instead of crashing.
 - [ ] F13. Isolate Bambu Studio 2.6.00.51 CLI `--slice` SIGSEGV on macOS 26.5; direct STL and generated `.3mf` both crash in `update_values_to_printer_extruders_for_multiple_filaments`.
+- [x] F14. Add run-detail workbench route with print verdict, preview/workbench area, artifact links, and edit controls.
+- [x] F15. Add non-destructive edit recipes and child edit runs.
+- [x] F16. Rebuild edit runs deterministically from saved recipes, with scale-only geometry and explicit semantic warnings.
+- [x] F17. Add a CLI `printpipe rebuild-edit` command.
+- [x] F18. Make image/GIF/video runs write failed `meshgen` receipts instead of silent prep-only success.
+- [x] F19. Surface first classified Bambu slice error in the receipt/report message.

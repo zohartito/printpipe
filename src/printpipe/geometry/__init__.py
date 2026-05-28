@@ -5,6 +5,7 @@ from __future__ import annotations
 from printpipe.geometry.artifacts import (
     read_ascii_stl_vertices,
     write_oriented_ascii_stl_artifacts,
+    write_scaled_ascii_stl_artifacts,
 )
 from printpipe.geometry.core import (
     DEFAULT_ROTATIONS_DEGREES,
@@ -30,6 +31,7 @@ from printpipe.geometry.core import (
     score_support_burden_orientation,
     select_top_orientations,
     write_bed_fit_preview_artifacts,
+    write_run_detail_model_preview_artifacts,
 )
 
 __all__ = [
@@ -58,4 +60,6 @@ __all__ = [
     "select_top_orientations",
     "write_bed_fit_preview_artifacts",
     "write_oriented_ascii_stl_artifacts",
+    "write_run_detail_model_preview_artifacts",
+    "write_scaled_ascii_stl_artifacts",
 ]

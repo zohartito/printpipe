@@ -10,10 +10,8 @@ from typing import Any
 
 from printpipe import __version__
 from printpipe.contracts import InputKind
-from printpipe.inputs import classify_input_path, prepare_input
-from printpipe.pipeline import PipelineError, run_existing_mesh_pipeline
-from printpipe.reports import build_run_report_dict, write_run_report
-from printpipe.reports.html import write_html_report
+from printpipe.inputs import classify_input_path
+from printpipe.pipeline import PipelineError, run_edit_recipe_pipeline, run_existing_mesh_pipeline
 from printpipe.runs import create_run
 
 
@@ -74,6 +72,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the Markdown report path for a run.",
     )
     open_report.add_argument("run_root", type=Path, help="Run folder to inspect.")
+
+    rebuild_edit = subparsers.add_parser(
+        "rebuild-edit",
+        help="Rebuild a non-destructive edit run from edit_recipe.json.",
+    )
+    rebuild_edit.add_argument("run_root", type=Path, help="Edit run folder to rebuild.")
+    rebuild_edit.add_argument(
+        "--slice",
+        action="store_true",
+        help="Run the Bambu CLI slice gate after rebuilding.",
+    )
+    rebuild_edit.add_argument(
+        "--bambu-cli",
+        type=Path,
+        help="Explicit Bambu Studio executable path for --slice.",
+    )
 
     serve = subparsers.add_parser(
         "serve",
@@ -144,29 +158,16 @@ def main(argv: list[str] | None = None) -> int:
                     "--slice currently requires an existing mesh input; "
                     "image/GIF/video meshgen is not wired into the orchestrator yet"
                 )
-            if input_kind == InputKind.MESH:
-                result = run_existing_mesh_pipeline(
-                    args.input,
-                    args.runs_dir,
-                    run_slice=args.slice,
-                    slice_executable=args.bambu_cli,
-                )
-                layout = result.layout
-                report_json = layout.reports_dir / "run_report.json"
-                report_markdown = layout.reports_dir / "run_report.md"
-                report_html = layout.reports_dir / "run_report.html"
-            else:
-                layout = create_run(args.input, args.runs_dir)
-                input_result = prepare_input(layout.original_input, layout.frames_dir)
-                report_dict = build_run_report_dict(layout, stages=input_result.receipts)
-                report_json_artifact, report_markdown_artifact = write_run_report(
-                    layout,
-                    stages=input_result.receipts,
-                )
-                report_html_artifact = write_html_report(layout, report_dict)
-                report_json = report_json_artifact.path
-                report_markdown = report_markdown_artifact.path
-                report_html = report_html_artifact.path
+            result = run_existing_mesh_pipeline(
+                args.input,
+                args.runs_dir,
+                run_slice=args.slice,
+                slice_executable=args.bambu_cli,
+            )
+            layout = result.layout
+            report_json = layout.reports_dir / "run_report.json"
+            report_markdown = layout.reports_dir / "run_report.md"
+            report_html = layout.reports_dir / "run_report.html"
         except FileNotFoundError:
             parser.error(f"input does not exist: {args.input}")
         except PipelineError as exc:
@@ -220,6 +221,25 @@ def main(argv: list[str] | None = None) -> int:
             print(run_root / "80_reports" / "run_report.md")
         return 0
 
+    if args.command == "rebuild-edit":
+        if args.bambu_cli is not None and not args.slice:
+            parser.error("--bambu-cli requires --slice")
+        try:
+            result = run_edit_recipe_pipeline(
+                args.run_root,
+                run_slice=args.slice,
+                slice_executable=args.bambu_cli,
+            )
+        except FileNotFoundError:
+            parser.error(f"run root does not exist or is incomplete: {args.run_root}")
+        except PipelineError as exc:
+            _print_pipeline_error(exc)
+            return 2
+        except ValueError as exc:
+            parser.error(str(exc))
+        _print_pipeline_success(result)
+        return 0
+
     if args.command == "serve":
         return _serve(host=args.host, port=args.port, runs_dir=args.runs_dir)
 
@@ -261,6 +281,16 @@ def _print_pipeline_error(error: PipelineError) -> None:
     if failed_stage is not None:
         print(f"failed stage: {failed_stage.stage}")
     print(f"error: {error}", file=sys.stderr)
+
+
+def _print_pipeline_success(result: Any) -> None:
+    layout = result.layout
+    print(f"run id: {layout.run_id}")
+    print(f"run root: {layout.root}")
+    print(f"input: {layout.original_input}")
+    print(f"report json: {layout.reports_dir / 'run_report.json'}")
+    print(f"report markdown: {layout.reports_dir / 'run_report.md'}")
+    print(f"report html: {layout.reports_dir / 'run_report.html'}")
 
 
 def _first_failed_stage(stages: tuple[Any, ...]) -> Any | None:

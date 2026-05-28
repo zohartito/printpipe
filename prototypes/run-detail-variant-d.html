@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PrintPipe Run Detail - Variant D</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --bg: #f1f1ee;
+      --panel: #fbfbf8;
+      --ink: #171713;
+      --muted: #686960;
+      --line: #d7d7ce;
+      --black: #171713;
+      --good: #0f7d45;
+      --good-soft: #e2f4e8;
+      --warn: #b86800;
+      --warn-soft: #fff0d5;
+      --bad: #b51f2d;
+      --bad-soft: #ffe1e4;
+      --blue: #245c9f;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.45;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    button, input, select, textarea { font: inherit; }
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: clamp(14px, 2vw, 28px);
+    }
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      margin-bottom: 5px;
+      font-size: clamp(25px, 3vw, 44px);
+      letter-spacing: -0.04em;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .decision {
+      border: 2px solid var(--bad);
+      background: var(--bad-soft);
+      color: var(--bad);
+      padding: 10px 14px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .scoreboard {
+      display: grid;
+      grid-template-columns: 1.1fr repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .print-verdict, .score {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 16px;
+    }
+    .print-verdict {
+      background: var(--black);
+      color: white;
+    }
+    .print-verdict h2 {
+      margin-bottom: 8px;
+      font-size: clamp(22px, 2.3vw, 32px);
+      letter-spacing: -0.04em;
+    }
+    .print-verdict p { margin-bottom: 0; color: #d6d6cd; }
+    .score span {
+      display: block;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .score strong {
+      display: block;
+      margin-top: 7px;
+      font-size: 22px;
+    }
+    .score.pass strong { color: var(--good); }
+    .score.warn strong { color: var(--warn); }
+    .score.fail strong { color: var(--bad); }
+    .dashboard {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(330px, 410px);
+      gap: 16px;
+      align-items: start;
+    }
+    .main-grid {
+      display: grid;
+      gap: 16px;
+      min-width: 0;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .panel h2 {
+      margin: 0;
+      border-bottom: 1px solid var(--line);
+      padding: 13px 15px;
+      font-size: 16px;
+    }
+    .panel-body {
+      padding: 15px;
+      display: grid;
+      gap: 13px;
+    }
+    .report-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+      gap: 14px;
+    }
+    .preview {
+      min-height: 360px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(90deg, rgba(23,23,19,0.06) 1px, transparent 1px) 0 0 / 34px 34px,
+        linear-gradient(rgba(23,23,19,0.06) 1px, transparent 1px) 0 0 / 34px 34px,
+        #f8f8f3;
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .plate {
+      position: absolute;
+      bottom: 12%;
+      width: 78%;
+      height: 38%;
+      border: 2px solid rgba(23,23,19,0.26);
+      transform: perspective(760px) rotateX(60deg);
+      background: rgba(255,255,255,0.34);
+    }
+    .shape {
+      position: relative;
+      z-index: 1;
+      width: min(50vw, 520px);
+      aspect-ratio: 1.55;
+      border: 3px solid rgba(23,23,19,0.72);
+      clip-path: polygon(9% 80%, 12% 43%, 35% 17%, 68% 17%, 91% 45%, 94% 80%, 75% 88%, 54% 70%, 30% 88%);
+      background:
+        radial-gradient(circle at 51% 66%, transparent 0 17%, #f8f8f3 18% 28%, transparent 29%),
+        linear-gradient(145deg, rgba(36,92,159,0.18), rgba(181,31,45,0.08)),
+        repeating-linear-gradient(34deg, rgba(23,23,19,0.2) 0 1px, transparent 1px 18px);
+    }
+    .risk-marker {
+      position: absolute;
+      z-index: 2;
+      top: 49%;
+      left: 45%;
+      border: 2px solid var(--bad);
+      background: var(--bad-soft);
+      color: var(--bad);
+      padding: 5px 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .facts {
+      display: grid;
+      gap: 8px;
+    }
+    .fact {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 9px;
+    }
+    .fact:last-child { border-bottom: 0; padding-bottom: 0; }
+    .fact p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+    .badge {
+      align-self: start;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 950;
+      text-transform: uppercase;
+    }
+    .badge.pass { background: var(--good-soft); color: var(--good); }
+    .badge.warn { background: var(--warn-soft); color: var(--warn); }
+    .badge.fail { background: var(--bad-soft); color: var(--bad); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .sidebar {
+      display: grid;
+      gap: 16px;
+      position: sticky;
+      top: 16px;
+    }
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      padding: 9px 10px;
+    }
+    textarea { min-height: 92px; resize: vertical; text-transform: none; }
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 10px;
+      color: var(--ink);
+      text-transform: none;
+    }
+    .toggle input { width: auto; }
+    .primary {
+      width: 100%;
+      border: 0;
+      background: var(--black);
+      color: white;
+      cursor: pointer;
+      font-weight: 950;
+      padding: 12px 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .artifact-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .artifact-list a {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 10px;
+      font-weight: 850;
+    }
+    .artifact-list span {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .recipe-state {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0;
+    }
+    @media (max-width: 1180px) {
+      .scoreboard { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .print-verdict { grid-column: 1 / -1; }
+      .dashboard, .report-grid { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+    }
+    @media (max-width: 720px) {
+      header, .scoreboard, .control-grid { grid-template-columns: 1fr; }
+      .decision { white-space: normal; }
+      .preview { min-height: 280px; }
+      .shape { width: 76vw; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <p class="eyebrow">PrintPipe / manufacturing report dashboard</p>
+        <h1>Can this run print?</h1>
+        <div class="meta">
+          <span>run_2026-05-25_arched-phone-stand</span>
+          <span>Prompt + reference image</span>
+          <span>Bambu Lab P2S 0.4 nozzle</span>
+          <span>PLA Matte White</span>
+        </div>
+      </div>
+      <div class="decision">Not ready to print</div>
+    </header>
+
+    <section class="scoreboard" aria-label="Print readiness scoreboard">
+      <article class="print-verdict">
+        <p class="eyebrow">Print verdict</p>
+        <h2>Blocked before handoff</h2>
+        <p>The model is watertight and fits the bed, but the support-risk gate and slice success gate need a rebuild.</p>
+      </article>
+      <article class="score pass"><span>Manifold</span><strong>Pass</strong></article>
+      <article class="score pass"><span>Bed fit</span><strong>Pass</strong></article>
+      <article class="score pass"><span>Profile</span><strong>Pass</strong></article>
+      <article class="score warn"><span>Support</span><strong>Warn</strong></article>
+      <article class="score fail"><span>Slice</span><strong>Fail</strong></article>
+    </section>
+
+    <section class="dashboard">
+      <div class="main-grid">
+        <article class="panel">
+          <h2>Validation Report</h2>
+          <div class="panel-body report-grid">
+            <figure class="preview" aria-label="Model preview placeholder with risk marker">
+              <div class="plate"></div>
+              <div class="shape"></div>
+              <figcaption class="risk-marker">support risk</figcaption>
+            </figure>
+            <div class="facts">
+              <div class="fact"><div><strong>Manifold / watertight</strong><p>Topology scan reports 0 boundary edges and 0 non-manifold edges after repair.</p></div><span class="badge pass">pass</span></div>
+              <div class="fact"><div><strong>Bed fit</strong><p>118.0 x 78.0 x 92.3 mm oriented model fits P2S bed with 34.5 mm minimum margin.</p></div><span class="badge pass">pass</span></div>
+              <div class="fact"><div><strong>Material/profile sanity</strong><p>PLA 0.20 mm profile values validate against Bambu schema and selected nozzle.</p></div><span class="badge pass">pass</span></div>
+              <div class="fact"><div><strong>Support risk</strong><p>Arch underside is 62 degrees across a 31 mm span. Current intent asked for no visible support scars.</p></div><span class="badge warn">warn</span></div>
+              <div class="fact"><div><strong>Slice success</strong><p>Slice gate failed because support policy is unresolved. 3MF is available but not recommended for print.</p></div><span class="badge fail">fail</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Pipeline Evidence</h2>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Stage</th><th>Result</th><th>Details</th><th>Artifact</th></tr></thead>
+              <tbody>
+                <tr><td>input/reference</td><td><span class="badge pass">pass</span></td><td>Prompt and reference image stored.</td><td>contact_sheet.html</td></tr>
+                <tr><td>mesh generation</td><td><span class="badge pass">pass</span></td><td>Draft OBJ generated, 148k triangles, $0.12.</td><td>draft.obj</td></tr>
+                <tr><td>repair</td><td><span class="badge pass">pass</span></td><td>3 pinholes filled, 218 vertices welded.</td><td>repaired.stl</td></tr>
+                <tr><td>orient/scale</td><td><span class="badge pass">pass</span></td><td>Flat base selected, target dimensions applied.</td><td>oriented.stl</td></tr>
+                <tr><td>print profile</td><td><span class="badge pass">pass</span></td><td>PLA profile sanity checks pass.</td><td>settings_delta.json</td></tr>
+                <tr><td>3MF bundle</td><td><span class="badge pass">pass</span></td><td>Bambu metadata validates.</td><td>phone-stand.3mf</td></tr>
+                <tr><td>slice report</td><td><span class="badge fail">fail</span></td><td>Support risk unresolved before print.</td><td>slice_result.json</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Input Prompt / Image / Mesh Summary</h2>
+          <div class="panel-body">
+            <div class="facts">
+              <div class="fact"><div><strong>Prompt</strong><p>Minimal arched desk stand for a phone, cable pass-through, flat base, 2.5 mm walls.</p></div><span class="badge pass">stored</span></div>
+              <div class="fact"><div><strong>Reference image</strong><p>00_input/arched-stand-reference.png, selected as primary still reference.</p></div><span class="badge pass">ready</span></div>
+              <div class="fact"><div><strong>Current generated model</strong><p>Watertight repaired STL, 118.0 x 78.0 x 92.3 mm, arch underside marked for support review.</p></div><span class="badge warn">review</span></div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <aside class="sidebar">
+        <article class="panel">
+          <h2>Edit Geometry</h2>
+          <div class="panel-body">
+            <div class="control-grid">
+              <label>Overall scale <input type="number" value="1.00" step="0.01"></label>
+              <label>X scale <input type="number" value="1.00" step="0.01"></label>
+              <label>Y scale <input type="number" value="1.00" step="0.01"></label>
+              <label>Z scale <input type="number" value="1.00" step="0.01"></label>
+              <label>Target length <input type="number" value="118" step="0.1"></label>
+              <label>Target width <input type="number" value="78" step="0.1"></label>
+              <label>Target height <input type="number" value="92" step="0.1"></label>
+              <label>Wall thickness <input type="number" value="2.5" step="0.1"></label>
+            </div>
+            <label>Widen / narrow opening <input type="range" min="-12" max="12" value="4"></label>
+            <label>Raise / lower arch/opening <input type="range" min="-10" max="16" value="6"></label>
+            <label class="toggle">Flat base toggle <input type="checkbox" checked></label>
+            <label>Support strategy
+              <select>
+                <option>Auto tree supports under arch only</option>
+                <option>Prefer geometry edit, avoid supports</option>
+                <option>Allow full supports</option>
+                <option>Fail if supports required</option>
+              </select>
+            </label>
+            <label>Freeform edit instruction
+              <textarea>Raise the arch enough to reduce support risk, keep the base flat, and thicken the rear ribs to 3 mm.</textarea>
+            </label>
+            <button class="primary" id="rebuild" type="button">Rebuild from edits</button>
+            <p class="recipe-state" id="state">No rebuild submitted in this static prototype.</p>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Artifact Links</h2>
+          <div class="panel-body">
+            <ul class="artifact-list">
+              <li><a href="#">Original mesh <span>draft.obj</span></a></li>
+              <li><a href="#">Repaired mesh <span>repaired.stl</span></a></li>
+              <li><a href="#">Final STL <span>oriented.stl</span></a></li>
+              <li><a href="#">3MF <span>phone-stand.3mf</span></a></li>
+              <li><a href="#">Slice report <span>slice.html</span></a></li>
+            </ul>
+          </div>
+        </article>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    document.querySelector("#rebuild").addEventListener("click", () => {
+      document.querySelector("#state").textContent =
+        "Mock rebuild requested. Next report should re-check support risk and slice success.";
+    });
+  </script>
+</body>
+</html>

@@ -6,9 +6,13 @@ from pathlib import Path
 import pytest
 
 from printpipe.cli import main
+from printpipe.runs.editing import EditRecipe, EditScale, create_edit_run
 
 
-def test_run_creates_prepared_input_reports_and_prints_paths(tmp_path: Path, capsys):
+def test_run_media_input_writes_failed_meshgen_report_and_returns_nonzero(
+    tmp_path: Path,
+    capsys,
+):
     source = tmp_path / "reference.png"
     source.write_bytes(b"not really an image yet")
     runs_dir = tmp_path / "runs"
@@ -16,7 +20,7 @@ def test_run_creates_prepared_input_reports_and_prints_paths(tmp_path: Path, cap
     exit_code = main(["run", str(source), "--runs-dir", str(runs_dir)])
 
     captured = capsys.readouterr()
-    assert exit_code == 0
+    assert exit_code == 2
     run_roots = list(runs_dir.iterdir())
     assert len(run_roots) == 1
     run_root = run_roots[0]
@@ -31,6 +35,8 @@ def test_run_creates_prepared_input_reports_and_prints_paths(tmp_path: Path, cap
     assert f"report json: {run_root / '80_reports' / 'run_report.json'}" in captured.out
     assert f"report markdown: {run_root / '80_reports' / 'run_report.md'}" in captured.out
     assert f"report html: {run_root / '80_reports' / 'run_report.html'}" in captured.out
+    assert "failed stage: meshgen" in captured.out
+    assert "error: image/video meshgen is not wired into the orchestrator yet" in captured.err
 
     report = json.loads((run_root / "80_reports" / "run_report.json").read_text(encoding="utf-8"))
     stages = {(stage["stage"], stage["status"]) for stage in report["stages"]}
@@ -38,6 +44,8 @@ def test_run_creates_prepared_input_reports_and_prints_paths(tmp_path: Path, cap
     assert ("extract_references", "succeeded") in stages
     assert ("select_references", "succeeded") in stages
     assert ("contact_sheet", "succeeded") in stages
+    assert ("meshgen", "failed") in stages
+    assert report["warnings"] == ["image/video meshgen is not wired into the orchestrator yet"]
 
 
 def test_run_existing_stl_writes_bundle_reports_and_checklist(tmp_path: Path, capsys):
@@ -128,7 +136,7 @@ def test_status_reads_manifest_and_report_summary(tmp_path: Path, capsys):
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")
     runs_dir = tmp_path / "runs"
-    assert main(["run", str(source), "--runs-dir", str(runs_dir)]) == 0
+    assert main(["run", str(source), "--runs-dir", str(runs_dir)]) == 2
     capsys.readouterr()
     run_root = next(runs_dir.iterdir())
 
@@ -144,7 +152,8 @@ def test_status_reads_manifest_and_report_summary(tmp_path: Path, capsys):
     assert f"report markdown: {run_root / '80_reports' / 'run_report.md'}" in captured.out
     assert f"report html: {run_root / '80_reports' / 'run_report.html'}" in captured.out
     assert "stages: classify_input=succeeded" in captured.out
-    assert "warnings: 0" in captured.out
+    assert "meshgen=failed" in captured.out
+    assert "warnings: 1" in captured.out
 
 
 def test_status_reports_missing_run_report_for_manifest_only_run(tmp_path: Path, capsys):
@@ -171,7 +180,7 @@ def test_open_report_prints_html_path_without_launching_browser(tmp_path: Path, 
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")
     runs_dir = tmp_path / "runs"
-    assert main(["run", str(source), "--runs-dir", str(runs_dir)]) == 0
+    assert main(["run", str(source), "--runs-dir", str(runs_dir)]) == 2
     capsys.readouterr()
     run_root = next(runs_dir.iterdir())
 
@@ -181,3 +190,29 @@ def test_open_report_prints_html_path_without_launching_browser(tmp_path: Path, 
     assert exit_code == 0
     assert captured.out.strip() == str(run_root / "80_reports" / "run_report.html")
     assert captured.err == ""
+
+
+def test_rebuild_edit_rebuilds_saved_edit_recipe(tmp_path: Path, capsys):
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    runs_dir = tmp_path / "runs"
+    assert main(["run", str(source), "--runs-dir", str(runs_dir)]) == 0
+    capsys.readouterr()
+    parent_root = next(runs_dir.iterdir())
+    edit_layout = create_edit_run(
+        parent_root,
+        EditRecipe(parent_run_id=parent_root.name, scale=EditScale(y=1.2)),
+    )
+
+    exit_code = main(["rebuild-edit", str(edit_layout.root)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert f"run root: {edit_layout.root}" in captured.out
+    assert f"report html: {edit_layout.reports_dir / 'run_report.html'}" in captured.out
+    assert any(path.suffix == ".3mf" for path in edit_layout.bundle_dir.iterdir())

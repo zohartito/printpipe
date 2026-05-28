@@ -363,10 +363,18 @@ def slice_result_to_receipt(result: SliceResult, run_layout: object) -> StageRec
     return StageReceipt(
         stage="slice",
         status=StageStatus.FAILED if failed else StageStatus.SUCCEEDED,
-        message="Bambu CLI slice failed." if failed else "Bambu CLI slice passed.",
+        message=_slice_receipt_message(result, failed=failed),
         artifacts=slice_result_artifacts(result, result_json_path=result_json_path),
         metrics=_slice_result_metrics(result),
     )
+
+
+def _slice_receipt_message(result: SliceResult, *, failed: bool) -> str:
+    if not failed:
+        return "Bambu CLI slice passed."
+    if result.errors:
+        return f"Bambu CLI slice failed: {result.errors[0]}."
+    return "Bambu CLI slice failed."
 
 
 def write_slice_result_json(result: SliceResult, run_layout: object) -> Path:

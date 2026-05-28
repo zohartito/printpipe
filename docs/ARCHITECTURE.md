@@ -30,6 +30,15 @@ Local CLI / local app
 - `reports`: HTML/Markdown/JSON receipts.
 - `cli`: user-facing command line.
 
+## Input Truth Table
+
+| Input | Pipeline status | Receipt behavior |
+| --- | --- | --- |
+| Existing mesh | Production spine for v1 foundation. | Imports existing geometry, repairs it, writes oriented STL, preview artifacts, Bambu `.3mf`, validation report, and optional slice receipt. |
+| Image/GIF/video | Reference prep only until F4 wires real media meshgen. | Writes extracted/selected references and contact sheet artifacts, then fails `meshgen` with `image/video meshgen is not wired into the orchestrator yet`. |
+| Prompt + image | Provider contract only. | `MeshGenRequest.prompt_hint` can reach configured providers, but CLI/web do not persist or route prompt hints yet. |
+| Prompt only | Unsupported. | No run mode exists because the pipeline still needs concrete source geometry or visual references. |
+
 ## Hard Gates
 
 1. Mesh topology must be validated after generation and after repair.
@@ -38,7 +47,15 @@ Local CLI / local app
 4. 3MF must be Bambu-native enough to open without rejection.
 5. Bambu CLI slice must pass before the app calls a run successful.
 
-## First Command Target
+## Current Command Target
+
+The current end-to-end command target uses an existing mesh:
+
+```bash
+printpipe run input.stl --slice
+```
+
+Image/GIF/video is the product target, but it remains gated by F4 until media meshgen is wired through the same repair/orient/bundle path:
 
 ```bash
 printpipe run input.gif \
@@ -48,4 +65,3 @@ printpipe run input.gif \
 ```
 
 The first real milestone is not a polished UI. It is a reproducible run folder with a slice-verified `.3mf` and receipts.
-

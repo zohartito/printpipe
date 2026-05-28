@@ -23,6 +23,7 @@ from printpipe.geometry.core import (
     score_support_burden_orientation,
     select_top_orientations,
     write_bed_fit_preview_artifacts,
+    write_run_detail_model_preview_artifacts,
 )
 
 
@@ -218,3 +219,33 @@ def test_select_top_orientations_and_write_bed_fit_preview_artifacts(tmp_path):
     assert preview["fit"]["fits"] is True
     assert preview["orientation"]["rotation_degrees"] == 45.0
     assert preview["heuristics"]["basis"] == "bounds_only"
+
+
+def test_write_run_detail_model_preview_artifacts_records_bounds_only_svg(tmp_path):
+    vertices = box_vertices(118.0, 72.0, 38.0)
+    bed = BedSize(256.0, 256.0)
+    candidate = candidate_rotations(vertices, bed)[0]
+
+    receipt = write_run_detail_model_preview_artifacts(
+        candidate,
+        bed,
+        tmp_path,
+    )
+
+    assert receipt.status is StageStatus.SUCCEEDED
+    assert receipt.stage == "geometry.write_run_detail_model_preview_artifacts"
+    assert {artifact.path.name for artifact in receipt.artifacts} == {
+        "run_detail_model_preview.svg",
+        "run_detail_model_preview.json",
+    }
+    assert receipt.metrics["fits"] is True
+    assert receipt.metrics["bounds_mm"] == (118.0, 72.0, 38.0)
+    assert receipt.metrics["basis"] == "bounds_only"
+    assert receipt.metrics["semantic_claim"] is False
+
+    svg_path = tmp_path / "run_detail_model_preview.svg"
+    json_path = tmp_path / "run_detail_model_preview.json"
+    assert "Run detail model preview" in svg_path.read_text(encoding="utf-8")
+    preview = json.loads(json_path.read_text(encoding="utf-8"))
+    assert preview["preview"]["kind"] == "run_detail_model_preview"
+    assert preview["heuristics"]["semantic_claim"] is False

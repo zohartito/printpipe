@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "run_id": "Slipper_TPU90A_P2S_v4_wide_upper",
+  "parent_run": null,
+  "input": {
+    "kind": "image",
+    "source_path": "/Users/zohartito/Desktop/slipper_3d/input/slipper_reference.png",
+    "stored_path": "00_input/slipper_reference.png",
+    "artifact_kind": "original_input"
+  },
+  "launch_options": {
+    "source": "fixture",
+    "printer_id": "bambu-p2s-0-4-nozzle",
+    "printer_label": "Bambu Lab P2S",
+    "material_id": "sunlu-tpu-90a-slipper",
+    "material_label": "SUNLU TPU 90A",
+    "target_length_mm": 295,
+    "target_width_mm": 118,
+    "target_height_mm": 72
+  },
+  "settings": {
+    "printer_label": "Bambu Lab P2S",
+    "material_label": "SUNLU TPU 90A",
+    "profile_label": "0.20mm Slipper TPU 90A @BBL P2S",
+    "target_length_mm": 295,
+    "target_width_mm": 118,
+    "target_height_mm": 72
+  },
+  "printer": {
+    "label": "Bambu Lab P2S"
+  },
+  "material": {
+    "label": "SUNLU TPU 90A"
+  },
+  "profile": {
+    "label": "0.20mm Slipper TPU 90A @BBL P2S"
+  },
+  "geometry": {
+    "bounds_mm": [
+      295.0,
+      118.0,
+      72.0
+    ],
+    "bed_fit": "fits",
+    "support_risk": "medium",
+    "print_time_minutes": 167,
+    "filament_g": 84.77
+  },
+  "print_verdict": {
+    "state": "review",
+    "label": "Review before print",
+    "reason": "Warnings remain, but no blocking validation checks failed."
+  },
+  "validation": [
+    {
+      "key": "manifold",
+      "label": "Manifold / watertight",
+      "state": "pass",
+      "detail": "Mesh repair reports a closed printable shell."
+    },
+    {
+      "key": "bed_fit",
+      "label": "Bed fit",
+      "state": "pass",
+      "detail": "Oriented footprint fits the selected build plate."
+    },
+    {
+      "key": "material_profile",
+      "label": "Material / profile",
+      "state": "pass",
+      "detail": "Bambu Lab P2S / SUNLU TPU 90A / 0.20mm Slipper TPU 90A @BBL P2S"
+    },
+    {
+      "key": "support_risk",
+      "label": "Support risk",
+      "state": "review",
+      "detail": "Medium support risk; inspect support policy."
+    },
+    {
+      "key": "slice_success",
+      "label": "Slice success",
+      "state": "pass",
+      "detail": "Slice gate completed successfully."
+    }
+  ],
+  "pipeline": [
+    {
+      "key": "input_reference",
+      "label": "Input / reference",
+      "status": "succeeded",
+      "message": "Reference image and slipper size intent stored.",
+      "artifacts": []
+    },
+    {
+      "key": "mesh_generation",
+      "label": "Mesh generation",
+      "status": "succeeded",
+      "message": "Hunyuan3D multiview source selected.",
+      "artifacts": [
+        {
+          "kind": "generated_mesh",
+          "label": "Multiview GLB",
+          "path": "20_meshgen/slipper_shape_v2c_multiview.glb",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "key": "repair",
+      "label": "Repair",
+      "status": "succeeded",
+      "message": "Repair closed boundary edges and produced a watertight mesh.",
+      "artifacts": [
+        {
+          "kind": "repaired_mesh",
+          "label": "Repaired STL",
+          "path": "30_repair/slipper_size11_v2c_repaired.stl",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "key": "orient_scale",
+      "label": "Orient / scale",
+      "status": "succeeded",
+      "message": "Scaled to US men's 11 and widened upper target.",
+      "artifacts": [
+        {
+          "kind": "oriented_mesh",
+          "label": "Final wide upper STL",
+          "path": "40_geometry/slipper_size11_v4_wide_upper.stl",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "key": "print_profile",
+      "label": "Print profile",
+      "status": "succeeded",
+      "message": "TPU 90A P2S profile selected with supports enabled.",
+      "artifacts": []
+    },
+    {
+      "key": "bundle",
+      "label": "3MF bundle",
+      "status": "succeeded",
+      "message": "Bambu-native 3MF bundle generated.",
+      "artifacts": [
+        {
+          "kind": "3mf",
+          "label": "Bambu 3MF bundle",
+          "path": "60_bundle/Slipper_TPU90A_P2S_v4_wide_upper.3mf",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "key": "slice_report",
+      "label": "Slice report",
+      "status": "succeeded",
+      "message": "Bambu Studio slice succeeded with supports enabled.",
+      "artifacts": [
+        {
+          "kind": "slice_log",
+          "label": "Slice report",
+          "path": "70_slice/slice_report.json",
+          "metadata": {}
+        }
+      ]
+    }
+  ],
+  "artifacts": {
+    "generated_mesh": [
+      {
+        "kind": "generated_mesh",
+        "label": "Multiview GLB",
+        "path": "20_meshgen/slipper_shape_v2c_multiview.glb",
+        "metadata": {},
+        "present": false
+      }
+    ],
+    "repaired_mesh": [
+      {
+        "kind": "repaired_mesh",
+        "label": "Repaired STL",
+        "path": "30_repair/slipper_size11_v2c_repaired.stl",
+        "metadata": {},
+        "present": false
+      }
+    ],
+    "oriented_mesh": [
+      {
+        "kind": "oriented_mesh",
+        "label": "Final wide upper STL",
+        "path": "40_geometry/slipper_size11_v4_wide_upper.stl",
+        "metadata": {},
+        "present": false
+      }
+    ],
+    "3mf": [
+      {
+        "kind": "3mf",
+        "label": "Bambu 3MF bundle",
+        "path": "60_bundle/Slipper_TPU90A_P2S_v4_wide_upper.3mf",
+        "metadata": {},
+        "present": false
+      }
+    ],
+    "slice_log": [
+      {
+        "kind": "slice_log",
+        "label": "Slice report",
+        "path": "70_slice/slice_report.json",
+        "metadata": {},
+        "present": false
+      }
+    ]
+  },
+  "warnings": [
+    "Original upper was too narrow; edit widens upper by 14 mm."
+  ],
+  "edit_recipe": {
+    "schema_version": 1,
+    "parent_run_id": "Slipper_TPU90A_P2S_v4_wide_upper",
+    "scale": {
+      "overall": 1.0,
+      "x": 1.0,
+      "y": 1.08,
+      "z": 1.0
+    },
+    "targets_mm": {
+      "length": 295.0,
+      "width": 118.0,
+      "height": 72.0
+    },
+    "geometry_intent": {
+      "upper_width_delta_mm": 14.0,
+      "opening_width_delta_mm": 12.0,
+      "arch_height_delta_mm": 6.0,
+      "wall_thickness_mm": 3.2,
+      "flat_base": true
+    },
+    "support_strategy": "snug_tree_auto",
+    "instruction": "Widen the top upper; do not lengthen the sole."
+  },
+  "rebuild": {
+    "available": true,
+    "mode": "edit_recipe",
+    "creates": "new_run"
+  }
+}

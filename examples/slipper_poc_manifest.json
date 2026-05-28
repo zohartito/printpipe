@@ -127,8 +127,8 @@
       "kind": "research_markdown",
       "path": "/Users/zohartito/Desktop/slipper_3d/docs/real_world_results.md",
       "required": true,
-      "size_bytes": 18403,
-      "sha256": "f7326cbef4dfc80d5a1178568b2cb56b5271e6379070c33d55d0445a032b5d04",
+      "size_bytes": 20076,
+      "sha256": "fa38ff039d802e464854ce0cc47f9e894dbafbe034288fd5a7b6f223c8e79ee5",
       "purpose": "Real-world session log capturing what worked in Bambu Studio, what failed, and what physical gates remain."
     },
     {
