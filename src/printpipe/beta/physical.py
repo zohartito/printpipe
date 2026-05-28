@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 PHYSICAL_EVIDENCE_SCHEMA_VERSION = 1
@@ -242,6 +244,38 @@ def render_physical_evidence_markdown(evidence: PhysicalPrintEvidence) -> str:
 """
 
 
+def write_physical_evidence_files(
+    *,
+    run_root: str | os.PathLike[str],
+    evidence: PhysicalPrintEvidence,
+    directory_name: str = "90_physical",
+) -> dict[str, Any]:
+    """Write physical evidence JSON and Markdown into a run folder."""
+
+    root = Path(run_root).expanduser().resolve()
+    if not root.exists():
+        raise FileNotFoundError(root)
+    output_dir = root / directory_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    json_path = output_dir / "physical_evidence.json"
+    markdown_path = output_dir / "physical_evidence.md"
+    json_path.write_text(
+        json.dumps(evidence.to_dict(), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    markdown_path.write_text(
+        render_physical_evidence_markdown(evidence),
+        encoding="utf-8",
+    )
+    return {
+        "directory": str(output_dir),
+        "json_path": str(json_path),
+        "markdown_path": str(markdown_path),
+        "missing_required_evidence": missing_required_evidence(evidence),
+    }
+
+
 def _coerce_artifact(
     artifact: PhysicalArtifact | Mapping[str, object],
 ) -> PhysicalArtifact:
@@ -334,4 +368,5 @@ __all__ = [
     "build_physical_print_evidence",
     "missing_required_evidence",
     "render_physical_evidence_markdown",
+    "write_physical_evidence_files",
 ]

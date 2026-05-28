@@ -365,3 +365,14 @@ Status: complete for F11. The Windows package smoke path has real Windows execut
 4. Done: Windows returned `status=ok`, with generated input fixture, reports, run root, and `.3mf` bundle.
 5. Done: recorded the evidence in `docs/research/wave33_windows_package_smoke.md`.
 6. Remaining: signed installer packaging and live Windows Bambu CLI slicing are separate future gates.
+
+## Wave 34 - Physical Evidence CLI
+
+Status: partial for F9. PrintPipe can now write physical evidence packets into run folders, but the real PLA, PETG, and TPU physical prints remain user/printer-side work.
+
+1. Done: added `write_physical_evidence_files()` to write JSON and Markdown evidence under `90_physical/`.
+2. Done: added `printpipe record-physical-evidence`.
+3. Done: the command records material, printer, object label, print type/status, operator, drying, first-layer, adhesion, warping, stringing, layer-bonding, flex, support-removal, and notes.
+4. Done: the command reports missing required evidence, so `not_printed` and incomplete coupon records stay honest.
+5. Done: updated beta onboarding with the command and output paths.
+6. Remaining: run real PLA, PETG, and TPU coupon/small-object prints and attach photos/notes before marking F9 complete.

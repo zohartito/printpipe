@@ -17,6 +17,7 @@ from printpipe.beta.physical import (
     build_physical_print_evidence,
     missing_required_evidence,
     render_physical_evidence_markdown,
+    write_physical_evidence_files,
 )
 from printpipe.beta.regression import (
     ExpectedOutcome,
@@ -51,5 +52,6 @@ __all__ = (
     "render_physical_evidence_markdown",
     "render_command",
     "validate_regression_manifest",
+    "write_physical_evidence_files",
     "write_regression_manifest",
 )

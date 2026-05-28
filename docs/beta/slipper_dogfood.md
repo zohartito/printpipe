@@ -168,6 +168,17 @@ Use a physical evidence packet for the flex coupon and, later, the slipper
 print. The code helper is `printpipe.beta.physical`; it makes the evidence
 requirements explicit so a real print does not become a vague memory.
 
+Attach the first placeholder or real coupon packet to the run folder with:
+
+```bash
+printpipe record-physical-evidence runs/<run-id> \
+  --material "SUNLU TPU 90A" \
+  --printer "Bambu Lab P2S" \
+  --object-label "flex coupon" \
+  --print-type coupon \
+  --print-status not_printed
+```
+
 For the TPU flex coupon, the packet must include:
 
 - Run id for the PrintPipe run that generated the coupon.

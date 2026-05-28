@@ -87,6 +87,9 @@ def test_onboarding_doc_names_physical_evidence_packet_requirements() -> None:
 
     for expected in (
         "physical evidence packet",
+        "record-physical-evidence",
+        "90_physical/physical_evidence.json",
+        "90_physical/physical_evidence.md",
         "operator",
         "print status",
         "photo artifact",

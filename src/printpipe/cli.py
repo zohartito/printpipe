@@ -185,6 +185,52 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print package-smoke output as JSON.",
     )
 
+    physical = subparsers.add_parser(
+        "record-physical-evidence",
+        help="Write physical print evidence JSON and Markdown into a run folder.",
+    )
+    physical.add_argument("run_root", type=Path, help="Run folder to attach evidence to.")
+    physical.add_argument("--run-id", help="Override run id; defaults to run folder name.")
+    physical.add_argument("--material", required=True, help="Material or filament used.")
+    physical.add_argument("--printer", required=True, help="Printer used for the print.")
+    physical.add_argument("--object-label", required=True, help="Printed object label.")
+    physical.add_argument(
+        "--print-type",
+        required=True,
+        choices=("coupon", "small_object", "slipper", "other"),
+        help="Type of physical print being recorded.",
+    )
+    physical.add_argument(
+        "--print-status",
+        required=True,
+        choices=("not_printed", "passed", "failed", "partial"),
+        help="Observed physical print status.",
+    )
+    physical.add_argument("--operator", default="", help="Person who ran or inspected print.")
+    physical.add_argument("--started-at", default="", help="Print start timestamp.")
+    physical.add_argument("--completed-at", default="", help="Print completion timestamp.")
+    physical.add_argument("--slice-status", default="", help="Manual/GUI slice status.")
+    physical.add_argument("--filament-drying", default="", help="Drying settings/time.")
+    physical.add_argument("--bed-prep", default="", help="Plate prep and adhesive/release notes.")
+    physical.add_argument("--first-layer", default="", help="First-layer observation.")
+    physical.add_argument("--adhesion", default="", help="Adhesion observation.")
+    physical.add_argument("--warping", default="", help="Warping observation.")
+    physical.add_argument("--stringing", default="", help="Stringing observation.")
+    physical.add_argument("--layer-bonding", default="", help="Layer bonding observation.")
+    physical.add_argument("--flex-recovery", default="", help="Flexible-material recovery note.")
+    physical.add_argument("--support-removal", default="", help="Support-removal observation.")
+    physical.add_argument(
+        "--note",
+        action="append",
+        default=[],
+        help="Additional physical evidence note; may be repeated.",
+    )
+    physical.add_argument(
+        "--json",
+        action="store_true",
+        help="Print written evidence paths and missing evidence as JSON.",
+    )
+
     return parser
 
 
@@ -327,6 +373,12 @@ def main(argv: list[str] | None = None) -> int:
             json_output=args.json,
         )
 
+    if args.command == "record-physical-evidence":
+        try:
+            return _record_physical_evidence(args)
+        except FileNotFoundError:
+            parser.error(f"run root does not exist: {args.run_root}")
+
     parser.print_help()
     return 0
 
@@ -419,6 +471,55 @@ def _render_package_smoke(payload: dict[str, Any]) -> str:
                     f"- {step.get('id', 'unknown')}: {step.get('command', '')}"
                 )
     return "\n".join(lines) + "\n"
+
+
+def _record_physical_evidence(args: argparse.Namespace) -> int:
+    from printpipe.beta.physical import (
+        build_physical_print_evidence,
+        write_physical_evidence_files,
+    )
+
+    run_root = args.run_root.expanduser().resolve()
+    if not run_root.exists():
+        raise FileNotFoundError(run_root)
+    evidence = build_physical_print_evidence(
+        run_id=args.run_id or run_root.name,
+        material=args.material,
+        printer=args.printer,
+        object_label=args.object_label,
+        print_type=args.print_type,
+        print_status=args.print_status,
+        operator=args.operator,
+        started_at=args.started_at,
+        completed_at=args.completed_at,
+        slice_status=args.slice_status,
+        filament_drying=args.filament_drying,
+        bed_prep=args.bed_prep,
+        first_layer=args.first_layer,
+        adhesion=args.adhesion,
+        warping=args.warping,
+        stringing=args.stringing,
+        layer_bonding=args.layer_bonding,
+        flex_recovery=args.flex_recovery,
+        support_removal=args.support_removal,
+        notes=tuple(args.note),
+    )
+    try:
+        result = write_physical_evidence_files(run_root=run_root, evidence=evidence)
+    except FileNotFoundError:
+        raise FileNotFoundError(run_root)
+
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(f"physical evidence json: {result['json_path']}")
+        print(f"physical evidence markdown: {result['markdown_path']}")
+        missing = result["missing_required_evidence"]
+        if missing:
+            print("missing required evidence: " + ", ".join(missing))
+        else:
+            print("missing required evidence: none")
+    return 0
 
 
 def _print_pipeline_error(error: PipelineError) -> None:

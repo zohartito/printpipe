@@ -183,6 +183,22 @@ physical evidence packet instead of only saying that it printed. The helper API
 for this is `printpipe.beta.physical`; it records the same fields the beta team
 needs before treating a real print as evidence.
 
+Use the CLI to attach the packet to the run folder:
+
+```bash
+printpipe record-physical-evidence runs/<run-id> \
+  --material "SUNLU TPU 90A" \
+  --printer "Bambu Lab P2S" \
+  --object-label "flex coupon" \
+  --print-type coupon \
+  --print-status not_printed
+```
+
+The command writes:
+
+- `90_physical/physical_evidence.json`
+- `90_physical/physical_evidence.md`
+
 Every physical evidence packet should include:
 
 - Run id and printed object.
