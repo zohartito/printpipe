@@ -395,6 +395,9 @@ def test_physical_slice_slices_existing_coupon_without_rewriting_evidence(
     assert result["slice_status"] == "succeeded"
     assert result["slice_message"] == "Bambu CLI slice passed."
     assert result["slice_result_path"].endswith("70_slice/slice_result.json")
+    assert result["slice_time_seconds"] == 240
+    assert result["slice_filament_g"] == 1.4
+    assert result["slice_layer_count"] == 15
     assert result["handoff_markdown_path"] == str(handoff_path.resolve())
     assert result["handoff_updated"] is True
     assert calls[0][0][0] == str(tmp_path / "BambuStudio")
@@ -404,6 +407,7 @@ def test_physical_slice_slices_existing_coupon_without_rewriting_evidence(
     assert handoff_after != handoff_before
     assert "## Slice Receipt" in handoff_after
     assert "- Status: succeeded" in handoff_after
+    assert "- Estimate: 4m 0s / 1.40 g / 15 layers" in handoff_after
     assert f"- Result JSON: {result['slice_result_path']}" in handoff_after
     assert petg_action["slice_result_path"] == result["slice_result_path"]
     assert petg_action["slice_command"] == ""
@@ -480,6 +484,10 @@ def test_cli_physical_slice_slices_existing_coupon(
     assert payload["time_seconds"] == 240
     assert payload["filament_g"] == 1.4
     assert payload["cost"] is None
+    handoff_text = (
+        runs_dir / "physical-pla-validation" / "90_physical" / "physical_print_handoff.md"
+    ).read_text(encoding="utf-8")
+    assert "- Estimate: 4m 0s / 1.40 g / 15 layers" in handoff_text
 
 
 def _write_evidence(

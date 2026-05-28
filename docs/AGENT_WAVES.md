@@ -1402,3 +1402,13 @@ Status: partial progress for physical-validation execution. This makes the Markd
 4. Done: terminal `physical-slice` output prints the physical handoff path after slicing.
 5. Current local result: PLA, PETG, and TPU handoff sheets all point at their current `70_slice/slice_result.json` receipts.
 6. Boundary: synchronized handoff sheets and slice receipts still do not count as physical proof. The material-family gate still requires real printed coupons, real observations, and existing photo artifacts.
+
+## Wave 127 - Physical Handoff Slice Estimates
+
+Status: partial progress for physical-validation execution. This makes print-day handoff sheets show useful slice estimates without changing the physical proof gate.
+
+1. Done: `physical-slice` now returns `slice_time_seconds`, `slice_filament_g`, `slice_layer_count`, and `slice_cost` when the Bambu slice receipt contains them.
+2. Done: `90_physical/physical_print_handoff.md` now renders a compact estimate line inside `## Slice Receipt`.
+3. Done: regression coverage verifies the estimate line appears while `90_physical/physical_evidence.json` remains unchanged.
+4. Current local result: PLA handoff shows `3m 35s / 1.60 g / 15 layers`, PETG shows `4m 36s / 1.59 g / 15 layers`, and TPU shows `14m 35s / 2.41 g / 15 layers`.
+5. Boundary: slice estimates are still software/slicer evidence only. The material-family gate still requires real printed coupons, real observations, and existing photo artifacts.

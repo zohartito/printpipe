@@ -82,6 +82,10 @@ def slice_coupon_bundle(
         "slice_status": receipt.status.value,
         "slice_message": receipt.message,
         "slice_result_path": result_path,
+        "slice_time_seconds": receipt.metrics.get("time_seconds"),
+        "slice_filament_g": receipt.metrics.get("filament_g"),
+        "slice_layer_count": receipt.metrics.get("layer_count"),
+        "slice_cost": receipt.metrics.get("cost"),
     }
 
 
@@ -122,6 +126,7 @@ def _slice_section(slice_payload: dict[str, Any]) -> str:
             f"- Requested: {slice_payload.get('slice_requested', False)}",
             f"- Status: {slice_payload.get('slice_status', 'not_requested')}",
             f"- Message: {slice_payload.get('slice_message', '')}",
+            _estimate_line(slice_payload),
             f"- Result JSON: {slice_payload.get('slice_result_path') or 'not generated'}",
             "",
         ]
@@ -144,6 +149,42 @@ def _replace_or_insert_slice_section(text: str, section: str) -> str:
         return "\n".join(updated).rstrip() + "\n"
 
     return text.rstrip() + "\n\n" + section
+
+
+def _estimate_line(slice_payload: dict[str, Any]) -> str:
+    parts: list[str] = []
+    time_seconds = slice_payload.get("slice_time_seconds")
+    if isinstance(time_seconds, int):
+        parts.append(_format_duration(time_seconds))
+
+    filament_g = slice_payload.get("slice_filament_g")
+    if isinstance(filament_g, int | float):
+        parts.append(f"{float(filament_g):.2f} g")
+
+    layer_count = slice_payload.get("slice_layer_count")
+    if isinstance(layer_count, int):
+        parts.append(f"{layer_count} layers")
+
+    cost = slice_payload.get("slice_cost")
+    if isinstance(cost, int | float):
+        parts.append(f"${float(cost):.2f}")
+
+    if not parts:
+        return "- Estimate: not recorded"
+    return "- Estimate: " + " / ".join(parts)
+
+
+def _format_duration(seconds: int) -> str:
+    remaining = max(seconds, 0)
+    hours, remaining = divmod(remaining, 3600)
+    minutes, seconds = divmod(remaining, 60)
+    parts: list[str] = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or hours:
+        parts.append(f"{minutes}m")
+    parts.append(f"{seconds}s")
+    return " ".join(parts)
 
 
 def _heading_index(lines: list[str], heading: str) -> int | None:
