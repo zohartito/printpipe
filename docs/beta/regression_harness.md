@@ -1,7 +1,8 @@
 # Beta Regression Harness Foundation
 
-Status: failure-intake ready. The CLI can now append cases while recording beta
-failure packets, but there is still no automatic manifest runner.
+Status: failure-intake and replay ready. The CLI can append cases while
+recording beta failure packets, then execute the manifest and report expected
+outcome drift.
 
 ## Purpose
 
@@ -53,6 +54,8 @@ stable display text when writing reports or debugging a manifest entry.
   with a trailing newline.
 - `render_command(command)`: renders argv with `shlex.join` for deterministic,
   shell-safe display.
+- `run_regression_manifest(path)`: executes every manifest case and returns a
+  JSON-friendly status report.
 
 ## Intended Flow
 
@@ -64,8 +67,9 @@ stable display text when writing reports or debugging a manifest entry.
 4. Or create a case directly with `case_from_run(...)`, passing the replay
    command and notes, then write or update a manifest with
    `write_regression_manifest(...)`.
-5. Future harness work can load the manifest and decide whether each case should
-   currently fail or succeed.
+5. Run `printpipe run-regressions ... --strict` to replay the manifest.
+6. When a known failure is fixed intentionally, flip its `expected` value from
+   `failure` to `success` so it guards against coming back.
 
 Example:
 
@@ -82,9 +86,22 @@ printpipe record-beta-failure runs/<run-id> \
   --regression-manifest tests/fixtures/regression/failure_manifest.json
 ```
 
+Replay the manifest:
+
+```bash
+printpipe run-regressions tests/fixtures/regression/failure_manifest.json --strict
+```
+
+Meaning:
+
+- `expected=failure` passes only when the command still fails.
+- `expected=success` passes only when the command succeeds.
+- An unexpected pass is useful news: it means the known failure may be fixed and
+  should be reviewed before changing the manifest expectation.
+- An unexpected failure means a fixed case regressed.
+
 ## Current Limits
 
-- There is no runner that executes manifest cases.
 - Validation checks schema shape and stable fields, but it does not require
   fixture files to exist because manifests may be authored before fixtures are
   copied into place.

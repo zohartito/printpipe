@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -12,9 +13,11 @@ from printpipe.beta.regression import (
     case_from_run,
     load_regression_manifest,
     render_command,
+    run_regression_manifest,
     validate_regression_manifest,
     write_regression_manifest,
 )
+from printpipe.cli import main
 
 
 def _case_payload(**overrides: object) -> dict[str, object]:
@@ -151,3 +154,109 @@ def test_case_from_run_uses_run_manifest_defaults(tmp_path: Path) -> None:
         expected=ExpectedOutcome.FAILURE,
         notes="Captured from slice failure.",
     )
+
+
+def test_run_regression_manifest_marks_expected_outcomes(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "regression_manifest.json"
+    manifest = RegressionManifest(
+        cases=(
+            RegressionCase(
+                case_id="known-failure",
+                source_run_id="run-failed",
+                fixture_path=Path("fixtures/bad.stl"),
+                command=(sys.executable, "-c", "raise SystemExit(2)"),
+                expected=ExpectedOutcome.FAILURE,
+                notes="Known failure should stay red until fixed.",
+            ),
+            RegressionCase(
+                case_id="known-success",
+                source_run_id="run-fixed",
+                fixture_path=Path("fixtures/good.stl"),
+                command=(sys.executable, "-c", "print('ok')"),
+                expected=ExpectedOutcome.SUCCESS,
+                notes="Fixed case should stay green.",
+            ),
+        )
+    )
+    write_regression_manifest(manifest, manifest_path)
+
+    result = run_regression_manifest(manifest_path)
+
+    assert result["overall_status"] == "passed"
+    assert result["case_count"] == 2
+    assert result["passed_count"] == 2
+    assert result["failed_count"] == 0
+    assert result["cases"][0]["case_id"] == "known-failure"
+    assert result["cases"][0]["actual"] == "failure"
+    assert result["cases"][0]["status"] == "passed"
+    assert result["cases"][0]["exit_code"] == 2
+    assert result["cases"][1]["case_id"] == "known-success"
+    assert result["cases"][1]["actual"] == "success"
+    assert result["cases"][1]["status"] == "passed"
+    assert result["cases"][1]["stdout"] == "ok\n"
+
+
+def test_run_regression_manifest_flags_unexpected_passes_and_failures(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "regression_manifest.json"
+    manifest = RegressionManifest(
+        cases=(
+            RegressionCase(
+                case_id="unexpected-pass",
+                source_run_id="run-failed",
+                fixture_path=Path("fixtures/bad.stl"),
+                command=(sys.executable, "-c", "raise SystemExit(0)"),
+                expected=ExpectedOutcome.FAILURE,
+                notes="This failure unexpectedly disappeared.",
+            ),
+            RegressionCase(
+                case_id="unexpected-failure",
+                source_run_id="run-fixed",
+                fixture_path=Path("fixtures/good.stl"),
+                command=(sys.executable, "-c", "raise SystemExit(3)"),
+                expected=ExpectedOutcome.SUCCESS,
+                notes="This fixed case regressed.",
+            ),
+        )
+    )
+    write_regression_manifest(manifest, manifest_path)
+
+    result = run_regression_manifest(manifest_path)
+
+    assert result["overall_status"] == "failed"
+    assert result["passed_count"] == 0
+    assert result["failed_count"] == 2
+    assert result["cases"][0]["status"] == "failed"
+    assert result["cases"][0]["actual"] == "success"
+    assert result["cases"][0]["message"] == "expected failure but command succeeded"
+    assert result["cases"][1]["status"] == "failed"
+    assert result["cases"][1]["actual"] == "failure"
+    assert result["cases"][1]["message"] == "expected success but command failed"
+
+
+def test_cli_run_regressions_prints_json_and_strict_exit_code(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    manifest_path = tmp_path / "regression_manifest.json"
+    manifest = RegressionManifest(
+        cases=(
+            RegressionCase(
+                case_id="unexpected-pass",
+                source_run_id="run-failed",
+                fixture_path=Path("fixtures/bad.stl"),
+                command=(sys.executable, "-c", "raise SystemExit(0)"),
+                expected=ExpectedOutcome.FAILURE,
+                notes="This failure unexpectedly disappeared.",
+            ),
+        )
+    )
+    write_regression_manifest(manifest, manifest_path)
+
+    exit_code = main(["run-regressions", str(manifest_path), "--json", "--strict"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 2
+    assert payload["overall_status"] == "failed"
+    assert payload["cases"][0]["case_id"] == "unexpected-pass"

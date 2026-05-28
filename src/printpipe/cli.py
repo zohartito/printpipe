@@ -666,6 +666,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print written failure packet and regression paths as JSON.",
     )
 
+    run_regressions = subparsers.add_parser(
+        "run-regressions",
+        help="Execute a beta regression manifest and report expected outcome drift.",
+    )
+    run_regressions.add_argument(
+        "manifest_path",
+        type=Path,
+        help="Regression manifest JSON to execute.",
+    )
+    run_regressions.add_argument(
+        "--cwd",
+        type=Path,
+        default=None,
+        help="Working directory for case commands; defaults to current directory.",
+    )
+    run_regressions.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=120.0,
+        help="Per-case timeout in seconds.",
+    )
+    run_regressions.add_argument(
+        "--json",
+        action="store_true",
+        help="Print regression runner result as JSON.",
+    )
+    run_regressions.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless every case matches its expected outcome.",
+    )
+
     readiness = subparsers.add_parser(
         "readiness",
         help="Summarize combined beta and release readiness gates.",
@@ -947,6 +979,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "record-beta-failure":
         return _record_beta_failure(args)
 
+    if args.command == "run-regressions":
+        return _run_regressions(
+            manifest_path=args.manifest_path,
+            cwd=args.cwd,
+            timeout_seconds=args.timeout_seconds,
+            json_output=args.json,
+            strict=args.strict,
+        )
+
     if args.command == "readiness":
         return _readiness(
             runs_dir=args.runs_dir,
@@ -1054,6 +1095,44 @@ def _record_beta_failure(args: argparse.Namespace) -> int:
         if result.get("regression_manifest_path"):
             print(f"regression manifest: {result['regression_manifest_path']}")
             print(f"regression case: {result['regression_case_id']}")
+    return 0
+
+
+def _run_regressions(
+    *,
+    manifest_path: Path,
+    cwd: Path | None,
+    timeout_seconds: float,
+    json_output: bool,
+    strict: bool,
+) -> int:
+    from printpipe.beta.regression import run_regression_manifest
+
+    result = run_regression_manifest(
+        manifest_path,
+        cwd=cwd,
+        timeout_seconds=timeout_seconds,
+    )
+    if json_output:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(f"manifest: {result['manifest_path']}")
+        print(f"overall: {result['overall_status']}")
+        print(
+            "cases: "
+            f"{result['passed_count']} passed / {result['failed_count']} failed "
+            f"/ {result['case_count']} total"
+        )
+        for case in result["cases"]:
+            print(
+                f"- {case['case_id']}: {case['status']} "
+                f"(expected {case['expected']}, actual {case['actual']}, "
+                f"exit {case['exit_code']})"
+            )
+            if case["status"] != "passed":
+                print(f"  {case['message']}")
+    if strict and result["overall_status"] != "passed":
+        return 2
     return 0
 
 

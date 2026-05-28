@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import shlex
+import subprocess
 from collections.abc import Mapping, Sequence as SequenceABC
 from dataclasses import dataclass
 from enum import Enum
@@ -110,6 +111,36 @@ def load_regression_manifest(path: str | Path) -> RegressionManifest:
     return _manifest_from_payload(payload)
 
 
+def run_regression_manifest(
+    path: str | Path,
+    *,
+    cwd: str | Path | None = None,
+    timeout_seconds: float = 120.0,
+) -> dict[str, Any]:
+    """Run every regression case and return a JSON-friendly status report."""
+
+    manifest_path = Path(path).expanduser().resolve()
+    manifest = load_regression_manifest(manifest_path)
+    case_results = [
+        _run_regression_case(
+            case,
+            cwd=cwd,
+            timeout_seconds=timeout_seconds,
+        )
+        for case in manifest.cases
+    ]
+    failed_count = sum(1 for result in case_results if result["status"] != "passed")
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "manifest_path": str(manifest_path),
+        "overall_status": "passed" if failed_count == 0 else "failed",
+        "case_count": len(case_results),
+        "passed_count": len(case_results) - failed_count,
+        "failed_count": failed_count,
+        "cases": case_results,
+    }
+
+
 def case_from_run(
     run_root: str | Path,
     *,
@@ -149,6 +180,76 @@ def _manifest_from_payload(payload: Mapping[str, Any]) -> RegressionManifest:
         schema_version=payload["schema_version"],
         cases=tuple(_case_from_payload(case) for case in payload["cases"]),
     )
+
+
+def _run_regression_case(
+    case: RegressionCase,
+    *,
+    cwd: str | Path | None,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    command = list(case.command)
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=Path(cwd).expanduser() if cwd is not None else None,
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+        exit_code: int | None = completed.returncode
+        stdout = completed.stdout
+        stderr = completed.stderr
+        actual = "success" if completed.returncode == 0 else "failure"
+        message = _case_message(expected=case.expected, actual=actual)
+    except subprocess.TimeoutExpired as exc:
+        exit_code = None
+        stdout = _optional_completed_text(exc.stdout)
+        stderr = _optional_completed_text(exc.stderr)
+        actual = "timeout"
+        message = f"command timed out after {timeout_seconds:g} seconds"
+    except OSError as exc:
+        exit_code = None
+        stdout = ""
+        stderr = str(exc)
+        actual = "error"
+        message = f"command could not start: {exc}"
+
+    status = "passed" if actual == case.expected.value else "failed"
+    return {
+        "case_id": case.case_id,
+        "source_run_id": case.source_run_id,
+        "fixture_path": case.fixture_path.as_posix(),
+        "command": list(case.command),
+        "rendered_command": case.rendered_command,
+        "expected": case.expected.value,
+        "actual": actual,
+        "status": status,
+        "exit_code": exit_code,
+        "stdout": stdout,
+        "stderr": stderr,
+        "message": message,
+        "notes": case.notes,
+    }
+
+
+def _case_message(*, expected: ExpectedOutcome, actual: str) -> str:
+    if actual == expected.value:
+        return "matched expected outcome"
+    if expected == ExpectedOutcome.FAILURE and actual == "success":
+        return "expected failure but command succeeded"
+    if expected == ExpectedOutcome.SUCCESS and actual == "failure":
+        return "expected success but command failed"
+    return f"expected {expected.value} but got {actual}"
+
+
+def _optional_completed_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
 
 
 def _case_from_value(value: Any) -> RegressionCase:
@@ -270,6 +371,7 @@ __all__ = [
     "case_from_run",
     "load_regression_manifest",
     "render_command",
+    "run_regression_manifest",
     "validate_regression_manifest",
     "write_regression_manifest",
 ]

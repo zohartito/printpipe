@@ -1003,3 +1003,15 @@ Status: complete for failure capture plumbing. PrintPipe can now preserve failed
 4. Done: the command writes `90_beta/failure_report.json` and `.md`, and copies attached artifacts into `90_beta/artifacts/`.
 5. Done: `--regression-manifest` appends a `RegressionCase` seeded from the run manifest and the reproduction command.
 6. Boundary: this only records failures after they happen; real trusted-user beta runs, physical print failures, and material/orientation/repair rule updates remain open.
+
+## Wave 91 - Regression Manifest Runner
+
+Status: complete for replaying captured beta regression cases. Manifests are now executable, not only authorable.
+
+1. Done: added `printpipe.beta.regression.run_regression_manifest()`.
+2. Done: added `printpipe run-regressions <manifest>`.
+3. Done: each case records expected outcome, actual outcome, exit code, stdout/stderr, status, and drift message.
+4. Done: `expected=failure` passes only when the command still fails.
+5. Done: `expected=success` passes only when the command succeeds.
+6. Done: `--strict` returns exit code `2` when any case drifts.
+7. Boundary: real beta failures and rule updates are still needed before Phase 16 can be marked complete.

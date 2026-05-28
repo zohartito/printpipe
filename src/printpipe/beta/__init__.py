@@ -39,6 +39,7 @@ from printpipe.beta.regression import (
     case_from_run,
     load_regression_manifest,
     render_command,
+    run_regression_manifest,
     validate_regression_manifest,
     write_regression_manifest,
 )
@@ -73,6 +74,7 @@ __all__ = (
     "render_beta_readiness_report",
     "start_physical_validation",
     "render_command",
+    "run_regression_manifest",
     "validate_regression_manifest",
     "write_physical_evidence_files",
     "write_failure_report_files",
