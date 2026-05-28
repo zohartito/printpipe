@@ -201,6 +201,7 @@ def test_build_final_readiness_view_keeps_release_commands_and_required_inputs()
                             "status": "action_required",
                             "detail": "sign and notarize",
                             "start_command": "printpipe release-start --release-dir dist/release",
+                            "setup_command": "printpipe build-windows-standalone --output dist/release/PrintPipe-Windows-standalone.zip --json",
                             "command": "printpipe build-release --developer-id-identity '<id>'",
                             "followup_command": "printpipe release-status --strict",
                             "handoff_markdown_path": (
@@ -220,6 +221,10 @@ def test_build_final_readiness_view_keeps_release_commands_and_required_inputs()
 
     action = view["actions"][0]
     assert action["command"] == "printpipe release-start --release-dir dist/release"
+    assert action["setup_command"] == (
+        "printpipe build-windows-standalone --output "
+        "dist/release/PrintPipe-Windows-standalone.zip --json"
+    )
     assert action["run_command"] == (
         "printpipe build-release --developer-id-identity '<id>'"
     )
@@ -384,6 +389,7 @@ def test_render_final_readiness_panel_next_action_shows_release_commands() -> No
                 "status": "action_required",
                 "detail": "sign and notarize",
                 "command": "printpipe release-start --release-dir dist/release",
+                "setup_command": "printpipe build-windows-standalone --output dist/release/PrintPipe-Windows-standalone.zip --json",
                 "run_command": "printpipe build-release --developer-id-identity '<id>'",
                 "followup_command": "printpipe release-status --strict",
                 "required_inputs": [
@@ -403,6 +409,8 @@ def test_render_final_readiness_panel_next_action_shows_release_commands() -> No
     assert "Next action:" in html
     assert "Next action required inputs:" in html
     assert "Developer ID Application certificate" in html
+    assert "Setup prerequisite:" in html
+    assert "printpipe build-windows-standalone --output" in html
     assert "Run after prerequisites:" in html
     assert "printpipe build-release --developer-id-identity" in html
     assert "Follow-up check:" in html
@@ -464,6 +472,7 @@ def test_render_final_readiness_panel_shows_release_commands_and_required_inputs
                     "detail": "sign and notarize",
                     "status": "action_required",
                     "command": "printpipe release-start --release-dir dist/release",
+                    "setup_command": "printpipe build-windows-standalone --output dist/release/PrintPipe-Windows-standalone.zip --json",
                     "run_command": "printpipe build-release --developer-id-identity '<id>'",
                     "followup_command": "printpipe release-status --strict",
                     "handoff_markdown_path": (
@@ -482,6 +491,8 @@ def test_render_final_readiness_panel_shows_release_commands_and_required_inputs
     assert "Required inputs:" in html
     assert "Developer ID Application certificate" in html
     assert "notarytool keychain profile" in html
+    assert "Setup prerequisite:" in html
+    assert "printpipe build-windows-standalone --output" in html
     assert "Run after prerequisites:" in html
     assert "printpipe build-release --developer-id-identity" in html
     assert "Follow-up check:" in html

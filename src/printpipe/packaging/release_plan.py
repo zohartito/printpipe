@@ -85,6 +85,9 @@ def render_release_distribution_plan(plan: Mapping[str, Any]) -> str:
         start = str(item.get("start_command") or "")
         if start:
             lines.append(f"  start: {start}")
+        setup = str(item.get("setup_command") or "")
+        if setup:
+            lines.append(f"  setup: {setup}")
         handoff = str(item.get("handoff_markdown_path") or "")
         if handoff:
             lines.append(f"  handoff: {handoff}")
@@ -224,6 +227,12 @@ def _macos_distribution_action(*, release_dir: Path) -> dict[str, Any]:
 def _windows_distribution_action(*, release_dir: Path) -> dict[str, Any]:
     installer_path = release_dir / "PrintPipeSetup.exe"
     standalone_path = release_dir / "PrintPipe-Windows-standalone.zip"
+    setup_command = ""
+    if not standalone_path.is_file():
+        setup_command = (
+            "printpipe build-windows-standalone --output "
+            f"{_quote(str(standalone_path))} --json"
+        )
     return {
         "id": "windows_distribution",
         "label": "Windows distribution",
@@ -237,6 +246,7 @@ def _windows_distribution_action(*, release_dir: Path) -> dict[str, Any]:
             f"{_quote(str(standalone_path))} --output {_quote(str(installer_path))} "
             '--certificate-subject "<Code Signing Certificate Subject>" --json'
         ),
+        "setup_command": setup_command,
         "followup_command": (
             "printpipe build-release --output-dir "
             f"{_quote(str(release_dir))} --windows-installer-exe "
@@ -380,10 +390,13 @@ def _render_handoff_action(action: Mapping[str, Any]) -> list[str]:
     if required:
         lines.append("- Required inputs:")
         lines.extend(f"  - {item}" for item in required)
+    setup = str(action.get("setup_command") or "")
     command = str(action.get("command") or "")
     followup = str(action.get("followup_command") or "")
-    if command or followup:
+    if setup or command or followup:
         lines.extend(["", "```bash"])
+        if setup:
+            lines.append(setup)
         if command:
             lines.append(command)
         if followup:

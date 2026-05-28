@@ -54,15 +54,21 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
     next_action_markup = ""
     if next_action:
         command = str(next_action.get("command") or "")
+        setup_command = str(next_action.get("setup_command") or "")
         run_command = str(next_action.get("run_command") or "")
         followup_command = str(next_action.get("followup_command") or "")
         record_command = str(next_action.get("record_command") or "")
         record_label = _action_record_label(str(next_action.get("section_id") or ""))
         required_markup = _next_action_required_inputs(next_action)
+        setup_markup = _next_action_command_block(
+            "Setup prerequisite",
+            setup_command,
+            excluded={command},
+        )
         run_markup = _next_action_command_block(
             "Run after prerequisites",
             run_command,
-            excluded={command},
+            excluded={command, setup_command},
         )
         followup_markup = _next_action_command_block(
             "Follow-up check",
@@ -94,6 +100,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
                     else ""
                 ),
                 required_markup,
+                setup_markup,
                 run_markup,
                 followup_markup,
                 record_markup,
@@ -246,6 +253,7 @@ def _action_item(
         "label": _action_label(action),
         "detail": _action_detail(action),
         "command": _action_command(action),
+        "setup_command": str(action.get("setup_command") or ""),
         "run_command": _action_run_command(action),
         "followup_command": str(action.get("followup_command") or ""),
         "record_command": _action_record_command(action, section_id=section_id),
@@ -406,6 +414,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     label = str(action.get("label") or "Remaining action")
     detail = str(action.get("detail") or "")
     command = str(action.get("command") or "")
+    setup_command = str(action.get("setup_command") or "")
     run_command = str(action.get("run_command") or "")
     followup_command = str(action.get("followup_command") or "")
     record_command = str(action.get("record_command") or "")
@@ -432,7 +441,17 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
                 f'            <pre><code>{escape(run_command)}</code></pre>',
             ]
         )
-        if run_command and run_command != command
+        if run_command and run_command not in {command, setup_command}
+        else ""
+    )
+    setup_markup = (
+        "\n".join(
+            [
+                '            <p class="muted"><strong>Setup prerequisite:</strong></p>',
+                f'            <pre><code>{escape(setup_command)}</code></pre>',
+            ]
+        )
+        if setup_command and setup_command != command
         else ""
     )
     followup_markup = (
@@ -485,6 +504,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
             slice_markup,
             handoff_markup,
             command_markup,
+            setup_markup,
             run_markup,
             followup_markup,
             record_markup,

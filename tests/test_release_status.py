@@ -267,6 +267,10 @@ def test_release_distribution_plan_turns_distribution_gates_into_commands(
     assert "--developer-id-identity" in actions["macos_distribution"]["command"]
     assert "--notary-profile" in actions["macos_distribution"]["command"]
     assert actions["windows_distribution"]["status"] == "action_required"
+    assert actions["windows_distribution"]["setup_command"] == (
+        "printpipe build-windows-standalone --output "
+        f"{release_dir / 'PrintPipe-Windows-standalone.zip'} --json"
+    )
     assert "build-windows-installer" in actions["windows_distribution"]["command"]
     assert "build-release" in actions["windows_distribution"]["followup_command"]
     assert "--windows-installer-exe" in actions["windows_distribution"]["followup_command"]
@@ -326,9 +330,11 @@ def test_release_distribution_start_writes_handoff_without_signed_evidence(
     assert "Code-signing certificate" in handoff
     assert "Only verified release manifest artifacts" in handoff
     assert "printpipe release-status" in handoff
+    assert "printpipe build-windows-standalone" in handoff
     assert actions["macos_distribution"]["start_command"].startswith("printpipe release-start")
     assert actions["macos_distribution"]["handoff_markdown_path"] == str(handoff_path.resolve())
     assert actions["windows_distribution"]["handoff_markdown_path"] == str(handoff_path.resolve())
+    assert "setup: printpipe build-windows-standalone" in rendered
     assert "start: printpipe release-start" in rendered
     assert f"handoff: {handoff_path.resolve()}" in rendered
 

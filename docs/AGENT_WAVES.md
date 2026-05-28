@@ -1580,3 +1580,14 @@ Status: partial progress for trusted-user beta evidence honesty. This removes st
 4. Done: the existing local slipper trusted-user handoff Markdown sheets were refreshed to match the safe concrete record commands already exposed by `beta-feedback-plan` and `final-plan`.
 5. Current local result: `runs/20260528-042826-slipper-size11-v2c-wide-upper-textured/90_beta/trusted_user_feedback_handoff_*.md` agrees with `/beta-feedback-plan.json` and `final-plan`.
 6. Boundary: synchronized trusted-user commands still do not create trusted-user evidence. The beta gate remains open until three unique trusted users return completed packets with supporting evidence.
+
+## Wave 144 - Windows Release Setup Prerequisite Command
+
+Status: partial progress for release-distribution execution UX. This makes the Windows signed-installer action self-contained when the standalone runtime ZIP is missing.
+
+1. Done: `release-plan` now checks whether `PrintPipe-Windows-standalone.zip` exists in the release folder.
+2. Done: when it is missing, the Windows distribution action includes `setup_command=printpipe build-windows-standalone --output <release>/PrintPipe-Windows-standalone.zip --json`.
+3. Done: terminal release plans and release handoff Markdown render the setup command before the installer/signing command.
+4. Done: final-readiness web rows and next-action callouts can render `Setup prerequisite` command blocks.
+5. Current local result: `release-plan --release-dir dist/release --runs-dir runs --json` now tells the operator how to create the standalone ZIP before attempting `build-windows-installer`.
+6. Boundary: this is prerequisite command routing only. It does not install Windows signing tools, create a code-signing certificate, build a signed installer, or close the Windows distribution gate.

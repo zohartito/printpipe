@@ -257,11 +257,14 @@ def _supporting_info_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
 
 def _supporting_command_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
     immediate = str(action.get("command") or "")
+    setup = str(action.get("setup_command") or "")
     run = str(action.get("run_command") or "")
     followup = str(action.get("followup_command") or "")
     record = str(action.get("record_command") or "")
     lines: list[tuple[str, str]] = []
-    if run and run != immediate:
+    if setup and setup != immediate:
+        lines.append(("setup prerequisite", setup))
+    if run and run not in {immediate, setup}:
         lines.append(("run after prerequisites", run))
     if followup and followup not in {immediate, run}:
         lines.append(("follow-up check", followup))
@@ -397,6 +400,9 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, Any]:
         if required_inputs:
             payload["required_inputs"] = [str(item) for item in required_inputs]
         run_command = _run_command(action, immediate_command=command)
+        setup_command = str(action.get("setup_command") or "")
+        if setup_command and setup_command != command:
+            payload["setup_command"] = setup_command
         if run_command:
             payload["run_command"] = run_command
         followup_command = str(action.get("followup_command") or "")

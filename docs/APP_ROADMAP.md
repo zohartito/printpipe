@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 143: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 144: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 143 aligned the older beta action-plan fallback, beta onboarding docs, and local trusted-user handoff sheets with the explicit-outcome rule. Trusted-user record commands now require `--outcome "<passed|failed|partial>"`, `--would-print "<yes|no|unknown>"`, and `--recommendation "<recommendation>"` instead of preselecting `passed`, `no`, and `needs_review`. Physical record commands continue to require `--print-status "<passed|failed|partial>"`. The remaining open gates are real-world evidence gates, not missing local command templates.
+Latest status: Wave 144 made the Windows release-distribution plan self-contained when the standalone runtime ZIP is missing. Windows installer actions now include a `setup_command` to run `printpipe build-windows-standalone --output dist/release/PrintPipe-Windows-standalone.zip --json` before `build-windows-installer`, and final-readiness web/terminal surfaces render that setup prerequisite. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 
