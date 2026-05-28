@@ -216,6 +216,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print app bundle build output as JSON.",
     )
+    build_macos_app.add_argument(
+        "--adhoc-sign",
+        action="store_true",
+        help="Apply a local ad-hoc codesign signature; this is not notarization.",
+    )
 
     physical = subparsers.add_parser(
         "record-physical-evidence",
@@ -425,7 +430,11 @@ def main(argv: list[str] | None = None) -> int:
         return _build_zipapp(output_path=args.output, json_output=args.json)
 
     if args.command == "build-macos-app":
-        return _build_macos_app(output_path=args.output, json_output=args.json)
+        return _build_macos_app(
+            output_path=args.output,
+            json_output=args.json,
+            adhoc_sign=args.adhoc_sign,
+        )
 
     if args.command == "record-physical-evidence":
         try:
@@ -514,16 +523,16 @@ def _build_zipapp(*, output_path: Path, json_output: bool) -> int:
     return 0
 
 
-def _build_macos_app(*, output_path: Path, json_output: bool) -> int:
+def _build_macos_app(*, output_path: Path, json_output: bool, adhoc_sign: bool) -> int:
     from printpipe.packaging.macos_app import build_macos_app_bundle
 
-    payload = build_macos_app_bundle(app_path=output_path)
+    payload = build_macos_app_bundle(app_path=output_path, adhoc_sign=adhoc_sign)
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print(f"macOS app: {payload['app_path']}")
         print(f"executable: {payload['executable_path']}")
-        print("signed: false")
+        print(f"signed: {str(payload['signed']).lower()}")
         print("notarized: false")
     return 0
 

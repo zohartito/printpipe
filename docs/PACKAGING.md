@@ -295,3 +295,23 @@ What this does not prove:
 - It uses `/usr/bin/env python3`; it does not bundle Python.
 - It is a CLI launcher bundle, not a polished double-click GUI app.
 - It does not bundle Bambu Studio.
+
+## Ad-Hoc macOS App Signing
+
+Wave 47 adds optional local ad-hoc signing:
+
+```bash
+printpipe build-macos-app --output dist/PrintPipe.app --adhoc-sign --json
+codesign --verify --deep --strict dist/PrintPipe.app
+```
+
+Observed live:
+
+- `signed=true`
+- `signing_identity="-"`
+- `notarized=false`
+- `codesign --verify --deep --strict` returned `0`
+- `Contents/MacOS/printpipe --version` returned `printpipe 0.1.0`
+
+This is useful local packaging hygiene, but it is not Developer ID signing and
+does not replace notarization.

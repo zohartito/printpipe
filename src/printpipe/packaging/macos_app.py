@@ -5,6 +5,7 @@ from __future__ import annotations
 import plistlib
 import shutil
 import stat
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ def build_macos_app_bundle(
     *,
     project_root: str | Path = Path("."),
     app_path: str | Path = Path("dist/PrintPipe.app"),
+    adhoc_sign: bool = False,
 ) -> dict[str, Any]:
     """Build an unsigned `.app` bundle that runs the portable zipapp."""
 
@@ -48,6 +50,11 @@ def build_macos_app_bundle(
     plist_path = contents_dir / "Info.plist"
     plist_path.write_bytes(plistlib.dumps(_info_plist()))
 
+    signing_identity = ""
+    if adhoc_sign:
+        _adhoc_sign_app(target)
+        signing_identity = "-"
+
     return {
         "status": "ok",
         "app_path": str(target),
@@ -56,11 +63,27 @@ def build_macos_app_bundle(
         "info_plist_path": str(plist_path),
         "bundle_identifier": "com.zohartito.printpipe",
         "version": __version__,
-        "signed": False,
+        "signed": adhoc_sign,
+        "signing_identity": signing_identity,
         "notarized": False,
         "bundles_python_runtime": False,
         "bundles_bambu_studio": False,
     }
+
+
+def _adhoc_sign_app(app_path: Path) -> None:
+    codesign = shutil.which("codesign")
+    if codesign is None:
+        raise RuntimeError("codesign is required for ad-hoc macOS app signing")
+    result = subprocess.run(
+        [codesign, "--force", "--deep", "--sign", "-", str(app_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout or "codesign failed").strip()
+        raise RuntimeError(message)
 
 
 def _launcher_script() -> str:

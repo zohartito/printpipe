@@ -507,3 +507,14 @@ Status: partial progress for original item 121. PrintPipe now builds a launchabl
 4. Done: verified `Contents/MacOS/printpipe --version` returns `printpipe 0.1.0`.
 5. Done: verified the app-bundle launcher can run `package-smoke --platform macos`, returning `status=ok` with reports and a Bambu `.3mf`.
 6. Remaining: signing, notarization, bundled Python runtime, and polished double-click GUI/launcher behavior are separate gates.
+
+## Wave 47 - Ad-Hoc macOS App Signing
+
+Status: partial progress for original item 121. The app bundle can now be locally ad-hoc signed, but it is not Developer ID signed or notarized.
+
+1. Done: added `adhoc_sign=True` to `build_macos_app_bundle()`.
+2. Done: added `printpipe build-macos-app --adhoc-sign`.
+3. Done: live-built an app with `signed=true`, `signing_identity="-"`, and `notarized=false`.
+4. Done: verified `codesign --verify --deep --strict PrintPipe.app` returned `0`.
+5. Done: verified the signed app launcher still returns `printpipe 0.1.0`.
+6. Remaining: Developer ID signing, notarization, bundled runtime, and release packaging stay open.

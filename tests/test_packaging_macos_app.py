@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import plistlib
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -79,3 +80,27 @@ def test_cli_build_macos_app_json_reports_bundle(tmp_path: Path, capsys) -> None
     assert payload["status"] == "ok"
     assert payload["app_path"] == str(app_path)
     assert Path(payload["executable_path"]).exists()
+
+
+def test_build_macos_app_bundle_can_apply_ad_hoc_signature(tmp_path: Path) -> None:
+    if shutil.which("codesign") is None:
+        return
+
+    app_path = tmp_path / "PrintPipe.app"
+
+    result = build_macos_app_bundle(
+        project_root=REPO_ROOT,
+        app_path=app_path,
+        adhoc_sign=True,
+    )
+
+    assert result["signed"] is True
+    assert result["signing_identity"] == "-"
+    verify = subprocess.run(
+        ["codesign", "--verify", "--deep", "--strict", str(app_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert verify.returncode == 0
