@@ -119,6 +119,7 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     generated_mesh = layout.meshgen_dir / "generated.stl"
     repaired_mesh = layout.repair_dir / "repaired.stl"
     oriented_mesh = layout.geometry_dir / "oriented.stl"
+    flex_coupon = layout.geometry_dir / "flex_coupon_40x15x3.stl"
     model_preview = layout.geometry_dir / "run_detail_model_preview.svg"
     preview = layout.geometry_dir / "bed-fit.svg"
     bundle = layout.bundle_dir / "ready.3mf"
@@ -127,6 +128,7 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
         generated_mesh,
         repaired_mesh,
         oriented_mesh,
+        flex_coupon,
         model_preview,
         preview,
         bundle,
@@ -184,6 +186,11 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
                     path=preview,
                     label="Bed fit preview",
                 ),
+                Artifact(
+                    kind=ArtifactKind.CALIBRATION_MESH,
+                    path=flex_coupon,
+                    label="Flex coupon ASCII STL",
+                ),
             ),
             metrics={"bed_fit": "fits", "support_risk": "medium"},
         ),
@@ -212,7 +219,9 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
         settings_changes=(
             {
                 "printer_label": "Bambu Lab P2S",
-                "material_label": "SUNLU PLA",
+                "material_label": "SUNLU TPU 90A",
+                "profile_label": "0.20mm Slipper TPU 90A @BBL P2S",
+                "use_case": "wearable slipper",
                 "target_length_mm": 120.0,
             },
         ),
@@ -243,6 +252,13 @@ def test_run_detail_response_renders_visual_workbench_and_print_readiness(tmp_pa
     )
     assert "Widen the upper/opening and rebuild from edits." in response.text
     assert 'class="run-context"' in response.text
+    assert 'class="print-context"' in response.text
+    assert "Material and preflight context" in response.text
+    assert "SUNLU TPU 90A" in response.text
+    assert "0.20mm Slipper TPU 90A @BBL P2S" in response.text
+    assert "wearable slipper" in response.text
+    assert "Required; coupon artifact generated, physical print not recorded" in response.text
+    assert "Physical coupon/print evidence not recorded" in response.text
     assert "Warnings" in response.text
     assert "Support risk is medium around the arch." in response.text
     assert "Needs geometry edit: upper/opening too narrow" in response.text
@@ -307,6 +323,7 @@ def test_run_detail_css_uses_generic_placeholder_and_keeps_rebuild_reachable():
     assert ".model-preview-image" in css
     assert ".next-action" in css
     assert ".run-context" in css
+    assert ".print-context" in css
     assert ".verdict-strip-warn" in css
     assert ".verdict-issue" in css
     assert ".issue-line" in css

@@ -37,6 +37,7 @@ def render_run_detail_page(*, detail: dict[str, Any], artifact_links: list[Any])
             '    <section class="shell">',
             _render_verdict_strip(detail),
             _render_run_context_strip(detail),
+            _render_material_preflight_strip(detail, artifact_links),
             _render_model_workbench(detail, artifact_links),
             "    </section>",
             "  </main>",
@@ -116,6 +117,18 @@ def _render_run_context_strip(detail: dict[str, Any]) -> str:
         items.append(("Edit delta", _edit_delta_summary(detail)))
     items.append(("First warning", _first_warning(detail)))
     return _key_value_strip("run-context", "Run context", items)
+
+
+def _render_material_preflight_strip(detail: dict[str, Any], artifact_links: list[Any]) -> str:
+    items = [
+        ("Printer", _label_from_detail(detail, "printer", "Printer not recorded")),
+        ("Material", _label_from_detail(detail, "material", "Material not recorded")),
+        ("Profile", _label_from_detail(detail, "profile", "Profile not recorded")),
+        ("Use case", _use_case_label(detail)),
+        ("Flex coupon", _flex_coupon_status(detail, artifact_links)),
+        ("User-only gate", "Physical coupon/print evidence not recorded"),
+    ]
+    return _key_value_strip("print-context", "Material and preflight context", items)
 
 
 def _render_model_workbench(detail: dict[str, Any], artifact_links: list[Any]) -> str:
@@ -544,6 +557,63 @@ def _first_warning(detail: dict[str, Any]) -> str:
     return first if len(first) <= 96 else f"{first[:93]}..."
 
 
+def _label_from_detail(detail: dict[str, Any], key: str, fallback: str) -> str:
+    label = str(_mapping(detail.get(key)).get("label") or "").strip()
+    if label:
+        return label
+    settings = _mapping(detail.get("settings"))
+    for suffix in ("label", "id", "name"):
+        value = settings.get(f"{key}_{suffix}")
+        if value:
+            return str(value)
+    return fallback
+
+
+def _use_case_label(detail: dict[str, Any]) -> str:
+    settings = _mapping(detail.get("settings"))
+    launch_options = _mapping(detail.get("launch_options"))
+    for payload in (settings, launch_options):
+        value = payload.get("use_case")
+        if value:
+            return str(value)
+    return "not recorded"
+
+
+def _flex_coupon_status(detail: dict[str, Any], artifact_links: list[Any]) -> str:
+    required = _requires_flex_coupon(detail)
+    present = _has_flex_coupon_artifact(artifact_links)
+    if required and present:
+        return "Required; coupon artifact generated, physical print not recorded"
+    if required:
+        return "Required; no coupon artifact found"
+    if present:
+        return "Coupon artifact present; requirement not inferred"
+    return "Not required by recorded material/profile"
+
+
+def _requires_flex_coupon(detail: dict[str, Any]) -> bool:
+    haystack = " ".join(
+        [
+            _label_from_detail(detail, "material", ""),
+            _label_from_detail(detail, "profile", ""),
+            _use_case_label(detail),
+            " ".join(str(warning) for warning in _as_list(detail.get("warnings"))),
+        ]
+    ).lower()
+    return any(token in haystack for token in ("tpu", "flex", "slipper", "wearable"))
+
+
+def _has_flex_coupon_artifact(artifact_links: list[Any]) -> bool:
+    for link in artifact_links:
+        text = " ".join(
+            str(getattr(link, attr, ""))
+            for attr in ("category", "label", "path", "download_name")
+        ).lower()
+        if "calibration_mesh" in text or "flex_coupon" in text or "flex coupon" in text:
+            return True
+    return False
+
+
 def _signed_mm(value: Any) -> str:
     try:
         number = float(value)
@@ -621,7 +691,7 @@ RUN_DETAIL_CSS = """
     .score { display:grid; min-height:118px; padding: 14px; } .score p { align-self:end; color:#52606d; font-size:.78rem; margin:8px 0 0; overflow-wrap:anywhere; }
     .score strong,.metric strong { display: block; font-size: 1.18rem; margin-top: 6px; overflow-wrap: anywhere; }
     .score-pass strong { color: #126237; } .score-warn strong { color: #7c4a03; } .score-fail strong { color: #9b1c1c; }
-    .run-context { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); overflow: hidden; } .context-item { background: #fff; min-width: 0; padding: 11px 12px; } .context-item strong { display: block; overflow-wrap: anywhere; }
+    .run-context,.print-context { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); overflow: hidden; } .print-context { border-left: 4px solid #327d9e; } .context-item { background: #fff; min-width: 0; padding: 11px 12px; } .context-item strong { display: block; overflow-wrap: anywhere; }
     .workbench { display: grid; gap: clamp(14px,2vw,24px); grid-template-columns: minmax(0,1fr) minmax(330px,410px); }
     .canvas-zone { display: grid; gap: 14px; grid-template-rows: minmax(420px,auto) auto auto; min-width: 0; }
     .model-card { display: grid; grid-template-rows: auto minmax(420px,1fr) auto auto; min-height: 520px; overflow: hidden; }
