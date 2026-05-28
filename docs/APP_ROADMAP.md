@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 144: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 145: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 144 made the Windows release-distribution plan self-contained when the standalone runtime ZIP is missing. Windows installer actions now include a `setup_command` to run `printpipe build-windows-standalone --output dist/release/PrintPipe-Windows-standalone.zip --json` before `build-windows-installer`, and final-readiness web/terminal surfaces render that setup prerequisite. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 145 closed a final-readiness UI mismatch in the physical validation checklist. Physical action rows now render both the coupon STL artifact and the coupon JSON sidecar with the existing safe run-artifact links, matching the final-plan contract and earlier Wave 119/134 documentation. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 

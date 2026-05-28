@@ -1591,3 +1591,14 @@ Status: partial progress for release-distribution execution UX. This makes the W
 4. Done: final-readiness web rows and next-action callouts can render `Setup prerequisite` command blocks.
 5. Current local result: `release-plan --release-dir dist/release --runs-dir runs --json` now tells the operator how to create the standalone ZIP before attempting `build-windows-installer`.
 6. Boundary: this is prerequisite command routing only. It does not install Windows signing tools, create a code-signing certificate, build a signed installer, or close the Windows distribution gate.
+
+## Wave 145 - Physical Coupon Sidecar Visibility
+
+Status: partial progress for physical-validation execution UX. This aligns the final-readiness checklist rows with the final-plan contract and earlier artifact visibility docs.
+
+1. Done: final-readiness action view models continue preserving `coupon_json_path` for physical validation rows.
+2. Done: checklist rows now render `Coupon sidecar` beside `Coupon artifact`.
+3. Done: coupon STL and JSON sidecar rows use the existing safe run-artifact linker instead of plain path text when the file lives under a run folder.
+4. Done: focused web tests cover view-model preservation, rendered sidecar copy, and linked sidecar artifact paths.
+5. Current local result: `/` final-readiness rows can send Zohar to the STL, JSON sidecar, bundle, bundle-validation receipt, slice receipt, and handoff sheet from the same checklist.
+6. Boundary: artifact visibility still does not create physical print evidence. PLA, PETG, and TPU coupons still need real print observations, photos, and explicit outcome packets.

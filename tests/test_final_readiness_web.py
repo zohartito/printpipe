@@ -48,6 +48,10 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
                                 "runs/pla/40_geometry/"
                                 "physical_validation_coupon_40x15x3.stl"
                             ),
+                            "coupon_json_path": (
+                                "runs/pla/40_geometry/"
+                                "physical_validation_coupon_40x15x3.json"
+                            ),
                             "handoff_markdown_path": (
                                 "runs/pla/90_physical/"
                                 "physical_print_handoff.md"
@@ -88,6 +92,9 @@ def test_build_final_readiness_view_flattens_section_actions() -> None:
     assert view["actions"][0]["record_command"] == ""
     assert view["actions"][0]["coupon_stl_path"].endswith(
         "physical_validation_coupon_40x15x3.stl"
+    )
+    assert view["actions"][0]["coupon_json_path"].endswith(
+        "physical_validation_coupon_40x15x3.json"
     )
     assert view["actions"][0]["handoff_markdown_path"].endswith(
         "physical_print_handoff.md"
@@ -283,6 +290,10 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                         "runs/pla/40_geometry/"
                         "physical_validation_coupon_40x15x3.stl"
                     ),
+                    "coupon_json_path": (
+                        "runs/pla/40_geometry/"
+                        "physical_validation_coupon_40x15x3.json"
+                    ),
                     "bundle_path": "runs/pla/60_bundle/coupon.3mf",
                     "bundle_validation_path": "runs/pla/60_bundle/coupon_validation.json",
                     "slice_result_path": "runs/pla/70_slice/slice_result.json",
@@ -306,6 +317,8 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "Next action handoff:" in html
     assert "Coupon artifact:" in html
     assert "physical_validation_coupon_40x15x3.stl" in html
+    assert "Coupon sidecar:" in html
+    assert "physical_validation_coupon_40x15x3.json" in html
     assert "Bundle:" in html
     assert "runs/pla/60_bundle/coupon.3mf" in html
     assert "Bundle validation:" in html
@@ -336,6 +349,10 @@ def test_render_final_readiness_panel_links_run_artifact_paths() -> None:
                     "/Users/zohartito/Desktop/printpipe/runs/"
                     "physical-pla-validation/40_geometry/coupon.stl"
                 ),
+                "coupon_json_path": (
+                    "/Users/zohartito/Desktop/printpipe/runs/"
+                    "physical-pla-validation/40_geometry/coupon.json"
+                ),
                 "handoff_markdown_path": (
                     "runs/physical-pla-validation/90_physical/"
                     "physical_print_handoff.md"
@@ -364,6 +381,10 @@ def test_render_final_readiness_panel_links_run_artifact_paths() -> None:
 
     assert (
         'href="/runs/physical-pla-validation/artifacts/40_geometry/coupon.stl"'
+        in html
+    )
+    assert (
+        'href="/runs/physical-pla-validation/artifacts/40_geometry/coupon.json"'
         in html
     )
     assert (

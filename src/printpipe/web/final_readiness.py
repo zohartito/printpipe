@@ -424,6 +424,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     )
     required_inputs = _string_list(action.get("required_inputs"))
     coupon_stl_path = str(action.get("coupon_stl_path") or "")
+    coupon_json_path = str(action.get("coupon_json_path") or "")
     report_path = str(action.get("report_path") or "")
     bundle_path = str(action.get("bundle_path") or "")
     bundle_validation_path = str(action.get("bundle_validation_path") or "")
@@ -474,12 +475,8 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
         if record_command and record_command != command
         else ""
     )
-    coupon_markup = (
-        "            <p class=\"muted\">Coupon artifact: "
-        f"<code>{escape(coupon_stl_path)}</code></p>"
-        if coupon_stl_path
-        else ""
-    )
+    coupon_markup = _file_row("Coupon artifact", coupon_stl_path)
+    coupon_sidecar_markup = _file_row("Coupon sidecar", coupon_json_path)
     report_markup = _file_row("Report", report_path)
     handoff_markup = (
         "            <p class=\"muted\">Handoff: "
@@ -498,6 +495,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
             f'            <p class="muted">{escape(detail)}</p>',
             required_markup,
             coupon_markup,
+            coupon_sidecar_markup,
             report_markup,
             bundle_markup,
             bundle_validation_markup,
