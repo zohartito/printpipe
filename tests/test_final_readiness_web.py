@@ -107,7 +107,8 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
                 "label": "PLA",
                 "status": "missing",
                 "detail": "no packet",
-                "command": "printpipe physical-start --family pla",
+                "command": "printpipe open-folder runs/pla --target run",
+                "record_command": "printpipe record-physical-evidence runs/pla",
                 "coupon_stl_path": (
                     "runs/pla/40_geometry/"
                     "physical_validation_coupon_40x15x3.stl"
@@ -152,7 +153,9 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert "A final plan is not evidence." in html
     assert "Digital coupons are not physical proof." in html
     assert "Next action:" in html
-    assert "printpipe physical-start --family pla" in html
+    assert "printpipe open-folder runs/pla --target run" in html
+    assert "Record after print:" in html
+    assert "printpipe record-physical-evidence runs/pla" in html
     assert "Next action artifact:" in html
     assert "Next action handoff:" in html
     assert "Coupon artifact:" in html

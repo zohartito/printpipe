@@ -1412,3 +1412,14 @@ Status: partial progress for physical-validation execution. This makes print-day
 3. Done: regression coverage verifies the estimate line appears while `90_physical/physical_evidence.json` remains unchanged.
 4. Current local result: PLA handoff shows `3m 35s / 1.60 g / 15 layers`, PETG shows `4m 36s / 1.59 g / 15 layers`, and TPU shows `14m 35s / 2.41 g / 15 layers`.
 5. Boundary: slice estimates are still software/slicer evidence only. The material-family gate still requires real printed coupons, real observations, and existing photo artifacts.
+
+## Wave 128 - Final Next Record-After-Print Command
+
+Status: partial progress for physical-validation execution UX. This makes the immediate final-next payload carry the post-print evidence command without making it the immediate command.
+
+1. Done: `final-next --json` now preserves `record_command` for print-handoff actions.
+2. Done: terminal `final-next` and `final-plan` render it as `record after print` when it differs from the immediate command.
+3. Done: the web final-readiness next-action panel renders a separate `Record after print` command block.
+4. Done: `start_command` actions do not surface premature record commands before the starter packet exists.
+5. Done: physical handoff slice section spacing was normalized while refreshing the local PLA, PETG, and TPU handoffs.
+6. Boundary: the record command is still an instruction. Physical validation remains open until a real printed coupon, real observations, and an existing photo artifact are recorded.

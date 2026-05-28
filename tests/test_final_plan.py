@@ -170,6 +170,10 @@ def test_final_action_plan_prefers_print_handoff_command_before_record_command(
     assert plan["next_action"]["command"] == "printpipe open-folder runs/pla --target run"
     assert plan["next_action"]["command_kind"] == "print_handoff_command"
     assert plan["next_action"]["detail"] == "print first, then record"
+    assert (
+        plan["next_action"]["record_command"]
+        == "printpipe record-physical-evidence runs/pla"
+    )
     assert plan["next_action"]["coupon_stl_path"] == "runs/pla/40_geometry/coupon.stl"
 
 
@@ -250,7 +254,8 @@ def test_render_final_next_action_shows_only_immediate_action() -> None:
             "label": "PLA",
             "status": "recorded_but_not_passed",
             "detail": "no passed physical evidence",
-            "command": "printpipe record-physical-evidence runs/pla",
+            "command": "printpipe open-folder runs/pla --target run",
+            "record_command": "printpipe record-physical-evidence runs/pla",
             "coupon_stl_path": "runs/pla/40_geometry/coupon.stl",
             "coupon_json_path": "runs/pla/40_geometry/coupon.json",
             "handoff_markdown_path": "runs/pla/90_physical/handoff.md",
@@ -265,7 +270,8 @@ def test_render_final_next_action_shows_only_immediate_action() -> None:
 
     assert "PrintPipe Final Next Action" in rendered
     assert "Physical validation: PLA (recorded_but_not_passed)" in rendered
-    assert "command: printpipe record-physical-evidence runs/pla" in rendered
+    assert "command: printpipe open-folder runs/pla --target run" in rendered
+    assert "record after print: printpipe record-physical-evidence runs/pla" in rendered
     assert "artifact: runs/pla/40_geometry/coupon.stl" in rendered
     assert "sidecar: runs/pla/40_geometry/coupon.json" in rendered
     assert "handoff: runs/pla/90_physical/handoff.md" in rendered

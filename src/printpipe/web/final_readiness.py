@@ -53,6 +53,17 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
     next_action_markup = ""
     if next_action:
         command = str(next_action.get("command") or "")
+        record_command = str(next_action.get("record_command") or "")
+        record_markup = (
+            "\n".join(
+                [
+                    '        <p class="muted"><strong>Record after print:</strong></p>',
+                    f'        <pre><code>{escape(record_command)}</code></pre>',
+                ]
+            )
+            if record_command and record_command != command
+            else ""
+        )
         next_action_file_markup = _render_next_action_files(next_action)
         next_action_markup = "\n".join(
             [
@@ -67,6 +78,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
                     if command
                     else ""
                 ),
+                record_markup,
                 next_action_file_markup,
             ]
         )

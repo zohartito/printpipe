@@ -409,6 +409,7 @@ def test_physical_slice_slices_existing_coupon_without_rewriting_evidence(
     assert "- Status: succeeded" in handoff_after
     assert "- Estimate: 4m 0s / 1.40 g / 15 layers" in handoff_after
     assert f"- Result JSON: {result['slice_result_path']}" in handoff_after
+    assert f"- Result JSON: {result['slice_result_path']}\n\n## Validate During The Print" in handoff_after
     assert petg_action["slice_result_path"] == result["slice_result_path"]
     assert petg_action["slice_command"] == ""
     assert f"slice receipt: {result['slice_result_path']}" in rendered

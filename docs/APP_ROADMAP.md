@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 127: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 128: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 127 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
+Wave 128 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, and optional live Bambu CLI slice receipts are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail UI that separates digital artifacts from physical proof.
 
-The latest completed wave made the physical print handoff more useful on print day. `physical-slice` now carries time, filament, layer-count, and cost fields from the slice receipt into its JSON payload and renders a compact estimate line inside `90_physical/physical_print_handoff.md`.
+The latest completed wave made the final next-action handoff more complete without changing the immediate command. `final-next` and the web final-readiness panel still point first at `printpipe open-folder ... --target run`, but now also carry and render the post-print `record-physical-evidence` command as `record after print`.
+
+Wave 127 made the physical print handoff more useful on print day. `physical-slice` now carries time, filament, layer-count, and cost fields from the slice receipt into its JSON payload and renders a compact estimate line inside `90_physical/physical_print_handoff.md`.
 
 Wave 126 tightened physical print handoff truth. `physical-slice` now refreshes only the `## Slice Receipt` section inside `90_physical/physical_print_handoff.md`, so the handoff file Zohar opens before printing agrees with the available `70_slice/slice_result.json` receipt while leaving `90_physical/physical_evidence.json` untouched.
 

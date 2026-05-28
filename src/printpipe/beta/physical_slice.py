@@ -138,17 +138,21 @@ def _replace_or_insert_slice_section(text: str, section: str) -> str:
     slice_start = _heading_index(lines, "## Slice Receipt")
     if slice_start is not None:
         slice_end = _next_heading_index(lines, slice_start + 1)
-        replacement = section.splitlines()
+        replacement = _section_lines(section)
         updated = lines[:slice_start] + replacement + lines[slice_end:]
         return "\n".join(updated).rstrip() + "\n"
 
     validate_start = _heading_index(lines, "## Validate During The Print")
-    insertion = section.splitlines()
+    insertion = _section_lines(section)
     if validate_start is not None:
         updated = lines[:validate_start] + insertion + lines[validate_start:]
         return "\n".join(updated).rstrip() + "\n"
 
     return text.rstrip() + "\n\n" + section
+
+
+def _section_lines(section: str) -> list[str]:
+    return section.rstrip("\n").splitlines() + [""]
 
 
 def _estimate_line(slice_payload: dict[str, Any]) -> str:

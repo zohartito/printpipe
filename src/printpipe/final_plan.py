@@ -122,6 +122,8 @@ def render_final_action_plan(plan: Mapping[str, Any]) -> str:
         command = str(next_action.get("command") or "")
         if command:
             lines.append(f"  command: {command}")
+        for label, value in _supporting_command_lines(next_action):
+            lines.append(f"  {label}: {value}")
         for label, value in _supporting_path_lines(next_action):
             lines.append(f"  {label}: {value}")
         lines.append("")
@@ -196,6 +198,8 @@ def render_final_next_action(plan: Mapping[str, Any]) -> str:
     command = str(next_action.get("command") or "")
     if command:
         lines.append(f"command: {command}")
+    for label, value in _supporting_command_lines(next_action):
+        lines.append(f"{label}: {value}")
     for label, value in _supporting_path_lines(next_action):
         lines.append(f"{label}: {value}")
     return "\n".join(lines) + "\n"
@@ -239,6 +243,14 @@ def _supporting_path_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
         if value:
             lines.append((label, value))
     return lines
+
+
+def _supporting_command_lines(action: Mapping[str, Any]) -> list[tuple[str, str]]:
+    immediate = str(action.get("command") or "")
+    record = str(action.get("record_command") or "")
+    if record and record != immediate:
+        return [("record after print", record)]
+    return []
 
 
 def _action_count(source_plan: Mapping[str, Any]) -> int:
@@ -308,6 +320,13 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, str]:
             value = str(action.get(key) or "")
             if value:
                 payload[key] = value
+        record_command = str(action.get("record_command") or "")
+        if (
+            record_command
+            and record_command != command
+            and command_kind not in {"start_command", "setup_command"}
+        ):
+            payload["record_command"] = record_command
         return payload
     return {}
 
