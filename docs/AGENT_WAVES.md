@@ -1634,3 +1634,13 @@ Status: partial progress for trusted-user beta execution UX. This makes trusted-
 3. Done: the context flows into `final-plan` and the final-readiness UI through the existing action-context rendering added in Wave 147.
 4. Current local result: the slipper trusted-user rows can show the real run folder, tester slot, `existing_stl` input type, `SUNLU TPU 90A`, and `Bambu Lab P2S` before Zohar records feedback.
 5. Boundary: trusted-user context still does not create trusted-user evidence. The beta gate remains open until three unique trusted users return completed feedback packets with supporting evidence.
+
+## Wave 149 - Trusted-User Action Plan UI Parity
+
+Status: partial progress for trusted-user beta execution UX. This makes the dedicated home-page action plan show the same review context and files that final-readiness can show.
+
+1. Done: the trusted-user action-plan card now renders `Review context` for material, printer, input type, tester, and run folder.
+2. Done: action cards now show handoff Markdown, run report, and bundle paths when a handoff exists.
+3. Done: action cards separate the immediate review handoff command from the later `Record after review` command.
+4. Done: focused web regression coverage proves the home page exposes context and files for a handoff-backed trusted-user review.
+5. Boundary: UI parity still does not create trusted-user evidence. The beta gate remains open until three unique trusted users return completed feedback packets with supporting evidence.

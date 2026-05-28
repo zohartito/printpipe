@@ -11,6 +11,7 @@ from printpipe.beta.physical import (
 )
 from printpipe.beta.feedback import (
     build_trusted_user_feedback,
+    start_trusted_user_feedback,
     write_trusted_user_feedback_files,
 )
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
@@ -591,6 +592,40 @@ def test_home_response_renders_trusted_user_feedback_action_plan(tmp_path: Path)
     assert "printpipe record-beta-feedback" in response.text
     assert "printpipe beta-feedback-plan --runs-dir runs" in response.text
     assert 'href="/beta-feedback-plan.json"' in response.text
+
+
+def test_home_response_renders_trusted_user_action_context_and_files(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    run_root = runs_dir / "run-trusted-ui-context"
+    report = run_root / "80_reports" / "run_report.html"
+    bundle = run_root / "60_bundle" / "part.3mf"
+    report.parent.mkdir(parents=True)
+    bundle.parent.mkdir(parents=True)
+    report.write_text("<html>report</html>", encoding="utf-8")
+    bundle.write_text("bundle", encoding="utf-8")
+    result = start_trusted_user_feedback(
+        run_root,
+        tester="Maya",
+        input_type="existing_stl",
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Trusted-user action plan" in response.text
+    assert (
+        "Review context: Material: SUNLU TPU 90A; Printer: Bambu Lab P2S; "
+        "Input: existing_stl; Tester: Maya; "
+        f"Run: {run_root.resolve()}"
+    ) in response.text
+    assert f"Handoff: {result['handoff_markdown_path']}" in response.text
+    assert f"Run report: {report.resolve()}" in response.text
+    assert f"Bundle: {bundle.resolve()}" in response.text
 
 
 def test_home_response_renders_trusted_user_feedback_gate(tmp_path: Path):

@@ -1291,17 +1291,82 @@ class PrintPipeWebApp:
         slot = str(action.get("slot", "?"))
         status = str(action.get("status", "unknown"))
         detail = str(action.get("detail") or "Trusted-user feedback action required.")
-        command = str(action.get("record_command") or "")
+        review_command = str(action.get("command") or "")
+        record_command = str(action.get("record_command") or "")
+        context = self._trusted_feedback_action_context(action)
+        context_markup = (
+            f'          <p class="muted">Review context: {escape(context)}</p>'
+            if context
+            else ""
+        )
+        file_markup = self._trusted_feedback_action_files(action)
+        review_command_markup = (
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Review handoff:</strong></p>',
+                    f"          <pre><code>{escape(review_command)}</code></pre>",
+                ]
+            )
+            if review_command and review_command != record_command
+            else ""
+        )
+        record_command_markup = (
+            "\n".join(
+                [
+                    '          <p class="muted"><strong>Record after review:</strong></p>',
+                    f"          <pre><code>{escape(record_command)}</code></pre>",
+                ]
+            )
+            if record_command
+            else ""
+        )
         return "\n".join(
             [
                 f'        <article class="physical-action physical-action-{_class_name(status)}">',
                 f"          <span>Tester slot {escape(slot)}</span>",
                 f"          <strong>{escape(status)}</strong>",
                 f"          <p>{escape(detail)}</p>",
-                f"          <pre><code>{escape(command)}</code></pre>",
+                context_markup,
+                file_markup,
+                review_command_markup,
+                record_command_markup,
                 "        </article>",
             ]
         )
+
+    def _trusted_feedback_action_context(self, action: dict[str, Any]) -> str:
+        pairs = (
+            ("material_hint", "Material"),
+            ("material", "Material"),
+            ("printer", "Printer"),
+            ("input_type", "Input"),
+            ("tester", "Tester"),
+            ("run_root", "Run"),
+        )
+        seen_labels: set[str] = set()
+        parts: list[str] = []
+        for key, label in pairs:
+            value = str(action.get(key) or "")
+            if not value or label in seen_labels:
+                continue
+            seen_labels.add(label)
+            parts.append(f"{label}: {value}")
+        return "; ".join(parts)
+
+    def _trusted_feedback_action_files(self, action: dict[str, Any]) -> str:
+        rows: list[str] = []
+        for key, label in (
+            ("handoff_markdown_path", "Handoff"),
+            ("report_path", "Run report"),
+            ("bundle_path", "Bundle"),
+        ):
+            value = str(action.get(key) or "")
+            if value:
+                rows.append(
+                    f'          <p class="muted">{escape(label)}: '
+                    f"{escape(value)}</p>"
+                )
+        return "\n".join(rows)
 
     def _render_beta_action_plan_panel(self) -> str:
         if self.runs_dir is None:

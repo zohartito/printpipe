@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 148: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 149: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 148 made trusted-user beta handoff actions preserve the parsed review context as structured fields, not only inside the generated shell command. `beta-feedback-plan`, `final-plan`, and final-readiness can now carry/render the trusted-user run folder, tester, input type, material, and printer beside each review action. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 149 brought the dedicated trusted-user action-plan panel up to the same review-handoff standard as final-readiness. The home page now shows trusted-user review context plus handoff, run-report, and bundle paths beside each review action, while still making clear that generated plans are not tester evidence. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 
