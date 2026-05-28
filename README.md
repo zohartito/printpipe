@@ -85,6 +85,8 @@ python dist/printpipe.pyz --version
 python dist/printpipe.pyz package-smoke --platform macos --runs-dir runs/package-smoke/zipapp --json
 printpipe build-windows-portable --output dist/PrintPipe-Windows-portable.zip
 
+printpipe build-release --output-dir dist/release --adhoc-sign
+
 printpipe build-macos-app --output dist/PrintPipe.app
 printpipe build-macos-app --output dist/PrintPipe.app --adhoc-sign
 printpipe build-macos-dmg --output dist/PrintPipe.dmg --adhoc-sign

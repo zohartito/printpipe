@@ -584,3 +584,14 @@ Status: partial progress for original item 122. The portable ZIP now includes re
 4. Done: installer skips existing handlers unless `-Force` is passed.
 5. Done: verified on `desktop-zt` with a throwaway `.printpipetest` extension; install created an HKCU association and uninstall removed it.
 6. Remaining: signed Windows installer, bundled Python runtime, and live Windows+Bambu slice evidence stay open.
+
+## Wave 54 - Release Bundle Manifest
+
+Status: partial progress for original items 121 and 122. PrintPipe can now build a single local release folder with checksummed handoff artifacts, but the artifacts still carry the signed-installer/runtime/physical boundaries.
+
+1. Done: added `printpipe.packaging.release.build_release_bundle()`.
+2. Done: added `printpipe build-release --output-dir dist/release`.
+3. Done: release output includes `printpipe.pyz`, `PrintPipe.dmg`, and `PrintPipe-Windows-portable.zip`.
+4. Done: release output includes `release_manifest.json`.
+5. Done: manifest records `sha256`, size, signing/notarization, Python-runtime, and Bambu-bundling metadata per artifact.
+6. Remaining: Developer ID notarization, signed Windows installer, bundled Python runtime, live Windows+Bambu slice evidence, and physical print validation stay open.

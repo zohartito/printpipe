@@ -2,6 +2,7 @@
 
 from printpipe.packaging.macos_app import build_macos_app_bundle
 from printpipe.packaging.macos_dmg import build_macos_dmg_package
+from printpipe.packaging.release import build_release_bundle
 from printpipe.packaging.smoke import (
     MacOSPackageSmokePlan,
     MacOSPackageSmokeResult,
@@ -27,6 +28,7 @@ __all__ = (
     "build_macos_app_bundle",
     "build_macos_dmg_package",
     "build_macos_package_smoke_plan",
+    "build_release_bundle",
     "build_windows_package_smoke_plan",
     "build_windows_portable_package",
     "build_zipapp_package",

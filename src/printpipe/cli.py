@@ -259,6 +259,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print Windows portable package output as JSON.",
     )
 
+    build_release = subparsers.add_parser(
+        "build-release",
+        help="Build current release handoff artifacts plus a checksum manifest.",
+    )
+    build_release.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("dist/release"),
+        help="Directory for generated release artifacts.",
+    )
+    build_release.add_argument(
+        "--adhoc-sign",
+        action="store_true",
+        help="Ad-hoc sign the embedded macOS app before creating the release DMG.",
+    )
+    build_release.add_argument(
+        "--json",
+        action="store_true",
+        help="Print release build output as JSON.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -483,6 +504,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "build-windows-portable":
         return _build_windows_portable(output_path=args.output, json_output=args.json)
 
+    if args.command == "build-release":
+        return _build_release(
+            output_dir=args.output_dir,
+            json_output=args.json,
+            adhoc_sign=args.adhoc_sign,
+        )
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -611,6 +639,19 @@ def _build_windows_portable(*, output_path: Path, json_output: bool) -> int:
         print(f"cmd launcher: {payload['cmd_launcher']}")
         print(f"PowerShell launcher: {payload['powershell_launcher']}")
         print("signed: false")
+    return 0
+
+
+def _build_release(*, output_dir: Path, json_output: bool, adhoc_sign: bool) -> int:
+    from printpipe.packaging.release import build_release_bundle
+
+    payload = build_release_bundle(output_dir=output_dir, adhoc_sign=adhoc_sign)
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"release dir: {payload['output_dir']}")
+        print(f"manifest: {payload['manifest_path']}")
+        print(f"artifacts: {payload['artifact_count']}")
     return 0
 
 

@@ -433,3 +433,26 @@ Observed behavior:
 
 This is a real distribution artifact, but it is still not a Developer ID signed
 or notarized installer. It does not bundle Python or Bambu Studio.
+
+## Release Bundle Manifest
+
+Wave 54 adds a single command that builds the current handoff artifacts and
+writes checksums:
+
+```bash
+printpipe build-release --output-dir dist/release --adhoc-sign --json
+```
+
+The release folder contains:
+
+- `printpipe.pyz`
+- `PrintPipe.dmg`
+- `PrintPipe-Windows-portable.zip`
+- `release_manifest.json`
+
+`release_manifest.json` records each artifact's relative path, size, SHA-256
+`sha256`, signing/notarization flags, and boundary claims. This is the highest
+confidence local handoff state currently available. It is still honest about the
+remaining gates: no bundled Python, no bundled Bambu Studio, no Developer ID
+notarization, no signed Windows installer, and physical print validation living
+in separate run evidence packets.
