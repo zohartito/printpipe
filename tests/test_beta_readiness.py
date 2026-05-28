@@ -95,6 +95,30 @@ def test_beta_readiness_report_marks_missing_regression_manifest_not_applicable(
     assert report["regression_status"]["overall_status"] == "not_configured"
 
 
+def test_beta_readiness_report_blocks_on_incomplete_rule_update_packets(
+    tmp_path: Path,
+) -> None:
+    report = build_beta_readiness_report(
+        tmp_path / "runs",
+        physical_status=_passed_physical_status(),
+        trusted_feedback_status=_passed_trusted_feedback_status(),
+        environment_report=_ready_environment_report(),
+        rule_update_status={
+            "overall_status": "incomplete",
+            "missing_rule_types": ["material", "repair"],
+            "verified_rule_types": ["orientation"],
+        },
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    rule_gate = gates["rule_updates"]
+
+    assert report["overall_status"] == "action_required"
+    assert rule_gate["status"] == "action_required"
+    assert "material, repair" in rule_gate["detail"]
+    assert "record-rule-update" in rule_gate["action"]
+
+
 def test_beta_readiness_report_blocks_on_missing_trusted_user_feedback(
     tmp_path: Path,
 ) -> None:

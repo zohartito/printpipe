@@ -330,6 +330,29 @@ change until those results are recorded.
 The same plan is available in the local browser app on the home page and at
 `/beta-plan.json`.
 
+## Rule Update Packets
+
+When dogfood or beta triage changes material, orientation, or repair behavior,
+record that change as a packet instead of leaving it only as a code diff:
+
+```bash
+printpipe record-rule-update runs/<run-id> \
+  --rule-type orientation \
+  --status verified \
+  --summary "Applied selected bed-fit rotation before bundling" \
+  --source "flat-bracket dogfood off-bed slice failure" \
+  --changed-file src/printpipe/pipeline/__init__.py \
+  --test tests/test_pipeline_existing_mesh.py::test_existing_mesh_pipeline_applies_bed_fit_rotation_before_bundle
+
+printpipe rule-update-status --runs-dir runs
+printpipe rule-update-status --runs-dir runs --json
+printpipe rule-update-status --runs-dir runs --strict
+```
+
+The strict status exits nonzero until material, orientation, and repair each
+have a verified packet. A packet proves that a software rule update was recorded
+and tested; it is not physical print evidence.
+
 ## Feedback Expectations
 
 Good beta feedback is short and concrete:

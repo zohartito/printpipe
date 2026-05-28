@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from printpipe.beta.feedback import build_trusted_user_feedback_status
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.beta.regression import run_regression_manifest
+from printpipe.beta.rule_updates import build_rule_update_status
 
 BETA_PLAN_PROOF_BOUNDARY = (
     "A generated beta plan is not trusted-user evidence, physical print proof, "
@@ -22,6 +23,7 @@ def build_beta_action_plan(
     regression_manifest_path: str | Path | None = None,
     physical_status: Mapping[str, Any] | None = None,
     trusted_feedback_status: Mapping[str, Any] | None = None,
+    rule_update_status: Mapping[str, Any] | None = None,
     regression_status: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return beta next actions from recorded evidence on disk."""
@@ -42,6 +44,11 @@ def build_beta_action_plan(
         if trusted_feedback_status is not None
         else build_trusted_user_feedback_status(runs_root)
     )
+    rule_updates = (
+        dict(rule_update_status)
+        if rule_update_status is not None
+        else build_rule_update_status(runs_root)
+    )
     manifest_path = (
         Path(regression_manifest_path).expanduser().resolve()
         if regression_manifest_path is not None
@@ -53,7 +60,7 @@ def build_beta_action_plan(
         _failure_capture_action(failures),
         _regression_action(regression, regression_manifest_path=manifest_path),
         _trusted_user_action(trusted_feedback),
-        _rules_action(failures),
+        _rules_action(failures, rule_updates),
     ]
     action_required_count = sum(
         1 for action in actions if action["status"] == "action_required"
@@ -69,6 +76,7 @@ def build_beta_action_plan(
             "failure_reports": failures,
             "physical_status": physical,
             "trusted_feedback_status": trusted_feedback,
+            "rule_update_status": rule_updates,
             "regression_manifest_path": str(manifest_path) if manifest_path else "",
             "regression_status": regression,
         },
@@ -254,17 +262,48 @@ def _trusted_user_action(status: Mapping[str, Any]) -> dict[str, str]:
     }
 
 
-def _rules_action(failure_reports: list[dict[str, Any]]) -> dict[str, str]:
+def _rules_action(
+    failure_reports: list[dict[str, Any]],
+    rule_update_status: Mapping[str, Any],
+) -> dict[str, str]:
+    if rule_update_status.get("overall_status") == "passed":
+        return {
+            "id": "update_rules",
+            "label": "Update material/orientation/repair rules",
+            "status": "ready",
+            "detail": "Material, orientation, and repair rule updates have verified packets.",
+            "command": "printpipe rule-update-status --runs-dir runs --strict",
+        }
+    missing_types = ", ".join(_list_of_strings(rule_update_status.get("missing_rule_types")))
+    command = (
+        'printpipe record-rule-update "<run-root>" --rule-type material '
+        '--status verified --summary "<what changed>" --source "<failure or dogfood>" '
+        '--changed-file "<path>" --test "<pytest or smoke command>"'
+    )
     if failure_reports:
+        detail = (
+            "Review captured failures and patch material/orientation/repair "
+            "rules when the same cause repeats."
+        )
+        if missing_types:
+            detail += f" Missing verified rule types: {missing_types}."
         return {
             "id": "update_rules",
             "label": "Update material/orientation/repair rules",
             "status": "action_required",
-            "detail": (
-                "Review captured failures and patch material/orientation/repair "
-                "rules when the same cause repeats."
-            ),
-            "command": "",
+            "detail": detail,
+            "command": command,
+        }
+    if rule_update_status.get("overall_status") == "incomplete":
+        detail = "Rule-update packets exist but are not complete."
+        if missing_types:
+            detail += f" Missing verified rule types: {missing_types}."
+        return {
+            "id": "update_rules",
+            "label": "Update material/orientation/repair rules",
+            "status": "action_required",
+            "detail": detail,
+            "command": command,
         }
     return {
         "id": "update_rules",
@@ -273,7 +312,7 @@ def _rules_action(failure_reports: list[dict[str, Any]]) -> dict[str, str]:
         "detail": (
             "No captured beta failures exist yet, so rule changes would be guesses."
         ),
-        "command": "",
+        "command": command,
     }
 
 
@@ -354,6 +393,10 @@ def _dict(value: Any) -> dict[str, Any]:
 
 def _list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
+
+
+def _list_of_strings(value: Any) -> list[str]:
+    return [str(item) for item in _list(value)]
 
 
 __all__ = [

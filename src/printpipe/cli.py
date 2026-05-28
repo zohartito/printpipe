@@ -638,6 +638,72 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the beta action plan as JSON.",
     )
 
+    rule_update = subparsers.add_parser(
+        "record-rule-update",
+        help="Write a material/orientation/repair rule-update packet into a run folder.",
+    )
+    rule_update.add_argument("run_root", type=Path, help="Run folder that produced the rule update.")
+    rule_update.add_argument("--run-id", help="Override run id; defaults to run folder name.")
+    rule_update.add_argument(
+        "--rule-type",
+        required=True,
+        choices=("material", "orientation", "repair"),
+        help="Rule family changed by the beta/dogfood finding.",
+    )
+    rule_update.add_argument(
+        "--status",
+        required=True,
+        choices=("planned", "implemented", "verified", "reverted"),
+        help="Implementation and verification status for this rule update.",
+    )
+    rule_update.add_argument("--summary", required=True, help="Short description of the rule change.")
+    rule_update.add_argument("--source", required=True, help="Failure, dogfood run, or beta finding that caused the rule change.")
+    rule_update.add_argument(
+        "--changed-file",
+        action="append",
+        default=[],
+        required=True,
+        help="Code or docs file changed by this rule update; may be repeated.",
+    )
+    rule_update.add_argument(
+        "--test",
+        action="append",
+        default=[],
+        help="Verification command or test for this rule update; may be repeated.",
+    )
+    rule_update.add_argument(
+        "--note",
+        action="append",
+        default=[],
+        help="Additional follow-up note; may be repeated.",
+    )
+    rule_update.add_argument(
+        "--json",
+        action="store_true",
+        help="Print written rule-update packet paths as JSON.",
+    )
+
+    rule_update_status = subparsers.add_parser(
+        "rule-update-status",
+        help="Summarize verified material/orientation/repair rule-update packets.",
+    )
+    rule_update_status.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders to scan.",
+    )
+    rule_update_status.add_argument(
+        "--json",
+        action="store_true",
+        help="Print rule-update status as JSON.",
+    )
+    rule_update_status.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless material, orientation, and repair packets are verified.",
+    )
+
     beta_feedback = subparsers.add_parser(
         "record-beta-feedback",
         help="Write a trusted-user beta feedback packet into a run folder.",
@@ -1105,6 +1171,16 @@ def main(argv: list[str] | None = None) -> int:
             json_output=args.json,
         )
 
+    if args.command == "record-rule-update":
+        return _record_rule_update(args)
+
+    if args.command == "rule-update-status":
+        return _rule_update_status(
+            runs_dir=args.runs_dir,
+            json_output=args.json,
+            strict=args.strict,
+        )
+
     if args.command == "record-beta-feedback":
         return _record_beta_feedback(args)
 
@@ -1216,6 +1292,50 @@ def _beta_plan(
         print(json.dumps(plan, indent=2, sort_keys=True))
     else:
         print(render_beta_action_plan(plan), end="")
+    return 0
+
+
+def _record_rule_update(args: argparse.Namespace) -> int:
+    from printpipe.beta.rule_updates import (
+        build_rule_update,
+        write_rule_update_files,
+    )
+
+    run_root = args.run_root.expanduser().resolve()
+    if not run_root.exists():
+        raise FileNotFoundError(run_root)
+    update = build_rule_update(
+        run_id=args.run_id or run_root.name,
+        rule_type=args.rule_type,
+        status=args.status,
+        summary=args.summary,
+        source=args.source,
+        changed_files=tuple(args.changed_file),
+        tests=tuple(args.test),
+        notes=tuple(args.note),
+    )
+    result = write_rule_update_files(run_root=run_root, update=update)
+    if args.json:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(f"rule update json: {result['json_path']}")
+        print(f"rule update markdown: {result['markdown_path']}")
+    return 0
+
+
+def _rule_update_status(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
+    from printpipe.beta.rule_updates import (
+        build_rule_update_status,
+        render_rule_update_status,
+    )
+
+    status = build_rule_update_status(runs_dir)
+    if json_output:
+        print(json.dumps(status, indent=2, sort_keys=True))
+    else:
+        print(render_rule_update_status(status), end="")
+    if strict and status["overall_status"] != "passed":
+        return 2
     return 0
 
 

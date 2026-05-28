@@ -26,3 +26,7 @@ Start with [onboarding.md](onboarding.md).
   trusted-user feedback packet without claiming physical print proof.
 - `printpipe beta-feedback-status --runs-dir runs`: summarizes whether three
   unique trusted users have recorded feedback.
+- `printpipe record-rule-update runs/<run-id>`: records material, orientation,
+  or repair rule changes made after dogfood or beta triage.
+- `printpipe rule-update-status --runs-dir runs`: checks whether material,
+  orientation, and repair updates have verified packets.

@@ -1112,3 +1112,14 @@ Status: complete for software dogfood on three non-slipper fixture objects. Prin
 4. Done: fixed the flat-bracket orientation regression by applying the selected bed-fit rotation before writing the oriented STL and `.3mf`, so the bundle matches the preview and fits the 256 mm bed.
 5. Done: latest successful dogfood runs sliced with 0 warnings: figurine `831s / 1.68g / 170 layers`, cup/vase `1338s / 6.07g / 150 layers`, flat bracket `3408s / 28.18g / 20 layers`.
 6. Boundary: this is software/slicer evidence only. It does not replace physical PLA/PETG/TPU print evidence or trusted-user beta packets.
+
+## Wave 101 - Rule Update Evidence Packets
+
+Status: complete for Phase 16 rule-update evidence. Material, orientation, and repair rule changes are now recordable and scannable beta packets.
+
+1. Done: added `printpipe.beta.rule_updates` with JSON/Markdown packets for `material`, `orientation`, and `repair` updates.
+2. Done: added `printpipe record-rule-update <run-root>` and `printpipe rule-update-status --runs-dir runs`.
+3. Done: beta action plans now include `rule_update_status` and make `update_rules` ready only when material, orientation, and repair updates are verified.
+4. Done: readiness now includes a `rule_updates` gate that is `not_applicable` with no packets, `action_required` for incomplete packets, and `ready` when all three rule families are verified.
+5. Done: local ignored packets record the Wave 41 PETG/engineering Textured PEI material rule fix, the Wave 100 flat-bracket orientation fix, and the Wave 100 open-rim repair/networkx fix; `rule-update-status --runs-dir runs` reports `passed`.
+6. Boundary: rule-update packets are software evidence. Physical PLA/PETG/TPU validation, trusted-user feedback, and signed distribution credentials remain separate gates.

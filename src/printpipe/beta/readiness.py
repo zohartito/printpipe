@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from printpipe.beta.feedback import build_trusted_user_feedback_status
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.beta.regression import run_regression_manifest
+from printpipe.beta.rule_updates import build_rule_update_status
 from printpipe.env.doctor import build_environment_report
 
 READY = "ready"
@@ -20,6 +21,7 @@ def build_beta_readiness_report(
     *,
     physical_status: Mapping[str, Any] | None = None,
     trusted_feedback_status: Mapping[str, Any] | None = None,
+    rule_update_status: Mapping[str, Any] | None = None,
     environment_report: Mapping[str, Any] | None = None,
     regression_status: Mapping[str, Any] | None = None,
     regression_manifest_path: str | Path | None = None,
@@ -45,9 +47,15 @@ def build_beta_readiness_report(
         if trusted_feedback_status is not None
         else build_trusted_user_feedback_status(runs_dir)
     )
+    rule_updates = (
+        dict(rule_update_status)
+        if rule_update_status is not None
+        else build_rule_update_status(runs_dir)
+    )
     gates = [
         _physical_gate(physical),
         _trusted_feedback_gate(trusted_feedback),
+        _rule_updates_gate(rule_updates),
         _regression_gate(regression, regression_manifest_path=regression_manifest_path),
         _dependency_gate(environment),
         _filesystem_gate(environment),
@@ -63,6 +71,7 @@ def build_beta_readiness_report(
         "gates": gates,
         "physical_status": physical,
         "trusted_feedback_status": trusted_feedback,
+        "rule_update_status": rule_updates,
         "regression_status": regression,
         "environment_summary": {
             "platform": _dict(environment.get("platform")),
@@ -136,6 +145,39 @@ def _trusted_feedback_gate(status: Mapping[str, Any]) -> dict[str, Any]:
         ACTION_REQUIRED,
         f"{current} / {required} trusted users recorded feedback.",
         "Give the app to 3 trusted users and record each packet with record-beta-feedback.",
+    )
+
+
+def _rule_updates_gate(status: Mapping[str, Any]) -> dict[str, Any]:
+    overall = str(status.get("overall_status") or "missing")
+    if overall == "passed":
+        return _gate(
+            "rule_updates",
+            "Rule updates",
+            READY,
+            "Material, orientation, and repair rule updates have verified packets.",
+            "No action needed.",
+        )
+    if overall == "missing":
+        return _gate(
+            "rule_updates",
+            "Rule updates",
+            NOT_APPLICABLE,
+            "No material/orientation/repair rule-update packets recorded.",
+            "Record rule updates after captured beta failures or dogfood fixes.",
+        )
+    missing = [
+        str(item)
+        for item in _list(status.get("missing_rule_types"))
+        if str(item)
+    ]
+    missing_label = ", ".join(missing) if missing else "unverified updates"
+    return _gate(
+        "rule_updates",
+        "Rule updates",
+        ACTION_REQUIRED,
+        f"Missing verified rule-update packets for: {missing_label}.",
+        "Record verified material/orientation/repair updates with record-rule-update.",
     )
 
 

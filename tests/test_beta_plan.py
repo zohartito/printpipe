@@ -9,6 +9,7 @@ from printpipe.beta.feedback import (
     build_trusted_user_feedback,
     write_trusted_user_feedback_files,
 )
+from printpipe.beta.rule_updates import build_rule_update, write_rule_update_files
 from printpipe.beta.regression import (
     ExpectedOutcome,
     RegressionCase,
@@ -32,6 +33,7 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert plan["runs_dir"] == str(runs_dir.resolve())
     assert plan["proof_boundary"] == BETA_PLAN_PROOF_BOUNDARY
     assert plan["evidence"]["failure_report_count"] == 0
+    assert plan["evidence"]["rule_update_status"]["overall_status"] == "missing"
     assert plan["evidence"]["trusted_feedback_status"]["unique_trusted_user_count"] == 0
     assert plan["evidence"]["regression_status"]["overall_status"] == "not_configured"
     actions = {action["id"]: action for action in plan["actions"]}
@@ -46,6 +48,7 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert actions["run_regressions"]["status"] == "action_required"
     assert "record-beta-failure" in actions["run_regressions"]["detail"]
     assert actions["update_rules"]["status"] == "waiting_for_evidence"
+    assert "record-rule-update" in actions["update_rules"]["command"]
     assert actions["trusted_user_beta"]["status"] == "action_required"
     assert "0 / 3 trusted users" in actions["trusted_user_beta"]["detail"]
 
@@ -103,6 +106,35 @@ def test_beta_action_plan_detects_failure_packets_and_regression_manifest(
     )
     assert actions["update_rules"]["status"] == "action_required"
     assert "material/orientation/repair" in actions["update_rules"]["detail"]
+    assert "record-rule-update" in actions["update_rules"]["command"]
+
+
+def test_beta_action_plan_marks_rule_updates_ready_after_verified_packets(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    for rule_type in ("material", "orientation", "repair"):
+        run_root = runs_dir / f"run-{rule_type}"
+        run_root.mkdir(parents=True)
+        write_rule_update_files(
+            run_root=run_root,
+            update=build_rule_update(
+                run_id=run_root.name,
+                rule_type=rule_type,
+                status="verified",
+                summary=f"Verified {rule_type} update.",
+                source="beta triage",
+                changed_files=(f"src/printpipe/{rule_type}.py",),
+                tests=(f"tests/test_{rule_type}.py",),
+            ),
+        )
+
+    plan = build_beta_action_plan(runs_dir)
+
+    actions = {action["id"]: action for action in plan["actions"]}
+    assert plan["evidence"]["rule_update_status"]["overall_status"] == "passed"
+    assert actions["update_rules"]["status"] == "ready"
+    assert "Material, orientation, and repair" in actions["update_rules"]["detail"]
 
 
 def test_beta_action_plan_marks_trusted_user_beta_ready_after_three_users(
