@@ -1624,3 +1624,13 @@ Status: partial progress for final-gate execution UX. This adds the missing "wha
 4. Done: web final-readiness action rows render the same context as `Evidence context`.
 5. Current local result: physical rows can show `Material`, `Object`, `Print type`, and `Run` before Zohar opens the handoff or records proof.
 6. Boundary: context visibility still does not create evidence. It only reduces the chance of recording the wrong material, run, object, or review target.
+
+## Wave 148 - Trusted-User Handoff Context Propagation
+
+Status: partial progress for trusted-user beta execution UX. This makes trusted-user review rows carry the same structured context that was already embedded in their commands.
+
+1. Done: `beta-feedback-plan` trusted-user actions now preserve parsed handoff context fields: run folder, tester, input type, material, and printer.
+2. Done: regression coverage proves handoff-backed review rows expose those fields as structured JSON, not only as text inside `record-beta-feedback`.
+3. Done: the context flows into `final-plan` and the final-readiness UI through the existing action-context rendering added in Wave 147.
+4. Current local result: the slipper trusted-user rows can show the real run folder, tester slot, `existing_stl` input type, `SUNLU TPU 90A`, and `Bambu Lab P2S` before Zohar records feedback.
+5. Boundary: trusted-user context still does not create trusted-user evidence. The beta gate remains open until three unique trusted users return completed feedback packets with supporting evidence.

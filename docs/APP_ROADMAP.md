@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 147: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 148: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 147 made final-plan and final-readiness handoffs show evidence context, not only commands and required fields. Physical and beta actions can now carry/render material, printer, object label, print type, input type, tester, and run folder context so Zohar can see what is being printed or reviewed before recording evidence. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 148 made trusted-user beta handoff actions preserve the parsed review context as structured fields, not only inside the generated shell command. `beta-feedback-plan`, `final-plan`, and final-readiness can now carry/render the trusted-user run folder, tester, input type, material, and printer beside each review action. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 

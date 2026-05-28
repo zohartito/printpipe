@@ -439,6 +439,11 @@ def test_trusted_user_feedback_plan_surfaces_handoff_report_and_bundle_paths(
     assert action["handoff_markdown_path"] == result["handoff_markdown_path"]
     assert action["report_path"] == str(report.resolve())
     assert action["bundle_path"] == str(bundle.resolve())
+    assert action["run_root"] == str(run_root.resolve())
+    assert action["tester"] == "Maya"
+    assert action["input_type"] == "existing_stl"
+    assert action["material"] == "SUNLU TPU 90A"
+    assert action["printer"] == "Bambu Lab P2S"
     rendered = render_trusted_user_feedback_plan(plan)
     assert f"report: {report.resolve()}" in rendered
     assert f"bundle: {bundle.resolve()}" in rendered
@@ -469,6 +474,11 @@ def test_trusted_user_feedback_plan_uses_concrete_handoff_commands(
     assert action["command"] == f'printpipe open-folder "{run_root.resolve()}" --target run'
     assert action["command_kind"] == "review_handoff_command"
     assert action["start_command"] == ""
+    assert action["run_root"] == str(run_root.resolve())
+    assert action["tester"] == "Maya"
+    assert action["input_type"] == "existing_stl"
+    assert action["material"] == "SUNLU TPU 90A"
+    assert action["printer"] == "Bambu Lab P2S"
     assert f'"{run_root.resolve()}"' in action["record_command"]
     assert '--tester "Maya"' in action["record_command"]
     assert '--material "SUNLU TPU 90A"' in action["record_command"]
