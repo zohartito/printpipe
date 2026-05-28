@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 154: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 155: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 154 added the missing upfront media-meshgen readiness gate from the Opus audit. `printpipe doctor`, `printpipe readiness`, and the local web readiness surfaces now report `action_required` when no live image/GIF/video mesh provider is configured, instead of making the user discover `provider_unavailable` only after starting a media or prompt run. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
+Latest status: Wave 155 fixed the non-STL import failure path from the Opus audit. If OBJ/GLB/3MF import reaches repair while optional mesh-repair dependencies are unavailable, the pipeline now fails at `mesh_repair` with an actionable `printpipe[mesh-repair]` message instead of falling through to orientation and reporting a misleading ASCII-STL-only error. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
 
 ## Goal
 

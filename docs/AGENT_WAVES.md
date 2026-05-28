@@ -1697,3 +1697,14 @@ Status: partial progress for non-mesh input honesty. This closes the Opus audit 
 4. Done: the readiness action points at `PRINTPIPE_HUNYUAN3D_COMMAND` or a hosted provider setup instead of waiting for a failed run receipt.
 5. Done: regression coverage proves doctor/readiness expose the missing-provider state.
 6. Boundary: this does not configure Hunyuan3D, install a local model, or enable hosted providers. Existing mesh inputs remain usable; image/GIF/video/prompt-to-mesh runs still require a live provider.
+
+## Wave 155 - Non-STL Repair Dependency Gate
+
+Status: partial progress for import-path honesty. This closes the Opus audit S4-4 gap where advertised OBJ/GLB/3MF inputs could fall through to the ASCII STL orientation stage when mesh repair dependencies were unavailable.
+
+1. Done: non-STL imports now convert a skipped repair receipt into a failed `mesh_repair` receipt when the optional mesh-repair stack is unavailable.
+2. Done: the failure message names the missing repair/conversion requirement and tells the user to install `printpipe[mesh-repair]` or convert to ASCII STL.
+3. Done: the pipeline stops before orientation, so the user no longer sees the misleading `only ASCII .stl inputs are supported` message as the primary failure.
+4. Done: repair stats JSON is updated to match the failed gate when the stats artifact exists.
+5. Done: regression coverage proves an OBJ with simulated missing `trimesh` fails at `mesh_repair` with the actionable message.
+6. Boundary: this does not add native non-STL geometry processing without `trimesh`; it makes the dependency gate honest and early.

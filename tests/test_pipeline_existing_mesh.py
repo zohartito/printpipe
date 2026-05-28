@@ -375,6 +375,69 @@ def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_p
     assert (result.layout.reports_dir / "run_report.html").exists()
 
 
+def test_non_stl_existing_mesh_fails_at_repair_when_trimesh_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source = tmp_path / "shape.obj"
+    source.write_text(
+        "o shape\n"
+        "v 0 0 0\n"
+        "v 1 0 0\n"
+        "v 0 1 0\n"
+        "f 1 2 3\n",
+        encoding="utf-8",
+    )
+
+    def fake_repair_mesh_file_to_receipt(
+        input_path: Path | str,
+        output_path: Path | str,
+        *,
+        stats_path: Path | str | None = None,
+        allow_non_watertight: bool = False,
+        stage: str = "mesh_repair",
+    ) -> StageReceipt:
+        del output_path, allow_non_watertight
+        stats = Path(stats_path) if stats_path is not None else tmp_path / "repair.json"
+        stats.write_text(
+            json.dumps(
+                {
+                    "stage": stage,
+                    "status": "skipped",
+                    "dependency": "trimesh",
+                    "input_path": str(input_path),
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return StageReceipt(
+            stage=stage,
+            status=StageStatus.SKIPPED,
+            message=(
+                "Mesh repair requires the optional 'trimesh' package. "
+                "Install printpipe[mesh-repair]."
+            ),
+            artifacts=(Artifact(kind=ArtifactKind.REPORT, path=stats, label="repair stats"),),
+            metrics={"dependency": "trimesh", "input_path": str(input_path)},
+        )
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "repair_mesh_file_to_receipt",
+        fake_repair_mesh_file_to_receipt,
+    )
+
+    with pytest.raises(PipelineError, match="non-STL mesh requires trimesh") as raised:
+        run_existing_mesh_pipeline(source, tmp_path / "runs")
+
+    result = raised.value.result
+    stages = {receipt.stage: receipt for receipt in result.stages}
+    assert stages["mesh_repair"].status == StageStatus.FAILED
+    assert "printpipe[mesh-repair]" in stages["mesh_repair"].message
+    assert "orientation" not in stages
+
+
 def test_media_pipeline_uses_configured_meshgen_then_repairs_orients_and_bundles(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

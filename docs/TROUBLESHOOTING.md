@@ -53,6 +53,10 @@ image/GIF/video inputs. Existing mesh inputs do not need that provider.
 `printpipe doctor` and `printpipe readiness --strict` show the same provider
 gap before you start a media run.
 
+If an OBJ, GLB, GLTF, or 3MF input fails at `mesh_repair` with a
+`printpipe[mesh-repair]` message, install the optional mesh repair dependencies
+or convert the model to ASCII STL before importing it.
+
 ## macOS Desktop and Privacy Permissions
 
 macOS privacy/TCC can block Terminal, Codex, Cursor, VS Code, or another shell

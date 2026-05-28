@@ -328,6 +328,10 @@ def run_existing_mesh_pipeline_on_layout(
         stats_path=layout.repair_dir / f"{imported_mesh.stem}_repair.json",
         allow_non_watertight=True,
     )
+    repair_receipt = _fail_non_stl_when_repair_is_unavailable(
+        repair_receipt,
+        imported_mesh,
+    )
     stages.append(repair_receipt)
     warnings = (*warnings, *_warnings_for_receipts((repair_receipt,)))
     if repair_receipt.status == StageStatus.FAILED:
@@ -848,6 +852,72 @@ def _warnings_for_receipts(receipts: Sequence[StageReceipt]) -> tuple[str, ...]:
         for receipt in receipts
         if receipt.status not in {StageStatus.SUCCEEDED}
     )
+
+
+def _fail_non_stl_when_repair_is_unavailable(
+    repair_receipt: StageReceipt,
+    imported_mesh: Path,
+) -> StageReceipt:
+    if repair_receipt.status != StageStatus.SKIPPED:
+        return repair_receipt
+    if imported_mesh.suffix.lower() == ".stl":
+        return repair_receipt
+    dependency = str(repair_receipt.metrics.get("dependency") or "trimesh")
+    message = (
+        f"non-STL mesh requires {dependency} repair/conversion before the ASCII "
+        "STL geometry pipeline; install printpipe[mesh-repair] or convert the "
+        "model to ASCII STL before importing."
+    )
+    metrics = {
+        **repair_receipt.metrics,
+        "original_status": repair_receipt.status.value,
+        "input_suffix": imported_mesh.suffix.lower(),
+        "required_extra": "printpipe[mesh-repair]",
+    }
+    _update_repair_stats_for_failed_non_stl_gate(
+        repair_receipt,
+        message=message,
+        metrics=metrics,
+    )
+    return StageReceipt(
+        stage=repair_receipt.stage,
+        status=StageStatus.FAILED,
+        message=message,
+        artifacts=repair_receipt.artifacts,
+        metrics=metrics,
+    )
+
+
+def _update_repair_stats_for_failed_non_stl_gate(
+    repair_receipt: StageReceipt,
+    *,
+    message: str,
+    metrics: Mapping[str, Any],
+) -> None:
+    stats_path = _first_artifact_path(repair_receipt, "report")
+    if stats_path is None:
+        return
+    try:
+        payload = json.loads(stats_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    payload.update(
+        {
+            "stage": repair_receipt.stage,
+            "status": StageStatus.FAILED.value,
+            "message": message,
+            **metrics,
+        }
+    )
+    try:
+        stats_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    except OSError:
+        return
 
 
 def _orientation_source_for_ascii_pipeline(repair_receipt: StageReceipt, imported_mesh: Path) -> Path:
