@@ -471,6 +471,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Return exit code 2 unless all required material families have passed evidence.",
     )
 
+    readiness = subparsers.add_parser(
+        "readiness",
+        help="Summarize combined beta and release readiness gates.",
+    )
+    readiness.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders to scan for physical evidence.",
+    )
+    readiness.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the combined readiness report as JSON.",
+    )
+    readiness.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless all readiness gates are ready.",
+    )
+
     return parser
 
 
@@ -690,6 +711,13 @@ def main(argv: list[str] | None = None) -> int:
             strict=args.strict,
         )
 
+    if args.command == "readiness":
+        return _readiness(
+            runs_dir=args.runs_dir,
+            json_output=args.json,
+            strict=args.strict,
+        )
+
     parser.print_help()
     return 0
 
@@ -713,6 +741,22 @@ def _physical_status(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
     else:
         print(render_physical_validation_status(status), end="")
     if strict and status["overall_status"] != "passed":
+        return 2
+    return 0
+
+
+def _readiness(*, runs_dir: Path, json_output: bool, strict: bool) -> int:
+    from printpipe.beta.readiness import (
+        build_beta_readiness_report,
+        render_beta_readiness_report,
+    )
+
+    report = build_beta_readiness_report(runs_dir)
+    if json_output:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_beta_readiness_report(report), end="")
+    if strict and report["overall_status"] != "ready":
         return 2
     return 0
 

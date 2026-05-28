@@ -53,6 +53,30 @@ def build_beta_readiness_report(
     }
 
 
+def render_beta_readiness_report(report: Mapping[str, Any]) -> str:
+    """Render a concise human-readable readiness report."""
+
+    lines = [
+        "PrintPipe Readiness",
+        f"overall: {report.get('overall_status', 'unknown')}",
+        f"action required: {report.get('action_required_count', 0)}",
+        "Gates:",
+    ]
+    for gate in _list(report.get("gates")):
+        gate_dict = _dict(gate)
+        label = gate_dict.get("label") or gate_dict.get("id") or "Unknown gate"
+        status = gate_dict.get("status", "unknown")
+        detail = gate_dict.get("detail", "")
+        action = gate_dict.get("action", "")
+        line = f"- {status}: {label}"
+        if detail:
+            line += f" - {detail}"
+        if action:
+            line += f" Action: {action}"
+        lines.append(line)
+    return "\n".join(lines) + "\n"
+
+
 def _physical_gate(physical_status: Mapping[str, Any]) -> dict[str, Any]:
     if physical_status.get("overall_status") == "passed":
         return _gate(
@@ -222,4 +246,4 @@ def _list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
-__all__ = ["build_beta_readiness_report"]
+__all__ = ["build_beta_readiness_report", "render_beta_readiness_report"]

@@ -848,3 +848,14 @@ Status: complete for local dashboard visibility. The combined readiness report n
 3. Done: the page renders each readiness gate with status, detail, and action.
 4. Done: regression coverage proves physical validation and release-signing blockers are visible without opening JSON.
 5. Boundary: the panel is read-only; it does not complete physical prints or signing work.
+
+## Wave 77 - Readiness CLI Command
+
+Status: complete for terminal/release-script visibility. The combined readiness report now has CLI parity with the local web app.
+
+1. Done: added `printpipe readiness --runs-dir runs`.
+2. Done: added `--json` output for automation and release scripts.
+3. Done: added `--strict`, returning exit code `2` unless all readiness gates are ready.
+4. Done: added a concise human renderer for physical, dependency, Bambu, filesystem, and signing gates.
+5. Done: regression coverage proves parser support, strict JSON gating, and human gate summaries.
+6. Boundary: the command is read-only; it does not print physical coupons, install dependencies, or sign/notarize release artifacts.
