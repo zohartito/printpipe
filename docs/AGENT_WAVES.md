@@ -1176,3 +1176,14 @@ Status: complete for release distribution planning. This does not create signed 
 4. Done: the plan turns macOS Developer ID/notary gaps, Windows signed-installer gaps, and signing prerequisite gaps into exact commands.
 5. Current local result: `printpipe release-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json --json` reports three actions: `macos_distribution`, `windows_distribution`, and `signing`.
 6. Boundary: a generated release plan is not signed distribution evidence; final gates still require real Developer ID/notary credentials and a signed Windows installer artifact.
+
+## Wave 107 - Final Action Plan Aggregator
+
+Status: complete for endgame action visibility. This does not create physical, tester, or signed-distribution evidence.
+
+1. Done: added `printpipe.final_plan.build_final_action_plan()` and `render_final_action_plan()`.
+2. Done: added `printpipe final-plan --release-dir dist/release --runs-dir runs`.
+3. Done: added `/final-plan.json` and a home-page `Final action plan` panel.
+4. Done: the final plan preserves the ordered remaining sequence: physical validation, trusted-user beta, then release distribution.
+5. Done: the plan sums action counts across `physical-plan`, `beta-feedback-plan`, and `release-plan` while keeping each source proof boundary visible.
+6. Boundary: a generated final plan is not evidence; PLA/PETG/TPU passed print packets, three trusted-user feedback packets, Developer ID/notary credentials, and a signed Windows installer artifact remain external gates.

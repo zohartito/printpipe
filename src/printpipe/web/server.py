@@ -27,6 +27,7 @@ from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.env.doctor import build_environment_report
+from printpipe.final_plan import build_final_action_plan
 from printpipe.local_open import open_run_folder
 from printpipe.packaging.release_plan import build_release_distribution_plan
 from printpipe.packaging.release_status import build_release_status_report
@@ -227,6 +228,10 @@ class PrintPipeWebApp:
             )
         if path == "/release-plan.json":
             return self.release_plan_response(
+                regression_manifest_path=self._regression_manifest_for_query(query)
+            )
+        if path == "/final-plan.json":
+            return self.final_plan_response(
                 regression_manifest_path=self._regression_manifest_for_query(query)
             )
         if path == "/beta-plan.json":
@@ -448,6 +453,37 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
+    def final_plan_response(
+        self,
+        *,
+        regression_manifest_path: Path | None = None,
+    ) -> WebResponse:
+        if self.release_dir is None or self.runs_dir is None:
+            return WebResponse.from_text(
+                "Release and runs directories are not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            manifest_path = (
+                regression_manifest_path
+                if regression_manifest_path is not None
+                else self.regression_manifest_path
+            )
+            return WebResponse.json(
+                build_final_action_plan(
+                    release_dir=self.release_dir,
+                    runs_dir=self.runs_dir,
+                    regression_manifest_path=manifest_path,
+                )
+            )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
     def physical_status_response(self) -> WebResponse:
         if self.runs_dir is None:
             return WebResponse.from_text(
@@ -639,6 +675,7 @@ class PrintPipeWebApp:
                 "      <h1>PrintPipe</h1>",
                 "    </header>",
                 self._render_create_run_panel(),
+                self._render_final_action_plan_panel(),
                 self._render_release_status_panel(),
                 self._render_release_distribution_plan_panel(),
                 self._render_readiness_panel(),
@@ -651,6 +688,7 @@ class PrintPipeWebApp:
                 '    <section class="panel">',
                 "      <h2>Service</h2>",
                 '      <p><a href="/health">Health check</a></p>',
+                f'      <p><a href="{escape(self._service_href("/final-plan.json"), quote=True)}">Final plan JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/release-status.json"), quote=True)}">Release status JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/release-plan.json"), quote=True)}">Release plan JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/readiness.json"), quote=True)}">Readiness JSON</a></p>',
@@ -786,6 +824,70 @@ class PrintPipeWebApp:
                 "      </div>",
                 f'      <div class="readiness-grid">{gate_cards}</div>',
                 "    </section>",
+            ]
+        )
+
+    def _render_final_action_plan_panel(self) -> str:
+        if self.release_dir is None or self.runs_dir is None:
+            return ""
+        try:
+            if self.regression_manifest_path is None:
+                plan = build_final_action_plan(
+                    release_dir=self.release_dir,
+                    runs_dir=self.runs_dir,
+                )
+            else:
+                plan = build_final_action_plan(
+                    release_dir=self.release_dir,
+                    runs_dir=self.runs_dir,
+                    regression_manifest_path=self.regression_manifest_path,
+                )
+        except (OSError, ValueError):
+            return ""
+
+        overall = str(plan.get("overall_status", "unknown"))
+        action_count = str(plan.get("action_count", 0))
+        proof_boundary = str(plan.get("proof_boundary", ""))
+        sections = _as_dicts(plan.get("sections"))
+        section_cards = "\n".join(
+            self._render_final_action_section_card(section)
+            for section in sections
+        )
+        if not section_cards:
+            section_cards = '<p class="muted">No final actions required.</p>'
+        command = "printpipe final-plan --release-dir dist/release --runs-dir runs"
+        if self.regression_manifest_path is not None:
+            manifest_arg = shlex.quote(str(self.regression_manifest_path))
+            command += f" --regression-manifest {manifest_arg}"
+        return "\n".join(
+            [
+                '    <section class="panel final-plan-panel">',
+                "      <div>",
+                "        <h2>Final action plan</h2>",
+                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
+                f"        <p>{escape(proof_boundary)}</p>",
+                "      </div>",
+                f'      <div class="physical-action-grid">{section_cards}</div>',
+                f'      <code>{escape(command)}</code>',
+                "    </section>",
+            ]
+        )
+
+    def _render_final_action_section_card(self, section: dict[str, Any]) -> str:
+        status = str(section.get("status", "unknown"))
+        label = str(section.get("label") or section.get("id") or "Final action")
+        detail = str(section.get("detail") or "Final action required.")
+        action_count = str(section.get("action_count", 0))
+        command = str(section.get("command") or "")
+        return "\n".join(
+            [
+                f'        <article class="physical-action physical-action-{_class_name(status)}">',
+                f"          <span>{escape(label)}</span>",
+                f"          <strong>{escape(status)}</strong>",
+                f"          <p>{escape(detail)}</p>",
+                f'          <p class="muted">{escape(action_count)} action required.</p>',
+                f"          <pre><code>{escape(command)}</code></pre>",
+                "        </article>",
             ]
         )
 

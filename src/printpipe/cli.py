@@ -518,6 +518,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the release distribution action plan as JSON.",
     )
 
+    final_plan = subparsers.add_parser(
+        "final-plan",
+        help="Show the ordered final actions for physical, beta, and distribution gates.",
+    )
+    final_plan.add_argument(
+        "--release-dir",
+        type=Path,
+        default=Path("dist/release"),
+        help="Release folder containing release_manifest.json.",
+    )
+    final_plan.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory where beta and physical evidence run folders are stored.",
+    )
+    final_plan.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Optional beta regression manifest to include in release planning.",
+    )
+    final_plan.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the final action plan as JSON.",
+    )
+
     physical = subparsers.add_parser(
         "record-physical-evidence",
         help="Write physical print evidence JSON and Markdown into a run folder.",
@@ -1217,6 +1245,14 @@ def main(argv: list[str] | None = None) -> int:
             json_output=args.json,
         )
 
+    if args.command == "final-plan":
+        return _final_plan(
+            release_dir=args.release_dir,
+            runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
+            json_output=args.json,
+        )
+
     if args.command == "record-physical-evidence":
         try:
             return _record_physical_evidence(args)
@@ -1770,6 +1806,27 @@ def _release_plan(
         print(json.dumps(plan, indent=2, sort_keys=True))
     else:
         print(render_release_distribution_plan(plan), end="")
+    return 0
+
+
+def _final_plan(
+    *,
+    release_dir: Path,
+    runs_dir: Path,
+    regression_manifest_path: Path | None,
+    json_output: bool,
+) -> int:
+    from printpipe.final_plan import build_final_action_plan, render_final_action_plan
+
+    plan = build_final_action_plan(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
+    if json_output:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    else:
+        print(render_final_action_plan(plan), end="")
     return 0
 
 

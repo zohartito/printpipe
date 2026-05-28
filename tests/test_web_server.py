@@ -401,6 +401,95 @@ def test_home_response_renders_release_distribution_plan(monkeypatch, tmp_path: 
     assert 'href="/release-plan.json"' in response.text
 
 
+def test_final_plan_json_endpoint_returns_ordered_endgame_plan(monkeypatch, tmp_path: Path):
+    def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        assert release_dir == tmp_path / "release"
+        assert runs_dir == tmp_path / "runs"
+        assert regression_manifest_path is None
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 7,
+            "proof_boundary": "A final plan is not evidence.",
+            "sections": [
+                {"id": "physical_validation", "label": "Physical validation", "action_count": 3},
+                {"id": "trusted_user_beta", "label": "Trusted-user beta", "action_count": 1},
+                {"id": "release_distribution", "label": "Release distribution", "action_count": 3},
+            ],
+        }
+
+    monkeypatch.setattr("printpipe.web.server.build_final_action_plan", fake_final_plan)
+    app = create_app(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+    )
+
+    response = app.handle("/final-plan.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "action_required"
+    assert payload["sections"][0]["id"] == "physical_validation"
+    assert payload["action_count"] == 7
+
+
+def test_home_response_renders_final_action_plan(monkeypatch, tmp_path: Path):
+    def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 7,
+            "proof_boundary": "A final plan is not evidence.",
+            "sections": [
+                {
+                    "id": "physical_validation",
+                    "label": "Physical validation",
+                    "status": "action_required",
+                    "action_count": 3,
+                    "detail": "Print and record PLA, PETG, and TPU coupons.",
+                    "command": "printpipe physical-plan --runs-dir runs",
+                },
+                {
+                    "id": "trusted_user_beta",
+                    "label": "Trusted-user beta",
+                    "status": "action_required",
+                    "action_count": 1,
+                    "detail": "Record missing trusted-user feedback.",
+                    "command": "printpipe beta-feedback-plan --runs-dir runs",
+                },
+                {
+                    "id": "release_distribution",
+                    "label": "Release distribution",
+                    "status": "action_required",
+                    "action_count": 3,
+                    "detail": "Sign and notarize release artifacts.",
+                    "command": "printpipe release-plan --release-dir dist/release --runs-dir runs",
+                },
+            ],
+        }
+
+    monkeypatch.setattr("printpipe.web.server.build_final_action_plan", fake_final_plan)
+    app = create_app(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+    )
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Final action plan" in response.text
+    assert "7 action required" in response.text
+    assert "A final plan is not evidence." in response.text
+    assert "Physical validation" in response.text
+    assert "Trusted-user beta" in response.text
+    assert "Release distribution" in response.text
+    assert "printpipe physical-plan --runs-dir runs" in response.text
+    assert "printpipe beta-feedback-plan --runs-dir runs" in response.text
+    assert "printpipe release-plan --release-dir dist/release --runs-dir runs" in response.text
+    assert 'href="/final-plan.json"' in response.text
+
+
 def test_beta_feedback_status_json_endpoint_returns_trusted_user_status(
     tmp_path: Path,
 ):
