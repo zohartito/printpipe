@@ -200,6 +200,36 @@ def test_beta_readiness_report_blocks_when_captured_failures_lack_regressions(
     assert "run-missing" in gate["detail"]
 
 
+def test_beta_readiness_report_blocks_rule_updates_when_failures_have_no_packets(
+    tmp_path: Path,
+) -> None:
+    report = build_beta_readiness_report(
+        tmp_path / "runs",
+        physical_status=_passed_physical_status(),
+        trusted_feedback_status=_passed_trusted_feedback_status(),
+        rule_update_status={
+            "overall_status": "missing",
+            "verified_rule_types": [],
+            "missing_rule_types": ["material", "orientation", "repair"],
+        },
+        environment_report=_ready_environment_report(),
+        failure_regression_status={
+            "overall_status": "missing_regressions",
+            "failure_report_count": 1,
+            "covered_failure_count": 0,
+            "missing_regression_source_run_ids": ["failed-run"],
+        },
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    gate = gates["rule_updates"]
+
+    assert report["overall_status"] == "action_required"
+    assert gate["status"] == "action_required"
+    assert "1 captured failure" in gate["detail"]
+    assert "record-rule-update" in gate["action"]
+
+
 def test_beta_readiness_report_blocks_when_media_meshgen_provider_unavailable(
     tmp_path: Path,
 ) -> None:

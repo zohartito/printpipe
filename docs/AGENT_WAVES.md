@@ -1718,3 +1718,14 @@ Status: partial progress for physical-validation UX honesty. This closes the Opu
 3. Done: the CLI parser displays the missing photo/artifact path instead of the existing run root.
 4. Done: regression coverage proves an existing run plus a nonexistent `--photo` path exits with the artifact-specific message.
 5. Boundary: this does not create physical evidence or accept placeholder photos. Printed statuses still require a real existing photo artifact before the physical gate can pass.
+
+## Wave 157 - Rule Update Gate Requires Failure Triage
+
+Status: partial progress for beta-readiness honesty. This closes the Opus audit S3 gap where captured failures plus zero rule-update packets could leave the rule-update gate as `not_applicable`.
+
+1. Done: `build_beta_readiness_report()` now passes failure-regression context into the rule-update gate.
+2. Done: when captured failure packets exist and rule-update packets are missing, `rule_updates` reports `action_required`.
+3. Done: the action points at `record-rule-update`, preserving the existing rule-update packet workflow.
+4. Done: the no-failure/no-rule-packet state still remains `not_applicable`.
+5. Done: regression coverage proves one captured failure with no rule packets blocks readiness at `rule_updates`.
+6. Boundary: this does not decide which material/orientation/repair rule changed; it prevents captured failures from being silently treated as irrelevant.

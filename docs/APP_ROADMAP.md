@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 156: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 157: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 156 fixed the physical-evidence placeholder photo error from the Opus audit. `record-physical-evidence` now reports `photo/artifact file not found: <path>` when an attached photo or artifact is missing, instead of re-labeling that failure as a missing run root. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
+Latest status: Wave 157 tightened beta readiness around captured failures. If failure packets exist but no material/orientation/repair rule-update packets are recorded, the `rule_updates` gate now reports `action_required` instead of `not_applicable`, so release planning cannot glide past untriaged failures. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a configured live media meshgen provider for non-mesh inputs.
 
 ## Goal
 

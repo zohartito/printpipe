@@ -67,7 +67,10 @@ def build_beta_readiness_report(
     gates = [
         _physical_gate(physical),
         _trusted_feedback_gate(trusted_feedback),
-        _rule_updates_gate(rule_updates),
+        _rule_updates_gate(
+            rule_updates,
+            failure_regression_status=failure_regressions,
+        ),
         _failure_regressions_gate(failure_regressions),
         _regression_gate(regression, regression_manifest_path=regression_manifest_path),
         _dependency_gate(environment),
@@ -164,7 +167,11 @@ def _trusted_feedback_gate(status: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
-def _rule_updates_gate(status: Mapping[str, Any]) -> dict[str, Any]:
+def _rule_updates_gate(
+    status: Mapping[str, Any],
+    *,
+    failure_regression_status: Mapping[str, Any],
+) -> dict[str, Any]:
     overall = str(status.get("overall_status") or "missing")
     if overall == "passed":
         return _gate(
@@ -175,6 +182,19 @@ def _rule_updates_gate(status: Mapping[str, Any]) -> dict[str, Any]:
             "No action needed.",
         )
     if overall == "missing":
+        failure_count = int(failure_regression_status.get("failure_report_count") or 0)
+        if failure_count > 0:
+            noun = "failure" if failure_count == 1 else "failures"
+            return _gate(
+                "rule_updates",
+                "Rule updates",
+                ACTION_REQUIRED,
+                (
+                    f"{failure_count} captured {noun} exist, but no "
+                    "material/orientation/repair rule-update packets are recorded."
+                ),
+                "Review captured failures and record verified fixes with record-rule-update.",
+            )
         return _gate(
             "rule_updates",
             "Rule updates",
