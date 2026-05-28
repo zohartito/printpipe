@@ -722,6 +722,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the starter packet paths and next record command as JSON.",
     )
 
+    physical_slice = subparsers.add_parser(
+        "physical-slice",
+        help="Slice an existing physical-validation coupon bundle without rewriting evidence.",
+    )
+    physical_slice.add_argument(
+        "--family",
+        required=True,
+        choices=("pla", "petg", "tpu"),
+        help="Material family whose existing validation coupon bundle should be sliced.",
+    )
+    physical_slice.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory containing PrintPipe run folders.",
+    )
+    physical_slice.add_argument(
+        "--bambu-cli",
+        type=Path,
+        default=None,
+        help="Explicit Bambu Studio executable path.",
+    )
+    physical_slice.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the slice receipt metadata as JSON.",
+    )
+
     physical_plan = subparsers.add_parser(
         "physical-plan",
         help="Turn missing PLA/PETG/TPU physical validation gates into exact next actions.",
@@ -1381,6 +1409,17 @@ def main(argv: list[str] | None = None) -> int:
             json_output=args.json,
         )
 
+    if args.command == "physical-slice":
+        try:
+            return _physical_slice(
+                runs_dir=args.runs_dir,
+                family=args.family,
+                executable=args.bambu_cli,
+                json_output=args.json,
+            )
+        except FileNotFoundError as exc:
+            parser.error(str(exc))
+
     if args.command == "physical-plan":
         return _physical_plan(runs_dir=args.runs_dir, json_output=args.json)
 
@@ -1880,6 +1919,36 @@ def _physical_start(
             print(f"print handoff: {payload['handoff_markdown_path']}")
         if payload.get("record_command"):
             print(f"record after print: {payload['record_command']}")
+    return 0
+
+
+def _physical_slice(
+    *,
+    runs_dir: Path,
+    family: str,
+    executable: Path | None,
+    json_output: bool,
+) -> int:
+    from printpipe.beta.physical_slice import slice_physical_validation_coupon
+
+    payload = slice_physical_validation_coupon(
+        runs_dir,
+        family=family,
+        executable=executable,
+    )
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"status: {payload['status']}")
+        print(f"family: {payload['family']}")
+        print(f"run root: {payload['run_root']}")
+        print(f"bundle 3mf: {payload['bundle_path']}")
+        if payload.get("bundle_validation_path"):
+            print(f"bundle validation: {payload['bundle_validation_path']}")
+        print(f"slice status: {payload['slice_status']}")
+        print(f"slice message: {payload['slice_message']}")
+        if payload.get("slice_result_path"):
+            print(f"slice result: {payload['slice_result_path']}")
     return 0
 
 

@@ -14,6 +14,7 @@ from printpipe.beta.physical_plan import (
     build_physical_validation_plan,
     render_physical_validation_plan,
 )
+from printpipe.beta.physical_slice import slice_physical_validation_coupon
 from printpipe.beta.physical_start import start_physical_validation
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.bambu.slicer import SliceResult
@@ -166,6 +167,10 @@ def test_physical_validation_plan_surfaces_started_coupon_artifacts(
     assert pla_action["bundle_validation_path"].endswith(
         "60_bundle/physical_validation_coupon_40x15x3_bundle_validation.json"
     )
+    assert pla_action["slice_command"] == (
+        f'printpipe physical-slice --family pla --runs-dir "{runs_dir.resolve()}"'
+    )
+    assert pla_action["slice_result_path"] == ""
     assert pla_action["handoff_markdown_path"].endswith(
         "90_physical/physical_print_handoff.md"
     )
@@ -173,6 +178,7 @@ def test_physical_validation_plan_surfaces_started_coupon_artifacts(
     assert "flex recovery" not in coupon_sidecar["print_validation"]
     assert "handoff: " in render_physical_validation_plan(plan)
     assert "bundle: " in render_physical_validation_plan(plan)
+    assert "slice: printpipe physical-slice" in render_physical_validation_plan(plan)
     assert "next: printpipe open-folder" in render_physical_validation_plan(plan)
 
 
@@ -351,6 +357,48 @@ def test_physical_start_can_slice_coupon_bundle_with_explicit_runner(
     assert plan["actions"][0]["slice_result_path"] == str(slice_result_path.resolve())
 
 
+def test_physical_slice_slices_existing_coupon_without_rewriting_evidence(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    start_physical_validation(
+        runs_dir,
+        family="petg",
+        operator="Zohar",
+    )
+    evidence_path = (
+        runs_dir / "physical-petg-validation" / "90_physical" / "physical_evidence.json"
+    )
+    evidence_before = evidence_path.read_text(encoding="utf-8")
+    calls: list[tuple[tuple[str | Path, ...], object]] = []
+
+    def fake_slice_runner(command, run_layout):
+        calls.append((tuple(command), run_layout))
+        return SliceResult(return_code=0, time_seconds=240, filament_g=1.4, layer_count=15)
+
+    result = slice_physical_validation_coupon(
+        runs_dir,
+        family="petg",
+        executable=tmp_path / "BambuStudio",
+        slice_runner=fake_slice_runner,
+    )
+    plan = build_physical_validation_plan(runs_dir)
+    petg_action = next(action for action in plan["actions"] if action["family"] == "petg")
+    rendered = render_physical_validation_plan(plan)
+
+    assert result["status"] == "sliced"
+    assert result["family"] == "petg"
+    assert result["slice_status"] == "succeeded"
+    assert result["slice_message"] == "Bambu CLI slice passed."
+    assert result["slice_result_path"].endswith("70_slice/slice_result.json")
+    assert calls[0][0][0] == str(tmp_path / "BambuStudio")
+    assert calls[0][0][-1].endswith("physical_validation_coupon_40x15x3.3mf")
+    assert evidence_path.read_text(encoding="utf-8") == evidence_before
+    assert petg_action["slice_result_path"] == result["slice_result_path"]
+    assert petg_action["slice_command"] == ""
+    assert f"slice receipt: {result['slice_result_path']}" in rendered
+
+
 def test_cli_physical_start_rejects_bambu_cli_without_slice(
     tmp_path: Path,
 ) -> None:
@@ -366,6 +414,60 @@ def test_cli_physical_start_rejects_bambu_cli_without_slice(
                 str(tmp_path / "BambuStudio"),
             ]
         )
+
+
+def test_cli_physical_slice_slices_existing_coupon(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    start_physical_validation(
+        runs_dir,
+        family="pla",
+        operator="Zohar",
+    )
+    fake_bambu = tmp_path / "fake_bambu.py"
+    fake_bambu.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import pathlib",
+                "import sys",
+                "output_dir = pathlib.Path(sys.argv[sys.argv.index('--outputdir') + 1])",
+                "output_dir.mkdir(parents=True, exist_ok=True)",
+                "gcode = output_dir / 'plate_1.gcode'",
+                "gcode.write_text('; estimated printing time (normal mode) = 4m 0s\\n"
+                "; total filament weight [g] = 1.40\\n"
+                "; total layer number = 15\\n')",
+                "print(f'Exported G-code: {gcode}')",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    fake_bambu.chmod(0o755)
+
+    exit_code = main(
+        [
+            "physical-slice",
+            "--family",
+            "pla",
+            "--runs-dir",
+            str(runs_dir),
+            "--bambu-cli",
+            str(fake_bambu),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    result_path = runs_dir / "physical-pla-validation" / "70_slice" / "slice_result.json"
+    payload = json.loads(result_path.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert "slice status: succeeded" in captured.out
+    assert str(result_path.resolve()) in captured.out
+    assert payload["time_seconds"] == 240
+    assert payload["filament_g"] == 1.4
+    assert payload["cost"] is None
 
 
 def _write_evidence(

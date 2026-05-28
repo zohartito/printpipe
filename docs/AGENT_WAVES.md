@@ -1380,3 +1380,14 @@ Status: partial progress for physical-validation execution. This adds an explici
 4. Done: `physical-start --json` returns `slice_requested`, `slice_status`, `slice_message`, and `slice_result_path`.
 5. Done: physical plans and final-next can surface `slice_result_path` as a supporting proof/diagnostic file when one exists.
 6. Boundary: a slice receipt is software evidence only. The material-family physical gate still requires real print observations and an existing photo artifact.
+
+## Wave 125 - Non-Destructive Physical Coupon Slice Command
+
+Status: partial progress for physical-validation execution. This makes coupon slicing repeatable for existing starter packets without rewriting their physical evidence files.
+
+1. Done: added `printpipe physical-slice --family <pla|petg|tpu> --runs-dir <runs>` for existing validation coupon bundles.
+2. Done: `physical-slice` runs the same Bambu CLI slice wrapper as `physical-start --slice`.
+3. Done: the helper rejects missing coupon bundles with a clear "run physical-start first" error.
+4. Done: physical plans now show a `slice:` command when a bundle exists and `70_slice/slice_result.json` does not.
+5. Done: regression coverage verifies slicing an existing coupon does not rewrite the not-yet-printed physical evidence packet.
+6. Boundary: a sliced coupon bundle is still software evidence only. The gate still requires a real printed coupon, real observations, and an existing photo artifact.

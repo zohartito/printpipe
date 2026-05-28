@@ -14,6 +14,7 @@ from printpipe.beta.physical import (
     write_physical_evidence_files,
 )
 from printpipe.beta.physical_plan import PROOF_BOUNDARY, build_physical_validation_plan
+from printpipe.beta.physical_slice import slice_coupon_bundle
 
 _VALIDATION_POINTS = {
     "pla": (
@@ -83,7 +84,7 @@ def start_physical_validation(
         material=str(action["material_hint"]),
     )
     slice_payload = (
-        _run_coupon_slice(
+        slice_coupon_bundle(
             run_root=run_root,
             bundle_path=Path(bundle_paths["bundle"]),
             executable=slice_executable,
@@ -207,38 +208,6 @@ def _write_coupon_bundle(
     return {
         "bundle": str(bundle_path.resolve()),
         "validation": str(validation_path.resolve()),
-    }
-
-
-def _run_coupon_slice(
-    *,
-    run_root: Path,
-    bundle_path: Path,
-    executable: str | Path | None,
-    slice_runner: Any | None,
-) -> dict[str, Any]:
-    from types import SimpleNamespace
-
-    from printpipe.bambu.slicer import run_bambu_cli_slice_stage, run_slice_command
-
-    runner = run_slice_command if slice_runner is None else slice_runner
-    layout = SimpleNamespace(slice_dir=run_root / "70_slice")
-    receipt = run_bambu_cli_slice_stage(
-        three_mf_path=bundle_path,
-        run_layout=layout,
-        executable=executable,
-        slice_runner=runner,
-    )
-    result_path = ""
-    for artifact in receipt.artifacts:
-        if artifact.path.name == "slice_result.json":
-            result_path = str(artifact.path.resolve())
-            break
-    return {
-        "slice_requested": True,
-        "slice_status": receipt.status.value,
-        "slice_message": receipt.message,
-        "slice_result_path": result_path,
     }
 
 

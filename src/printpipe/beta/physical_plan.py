@@ -141,6 +141,13 @@ def render_physical_validation_plan(plan: dict[str, Any]) -> str:
         bundle_path = str(action.get("bundle_path", ""))
         if bundle_path:
             lines.append(f"   bundle: {bundle_path}")
+        slice_result_path = str(action.get("slice_result_path", ""))
+        if slice_result_path:
+            lines.append(f"   slice receipt: {slice_result_path}")
+        else:
+            slice_command = str(action.get("slice_command", ""))
+            if slice_command:
+                lines.append(f"   slice: {slice_command}")
         lines.append(f"   record after print: {action.get('record_command', '')}")
     lines.append("")
     return "\n".join(lines)
@@ -162,6 +169,12 @@ def _action_for_family(
     coupon_paths = _coupon_paths(Path(run_root))
     bundle_paths = _bundle_paths(Path(run_root))
     slice_path = _slice_result_path(Path(run_root))
+    slice_command = _slice_command(
+        family=family,
+        runs_dir=runs_dir,
+        has_bundle=bool(bundle_paths["bundle"]),
+        has_slice=bool(slice_path),
+    )
     setup_command = "" if existing_run_root else f"mkdir -p {_quote(run_root)}"
     start_command = (
         ""
@@ -193,6 +206,7 @@ def _action_for_family(
         "coupon_json_path": coupon_paths["json"],
         "bundle_path": bundle_paths["bundle"],
         "bundle_validation_path": bundle_paths["validation"],
+        "slice_command": slice_command,
         "slice_result_path": slice_path,
         "handoff_markdown_path": _handoff_path(Path(run_root)),
         "record_command": _record_command(family=family, run_root=run_root),
@@ -291,6 +305,12 @@ def _bundle_paths(run_root: Path) -> dict[str, str]:
 def _slice_result_path(run_root: Path) -> str:
     path = run_root / "70_slice" / "slice_result.json"
     return str(path.resolve()) if path.exists() else ""
+
+
+def _slice_command(*, family: str, runs_dir: Path, has_bundle: bool, has_slice: bool) -> str:
+    if not has_bundle or has_slice:
+        return ""
+    return f"printpipe physical-slice --family {family} --runs-dir {_quote(str(runs_dir))}"
 
 
 def _handoff_path(run_root: Path) -> str:
