@@ -35,7 +35,7 @@ Each packet writes:
 ## Gate
 
 `build_beta_readiness_report()` now includes `trusted_user_beta`, which stays
-action-required until at least three unique trusted users have recorded feedback
+action-required until at least three unique trusted users have completed feedback
 packets. `build_beta_action_plan()` uses the same status.
 
 ## Boundary

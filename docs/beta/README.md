@@ -25,7 +25,7 @@ Start with [onboarding.md](onboarding.md).
 - `printpipe record-beta-feedback runs/<run-id>`: writes a structured
   trusted-user feedback packet without claiming physical print proof.
 - `printpipe beta-feedback-status --runs-dir runs`: summarizes whether three
-  unique trusted users have recorded feedback.
+  unique trusted users have completed feedback.
 - `printpipe record-rule-update runs/<run-id>`: records material, orientation,
   or repair rule changes made after dogfood or beta triage.
 - `printpipe rule-update-status --runs-dir runs`: checks whether material,

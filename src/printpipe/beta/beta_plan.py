@@ -314,7 +314,7 @@ def _trusted_user_action(status: Mapping[str, Any]) -> dict[str, str]:
             "id": "trusted_user_beta",
             "label": "Trusted-user beta",
             "status": "ready",
-            "detail": f"{current} / {required} trusted users recorded feedback.",
+            "detail": f"{current} / {required} trusted users completed feedback.",
             "command": "",
         }
     return {
@@ -322,7 +322,7 @@ def _trusted_user_action(status: Mapping[str, Any]) -> dict[str, str]:
         "label": "Trusted-user beta",
         "status": "action_required",
         "detail": (
-            f"{current} / {required} trusted users recorded feedback; collect "
+            f"{current} / {required} trusted users completed feedback; collect "
             "successful and failed run packets before calling beta complete."
         ),
         "command": (

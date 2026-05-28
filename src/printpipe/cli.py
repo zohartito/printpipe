@@ -833,7 +833,7 @@ def build_parser() -> argparse.ArgumentParser:
     beta_feedback_status.add_argument(
         "--strict",
         action="store_true",
-        help="Return exit code 2 unless at least three trusted users recorded feedback.",
+        help="Return exit code 2 unless at least three trusted users completed feedback.",
     )
 
     beta_feedback_plan = subparsers.add_parser(

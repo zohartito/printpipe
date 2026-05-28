@@ -1164,7 +1164,7 @@ Status: complete for trusted-user beta planning. This does not create tester fee
 2. Done: added `printpipe beta-feedback-plan --runs-dir runs` with JSON and text output.
 3. Done: added `/beta-feedback-plan.json` and a home-page `Trusted-user action plan` panel.
 4. Done: the plan turns missing trusted-user slots into exact `record-beta-feedback` commands.
-5. Boundary: a generated feedback plan is not trusted-user evidence; only recorded feedback packets count toward the beta gate.
+5. Boundary: a generated feedback plan is not trusted-user evidence; only completed feedback packets count toward the beta gate.
 
 ## Wave 106 - Release Distribution Action Plan
 
@@ -1209,3 +1209,14 @@ Status: complete for human-facing beta audit visibility. This does not create te
 4. Done: the local web trusted-user feedback panel now includes a `Not-run testers` card.
 5. Done: the card copy states that not-run packets are audit records, not completed beta feedback.
 6. Boundary: this is visibility only; completed trusted-user beta still requires three unique trusted users with `passed`, `failed`, or `partial` feedback.
+
+## Wave 110 - Trusted-User Completed-Feedback Wording
+
+Status: complete for trusted-user beta wording consistency. This does not create tester feedback evidence.
+
+1. Done: added readiness regression coverage requiring `completed feedback` wording for the trusted-user gate.
+2. Done: added beta-plan regression coverage requiring `completed feedback` wording for missing and ready trusted-user beta actions.
+3. Done: updated readiness gate detail from `recorded feedback` to `completed feedback`.
+4. Done: updated beta-plan trusted-user action detail from `recorded feedback` to `completed feedback`.
+5. Done: updated CLI help and beta documentation to use completed-feedback wording.
+6. Boundary: this is wording hardening only; the trusted-user beta gate still requires three unique trusted users with completed `passed`, `failed`, or `partial` feedback packets.

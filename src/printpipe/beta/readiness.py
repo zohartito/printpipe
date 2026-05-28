@@ -150,14 +150,14 @@ def _trusted_feedback_gate(status: Mapping[str, Any]) -> dict[str, Any]:
             "trusted_user_beta",
             "Trusted-user beta",
             READY,
-            f"{current} / {required} trusted users recorded feedback.",
+            f"{current} / {required} trusted users completed feedback.",
             "No action needed.",
         )
     return _gate(
         "trusted_user_beta",
         "Trusted-user beta",
         ACTION_REQUIRED,
-        f"{current} / {required} trusted users recorded feedback.",
+        f"{current} / {required} trusted users completed feedback.",
         "Give the app to 3 trusted users and record each packet with record-beta-feedback.",
     )
 

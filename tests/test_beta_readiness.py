@@ -133,7 +133,8 @@ def test_beta_readiness_report_blocks_on_missing_trusted_user_feedback(
 
     assert report["overall_status"] == "action_required"
     assert trusted_gate["status"] == "action_required"
-    assert "0 / 3 trusted users" in trusted_gate["detail"]
+    assert "0 / 3 trusted users completed feedback" in trusted_gate["detail"]
+    assert "recorded feedback" not in trusted_gate["detail"]
     assert "record-beta-feedback" in trusted_gate["action"]
 
 

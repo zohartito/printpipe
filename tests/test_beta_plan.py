@@ -52,7 +52,8 @@ def test_beta_action_plan_reports_missing_beta_evidence(tmp_path: Path) -> None:
     assert actions["update_rules"]["status"] == "waiting_for_evidence"
     assert "record-rule-update" in actions["update_rules"]["command"]
     assert actions["trusted_user_beta"]["status"] == "action_required"
-    assert "0 / 3 trusted users" in actions["trusted_user_beta"]["detail"]
+    assert "0 / 3 trusted users completed feedback" in actions["trusted_user_beta"]["detail"]
+    assert "recorded feedback" not in actions["trusted_user_beta"]["detail"]
 
 
 def test_beta_action_plan_marks_dogfood_ready_from_software_evidence(
@@ -222,7 +223,7 @@ def test_beta_action_plan_marks_trusted_user_beta_ready_after_three_users(
     assert status["overall_status"] == "passed"
     assert status["trusted_users"] == ["Lee", "Maya", "Sam"]
     assert actions["trusted_user_beta"]["status"] == "ready"
-    assert "3 / 3 trusted users" in actions["trusted_user_beta"]["detail"]
+    assert "3 / 3 trusted users completed feedback" in actions["trusted_user_beta"]["detail"]
 
 
 def test_render_beta_action_plan_lists_actions_and_boundary(tmp_path: Path) -> None:
