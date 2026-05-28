@@ -96,6 +96,41 @@ def test_macos_app_default_launch_opens_local_web_ui(tmp_path: Path) -> None:
     assert result["default_launch_mode"] == "web-ui"
 
 
+def test_macos_app_document_launch_runs_input_then_opens_web_ui(tmp_path: Path) -> None:
+    app_path = tmp_path / "PrintPipe.app"
+    input_mesh = tmp_path / "input.stl"
+    input_mesh.write_text("solid demo\nendsolid demo\n", encoding="ascii")
+
+    result = build_macos_app_bundle(project_root=REPO_ROOT, app_path=app_path)
+    executable = Path(result["executable_path"])
+    home = tmp_path / "home"
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        "PRINTPIPE_APP_DRY_RUN": "1",
+    }
+
+    proc = subprocess.run(
+        [str(executable), str(input_mesh)],
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    plist = plistlib.loads((app_path / "Contents" / "Info.plist").read_bytes())
+
+    assert proc.returncode == 0
+    assert "PrintPipe document launcher" in proc.stdout
+    assert f"run {input_mesh}" in proc.stdout
+    assert f"--runs-dir {home / 'PrintPipe' / 'runs'}" in proc.stdout
+    assert result["document_launch_mode"] == "run-and-open-web-ui"
+    assert "stl" in result["document_extensions"]
+    assert any(
+        "stl" in document_type.get("CFBundleTypeExtensions", [])
+        for document_type in plist["CFBundleDocumentTypes"]
+    )
+
+
 def test_cli_build_macos_app_json_reports_bundle(tmp_path: Path, capsys) -> None:
     app_path = tmp_path / "dist" / "PrintPipe.app"
 

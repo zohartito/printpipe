@@ -529,3 +529,14 @@ Status: partial progress for original item 121. The `.app` bundle now has a usef
 4. Done: the launcher opens the local URL after startup while preserving CLI pass-through for `--version` and `package-smoke`.
 5. Done: added `PRINTPIPE_APP_DRY_RUN=1` smoke coverage for the no-arg launcher path.
 6. Remaining: Developer ID signing, notarization, bundled Python runtime, file associations, and release installer packaging stay open.
+
+## Wave 49 - macOS App Document Launch
+
+Status: partial progress for original item 121. The `.app` bundle now declares and handles supported input documents, but it still does not install itself as the default handler and is not a signed/notarized installer.
+
+1. Done: added `CFBundleDocumentTypes` for mesh/media input extensions.
+2. Done: added a one-file launcher branch that runs `printpipe run <file>` into `~/PrintPipe/runs`.
+3. Done: after document processing, the launcher starts the local web UI at `http://127.0.0.1:8765/`.
+4. Done: preserved CLI pass-through for normal subcommands and flags.
+5. Done: added `PRINTPIPE_APP_DRY_RUN=1` smoke coverage for the document-launch path.
+6. Remaining: default-handler registration, Developer ID signing, notarization, bundled Python runtime, and release installer packaging stay open.

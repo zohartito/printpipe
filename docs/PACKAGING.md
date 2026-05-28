@@ -280,6 +280,7 @@ printing CLI help and exiting:
 ```bash
 printpipe build-macos-app --output dist/PrintPipe.app --json
 PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipe.app/Contents/MacOS/printpipe
+PRINTPIPE_APP_DRY_RUN=1 dist/PrintPipe.app/Contents/MacOS/printpipe path/to/input.stl
 dist/PrintPipe.app/Contents/MacOS/printpipe --version
 dist/PrintPipe.app/Contents/MacOS/printpipe package-smoke --platform macos --runs-dir runs/package-smoke/macos-app --json
 ```
@@ -293,6 +294,11 @@ What this proves:
 - With no CLI arguments, the launcher starts `printpipe serve` at
   `http://127.0.0.1:8765/`, opens that URL, and uses
   `~/PrintPipe/runs` as the default run folder.
+- `CFBundleDocumentTypes` declares the supported input extensions as alternate
+  document types, so mesh/media files can be opened with PrintPipe after the app
+  is registered by macOS.
+- When launched with one file path, the launcher runs `printpipe run <file>`,
+  writes the run under `~/PrintPipe/runs`, then starts the same local web UI.
 - The launcher can run package-smoke and produce reports plus a Bambu `.3mf`.
 
 What this does not prove:
@@ -300,6 +306,7 @@ What this does not prove:
 - It is not a signed or notarized `.app` unless `--adhoc-sign` is used, and
   ad-hoc signing is still not Developer ID signing.
 - It uses `/usr/bin/env python3`; it does not bundle Python.
+- It does not install itself as the default handler for mesh/media files.
 - It does not bundle Bambu Studio.
 
 ## Ad-Hoc macOS App Signing

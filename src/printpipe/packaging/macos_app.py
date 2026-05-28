@@ -13,6 +13,9 @@ from printpipe import __version__
 from printpipe.packaging.zipapp import build_zipapp_package
 
 
+DOCUMENT_EXTENSIONS = ("stl", "obj", "3mf", "glb", "gltf", "png", "jpg", "jpeg", "gif", "webp", "mp4", "mov")
+
+
 def build_macos_app_bundle(
     *,
     project_root: str | Path = Path("."),
@@ -66,6 +69,8 @@ def build_macos_app_bundle(
         "default_launch_mode": "web-ui",
         "default_url": "http://127.0.0.1:8765/",
         "default_runs_dir": "~/PrintPipe/runs",
+        "document_launch_mode": "run-and-open-web-ui",
+        "document_extensions": list(DOCUMENT_EXTENSIONS),
         "signed": adhoc_sign,
         "signing_identity": signing_identity,
         "notarized": False,
@@ -111,6 +116,28 @@ if [ "$#" -eq 0 ]; then
   ) &
   exec /usr/bin/env python3 "$APP_DIR/Resources/printpipe.pyz" serve --host "$HOST" --port "$PORT" --runs-dir "$RUNS_DIR"
 fi
+if [ "$#" -eq 1 ] && [ -f "$1" ]; then
+  HOST="${PRINTPIPE_HOST:-127.0.0.1}"
+  PORT="${PRINTPIPE_PORT:-8765}"
+  RUNS_DIR="${PRINTPIPE_RUNS_DIR:-$HOME/PrintPipe/runs}"
+  URL="${PRINTPIPE_APP_URL:-http://$HOST:$PORT/}"
+  MATERIAL="${PRINTPIPE_MATERIAL:-Generic PLA}"
+  PRINTER="${PRINTPIPE_PRINTER:-Bambu Lab P2S}"
+  USE_CASE="${PRINTPIPE_USE_CASE:-print}"
+  if [ "${PRINTPIPE_APP_DRY_RUN:-0}" = "1" ]; then
+    printf 'PrintPipe document launcher\\n'
+    printf 'url: %s\\n' "$URL"
+    printf 'command: python3 %s run %s --runs-dir %s --material %s --printer %s --use-case %s\\n' "$APP_DIR/Resources/printpipe.pyz" "$1" "$RUNS_DIR" "$MATERIAL" "$PRINTER" "$USE_CASE"
+    exit 0
+  fi
+  mkdir -p "$RUNS_DIR"
+  /usr/bin/env python3 "$APP_DIR/Resources/printpipe.pyz" run "$1" --runs-dir "$RUNS_DIR" --material "$MATERIAL" --printer "$PRINTER" --use-case "$USE_CASE" || true
+  (
+    sleep 1
+    /usr/bin/open "$URL" >/dev/null 2>&1 || true
+  ) &
+  exec /usr/bin/env python3 "$APP_DIR/Resources/printpipe.pyz" serve --host "$HOST" --port "$PORT" --runs-dir "$RUNS_DIR"
+fi
 exec /usr/bin/env python3 "$APP_DIR/Resources/printpipe.pyz" "$@"
 """
 
@@ -126,6 +153,14 @@ def _info_plist() -> dict[str, Any]:
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": __version__,
         "CFBundleVersion": __version__,
+        "CFBundleDocumentTypes": [
+            {
+                "CFBundleTypeExtensions": list(DOCUMENT_EXTENSIONS),
+                "CFBundleTypeName": "PrintPipe input",
+                "CFBundleTypeRole": "Editor",
+                "LSHandlerRank": "Alternate",
+            }
+        ],
         "LSMinimumSystemVersion": "12.0",
         "LSUIElement": True,
         "NSHighResolutionCapable": True,
