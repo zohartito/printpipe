@@ -492,18 +492,29 @@ def _render_artifact_cards(
             continue
 
         path = artifact.get("path", "")
-        href = _artifact_href(path, layout=layout)
         label = artifact.get("label") or path or "Artifact"
         kind = artifact.get("kind", "artifact")
         kind_class = _class_name(str(kind))
         card_classes = " ".join(_artifact_card_classes(kind_class))
-        download_attribute = _download_attribute(kind, path)
-        preview_html = _render_preview_embed(
-            kind=kind,
-            href=href,
-            label=label,
-            path=path,
-        )
+        artifact_present = _artifact_present(path, layout=layout)
+        if artifact_present:
+            href = _artifact_href(path, layout=layout)
+            download_attribute = _download_attribute(kind, path)
+            title = (
+                f'<a href="{_as_attribute(href)}"{download_attribute}>'
+                f"{_as_text(label)}</a>"
+            )
+            preview_html = _render_preview_embed(
+                kind=kind,
+                href=href,
+                label=label,
+                path=path,
+            )
+            missing_html = ""
+        else:
+            title = f'<span class="artifact-missing-label">{_as_text(label)}</span>'
+            preview_html = ""
+            missing_html = '\n        <p class="artifact-missing">Artifact file missing</p>'
         metadata = artifact.get("metadata", {})
         metadata_html = ""
         if metadata:
@@ -511,10 +522,10 @@ def _render_artifact_cards(
         cards.append(
             "      <article "
             f'class="{_as_attribute(card_classes)}">'
-            f'<h3><a href="{_as_attribute(href)}"{download_attribute}>'
-            f"{_as_text(label)}</a></h3>"
+            f"<h3>{title}</h3>"
             f'<span class="kind">{_as_text(kind)}</span>'
             f' <code>{_as_text(path)}</code>'
+            f"{missing_html}"
             f"{preview_html}"
             f"{metadata_html}"
             "</article>"
@@ -534,18 +545,28 @@ def _render_artifact_links(artifacts: list[Any], *, layout: RunLayout | None) ->
             continue
 
         path = artifact.get("path", "")
-        href = _artifact_href(path, layout=layout)
         label = artifact.get("label") or path or "Artifact"
         kind = artifact.get("kind", "artifact")
         metadata = artifact.get("metadata", {})
         metadata_html = ""
         if metadata:
             metadata_html = f"\n        <div class=\"metadata\">{_render_value(metadata)}</div>"
+        if _artifact_present(path, layout=layout):
+            href = _artifact_href(path, layout=layout)
+            label_markup = (
+                f'<a href="{_as_attribute(href)}">'
+                f"{_as_text(label)}</a>"
+            )
+            missing_html = ""
+        else:
+            label_markup = f'<span class="artifact-missing-label">{_as_text(label)}</span>'
+            missing_html = ' <span class="artifact-missing">Artifact file missing</span>'
         items.append(
             "      <li>"
-            f'<a href="{_as_attribute(href)}">{_as_text(label)}</a>'
+            f"{label_markup}"
             f' <span class="kind">{_as_text(kind)}</span>'
             f' <code>{_as_text(path)}</code>'
+            f"{missing_html}"
             f"{metadata_html}"
             "</li>"
         )
@@ -906,6 +927,21 @@ def _artifact_href(path: Any, *, layout: RunLayout | None) -> str:
         start=layout.reports_dir.expanduser().resolve(),
     )
     return _quote_url_path(Path(relative_path).as_posix())
+
+
+def _artifact_present(path: Any, *, layout: RunLayout | None) -> bool:
+    if layout is None:
+        return True
+    path_text = str(path)
+    if not path_text:
+        return False
+    artifact_path = Path(path_text)
+    if not artifact_path.is_absolute():
+        artifact_path = layout.root / artifact_path
+    try:
+        return artifact_path.expanduser().resolve().is_file()
+    except OSError:
+        return False
 
 
 def _quote_url_path(path: str) -> str:

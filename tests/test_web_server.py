@@ -174,6 +174,57 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/doctor.json"' in response.text
 
 
+def test_home_recent_run_card_surfaces_print_verdict_before_bundle_download(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "runs"
+    layout = create_run(source, runs_dir, run_id="run-review-before-print")
+    bundle = layout.bundle_dir / "ready.3mf"
+    bundle.write_bytes(b"bundle")
+    stages = (
+        StageReceipt(
+            stage="slice",
+            status=StageStatus.SUCCEEDED,
+            message="Slice passed with warnings.",
+            artifacts=(
+                Artifact(
+                    kind=ArtifactKind.THREEMF,
+                    path=bundle,
+                    label="Bambu bundle",
+                ),
+            ),
+            metrics={
+                "fits": True,
+                "watertight": True,
+                "non_manifold_edges": 0,
+                "boundary_edges": 0,
+                "slice_success": True,
+                "support_risk": "low",
+            },
+        ),
+    )
+    report_dict = build_run_report_dict(
+        layout,
+        stages=stages,
+        warnings=("review first layer",),
+    )
+    write_run_report(layout, stages=stages, warnings=("review first layer",))
+    write_html_report(layout, report_dict)
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert '<section class="run-print-verdict run-print-verdict-review">' in response.text
+    assert "Review before print" in response.text
+    assert "Warnings remain, but no blocking validation checks failed." in response.text
+    assert response.text.find("Review before print") < response.text.find("Downloads")
+    assert (
+        response.text.find("Review before print")
+        < response.text.find('download="ready.3mf"')
+    )
+
+
 def test_home_response_renders_physical_beta_gate_status(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     pla_run = runs_dir / "run-pla-pass"
@@ -725,6 +776,25 @@ def test_home_response_renders_not_run_trusted_users_without_counting_them(
     assert "Not-run testers" in response.text
     assert "Lee" in response.text
     assert "Not-run packets are audit records, not completed beta feedback." in response.text
+
+
+def test_home_trusted_feedback_outcomes_are_missing_when_no_outcomes_recorded(
+    tmp_path: Path,
+):
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Trusted-user feedback" in response.text
+    assert (
+        '<article class="physical-family physical-family-missing">\n'
+        "          <span>Outcomes</span>\n"
+        "          <strong>missing</strong>"
+    ) in response.text
+    assert "No completed tester outcomes recorded." in response.text
 
 
 def test_beta_plan_json_endpoint_accepts_regression_manifest_query(

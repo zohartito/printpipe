@@ -1749,3 +1749,14 @@ Status: complete for backend audit punch-list repair error handling. This closes
 3. Done: pipeline callers receive a normal failed stage receipt instead of an uncaught traceback.
 4. Done: regression coverage proves a simulated legacy GLB loader `NotImplementedError` returns `StageStatus.FAILED`.
 5. Boundary: this does not make corrupt/legacy GLB files repairable; it makes the failure artifact-backed and user-readable.
+
+## Wave 160 - UI Evidence Honesty Pass
+
+Status: complete for three audit punch-list UI/report honesty gaps.
+
+1. Done: home-page recent-run cards now surface the run-detail print verdict before any `.3mf` bundle download, so a pipeline `succeeded` state no longer stands alone as a print-ready claim.
+2. Done: the recent-run verdict is only shown when a `.3mf` bundle artifact exists, and it uses the same `build_run_detail()` verdict contract as the workbench.
+3. Done: trusted-user feedback outcomes now render as `missing` when all outcome counters are zero instead of hardcoding `recorded`.
+4. Done: static HTML reports now mark missing artifact files as `Artifact file missing` instead of rendering clickable links to files that do not exist.
+5. Done: regression coverage proves the home-card verdict appears before bundle downloads, zero-outcome feedback is not recorded as evidence, missing report artifacts are not linked, and existing physical-evidence packet files still render as links.
+6. Boundary: this does not create physical, trusted-user, or slice evidence. It only prevents the UI/report surfaces from implying missing evidence is present.

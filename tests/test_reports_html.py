@@ -288,6 +288,12 @@ def test_render_html_report_surfaces_physical_evidence_packet(tmp_path: Path) ->
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")
     layout = create_run(source, tmp_path / "runs", run_id="run-html-physical")
+    physical_dir = layout.root / "90_physical"
+    physical_artifact_dir = physical_dir / "artifacts"
+    physical_artifact_dir.mkdir(parents=True)
+    (physical_dir / "physical_evidence.json").write_text("{}", encoding="utf-8")
+    (physical_dir / "physical_evidence.md").write_text("evidence\n", encoding="utf-8")
+    (physical_artifact_dir / "coupon.jpg").write_bytes(b"photo")
     report_dict = build_run_report_dict(
         layout,
         stages=(),
@@ -474,3 +480,29 @@ def test_write_html_report_writes_report_artifact(tmp_path: Path):
     assert "<!doctype html>" in html
     assert "run-html-002" in html
     assert 'href="../00_input/reference.png"' in html
+
+
+def test_render_html_report_marks_missing_artifacts_without_links(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    layout = create_run(source, tmp_path / "runs", run_id="run-missing-artifact-link")
+    missing_bundle = layout.bundle_dir / "missing.3mf"
+    receipt = StageReceipt(
+        stage="bundle",
+        status=StageStatus.SUCCEEDED,
+        message="Bundle receipt was recorded, but the file is gone.",
+        artifacts=(
+            Artifact(
+                kind=ArtifactKind.THREEMF,
+                path=missing_bundle,
+                label="Bambu bundle",
+            ),
+        ),
+    )
+    report_dict = build_run_report_dict(layout, stages=(receipt,))
+
+    html = render_html_report(report_dict, layout=layout)
+
+    assert 'href="../60_bundle/missing.3mf"' not in html
+    assert "Artifact file missing" in html
+    assert "60_bundle/missing.3mf" in html

@@ -1318,14 +1318,24 @@ class PrintPipeWebApp:
             else ""
         )
         outcome_counts = status.get("outcome_counts")
-        outcome_text = (
-            ", ".join(
-                f"{key}: {value}"
-                for key, value in sorted(outcome_counts.items())
-            )
+        positive_outcome_counts = (
+            {
+                key: value
+                for key, value in outcome_counts.items()
+                if _positive_count(value)
+            }
             if isinstance(outcome_counts, dict)
-            else "not recorded"
+            else {}
         )
+        if positive_outcome_counts:
+            outcome_text = ", ".join(
+                f"{key}: {value}"
+                for key, value in sorted(positive_outcome_counts.items())
+            )
+            outcome_status = "recorded"
+        else:
+            outcome_text = "No completed tester outcomes recorded."
+            outcome_status = "missing"
         command = "printpipe beta-feedback-status --runs-dir runs --strict"
         cards = "\n".join(
             [
@@ -1349,7 +1359,7 @@ class PrintPipeWebApp:
                 ),
                 self._render_trusted_feedback_card(
                     label="Outcomes",
-                    status="recorded",
+                    status=outcome_status,
                     detail=outcome_text,
                     note="Feedback is separate from physical print proof.",
                 ),
@@ -1581,7 +1591,9 @@ class PrintPipeWebApp:
                 "</a>"
             )
         workbench_link = f'<a href="/runs/{quote(run_id, safe="")}">Open workbench</a>'
-        artifacts = _render_artifact_groups(self._run_artifact_links(run_id))
+        artifact_links = self._run_artifact_links(run_id)
+        print_verdict = self._render_run_card_print_verdict(run_id, artifact_links)
+        artifacts = _render_artifact_groups(artifact_links)
 
         return "\n".join(
             [
@@ -1597,10 +1609,46 @@ class PrintPipeWebApp:
                 "          </div>",
                 f'          <progress max="100" value="{escape(progress_percent)}"></progress>',
                 f'          <p class="muted">{escape(progress_percent)}% complete, {escape(warning_count)} warnings</p>',
+                print_verdict,
                 f"          {workbench_link}",
                 f"          {report_link}",
                 f"{artifacts}",
                 "        </article>",
+            ]
+        )
+
+    def _render_run_card_print_verdict(
+        self,
+        run_id: str,
+        artifact_links: list[Any],
+    ) -> str:
+        if not _has_bundle_download(artifact_links):
+            return ""
+        run_root = self._run_root(run_id)
+        if run_root is None:
+            return ""
+        try:
+            detail = build_run_detail(run_root)
+        except (OSError, json.JSONDecodeError, ValueError):
+            return ""
+
+        verdict = detail.get("print_verdict")
+        if not isinstance(verdict, dict):
+            return ""
+        state = str(verdict.get("state") or "review")
+        label = str(verdict.get("label") or "Review before print")
+        reason = str(verdict.get("reason") or "Open the workbench before printing.")
+        return "\n".join(
+            [
+                (
+                    "          "
+                    f'<section class="run-print-verdict run-print-verdict-{_class_name(state)}">'
+                ),
+                "            <span>Print decision</span>",
+                f"            <strong>{escape(label)}</strong>",
+                f"            <p>{escape(reason)}</p>",
+                '            <p class="muted">Open the workbench and inspect the bundle before sending this print.</p>',
+                "          </section>",
             ]
         )
 
@@ -2258,6 +2306,31 @@ def _render_artifact_anchor(link: Any) -> str:
     )
 
 
+def _has_bundle_download(artifact_links: list[Any]) -> bool:
+    for link in artifact_links:
+        category = str(getattr(link, "category", "artifact"))
+        download_name = str(getattr(link, "download_name", ""))
+        media_type = str(getattr(link, "media_type", ""))
+        if (
+            category == "bundle"
+            and download_name.lower().endswith(".3mf")
+            and media_type == "model/3mf"
+        ):
+            return True
+    return False
+
+
+def _positive_count(value: Any) -> bool:
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, int | float):
+        return value > 0
+    try:
+        return int(str(value)) > 0
+    except ValueError:
+        return False
+
+
 def _media_type(path: Path) -> str:
     guessed, _ = mimetypes.guess_type(path.name)
     if path.suffix.lower() == ".3mf":
@@ -2396,6 +2469,39 @@ _CSS = """
       border: 1px solid #e4e7eb;
       border-radius: 8px;
       padding: 14px;
+    }
+    .run-print-verdict {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      display: grid;
+      gap: 4px;
+      margin: 10px 0;
+      padding: 10px;
+    }
+    .run-print-verdict span {
+      color: #52606d;
+      font-size: 0.78rem;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+    .run-print-verdict strong {
+      color: #102a43;
+    }
+    .run-print-verdict p {
+      margin: 0;
+    }
+    .run-print-verdict-review {
+      background: #fff7ed;
+      border-color: #fdba74;
+    }
+    .run-print-verdict-blocked {
+      background: #fff1f2;
+      border-color: #fda4af;
+    }
+    .run-print-verdict-ready {
+      background: #ecfdf5;
+      border-color: #86efac;
     }
     .final-readiness-panel {
       display: grid;
