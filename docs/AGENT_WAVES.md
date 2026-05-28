@@ -1525,3 +1525,14 @@ Status: partial progress for terminal planning truth. This aligns the remaining 
 4. Done: current local `final-plan --release-dir dist/release --runs-dir runs --json` reports `regression_manifest_path` as the canonical dogfood manifest instead of an empty string.
 5. Done: current local `beta-plan --runs-dir runs --json` renders `printpipe run-regressions "/Users/zohartito/Desktop/printpipe/regressions/dogfood_failures.json" --strict` as ready by default.
 6. Boundary: this is planning/reporting truth only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.
+
+## Wave 139 - Concrete Trusted-User Handoff Commands
+
+Status: partial progress for trusted-user beta execution UX. This removes placeholder run/material commands when a real review handoff already exists.
+
+1. Done: `beta-feedback-plan` now parses trusted-user review handoff sheets for run folder, tester, input type, material, printer, report, and bundle context.
+2. Done: actions with an existing handoff now use `printpipe open-folder "<run-root>" --target run` as the immediate review command instead of re-running a placeholder `beta-feedback-start`.
+3. Done: actions with an existing handoff now render a concrete `record-beta-feedback` command with the actual run root, tester slot, input type, material, printer, and report artifact path.
+4. Done: final plans inherit those concrete trusted-user commands, so final-readiness rows no longer tell agents or humans to record feedback into `runs/<run-id>`.
+5. Current local result: the three slipper trusted-user rows point at `/Users/zohartito/Desktop/printpipe/runs/20260528-042826-slipper-size11-v2c-wide-upper-textured` and use `SUNLU TPU 90A` in their record commands.
+6. Boundary: concrete commands are still instructions only. The trusted-user beta gate remains open until three unique trusted users return completed feedback packets with supporting evidence.

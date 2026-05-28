@@ -441,6 +441,39 @@ def test_trusted_user_feedback_plan_surfaces_handoff_report_and_bundle_paths(
     assert f"bundle: {bundle.resolve()}" in rendered
 
 
+def test_trusted_user_feedback_plan_uses_concrete_handoff_commands(
+    tmp_path: Path,
+) -> None:
+    run_root = tmp_path / "runs" / "run-trusted-001"
+    report = run_root / "80_reports" / "run_report.html"
+    bundle = run_root / "60_bundle" / "part.3mf"
+    report.parent.mkdir(parents=True)
+    bundle.parent.mkdir(parents=True)
+    report.write_text("<html>report</html>", encoding="utf-8")
+    bundle.write_text("bundle", encoding="utf-8")
+
+    start_trusted_user_feedback(
+        run_root,
+        tester="Maya",
+        input_type="existing_stl",
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+    )
+
+    plan = build_trusted_user_feedback_plan(tmp_path / "runs")
+
+    action = plan["actions"][0]
+    assert action["command"] == f'printpipe open-folder "{run_root.resolve()}" --target run'
+    assert action["command_kind"] == "review_handoff_command"
+    assert action["start_command"] == ""
+    assert f'"{run_root.resolve()}"' in action["record_command"]
+    assert '--tester "Maya"' in action["record_command"]
+    assert '--material "SUNLU TPU 90A"' in action["record_command"]
+    assert f"Run report|report|{report.resolve()}|reviewed by tester" in action["record_command"]
+    assert "runs/<run-id>" not in action["record_command"]
+    assert "<material>" not in action["record_command"]
+
+
 def test_cli_record_beta_feedback_and_status(tmp_path: Path, capsys) -> None:
     run_root = tmp_path / "runs" / "run-trusted-001"
     report = run_root / "80_reports" / "run_report.html"

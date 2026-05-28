@@ -492,6 +492,31 @@ def _trusted_feedback_action(
     handoff_record: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     handoff = dict(handoff_record or {})
+    has_handoff = bool(handoff.get("handoff_markdown_path"))
+    start_command = (
+        ""
+        if has_handoff
+        else (
+            'printpipe beta-feedback-start "runs/<run-id>" '
+            f'--tester "<trusted-user-{slot}>" '
+            '--input-type existing_stl --material "<material>" '
+            '--printer "Bambu Lab P2S"'
+        )
+    )
+    command = (
+        f"printpipe open-folder {_quote(handoff['run_root'])} --target run"
+        if has_handoff and handoff.get("run_root")
+        else ""
+    )
+    record_command = handoff.get("record_command", "") or (
+        'printpipe record-beta-feedback "runs/<run-id>" '
+        f'--tester "<trusted-user-{slot}>" '
+        '--input-type existing_stl --material "<material>" '
+        '--printer "Bambu Lab P2S" --outcome passed '
+        '--summary "<what happened>" --would-print no '
+        '--recommendation needs_review '
+        '--artifact "Run report|report|runs/<run-id>/80_reports/run_report.html|reviewed by tester"'
+    )
     return {
         "slot": slot,
         "label": f"Trusted tester {slot}",
@@ -500,24 +525,13 @@ def _trusted_feedback_action(
             "Give a trusted user a PrintPipe run to review, collect their outcome, "
             "and attach relevant screenshots, logs, or photos."
         ),
-        "start_command": (
-            'printpipe beta-feedback-start "runs/<run-id>" '
-            f'--tester "<trusted-user-{slot}>" '
-            '--input-type existing_stl --material "<material>" '
-            '--printer "Bambu Lab P2S"'
-        ),
+        "command": command,
+        "command_kind": "review_handoff_command" if command else "",
+        "start_command": start_command,
         "handoff_markdown_path": handoff.get("handoff_markdown_path", ""),
         "report_path": handoff.get("report_path", ""),
         "bundle_path": handoff.get("bundle_path", ""),
-        "record_command": (
-            'printpipe record-beta-feedback "runs/<run-id>" '
-            f'--tester "<trusted-user-{slot}>" '
-            '--input-type existing_stl --material "<material>" '
-            '--printer "Bambu Lab P2S" --outcome passed '
-            '--summary "<what happened>" --would-print no '
-            '--recommendation needs_review '
-            '--artifact "Run report|report|runs/<run-id>/80_reports/run_report.html|reviewed by tester"'
-        ),
+        "record_command": record_command,
         "required_fields": [
             "tester",
             "run_root",
@@ -626,19 +640,56 @@ def _feedback_handoff_records(runs_dir: Path) -> list[dict[str, str]]:
     records: list[dict[str, str]] = []
     for path in sorted(runs_dir.glob("*/90_beta/trusted_user_feedback_handoff_*.md")):
         run_root = path.parents[1]
+        handoff_text = path.read_text(encoding="utf-8")
         report_path = _first_existing(
             run_root / "80_reports",
             ("run_report.html", "run_report.md", "run_report.json"),
         )
         bundle_path = _first_glob(run_root / "60_bundle", "*.3mf")
+        tester = _handoff_field(handoff_text, "Name") or _tester_from_handoff_path(path)
+        input_type = _handoff_field(handoff_text, "Input type") or "existing_stl"
+        material = _handoff_field(handoff_text, "Material") or "<material>"
+        printer = _handoff_field(handoff_text, "Printer") or "Bambu Lab P2S"
+        report_label = str(report_path.resolve()) if report_path else ""
         records.append(
             {
+                "run_root": str(run_root.resolve()),
+                "tester": tester,
+                "input_type": input_type,
+                "material": material,
+                "printer": printer,
                 "handoff_markdown_path": str(path.resolve()),
                 "report_path": str(report_path.resolve()) if report_path else "",
                 "bundle_path": str(bundle_path.resolve()) if bundle_path else "",
+                "record_command": _feedback_record_command(
+                    run_root=str(run_root.resolve()),
+                    tester=tester,
+                    input_type=input_type,
+                    material=material,
+                    printer=printer,
+                    report_path=report_label,
+                ),
             }
         )
     return records
+
+
+def _handoff_field(markdown: str, label: str) -> str:
+    prefix = f"- {label}: "
+    for line in markdown.splitlines():
+        if line.startswith(prefix):
+            value = line.removeprefix(prefix).strip()
+            if value and value != "not found":
+                return value
+    return ""
+
+
+def _tester_from_handoff_path(path: Path) -> str:
+    stem = path.stem
+    prefix = "trusted_user_feedback_handoff_"
+    if stem.startswith(prefix):
+        return stem.removeprefix(prefix)
+    return "<trusted-user>"
 
 
 def _first_existing(directory: Path, names: Sequence[str]) -> Path | None:

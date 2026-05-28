@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 138: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 139: 138 done, 4 partial, 0 pending, 0 blocked.
 
 ## Goal
 
@@ -206,9 +206,11 @@ Complete a local-first program that turns an image, GIF, video, or existing mesh
 
 ## Current Gate
 
-Wave 138 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, optional live Bambu CLI slice receipts, physical print handoffs, trusted-user beta handoffs, release distribution handoffs, and default regression-aware CLI/web readiness/planning are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail/final-readiness UI that separates digital artifacts from physical, beta, or signed-distribution proof.
+Wave 139 leaves PrintPipe in an honest local-app state for software validation: existing mesh inputs, media/prompt references, repair/orientation, deterministic previews, Bambu-native `.3mf` bundling, static reports, local web workbench views, optional live Bambu CLI slice receipts, physical print handoffs, trusted-user beta handoffs, release distribution handoffs, and default regression-aware CLI/web readiness/planning are all wired into receipts. The slipper proof now has PrintPipe-generated TPU bundle evidence, a repaired/watertight software path, a generated flex coupon artifact, and run-detail/final-readiness UI that separates digital artifacts from physical, beta, or signed-distribution proof.
 
-The latest completed wave made the remaining endgame planning commands use the same standard `regressions/dogfood_failures.json` manifest when that file exists. `beta-plan`, `release-status`, `release-plan`, `release-start`, `final-plan`, and `final-next` now default to the dogfood regression manifest unless an explicit path is provided. That keeps terminal planning, release handoffs, and final next-action checks aligned with readiness and the local web app.
+The latest completed wave made trusted-user beta handoff rows operational instead of placeholder-heavy. When a `trusted_user_feedback_handoff_*.md` file exists, `beta-feedback-plan` and `final-plan` now point the immediate action at the real run folder and produce a concrete `record-beta-feedback` command with the actual run root, tester slot, input type, material, printer, and report artifact path. The beta gate remains open until real trusted users return completed packets.
+
+Wave 138 made the remaining endgame planning commands use the same standard `regressions/dogfood_failures.json` manifest when that file exists. `beta-plan`, `release-status`, `release-plan`, `release-start`, `final-plan`, and `final-next` now default to the dogfood regression manifest unless an explicit path is provided. That keeps terminal planning, release handoffs, and final next-action checks aligned with readiness and the local web app.
 
 Wave 137 made default local web launches use the same standard `regressions/dogfood_failures.json` manifest when that file exists. `printpipe serve --runs-dir runs` now feeds the local home page, readiness JSON, release status, beta plan, and final readiness surfaces the regression-aware gate state without requiring a remembered `--regression-manifest` flag. Explicit manifest paths still override the default.
 
