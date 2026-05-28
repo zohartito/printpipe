@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import stat
+import sys
 import zipfile
 from pathlib import Path
 
@@ -575,6 +576,34 @@ def test_verify_release_bundle_rejects_notarized_macos_dmg_without_signed_flag(
 
     assert result["status"] == "failed"
     assert "artifact_metadata:macos_dmg:notarized_signed" in {
+        failure["id"] for failure in result["failures"]
+    }
+
+
+def test_verify_release_bundle_rejects_unverifiable_notarized_macos_dmg(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import printpipe.packaging.release as release
+
+    release_dir = _write_fake_release(tmp_path)
+    manifest_path = release_dir / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    macos_dmg = next(
+        artifact for artifact in manifest["artifacts"] if artifact["kind"] == "macos_dmg"
+    )
+    macos_dmg["signed"] = True
+    macos_dmg["notarized"] = True
+    macos_dmg["signing_kind"] = "developer_id_application"
+    manifest["boundaries"] = release._release_boundaries(manifest["artifacts"])
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(release.shutil, "which", lambda _name: None)
+
+    result = release.verify_release_bundle(release_dir)
+
+    assert result["status"] == "failed"
+    assert "artifact_notarization_verify:macos_dmg" in {
         failure["id"] for failure in result["failures"]
     }
 

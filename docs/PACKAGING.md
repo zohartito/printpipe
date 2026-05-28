@@ -560,6 +560,9 @@ The implementation runs:
 - `codesign --verify --deep --strict ...`
 - `xcrun notarytool submit ... --wait --output-format json`
 - `xcrun stapler staple ...`
+- `verify-release` later validates a notarized DMG claim with
+  `codesign --verify --deep --strict ...` and `xcrun stapler validate ...`;
+  a manifest edit alone is not notarization proof.
 
 This is command plumbing, not credential provisioning. It still requires valid
 Apple Developer certificates in the keychain and a configured notarytool
@@ -699,9 +702,11 @@ exists, has the recorded byte size, has the recorded SHA-256, carries the
 current boundary claims, and satisfies type-specific metadata invariants. It
 exits `0` when the folder matches the manifest and `2` when any check fails,
 including missing artifacts, a sha256 mismatch from tampered bytes, boundary
-drift, a Windows installer that is not an `.exe` or not marked signed, a
-runtime-bundled artifact without `bundles_python_runtime=true`, or a notarized
-macOS DMG without `signed=true`.
+drift, a Windows installer that is not an `.exe`, a `signed=true` Windows
+installer that cannot be verified with `signtool verify /pa`, a runtime-bundled
+artifact without `bundles_python_runtime=true`, a notarized macOS DMG without
+`signed=true`, or a `notarized=true` macOS DMG that cannot be verified with
+`codesign` and `stapler`.
 
 `release-status` combines `verify-release` with release-distribution checks and
 the beta/release readiness gates from `printpipe readiness`. When

@@ -8,6 +8,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -473,6 +474,12 @@ def _verify_artifact(
             artifact_path=artifact_path,
             checks=checks,
         )
+    if kind == "macos_dmg":
+        _verify_macos_dmg_notarization(
+            artifact=artifact,
+            artifact_path=artifact_path,
+            checks=checks,
+        )
 
 
 def _verify_artifact_metadata(
@@ -673,6 +680,90 @@ def _verify_windows_installer_signature(
         path=str(artifact_path),
         stdout=result.stdout.strip(),
         stderr=result.stderr.strip(),
+    )
+
+
+def _verify_macos_dmg_notarization(
+    *,
+    artifact: dict[str, Any],
+    artifact_path: Path,
+    checks: list[dict[str, Any]],
+) -> None:
+    if artifact.get("notarized") is not True:
+        return
+    if sys.platform != "darwin":
+        _append_check(
+            checks,
+            check_id="artifact_notarization_verify:macos_dmg",
+            ok=False,
+            message=(
+                "macOS DMG claims notarized=true, but notarization cannot be "
+                f"verified on {sys.platform}; run verify-release on macOS"
+            ),
+            path=str(artifact_path),
+            platform=sys.platform,
+        )
+        return
+    codesign = shutil.which("codesign")
+    xcrun = shutil.which("xcrun")
+    missing_tools = [
+        name
+        for name, tool_path in (("codesign", codesign), ("xcrun", xcrun))
+        if tool_path is None
+    ]
+    if missing_tools:
+        _append_check(
+            checks,
+            check_id="artifact_notarization_verify:macos_dmg",
+            ok=False,
+            message=(
+                "macOS DMG claims notarized=true, but notarization cannot be "
+                "verified because required tool(s) are missing"
+            ),
+            path=str(artifact_path),
+            missing_tools=missing_tools,
+        )
+        return
+    codesign_result = subprocess.run(
+        [
+            str(codesign),
+            "--verify",
+            "--deep",
+            "--strict",
+            str(artifact_path),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if codesign_result.returncode != 0:
+        _append_check(
+            checks,
+            check_id="artifact_notarization_verify:macos_dmg",
+            ok=False,
+            message=(
+                "macOS DMG claims notarized=true, but codesign verification "
+                "failed before stapler validation"
+            ),
+            path=str(artifact_path),
+            stdout=codesign_result.stdout.strip(),
+            stderr=codesign_result.stderr.strip(),
+        )
+        return
+    stapler_result = subprocess.run(
+        [str(xcrun), "stapler", "validate", str(artifact_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    _append_check(
+        checks,
+        check_id="artifact_notarization_verify:macos_dmg",
+        ok=stapler_result.returncode == 0,
+        message="macOS DMG notarization verifies with codesign and stapler",
+        path=str(artifact_path),
+        stdout=stapler_result.stdout.strip(),
+        stderr=stapler_result.stderr.strip(),
     )
 
 

@@ -41,7 +41,7 @@ def build_release_status_report(
     )
     release_artifacts = _release_artifacts(release_path, verification)
     gates = [_release_bundle_gate(release_path, verification)]
-    gates.extend(_distribution_gates(release_artifacts))
+    gates.extend(_distribution_gates(release_artifacts, verification))
     gates.extend(_dict(gate) for gate in _list(readiness.get("gates")))
     actionable = [gate for gate in gates if gate.get("status") == ACTION_REQUIRED]
     return {
@@ -117,16 +117,22 @@ def _release_bundle_gate(
     )
 
 
-def _distribution_gates(artifacts: list[dict[str, Any]]) -> list[dict[str, str]]:
+def _distribution_gates(
+    artifacts: list[dict[str, Any]],
+    verification: Mapping[str, Any],
+) -> list[dict[str, str]]:
     if not artifacts:
         return []
     return [
-        _macos_distribution_gate(artifacts),
-        _windows_distribution_gate(artifacts),
+        _macos_distribution_gate(artifacts, verification),
+        _windows_distribution_gate(artifacts, verification),
     ]
 
 
-def _macos_distribution_gate(artifacts: list[dict[str, Any]]) -> dict[str, str]:
+def _macos_distribution_gate(
+    artifacts: list[dict[str, Any]],
+    verification: Mapping[str, Any],
+) -> dict[str, str]:
     macos_artifacts = [
         artifact
         for artifact in artifacts
@@ -140,18 +146,27 @@ def _macos_distribution_gate(artifacts: list[dict[str, Any]]) -> dict[str, str]:
             "No macOS release artifact is recorded in the manifest.",
             "Build a macOS release artifact before a strict release handoff.",
         )
-    if any(
+    has_verified_shape = any(
         artifact.get("kind") == "macos_dmg"
         and artifact.get("signed") is True
         and artifact.get("notarized") is True
         for artifact in macos_artifacts
-    ):
+    )
+    if has_verified_shape and verification.get("status") == "ok":
         return _gate(
             "macos_distribution",
             "macOS distribution",
             READY,
             "A Developer ID signed and notarized macOS DMG is recorded.",
             "No action needed.",
+        )
+    if has_verified_shape:
+        return _gate(
+            "macos_distribution",
+            "macOS distribution",
+            ACTION_REQUIRED,
+            "macOS Developer ID notarization is recorded in the manifest but not verified.",
+            "Run printpipe verify-release and rebuild or repair the macOS release artifact.",
         )
     return _gate(
         "macos_distribution",
@@ -162,18 +177,30 @@ def _macos_distribution_gate(artifacts: list[dict[str, Any]]) -> dict[str, str]:
     )
 
 
-def _windows_distribution_gate(artifacts: list[dict[str, Any]]) -> dict[str, str]:
-    if any(
+def _windows_distribution_gate(
+    artifacts: list[dict[str, Any]],
+    verification: Mapping[str, Any],
+) -> dict[str, str]:
+    has_verified_shape = any(
         artifact.get("kind") == "windows_installer"
         and artifact.get("signed") is True
         for artifact in artifacts
-    ):
+    )
+    if has_verified_shape and verification.get("status") == "ok":
         return _gate(
             "windows_distribution",
             "Windows distribution",
             READY,
             "A signed Windows installer artifact is recorded.",
             "No action needed.",
+        )
+    if has_verified_shape:
+        return _gate(
+            "windows_distribution",
+            "Windows distribution",
+            ACTION_REQUIRED,
+            "A signed Windows installer is recorded in the manifest but not verified.",
+            "Run printpipe verify-release and rebuild or repair the Windows installer.",
         )
     return _gate(
         "windows_distribution",

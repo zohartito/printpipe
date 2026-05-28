@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 152: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 153: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 152 closed a Windows release false-evidence path from the Opus audit. `build-release --windows-installer-exe` now copies a prebuilt installer as an unsigned artifact by default, the release boundary stays "not a signed installer", and `verify-release` fails any `signed=true` Windows installer claim unless Authenticode verification can actually run. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
+Latest status: Wave 153 closed the matching macOS release false-evidence path. `verify-release` now fails any `notarized=true` macOS DMG claim unless it can validate `codesign --verify --deep --strict` and `xcrun stapler validate`, and release-status no longer marks macOS or Windows distribution gates ready when the underlying release verifier failed. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, and Windows signing/installer tools.
 
 ## Goal
 

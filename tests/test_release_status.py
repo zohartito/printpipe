@@ -192,6 +192,48 @@ def test_release_status_report_accepts_final_distribution_artifacts(tmp_path: Pa
     assert gates["windows_distribution"]["status"] == "ready"
 
 
+def test_release_status_report_rejects_unverified_macos_notarization(
+    tmp_path: Path,
+) -> None:
+    report = build_release_status_report(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+        release_verification={
+            "status": "failed",
+            "artifact_count": 5,
+            "checks": [],
+            "failures": [
+                {
+                    "id": "artifact_notarization_verify:macos_dmg",
+                    "message": "macOS DMG notarization could not be verified",
+                }
+            ],
+            "artifacts": [
+                {
+                    "kind": "macos_dmg",
+                    "signed": True,
+                    "notarized": True,
+                    "signing_kind": "developer_id_application",
+                },
+                {"kind": "windows_installer", "signed": True},
+            ],
+        },
+        readiness_report={
+            "overall_status": "ready",
+            "action_required_count": 0,
+            "gates": [],
+        },
+    )
+
+    gates = {gate["id"]: gate for gate in report["gates"]}
+    assert report["overall_status"] == "action_required"
+    assert gates["release_bundle"]["status"] == "action_required"
+    assert gates["macos_distribution"]["status"] == "action_required"
+    assert "not verified" in gates["macos_distribution"]["detail"]
+    assert gates["windows_distribution"]["status"] == "action_required"
+    assert "not verified" in gates["windows_distribution"]["detail"]
+
+
 def test_render_release_status_report_lists_next_actions(tmp_path: Path) -> None:
     rendered = render_release_status_report(
         {

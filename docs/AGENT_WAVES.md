@@ -931,9 +931,9 @@ Status: partial progress for original item 121. The local release smoke now cove
 Status: complete for final-release gate visibility. `release-status` now distinguishes an intact release folder from a final signed Mac/Windows distribution.
 
 1. Done: added `macos_distribution` gate to `printpipe release-status`.
-2. Done: the macOS distribution gate only passes when the manifest records a `macos_dmg` with `signed=true` and `notarized=true`.
+2. Done: the macOS distribution gate only passes when release evidence records a `macos_dmg` with `signed=true` and `notarized=true`; Wave 153 tightened this so the release verifier must also be `ok`.
 3. Done: added `windows_distribution` gate to `printpipe release-status`.
-4. Done: the Windows distribution gate only passes when the manifest records a `windows_installer` with `signed=true`.
+4. Done: the Windows distribution gate only passes when release evidence records a `windows_installer` with `signed=true`; Waves 152-153 tightened this so signing must be verifiable before the gate is ready.
 5. Done: release-status now reads release artifacts from injected verification payloads or from `release_manifest.json`.
 6. Boundary: these gates report final distribution completeness; they do not create certificates, notarize a DMG, or sign a Windows installer.
 
@@ -1675,3 +1675,14 @@ Status: partial progress for release-distribution evidence honesty. This closes 
 4. Done: `verify-release` accepts honest unsigned installer metadata as a valid bundle record, but fails a `signed=true` Windows installer claim when `signtool verify /pa` cannot verify Authenticode signing.
 5. Done: README and packaging docs now state that copying `PrintPipeSetup.exe` is not signing proof.
 6. Boundary: this still does not produce a signed installer. The Windows distribution gate remains open until signing tools, a certificate, and verified Authenticode evidence exist.
+
+## Wave 153 - macOS Notarization Verification Honesty
+
+Status: partial progress for release-distribution evidence honesty. This closes the Opus audit S4-2 path where a hand-edited manifest could claim `notarized=true` for a macOS DMG without any local verification.
+
+1. Done: `verify-release` now checks claimed notarized macOS DMGs with `codesign --verify --deep --strict` and `xcrun stapler validate`.
+2. Done: `verify-release` fails `notarized=true` macOS DMG claims when the platform or required tools cannot verify the notarization evidence.
+3. Done: release-status no longer marks macOS distribution ready just because a manifest records `signed=true` and `notarized=true`; the release verifier must also be `ok`.
+4. Done: release-status applies the same verified-release boundary to signed Windows installer readiness.
+5. Done: regression coverage proves unverifiable macOS notarization fails the verifier and does not produce a ready distribution gate.
+6. Boundary: this still does not provision Apple Developer credentials or notarize a real DMG. The macOS distribution gate remains open until actual Developer ID signing and stapler-verifiable notarization evidence exists.
