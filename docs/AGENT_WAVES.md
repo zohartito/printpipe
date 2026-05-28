@@ -1069,3 +1069,14 @@ Status: complete for beta-side action planning. PrintPipe now turns the remainin
 4. Done: missing evidence produces exact next actions for dogfood, physical validation, failure capture, regression replay, trusted-user beta, and material/orientation/repair rule triage.
 5. Done: the plan repeats the proof boundary that a generated plan is not trusted-user evidence, physical print proof, or a rule update.
 6. Roadmap count remains 132 done / 10 partial because the remaining beta and packaging items still require physical/user/installer evidence.
+
+## Wave 97 - Beta Action Plan in Local Web UI
+
+Status: complete for local web parity. The browser home page and JSON API now expose the same beta action plan as the CLI.
+
+1. Done: added `GET /beta-plan.json`.
+2. Done: `/beta-plan.json?regression_manifest=<path>` passes the manifest path through to `build_beta_action_plan()`.
+3. Done: `printpipe serve --regression-manifest <manifest>` now configures the home beta-plan panel and JSON service link.
+4. Done: the home page renders a `Beta action plan` panel with action cards, commands, and the proof boundary.
+5. Done: web tests prove the endpoint, home panel, service link, and configured manifest propagation.
+6. Boundary: this is visibility only; it does not create beta failures, physical print evidence, signed packages, or trusted-user feedback.

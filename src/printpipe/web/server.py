@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import mimetypes
+import shlex
 import tempfile
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
+from printpipe.beta.beta_plan import build_beta_action_plan
 from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_status import build_physical_validation_status
@@ -216,6 +218,10 @@ class PrintPipeWebApp:
             )
         if path == "/release-status.json":
             return self.release_status_response(
+                regression_manifest_path=self._regression_manifest_for_query(query)
+            )
+        if path == "/beta-plan.json":
+            return self.beta_plan_response(
                 regression_manifest_path=self._regression_manifest_for_query(query)
             )
         if path == "/physical-plan.json":
@@ -430,6 +436,34 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
+    def beta_plan_response(
+        self,
+        *,
+        regression_manifest_path: Path | None = None,
+    ) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            manifest_path = regression_manifest_path or self.regression_manifest_path
+            if manifest_path is None:
+                return WebResponse.json(build_beta_action_plan(self.runs_dir))
+            return WebResponse.json(
+                build_beta_action_plan(
+                    self.runs_dir,
+                    regression_manifest_path=manifest_path,
+                )
+            )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
     def static_response(self, relative_url_path: str) -> WebResponse:
         static_path = self._find_static_html(relative_url_path)
         if static_path is None:
@@ -533,6 +567,7 @@ class PrintPipeWebApp:
                 self._render_readiness_panel(),
                 self._render_physical_beta_gate_panel(),
                 self._render_physical_action_plan_panel(),
+                self._render_beta_action_plan_panel(),
                 self._render_recent_runs_panel(),
                 '    <section class="panel">',
                 "      <h2>Service</h2>",
@@ -540,6 +575,7 @@ class PrintPipeWebApp:
                 f'      <p><a href="{escape(self._service_href("/release-status.json"), quote=True)}">Release status JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/readiness.json"), quote=True)}">Readiness JSON</a></p>',
                 '      <p><a href="/physical-plan.json">Physical plan JSON</a></p>',
+                f'      <p><a href="{escape(self._service_href("/beta-plan.json"), quote=True)}">Beta plan JSON</a></p>',
                 '      <p><a href="/doctor.json">Environment doctor JSON</a></p>',
                 "    </section>",
                 '    <section class="panel">',
@@ -836,6 +872,71 @@ class PrintPipeWebApp:
                 setup_markup,
                 start_markup,
                 f"          <pre><code>{escape(command)}</code></pre>",
+                "        </article>",
+            ]
+        )
+
+    def _render_beta_action_plan_panel(self) -> str:
+        if self.runs_dir is None:
+            return ""
+        try:
+            if self.regression_manifest_path is None:
+                plan = build_beta_action_plan(self.runs_dir)
+            else:
+                plan = build_beta_action_plan(
+                    self.runs_dir,
+                    regression_manifest_path=self.regression_manifest_path,
+                )
+        except (OSError, ValueError):
+            return ""
+
+        overall = str(plan.get("overall_status", "unknown"))
+        action_count = str(plan.get("action_required_count", 0))
+        proof_boundary = str(plan.get("proof_boundary", ""))
+        actions = _as_dicts(plan.get("actions"))
+        action_cards = "\n".join(
+            self._render_beta_action_card(action)
+            for action in actions
+        )
+        if not action_cards:
+            action_cards = '<p class="muted">No beta actions required.</p>'
+        command = "printpipe beta-plan --runs-dir runs"
+        if self.regression_manifest_path is not None:
+            manifest_arg = shlex.quote(str(self.regression_manifest_path))
+            command += f" --regression-manifest {manifest_arg}"
+        return "\n".join(
+            [
+                '    <section class="panel beta-plan-panel">',
+                "      <div>",
+                "        <h2>Beta action plan</h2>",
+                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
+                f"        <p>{escape(proof_boundary)}</p>",
+                "      </div>",
+                f'      <div class="beta-action-grid">{action_cards}</div>',
+                f'      <code>{escape(command)}</code>',
+                "    </section>",
+            ]
+        )
+
+    def _render_beta_action_card(self, action: dict[str, Any]) -> str:
+        action_id = str(action.get("id", "unknown"))
+        label = str(action.get("label") or action_id)
+        status = str(action.get("status", "unknown"))
+        detail = str(action.get("detail") or "No detail recorded.")
+        command = str(action.get("command") or "")
+        command_markup = (
+            f"          <pre><code>{escape(command)}</code></pre>"
+            if command
+            else ""
+        )
+        return "\n".join(
+            [
+                f'        <article class="beta-action beta-action-{_class_name(status)}">',
+                f"          <span>{escape(action_id)}</span>",
+                f"          <strong>{escape(label)}</strong>",
+                f"          <p>{escape(status)}</p>",
+                f'          <p class="muted">{escape(detail)}</p>',
+                command_markup,
                 "        </article>",
             ]
         )
@@ -1612,6 +1713,7 @@ _CSS = """
       padding: 18px;
     }
     .field-grid,
+    .beta-action-grid,
     .run-list,
     .physical-action-grid,
     .physical-family-grid,
@@ -1670,11 +1772,13 @@ _CSS = """
       border-radius: 8px;
       padding: 14px;
     }
+    .beta-plan-panel,
     .physical-gate-panel,
     .physical-plan-panel {
       display: grid;
       gap: 14px;
     }
+    .beta-plan-panel > code,
     .physical-gate-panel code,
     .physical-plan-panel > code {
       background: #f1f5f9;
@@ -1685,11 +1789,13 @@ _CSS = """
       overflow-wrap: anywhere;
       padding: 8px 10px;
     }
+    .beta-action,
     .physical-action {
       border: 1px solid #d9e2ec;
       border-radius: 8px;
       padding: 12px;
     }
+    .beta-action span,
     .physical-action span {
       color: #52606d;
       display: block;
@@ -1698,6 +1804,7 @@ _CSS = """
       letter-spacing: 0.04em;
       margin-bottom: 4px;
     }
+    .beta-action pre,
     .physical-action pre {
       background: #102a43;
       border-radius: 6px;

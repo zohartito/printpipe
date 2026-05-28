@@ -273,6 +273,9 @@ replay, trusted-user beta, and rule-update triage. It is guidance only; it does
 not count as trusted-user evidence, physical print proof, or a completed rule
 change until those results are recorded.
 
+The same plan is available in the local browser app on the home page and at
+`/beta-plan.json`.
+
 ## Feedback Expectations
 
 Good beta feedback is short and concrete:

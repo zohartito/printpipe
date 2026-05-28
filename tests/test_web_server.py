@@ -136,6 +136,7 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/readiness.json"' in response.text
     assert 'href="/release-status.json"' in response.text
     assert 'href="/physical-plan.json"' in response.text
+    assert 'href="/beta-plan.json"' in response.text
     assert 'href="/doctor.json"' in response.text
 
 
@@ -264,6 +265,76 @@ def test_home_response_renders_physical_action_plan(tmp_path: Path):
     assert "printpipe physical-start" in response.text
     assert "printpipe record-physical-evidence" in response.text
     assert "printpipe physical-plan --runs-dir runs" in response.text
+
+
+def test_beta_plan_json_endpoint_returns_action_plan(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/beta-plan.json")
+
+    payload = json.loads(response.text)
+    actions = {action["id"]: action for action in payload["actions"]}
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "action_required"
+    assert payload["evidence"]["failure_report_count"] == 0
+    assert actions["run_beta_dogfood"]["status"] == "action_required"
+    assert actions["physical_validation"]["command"].startswith(
+        "printpipe physical-plan --runs-dir"
+    )
+
+
+def test_beta_plan_json_endpoint_accepts_regression_manifest_query(
+    monkeypatch,
+    tmp_path: Path,
+):
+    manifest_path = tmp_path / "regression_manifest.json"
+
+    def fake_beta_plan(runs_dir, *, regression_manifest_path=None):
+        assert runs_dir == tmp_path / "runs"
+        assert regression_manifest_path == manifest_path
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_required_count": 1,
+            "proof_boundary": "proof boundary",
+            "actions": [
+                {
+                    "id": "run_regressions",
+                    "label": "Replay captured regressions",
+                    "status": "action_required",
+                    "detail": "1 regression case drifted.",
+                    "command": "printpipe run-regressions manifest --strict",
+                }
+            ],
+        }
+
+    monkeypatch.setattr("printpipe.web.server.build_beta_action_plan", fake_beta_plan)
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle(f"/beta-plan.json?regression_manifest={manifest_path}")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert payload["actions"][0]["id"] == "run_regressions"
+
+
+def test_home_response_renders_beta_action_plan(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Beta action plan" in response.text
+    assert "4 action required" in response.text
+    assert "A generated beta plan is not trusted-user evidence" in response.text
+    assert "Dogfood canonical object matrix" in response.text
+    assert "Physical material validation" in response.text
+    assert "Capture failed beta runs" in response.text
+    assert "Replay captured regressions" in response.text
+    assert "Trusted-user beta" in response.text
+    assert "Update material/orientation/repair rules" in response.text
+    assert "printpipe beta-plan --runs-dir runs" in response.text
 
 
 def test_home_response_renders_combined_readiness_summary(monkeypatch, tmp_path: Path):
@@ -560,6 +631,24 @@ def test_configured_regression_manifest_feeds_home_and_json_endpoints(
             "next_actions": ["Run printpipe run-regressions manifest --strict."],
         }
 
+    def fake_beta_plan(runs_dir, *, regression_manifest_path=None):
+        observed.append(("beta-plan", regression_manifest_path))
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_required_count": 1,
+            "proof_boundary": "proof boundary",
+            "actions": [
+                {
+                    "id": "run_regressions",
+                    "label": "Replay captured regressions",
+                    "status": "action_required",
+                    "detail": "1 regression case(s) drifted from expected outcomes.",
+                    "command": "printpipe run-regressions manifest --strict",
+                }
+            ],
+        }
+
     monkeypatch.setattr(
         "printpipe.web.server.build_beta_readiness_report",
         fake_readiness_report,
@@ -568,6 +657,7 @@ def test_configured_regression_manifest_feeds_home_and_json_endpoints(
         "printpipe.web.server.build_release_status_report",
         fake_release_status_report,
     )
+    monkeypatch.setattr("printpipe.web.server.build_beta_action_plan", fake_beta_plan)
     app = create_app(
         runs_dir=tmp_path / "runs",
         release_dir=tmp_path / "release",
@@ -577,19 +667,25 @@ def test_configured_regression_manifest_feeds_home_and_json_endpoints(
     home = app.handle("/")
     readiness = json.loads(app.handle("/readiness.json").text)
     release = json.loads(app.handle("/release-status.json").text)
+    beta_plan = json.loads(app.handle("/beta-plan.json").text)
 
     encoded_manifest = quote(str(manifest_path), safe="")
     assert home.status == 200
     assert "Beta regressions" in home.text
+    assert "Replay captured regressions" in home.text
     assert f"/readiness.json?regression_manifest={encoded_manifest}" in home.text
     assert f"/release-status.json?regression_manifest={encoded_manifest}" in home.text
+    assert f"/beta-plan.json?regression_manifest={encoded_manifest}" in home.text
     assert readiness["gates"][0]["id"] == "beta_regressions"
     assert release["gates"][0]["id"] == "beta_regressions"
+    assert beta_plan["actions"][0]["id"] == "run_regressions"
     assert observed == [
         ("release", manifest_path),
         ("readiness", manifest_path),
+        ("beta-plan", manifest_path),
         ("readiness", manifest_path),
         ("release", manifest_path),
+        ("beta-plan", manifest_path),
     ]
 
 
