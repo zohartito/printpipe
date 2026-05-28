@@ -38,8 +38,11 @@ def test_physical_validation_plan_turns_missing_families_into_actions(
         "layer_bonding",
         "flex_recovery",
     ]
+    tpu_run_root = (runs_dir / "physical-tpu-validation").resolve()
+    assert tpu_action["run_root"] == str(tpu_run_root)
+    assert tpu_action["setup_command"] == f'mkdir -p "{tpu_run_root}"'
     assert tpu_action["record_command"] == (
-        'printpipe record-physical-evidence "<run-root-for-tpu-print>" '
+        f'printpipe record-physical-evidence "{tpu_run_root}" '
         '--material "SUNLU TPU 90A" --printer "Bambu Lab P2S" '
         '--object-label "TPU validation coupon" --print-type coupon '
         '--print-status passed --operator "Zohar" '
@@ -74,6 +77,7 @@ def test_physical_validation_plan_omits_passed_family_and_targets_incomplete_pac
     petg_action = plan["actions"][0]
     assert petg_action["status"] == "incomplete"
     assert petg_action["run_root"] == str((runs_dir / "run-petg-incomplete").resolve())
+    assert petg_action["setup_command"] == ""
     assert petg_action["required_fields"] == ["adhesion", "warping", "stringing"]
     assert f'"{(runs_dir / "run-petg-incomplete").resolve()}"' in petg_action["record_command"]
     assert "--warping" in petg_action["record_command"]
@@ -91,6 +95,7 @@ def test_render_physical_validation_plan_includes_commands_and_proof_boundary(
     assert "overall: action_required" in text
     assert "Digital artifacts, generated coupons, and slice receipts do not count" in text
     assert "1. PLA: missing" in text
+    assert "setup: mkdir -p" in text
     assert "printpipe record-physical-evidence" in text
     assert "--first-layer" in text
     assert "--photo /path/to/printed-pla-coupon-photo.jpg" in text

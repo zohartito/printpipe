@@ -72,12 +72,13 @@ def build_physical_validation_plan(
 ) -> dict[str, Any]:
     """Return next physical validation actions for a runs directory."""
 
+    runs_root = Path(runs_dir).expanduser().resolve()
     status = build_physical_validation_status(
         runs_dir,
         required_families=required_families,
     )
     actions = [
-        _action_for_family(family, payload)
+        _action_for_family(family, payload, runs_dir=runs_root)
         for family, payload in status["family_status"].items()
         if payload["status"] != "passed"
     ]
@@ -120,21 +121,30 @@ def render_physical_validation_plan(plan: dict[str, Any]) -> str:
                 f"{index}. {family}: {action.get('status', 'unknown')}",
                 f"   reason: {action.get('reason', 'not recorded')}",
                 f"   required: {_comma_list(action.get('required_fields'))}",
-                f"   command: {action.get('record_command', '')}",
             ]
         )
+        setup_command = str(action.get("setup_command", ""))
+        if setup_command:
+            lines.append(f"   setup: {setup_command}")
+        lines.append(f"   command: {action.get('record_command', '')}")
     lines.append("")
     return "\n".join(lines)
 
 
-def _action_for_family(family: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _action_for_family(
+    family: str,
+    payload: dict[str, Any],
+    *,
+    runs_dir: Path,
+) -> dict[str, Any]:
     profile = _profile_for_family(family)
     best = payload.get("best_evidence")
     best_evidence = best if isinstance(best, dict) else {}
-    run_root = str(
-        best_evidence.get("run_root")
-        or f"<run-root-for-{family}-print>"
+    existing_run_root = str(best_evidence.get("run_root") or "")
+    run_root = existing_run_root or str(
+        (runs_dir / f"physical-{family}-validation").resolve()
     )
+    setup_command = "" if existing_run_root else f"mkdir -p {_quote(run_root)}"
     missing = best_evidence.get("missing_required_evidence")
     required_fields = (
         [str(item) for item in missing]
@@ -146,6 +156,7 @@ def _action_for_family(family: str, payload: dict[str, Any]) -> dict[str, Any]:
         "status": payload.get("status", "unknown"),
         "reason": payload.get("missing_reason", ""),
         "run_root": run_root,
+        "setup_command": setup_command,
         "material_hint": profile["material"],
         "object_label": profile["object_label"],
         "print_type": "coupon",

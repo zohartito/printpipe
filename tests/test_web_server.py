@@ -259,6 +259,7 @@ def test_home_response_renders_physical_action_plan(tmp_path: Path):
     assert "PLA" in response.text
     assert "PETG" in response.text
     assert "TPU" in response.text
+    assert "mkdir -p" in response.text
     assert "printpipe record-physical-evidence" in response.text
     assert "printpipe physical-plan --runs-dir runs" in response.text
 

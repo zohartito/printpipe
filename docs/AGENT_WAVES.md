@@ -970,3 +970,14 @@ Status: complete for local web visibility. The browser now shows the same physic
 4. Done: the panel renders missing/incomplete material-family actions, required fields, and exact `record-physical-evidence` command skeletons.
 5. Done: the panel repeats the proof boundary so UI users do not confuse generated coupons or slice receipts with real print evidence.
 6. Boundary: this is read-only guidance; it does not record evidence or mark physical validation complete.
+
+## Wave 88 - Runnable Physical Plan Setup Commands
+
+Status: complete for print-day command usability. Missing physical-validation families now get deterministic run folders instead of abstract placeholders.
+
+1. Done: missing PLA/PETG/TPU actions now target `runs/physical-<family>-validation`.
+2. Done: each missing family action includes a `setup_command` such as `mkdir -p ".../runs/physical-tpu-validation"`.
+3. Done: the `record-physical-evidence` command now uses that concrete run folder path.
+4. Done: incomplete existing evidence packets still target the existing packet run and do not emit a setup command.
+5. Done: the local web action cards render setup commands above the record commands.
+6. Boundary: the command still needs real photo paths and real print observations after Zohar physically prints the sample.
