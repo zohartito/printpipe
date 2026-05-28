@@ -972,8 +972,21 @@ class PrintPipeWebApp:
         status = str(action.get("status", "unknown"))
         label = str(action.get("label") or action.get("id") or "Release action")
         detail = str(action.get("detail") or "Release distribution action required.")
+        start = str(action.get("start_command") or "")
+        handoff = str(action.get("handoff_markdown_path") or "")
         command = str(action.get("command") or "")
         followup = str(action.get("followup_command") or "")
+        start_markup = (
+            f"          <pre><code>{escape(start)}</code></pre>"
+            if start
+            else ""
+        )
+        handoff_markup = (
+            "          <p class=\"muted\">Handoff: "
+            f"<code>{escape(handoff)}</code></p>"
+            if handoff
+            else ""
+        )
         followup_markup = (
             f"          <pre><code>{escape(followup)}</code></pre>"
             if followup
@@ -985,6 +998,8 @@ class PrintPipeWebApp:
                 f"          <span>{escape(label)}</span>",
                 f"          <strong>{escape(status)}</strong>",
                 f"          <p>{escape(detail)}</p>",
+                start_markup,
+                handoff_markup,
                 f"          <pre><code>{escape(command)}</code></pre>",
                 followup_markup,
                 "        </article>",

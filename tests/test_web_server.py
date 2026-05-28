@@ -81,6 +81,9 @@ def _write_trusted_feedback(
     outcome: str = "passed",
 ) -> None:
     run_root.mkdir(parents=True)
+    report = run_root / "80_reports" / "run_report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text("<h1>run report</h1>\n", encoding="utf-8")
     feedback = build_trusted_user_feedback(
         run_id=run_root.name,
         tester=tester,
@@ -365,6 +368,8 @@ def test_home_response_renders_release_distribution_plan(monkeypatch, tmp_path: 
                     "label": "macOS distribution",
                     "status": "action_required",
                     "detail": "Developer ID signing and notarization are missing.",
+                    "start_command": "printpipe release-start --release-dir dist/release --runs-dir runs",
+                    "handoff_markdown_path": str(tmp_path / "release_handoffs" / "release_distribution_handoff.md"),
                     "command": "printpipe build-release --developer-id-identity ...",
                     "followup_command": "",
                 },
@@ -396,6 +401,8 @@ def test_home_response_renders_release_distribution_plan(monkeypatch, tmp_path: 
     assert "A release plan is not signed distribution evidence." in response.text
     assert "macOS distribution" in response.text
     assert "Windows distribution" in response.text
+    assert "printpipe release-start --release-dir dist/release --runs-dir runs" in response.text
+    assert "release_distribution_handoff.md" in response.text
     assert "printpipe build-release --developer-id-identity" in response.text
     assert "printpipe build-windows-installer" in response.text
     assert 'href="/release-plan.json"' in response.text

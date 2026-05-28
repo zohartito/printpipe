@@ -82,6 +82,12 @@ def render_release_distribution_plan(plan: Mapping[str, Any]) -> str:
         detail = str(item.get("detail") or "")
         if detail:
             lines.append(f"  detail: {detail}")
+        start = str(item.get("start_command") or "")
+        if start:
+            lines.append(f"  start: {start}")
+        handoff = str(item.get("handoff_markdown_path") or "")
+        if handoff:
+            lines.append(f"  handoff: {handoff}")
         command = str(item.get("command") or "")
         if command:
             lines.append(f"  command: {command}")
@@ -89,6 +95,54 @@ def render_release_distribution_plan(plan: Mapping[str, Any]) -> str:
         if followup:
             lines.append(f"  follow-up: {followup}")
     return "\n".join(lines) + "\n"
+
+
+def start_release_distribution_handoff(
+    *,
+    release_dir: str | Path,
+    runs_dir: str | Path,
+    regression_manifest_path: str | Path | None = None,
+    release_status_report: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Write a release distribution handoff without creating signed evidence."""
+
+    release_path = Path(release_dir).expanduser()
+    runs_path = Path(runs_dir).expanduser()
+    plan = build_release_distribution_plan(
+        release_dir=release_path,
+        runs_dir=runs_path,
+        regression_manifest_path=regression_manifest_path,
+        release_status_report=release_status_report,
+    )
+    handoff_path = _release_handoff_path(release_path)
+    handoff_path.parent.mkdir(parents=True, exist_ok=True)
+    handoff_path.write_text(
+        _render_release_handoff(
+            plan=plan,
+            release_dir=release_path,
+            runs_dir=runs_path,
+            regression_manifest_path=regression_manifest_path,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "status": "started",
+        "release_dir": str(release_path),
+        "runs_dir": str(runs_path),
+        "handoff_markdown_path": str(handoff_path.resolve()),
+        "action_count": int(plan.get("action_count") or 0),
+        "release_status_command": _release_status_command(
+            release_dir=release_path,
+            runs_dir=runs_path,
+            regression_manifest_path=regression_manifest_path,
+            strict=True,
+        ),
+        "final_plan_command": _final_plan_command(
+            release_dir=release_path,
+            runs_dir=runs_path,
+            regression_manifest_path=regression_manifest_path,
+        ),
+    }
 
 
 def _release_actions(
@@ -114,6 +168,16 @@ def _release_actions(
         and not any(action["id"] == "signing" for action in actions)
     ):
         actions.append(_signing_prerequisite_action(runs_dir=runs_dir))
+    start_command = _release_start_command(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
+    handoff_path = _release_handoff_path(release_dir)
+    handoff = str(handoff_path.resolve()) if handoff_path.is_file() else ""
+    for action in actions:
+        action["start_command"] = start_command
+        action["handoff_markdown_path"] = handoff
     return actions
 
 
@@ -207,6 +271,128 @@ def _quote(value: str) -> str:
     return shlex.quote(value)
 
 
+def _release_handoff_path(release_dir: Path) -> Path:
+    return release_dir.parent / "release_handoffs" / "release_distribution_handoff.md"
+
+
+def _release_start_command(
+    *,
+    release_dir: Path,
+    runs_dir: Path,
+    regression_manifest_path: str | Path | None,
+) -> str:
+    command = (
+        "printpipe release-start --release-dir "
+        f"{_quote(str(release_dir))} --runs-dir {_quote(str(runs_dir))}"
+    )
+    if regression_manifest_path is not None:
+        command += f" --regression-manifest {_quote(str(regression_manifest_path))}"
+    return command
+
+
+def _release_status_command(
+    *,
+    release_dir: Path,
+    runs_dir: Path,
+    regression_manifest_path: str | Path | None,
+    strict: bool = False,
+) -> str:
+    command = (
+        "printpipe release-status --release-dir "
+        f"{_quote(str(release_dir))} --runs-dir {_quote(str(runs_dir))}"
+    )
+    if regression_manifest_path is not None:
+        command += f" --regression-manifest {_quote(str(regression_manifest_path))}"
+    if strict:
+        command += " --strict"
+    return command
+
+
+def _final_plan_command(
+    *,
+    release_dir: Path,
+    runs_dir: Path,
+    regression_manifest_path: str | Path | None,
+) -> str:
+    command = (
+        "printpipe final-plan --release-dir "
+        f"{_quote(str(release_dir))} --runs-dir {_quote(str(runs_dir))}"
+    )
+    if regression_manifest_path is not None:
+        command += f" --regression-manifest {_quote(str(regression_manifest_path))}"
+    return command
+
+
+def _render_release_handoff(
+    *,
+    plan: Mapping[str, Any],
+    release_dir: Path,
+    runs_dir: Path,
+    regression_manifest_path: str | Path | None,
+) -> str:
+    lines = [
+        "# PrintPipe Release Distribution Handoff",
+        "",
+        "## Context",
+        f"- Release dir: {release_dir}",
+        f"- Runs dir: {runs_dir}",
+        f"- Regression manifest: {regression_manifest_path or 'not provided'}",
+        f"- Overall: {plan.get('overall_status', 'unknown')}",
+        f"- Action count: {plan.get('action_count', 0)}",
+        "",
+        "## Proof Boundary",
+        str(plan.get("proof_boundary") or RELEASE_PLAN_PROOF_BOUNDARY),
+        "",
+        "## Check Commands",
+        "```bash",
+        _release_status_command(
+            release_dir=release_dir,
+            runs_dir=runs_dir,
+            regression_manifest_path=regression_manifest_path,
+            strict=True,
+        ),
+        _final_plan_command(
+            release_dir=release_dir,
+            runs_dir=runs_dir,
+            regression_manifest_path=regression_manifest_path,
+        ),
+        "```",
+        "",
+        "## Release Actions",
+    ]
+    for action_value in _list(plan.get("actions")):
+        action = _dict(action_value)
+        lines.extend(_render_handoff_action(action))
+    if not _list(plan.get("actions")):
+        lines.append("- No release distribution actions required.")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _render_handoff_action(action: Mapping[str, Any]) -> list[str]:
+    lines = [
+        f"### {action.get('label') or action.get('id') or 'Release action'}",
+        "",
+        f"- Status: {action.get('status', 'unknown')}",
+        f"- Detail: {action.get('detail', 'No detail recorded.')}",
+    ]
+    required = _list(action.get("required_inputs"))
+    if required:
+        lines.append("- Required inputs:")
+        lines.extend(f"  - {item}" for item in required)
+    command = str(action.get("command") or "")
+    followup = str(action.get("followup_command") or "")
+    if command or followup:
+        lines.extend(["", "```bash"])
+        if command:
+            lines.append(command)
+        if followup:
+            lines.append(followup)
+        lines.append("```")
+    lines.append("")
+    return lines
+
+
 def _dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
@@ -219,4 +405,5 @@ __all__ = [
     "RELEASE_PLAN_PROOF_BOUNDARY",
     "build_release_distribution_plan",
     "render_release_distribution_plan",
+    "start_release_distribution_handoff",
 ]

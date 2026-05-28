@@ -154,8 +154,18 @@ def build_physical_print_evidence(
     )
 
 
-def missing_required_evidence(evidence: PhysicalPrintEvidence) -> list[str]:
-    """Return missing fields needed before a physical print claim is credible."""
+def missing_required_evidence(
+    evidence: PhysicalPrintEvidence,
+    *,
+    root: Path | None = None,
+) -> list[str]:
+    """Return missing fields needed before a physical print claim is credible.
+
+    When ``root`` is provided, a photo artifact only counts if its file
+    actually exists on disk (relative paths resolve against ``root``). The
+    validation gate passes ``root`` so a hand-edited packet pointing at a
+    nonexistent photo cannot be reported as passed evidence.
+    """
 
     missing: list[str] = []
 
@@ -172,7 +182,7 @@ def missing_required_evidence(evidence: PhysicalPrintEvidence) -> list[str]:
             missing.append(field_name)
 
     printed_status = evidence.print_status.lower() in PRINTED_STATUSES
-    if printed_status and not _has_photo(evidence):
+    if printed_status and not _has_photo(evidence, root=root):
         missing.append("photo artifact")
 
     if not printed_status:
@@ -387,11 +397,21 @@ def _has_text(value: object) -> bool:
     return bool(str(value).strip())
 
 
-def _has_photo(evidence: PhysicalPrintEvidence) -> bool:
+def _has_photo(evidence: PhysicalPrintEvidence, *, root: Path | None = None) -> bool:
     for artifact in evidence.artifacts:
         kind = artifact.kind.lower()
-        path = os.fspath(artifact.path).lower()
-        if kind == "photo" or path.endswith((".jpg", ".jpeg", ".png", ".heic", ".webp")):
+        raw_path = os.fspath(artifact.path)
+        looks_like_photo = kind == "photo" or raw_path.lower().endswith(
+            (".jpg", ".jpeg", ".png", ".heic", ".webp")
+        )
+        if not looks_like_photo:
+            continue
+        if root is None:
+            return True
+        candidate = Path(raw_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        if candidate.is_file():
             return True
     return False
 

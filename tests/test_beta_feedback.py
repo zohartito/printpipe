@@ -159,6 +159,92 @@ def test_trusted_user_feedback_status_does_not_count_incomplete_raw_packets(
     ]
 
 
+def test_trusted_user_feedback_status_rejects_packets_without_supporting_evidence(
+    tmp_path: Path,
+) -> None:
+    # Regression for S5-2: three hand-written passed packets with all required
+    # text fields but no artifacts and no run report must NOT close the gate.
+    runs_dir = tmp_path / "runs"
+    for name in ("alice", "bob", "carol"):
+        packet_dir = runs_dir / f"run-{name}" / "90_beta"
+        packet_dir.mkdir(parents=True)
+        (packet_dir / "trusted_user_feedback.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "run_id": f"run-{name}",
+                    "tester": name,
+                    "tester_type": "trusted_user",
+                    "input_type": "existing_stl",
+                    "material": "Bambu PLA Basic",
+                    "printer": "Bambu Lab P2S",
+                    "outcome": "passed",
+                    "summary": "looked fine.",
+                    "would_print": "no",
+                    "recommendation": "needs_review",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    status = build_trusted_user_feedback_status(runs_dir)
+
+    assert status["overall_status"] == "insufficient_feedback"
+    assert status["unique_trusted_user_count"] == 0
+    assert status["completed_trusted_user_packet_count"] == 0
+    assert status["incomplete_trusted_user_packet_count"] == 3
+    assert all(
+        packet["has_supporting_evidence"] is False for packet in status["packets"]
+    )
+    assert "missing supporting evidence" in render_trusted_user_feedback_status(status)
+
+
+def test_trusted_user_feedback_status_counts_packet_with_existing_artifact_file(
+    tmp_path: Path,
+) -> None:
+    # A real attached artifact file is sufficient supporting evidence even when
+    # the run folder has no 80_reports report.
+    runs_dir = tmp_path / "runs"
+    packet_dir = runs_dir / "run-dana" / "90_beta"
+    artifact_dir = packet_dir / "artifacts"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "screenshot.png").write_bytes(b"png")
+    (packet_dir / "trusted_user_feedback.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": "run-dana",
+                "tester": "Dana",
+                "tester_type": "trusted_user",
+                "input_type": "existing_stl",
+                "material": "Bambu PLA Basic",
+                "printer": "Bambu Lab P2S",
+                "outcome": "passed",
+                "summary": "reviewed and attached a screenshot.",
+                "would_print": "no",
+                "recommendation": "needs_review",
+                "artifacts": [
+                    {
+                        "label": "Screenshot",
+                        "path": "90_beta/artifacts/screenshot.png",
+                        "kind": "screenshot",
+                        "notes": "",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    status = build_trusted_user_feedback_status(runs_dir, required_trusted_user_count=1)
+
+    assert status["overall_status"] == "passed"
+    assert status["unique_trusted_user_count"] == 1
+    assert status["packets"][0]["has_supporting_evidence"] is True
+
+
 def test_render_trusted_user_feedback_status_names_missing_count(tmp_path: Path) -> None:
     status = build_trusted_user_feedback_status(tmp_path / "runs")
 
@@ -438,6 +524,9 @@ def _write_feedback(
     outcome: str = "passed",
 ) -> None:
     run_root.mkdir(parents=True)
+    report = run_root / "80_reports" / "run_report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text("<h1>run report</h1>\n", encoding="utf-8")
     feedback = build_trusted_user_feedback(
         run_id=run_root.name,
         tester=tester,

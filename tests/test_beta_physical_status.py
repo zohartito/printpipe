@@ -109,6 +109,51 @@ def test_cli_physical_status_prints_json_and_can_gate_strictly(
     assert payload["family_status"]["tpu"]["status"] == "missing"
 
 
+def test_physical_validation_status_rejects_passed_packet_with_nonexistent_photo(
+    tmp_path: Path,
+) -> None:
+    # Regression for S5-1: a hand-written passed packet whose photo artifact
+    # points at a file that does not exist must NOT count as passed evidence.
+    runs_dir = tmp_path / "runs"
+    packet_dir = runs_dir / "physical-pla-validation" / "90_physical"
+    packet_dir.mkdir(parents=True)
+    (packet_dir / "physical_evidence.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": "physical-pla-validation",
+                "material": "Bambu PLA Basic",
+                "printer": "Bambu Lab P2S",
+                "object_label": "PLA validation coupon",
+                "print_type": "coupon",
+                "print_status": "passed",
+                "operator": "Zohar",
+                "first_layer": "clean, continuous",
+                "adhesion": "held; released after cooling",
+                "artifacts": [
+                    {
+                        "label": "Photo",
+                        "path": "/nonexistent/never-printed.jpg",
+                        "kind": "photo",
+                        "notes": "",
+                    }
+                ],
+                "notes": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    status = build_physical_validation_status(runs_dir, required_families=("pla",))
+
+    pla = status["family_status"]["pla"]
+    assert pla["status"] == "incomplete"
+    assert pla["passed_count"] == 0
+    assert "photo artifact" in pla["best_evidence"]["missing_required_evidence"]
+    assert status["overall_status"] == "missing_passed_evidence"
+
+
 def _write_evidence(
     run_root: Path,
     *,

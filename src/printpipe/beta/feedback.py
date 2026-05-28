@@ -310,12 +310,17 @@ def build_trusted_user_feedback_status(
         for packet in trusted_packets
         if packet["outcome"] in COMPLETED_OUTCOMES
         and not packet["missing_required_fields"]
+        and packet["has_supporting_evidence"]
     ]
     incomplete_trusted_packets = [
         packet
         for packet in trusted_packets
         if packet["missing_required_fields"]
         or packet["outcome"] not in OUTCOMES
+        or (
+            packet["outcome"] in COMPLETED_OUTCOMES
+            and not packet["has_supporting_evidence"]
+        )
     ]
     trusted_users = sorted({packet["tester"] for packet in completed_trusted_packets})
     not_run_trusted_users = sorted(
@@ -379,7 +384,14 @@ def render_trusted_user_feedback_status(status: Mapping[str, Any]) -> str:
         for packet in incomplete_packets:
             item = packet if isinstance(packet, Mapping) else {}
             tester = str(item.get("tester") or item.get("run_id") or "unknown")
-            missing = _comma_list(item.get("missing_required_fields"))
+            missing_values = _list(item.get("missing_required_fields"))
+            missing = _comma_list(missing_values)
+            if item.get("has_supporting_evidence") is False:
+                missing = (
+                    f"{missing}, supporting evidence"
+                    if missing_values
+                    else "supporting evidence"
+                )
             lines.append(f"- {tester}: missing {missing}")
         lines.append("")
     return "\n".join(lines)
@@ -634,6 +646,9 @@ def _packet_summary(
         for field, value in packet.items()
         if not value.strip()
     ]
+    artifacts = _list(payload.get("artifacts"))
+    existing_artifact_count = _count_existing_artifacts(run_root, artifacts)
+    has_run_report = _has_run_report(run_root)
     return {
         "run_id": str(payload.get("run_id") or run_root.name),
         "run_root": str(run_root),
@@ -649,8 +664,38 @@ def _packet_summary(
         "recommendation": packet["recommendation"],
         "missing_required_fields": missing_required,
         "issue_count": len(_list(payload.get("issues"))),
-        "artifact_count": len(_list(payload.get("artifacts"))),
+        "artifact_count": len(artifacts),
+        "existing_artifact_count": existing_artifact_count,
+        "has_supporting_evidence": existing_artifact_count > 0 or has_run_report,
     }
+
+
+def _count_existing_artifacts(run_root: Path, artifacts: Sequence[Any]) -> int:
+    """Count feedback artifacts whose referenced file actually exists on disk."""
+
+    count = 0
+    for artifact in artifacts:
+        if not isinstance(artifact, Mapping):
+            continue
+        raw = artifact.get("path")
+        if raw is None:
+            continue
+        candidate = Path(os.fspath(raw)).expanduser()
+        if not candidate.is_absolute():
+            candidate = run_root / candidate
+        if candidate.is_file():
+            count += 1
+    return count
+
+
+def _has_run_report(run_root: Path) -> bool:
+    """Return whether the packet's run folder holds a real pipeline run report."""
+
+    reports_dir = run_root / "80_reports"
+    return any(
+        (reports_dir / name).is_file()
+        for name in ("run_report.html", "run_report.md", "run_report.json")
+    )
 
 
 def _copy_artifacts_into_packet(

@@ -161,7 +161,9 @@ def _load_physical_packets(runs_dir: Path) -> list[dict[str, Any]]:
                 "print_type": evidence.print_type,
                 "print_status": evidence.print_status.lower(),
                 "operator": evidence.operator,
-                "missing_required_evidence": missing_required_evidence(evidence),
+                "missing_required_evidence": missing_required_evidence(
+                    evidence, root=evidence_path.parents[1]
+                ),
             }
         )
     return packets

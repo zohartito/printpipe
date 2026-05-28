@@ -1291,3 +1291,16 @@ Status: partial progress for trusted-user beta. This creates local tester-review
 5. Done: local ignored handoff sheets now exist for `trusted-user-1`, `trusted-user-2`, and `trusted-user-3` against the slipper proof run.
 6. Current local result: `beta-feedback-status --runs-dir runs --json` still reports `insufficient_feedback`, zero completed trusted users, and zero feedback packets.
 7. Boundary: handoff sheets are review instructions only. They do not satisfy Phase 16 item 129 until real trusted users complete reviews and their `trusted_user_feedback.json` packets are recorded.
+
+## Wave 117 - Release Distribution Handoff and Evidence Hardening
+
+Status: partial progress for release distribution, physical validation, and trusted-user beta. This creates local release handoff instructions and blocks two fake-proof paths; it does not create signed artifacts, physical prints, or trusted-user feedback.
+
+1. Done: added `printpipe release-start --release-dir <dir> --runs-dir <dir>` to write a release distribution handoff without writing release evidence.
+2. Done: the release handoff sheet includes the release dir, runs dir, regression manifest, current release actions, required signing inputs, exact build/check commands, and signed-distribution proof boundary.
+3. Done: `release-start --json` returns the handoff path plus `release-status --strict` and `final-plan` check commands; non-JSON output prints the same human handoff paths.
+4. Done: `release-plan` now includes `start_command` and existing `handoff_markdown_path` values for release bundle, macOS distribution, Windows distribution, and signing-prerequisite actions; the home-page release distribution cards render those values.
+5. Done: physical validation status now rejects a `passed` packet whose photo artifact path does not exist on disk.
+6. Done: trusted-user beta status now rejects completed-outcome packets unless the run has an existing report or existing attached artifact file.
+7. Current local result: `dist/release_handoffs/release_distribution_handoff.md` exists locally but is ignored; `release-plan --release-dir dist/release --runs-dir runs --regression-manifest regressions/dogfood_failures.json` surfaces that handoff for all three release actions.
+8. Boundary: release handoffs, existing reports, and attached artifacts are operational evidence only. Items 121 and 122 remain partial until a Developer ID signed/notarized macOS artifact and a signed Windows installer are verified in the release manifest.

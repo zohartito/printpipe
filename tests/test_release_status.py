@@ -11,6 +11,7 @@ from printpipe.packaging.release_status import (
 from printpipe.packaging.release_plan import (
     build_release_distribution_plan,
     render_release_distribution_plan,
+    start_release_distribution_handoff,
 )
 
 
@@ -271,6 +272,67 @@ def test_release_distribution_plan_turns_distribution_gates_into_commands(
     assert "--windows-installer-exe" in actions["windows_distribution"]["followup_command"]
 
 
+def test_release_distribution_start_writes_handoff_without_signed_evidence(
+    tmp_path: Path,
+) -> None:
+    release_dir = tmp_path / "dist" / "release"
+    runs_dir = tmp_path / "runs"
+    status_report = {
+        "overall_status": "action_required",
+        "action_required_count": 2,
+        "release_dir": str(release_dir),
+        "runs_dir": str(runs_dir),
+        "gates": [
+            {
+                "id": "macos_distribution",
+                "label": "macOS distribution",
+                "status": "action_required",
+                "detail": "macOS release artifact is not Developer ID signed and notarized.",
+                "action": "Install Developer ID identities, configure notarytool, and rebuild the release DMG.",
+            },
+            {
+                "id": "windows_distribution",
+                "label": "Windows distribution",
+                "status": "action_required",
+                "detail": "No signed Windows installer artifact is recorded in the manifest.",
+                "action": "Build and include a signed PrintPipeSetup.exe before a strict release handoff.",
+            },
+        ],
+    }
+
+    result = start_release_distribution_handoff(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        regression_manifest_path=tmp_path / "regressions.json",
+        release_status_report=status_report,
+    )
+    plan = build_release_distribution_plan(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        regression_manifest_path=tmp_path / "regressions.json",
+        release_status_report=status_report,
+    )
+    rendered = render_release_distribution_plan(plan)
+
+    handoff_path = tmp_path / "dist" / "release_handoffs" / "release_distribution_handoff.md"
+    handoff = handoff_path.read_text(encoding="utf-8")
+    actions = {action["id"]: action for action in plan["actions"]}
+
+    assert result["status"] == "started"
+    assert result["handoff_markdown_path"] == str(handoff_path.resolve())
+    assert not (release_dir / "release_manifest.json").exists()
+    assert "PrintPipe Release Distribution Handoff" in handoff
+    assert "Developer ID Application certificate" in handoff
+    assert "Code-signing certificate" in handoff
+    assert "Only verified release manifest artifacts" in handoff
+    assert "printpipe release-status" in handoff
+    assert actions["macos_distribution"]["start_command"].startswith("printpipe release-start")
+    assert actions["macos_distribution"]["handoff_markdown_path"] == str(handoff_path.resolve())
+    assert actions["windows_distribution"]["handoff_markdown_path"] == str(handoff_path.resolve())
+    assert "start: printpipe release-start" in rendered
+    assert f"handoff: {handoff_path.resolve()}" in rendered
+
+
 def test_release_distribution_plan_ready_when_release_status_ready(
     tmp_path: Path,
 ) -> None:
@@ -366,6 +428,29 @@ def test_release_plan_parser_accepts_dirs_json_and_regression_manifest(
     assert args.json is True
 
 
+def test_release_start_parser_accepts_dirs_json_and_regression_manifest(
+    tmp_path: Path,
+) -> None:
+    args = build_parser().parse_args(
+        [
+            "release-start",
+            "--release-dir",
+            str(tmp_path / "release"),
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--regression-manifest",
+            str(tmp_path / "regression_manifest.json"),
+            "--json",
+        ]
+    )
+
+    assert args.command == "release-start"
+    assert args.release_dir == tmp_path / "release"
+    assert args.runs_dir == tmp_path / "runs"
+    assert args.regression_manifest == tmp_path / "regression_manifest.json"
+    assert args.json is True
+
+
 def test_cli_release_plan_prints_json(monkeypatch, tmp_path: Path, capsys) -> None:
     manifest_path = tmp_path / "regression_manifest.json"
 
@@ -403,6 +488,29 @@ def test_cli_release_plan_prints_json(monkeypatch, tmp_path: Path, capsys) -> No
     assert exit_code == 0
     assert payload["overall_status"] == "action_required"
     assert payload["actions"][0]["id"] == "macos_distribution"
+
+
+def test_cli_release_start_prints_handoff_json(tmp_path: Path, capsys) -> None:
+    exit_code = main(
+        [
+            "release-start",
+            "--release-dir",
+            str(tmp_path / "release"),
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--json",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["status"] == "started"
+    assert payload["handoff_markdown_path"].endswith(
+        "release_handoffs/release_distribution_handoff.md"
+    )
+    assert "release-status" in payload["release_status_command"]
+    assert "final-plan" in payload["final_plan_command"]
 
 
 def test_release_status_parser_accepts_dirs_json_and_strict_flags(tmp_path: Path) -> None:

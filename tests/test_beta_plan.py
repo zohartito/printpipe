@@ -261,6 +261,9 @@ def _write_feedback(
     outcome: str = "passed",
 ) -> None:
     run_root.mkdir(parents=True)
+    report = run_root / "80_reports" / "run_report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text("<h1>run report</h1>\n", encoding="utf-8")
     feedback = build_trusted_user_feedback(
         run_id=run_root.name,
         tester=tester,

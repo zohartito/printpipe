@@ -518,6 +518,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the release distribution action plan as JSON.",
     )
 
+    release_start = subparsers.add_parser(
+        "release-start",
+        help="Create a release distribution handoff without signed release evidence.",
+    )
+    release_start.add_argument(
+        "--release-dir",
+        type=Path,
+        default=Path("dist/release"),
+        help="Release folder targeted by the final distribution build.",
+    )
+    release_start.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Directory where beta and physical evidence run folders are stored.",
+    )
+    release_start.add_argument(
+        "--regression-manifest",
+        type=Path,
+        default=None,
+        help="Optional beta regression manifest to include in release checks.",
+    )
+    release_start.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the release handoff path and check commands as JSON.",
+    )
+
     final_plan = subparsers.add_parser(
         "final-plan",
         help="Show the ordered final actions for physical, beta, and distribution gates.",
@@ -1264,6 +1292,14 @@ def main(argv: list[str] | None = None) -> int:
             json_output=args.json,
         )
 
+    if args.command == "release-start":
+        return _release_start(
+            release_dir=args.release_dir,
+            runs_dir=args.runs_dir,
+            regression_manifest_path=args.regression_manifest,
+            json_output=args.json,
+        )
+
     if args.command == "final-plan":
         return _final_plan(
             release_dir=args.release_dir,
@@ -1857,6 +1893,32 @@ def _release_plan(
         print(json.dumps(plan, indent=2, sort_keys=True))
     else:
         print(render_release_distribution_plan(plan), end="")
+    return 0
+
+
+def _release_start(
+    *,
+    release_dir: Path,
+    runs_dir: Path,
+    regression_manifest_path: Path | None,
+    json_output: bool,
+) -> int:
+    from printpipe.packaging.release_plan import start_release_distribution_handoff
+
+    payload = start_release_distribution_handoff(
+        release_dir=release_dir,
+        runs_dir=runs_dir,
+        regression_manifest_path=regression_manifest_path,
+    )
+    if json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"status: {payload['status']}")
+        print(f"release dir: {payload['release_dir']}")
+        print(f"runs dir: {payload['runs_dir']}")
+        print(f"release handoff: {payload['handoff_markdown_path']}")
+        print(f"release status check: {payload['release_status_command']}")
+        print(f"final plan check: {payload['final_plan_command']}")
     return 0
 
 
