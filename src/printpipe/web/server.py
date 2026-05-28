@@ -19,6 +19,7 @@ from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from printpipe.beta.beta_plan import build_beta_action_plan
+from printpipe.beta.feedback import build_trusted_user_feedback_status
 from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_status import build_physical_validation_status
@@ -224,6 +225,8 @@ class PrintPipeWebApp:
             return self.beta_plan_response(
                 regression_manifest_path=self._regression_manifest_for_query(query)
             )
+        if path == "/beta-feedback-status.json":
+            return self.beta_feedback_status_response()
         if path == "/physical-plan.json":
             return self.physical_plan_response()
         if path == "/physical-status.json":
@@ -420,6 +423,22 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
+    def beta_feedback_status_response(self) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            return WebResponse.json(build_trusted_user_feedback_status(self.runs_dir))
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
     def physical_plan_response(self) -> WebResponse:
         if self.runs_dir is None:
             return WebResponse.from_text(
@@ -567,6 +586,7 @@ class PrintPipeWebApp:
                 self._render_readiness_panel(),
                 self._render_physical_beta_gate_panel(),
                 self._render_physical_action_plan_panel(),
+                self._render_trusted_feedback_gate_panel(),
                 self._render_beta_action_plan_panel(),
                 self._render_recent_runs_panel(),
                 '    <section class="panel">',
@@ -575,6 +595,7 @@ class PrintPipeWebApp:
                 f'      <p><a href="{escape(self._service_href("/release-status.json"), quote=True)}">Release status JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/readiness.json"), quote=True)}">Readiness JSON</a></p>',
                 '      <p><a href="/physical-plan.json">Physical plan JSON</a></p>',
+                '      <p><a href="/beta-feedback-status.json">Trusted-user feedback JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/beta-plan.json"), quote=True)}">Beta plan JSON</a></p>',
                 '      <p><a href="/doctor.json">Environment doctor JSON</a></p>',
                 "    </section>",
@@ -872,6 +893,85 @@ class PrintPipeWebApp:
                 setup_markup,
                 start_markup,
                 f"          <pre><code>{escape(command)}</code></pre>",
+                "        </article>",
+            ]
+        )
+
+    def _render_trusted_feedback_gate_panel(self) -> str:
+        if self.runs_dir is None:
+            return ""
+        try:
+            status = build_trusted_user_feedback_status(self.runs_dir)
+        except (OSError, ValueError):
+            return ""
+
+        overall = str(status.get("overall_status", "unknown"))
+        current = str(status.get("unique_trusted_user_count", 0))
+        required = str(status.get("required_trusted_user_count", 0))
+        packet_count = str(status.get("packet_count", 0))
+        missing = str(status.get("missing_trusted_user_count", 0))
+        users = status.get("trusted_users")
+        user_names = ", ".join(str(user) for user in users) if isinstance(users, list) else ""
+        outcome_counts = status.get("outcome_counts")
+        outcome_text = (
+            ", ".join(
+                f"{key}: {value}"
+                for key, value in sorted(outcome_counts.items())
+            )
+            if isinstance(outcome_counts, dict)
+            else "not recorded"
+        )
+        command = "printpipe beta-feedback-status --runs-dir runs --strict"
+        cards = "\n".join(
+            [
+                self._render_trusted_feedback_card(
+                    label="Trusted users",
+                    status=overall,
+                    detail=f"{current} / {required} trusted users",
+                    note=f"Feedback packets: {packet_count}; missing: {missing}.",
+                ),
+                self._render_trusted_feedback_card(
+                    label="Tester names",
+                    status="recorded" if user_names else "missing",
+                    detail=user_names or "No trusted users recorded.",
+                    note="Internal and coordinator notes do not count toward this gate.",
+                ),
+                self._render_trusted_feedback_card(
+                    label="Outcomes",
+                    status="recorded",
+                    detail=outcome_text,
+                    note="Feedback is separate from physical print proof.",
+                ),
+            ]
+        )
+        return "\n".join(
+            [
+                '    <section class="panel feedback-gate-panel">',
+                "      <div>",
+                "        <h2>Trusted-user feedback</h2>",
+                f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(current)} / {escape(required)} trusted users.</p>',
+                "      </div>",
+                f'      <div class="physical-family-grid">{cards}</div>',
+                f'      <code>{escape(command)}</code>',
+                "    </section>",
+            ]
+        )
+
+    def _render_trusted_feedback_card(
+        self,
+        *,
+        label: str,
+        status: str,
+        detail: str,
+        note: str,
+    ) -> str:
+        return "\n".join(
+            [
+                f'        <article class="physical-family physical-family-{_class_name(status)}">',
+                f"          <span>{escape(label)}</span>",
+                f"          <strong>{escape(status)}</strong>",
+                f"          <p>{escape(detail)}</p>",
+                f'          <p class="muted">{escape(note)}</p>',
                 "        </article>",
             ]
         )

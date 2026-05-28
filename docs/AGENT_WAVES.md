@@ -1091,3 +1091,13 @@ Status: complete for trusted-user beta evidence plumbing. PrintPipe can now reco
 4. Done: `build_beta_readiness_report()` now includes a `trusted_user_beta` gate that requires three unique trusted users.
 5. Done: `build_beta_action_plan()` now reads trusted feedback status and marks the trusted-user action ready only after that gate passes.
 6. Boundary: this records and gates feedback packets; it does not create real trusted-user feedback or close Phase 16 without actual tester evidence.
+
+## Wave 99 - Trusted Feedback Status in Local Web UI
+
+Status: complete for local web parity. The browser app now exposes the same trusted-user beta feedback status as the CLI/readiness layers.
+
+1. Done: added `GET /beta-feedback-status.json`.
+2. Done: added a home-page `Trusted-user feedback` panel with overall status, trusted-user count, packet count, tester names, and outcome counts.
+3. Done: added a service link to the trusted-user feedback JSON endpoint.
+4. Done: web regression tests prove the route, service link, and home panel.
+5. Boundary: this is read-only visibility; it does not create tester feedback, physical proof, or final beta completion.

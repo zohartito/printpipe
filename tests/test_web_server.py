@@ -9,6 +9,10 @@ from printpipe.beta.physical import (
     build_physical_print_evidence,
     write_physical_evidence_files,
 )
+from printpipe.beta.feedback import (
+    build_trusted_user_feedback,
+    write_trusted_user_feedback_files,
+)
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
 from printpipe.reports import build_run_report_dict, write_run_report
 from printpipe.reports.html import write_html_report
@@ -68,6 +72,30 @@ def _multipart_fields_body(fields: dict[str, str]) -> tuple[bytes, str]:
         )
     chunks.append(f"--{boundary}--\r\n".encode("ascii"))
     return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
+def _write_trusted_feedback(
+    run_root: Path,
+    *,
+    tester: str,
+    outcome: str = "passed",
+) -> None:
+    run_root.mkdir(parents=True)
+    feedback = build_trusted_user_feedback(
+        run_id=run_root.name,
+        tester=tester,
+        tester_type="trusted_user",
+        input_type="existing_stl",
+        material="Bambu PLA Basic",
+        printer="Bambu Lab P2S",
+        outcome=outcome,
+        summary=f"{tester} completed a beta run.",
+        issues=(),
+        would_print="no",
+        recommendation="needs_review",
+        artifacts=(),
+    )
+    write_trusted_user_feedback_files(run_root=run_root, feedback=feedback)
 
 
 def test_home_response_renders_status_and_static_page_links(tmp_path: Path):
@@ -136,6 +164,7 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/readiness.json"' in response.text
     assert 'href="/release-status.json"' in response.text
     assert 'href="/physical-plan.json"' in response.text
+    assert 'href="/beta-feedback-status.json"' in response.text
     assert 'href="/beta-plan.json"' in response.text
     assert 'href="/doctor.json"' in response.text
 
@@ -282,6 +311,47 @@ def test_beta_plan_json_endpoint_returns_action_plan(tmp_path: Path):
     assert actions["physical_validation"]["command"].startswith(
         "printpipe physical-plan --runs-dir"
     )
+
+
+def test_beta_feedback_status_json_endpoint_returns_trusted_user_status(
+    tmp_path: Path,
+):
+    runs_dir = tmp_path / "runs"
+    _write_trusted_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_trusted_feedback(runs_dir / "run-sam", tester="Sam", outcome="failed")
+
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/beta-feedback-status.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert response.header("Content-Type") == "application/json; charset=utf-8"
+    assert payload["overall_status"] == "insufficient_feedback"
+    assert payload["unique_trusted_user_count"] == 2
+    assert payload["missing_trusted_user_count"] == 1
+    assert payload["outcome_counts"]["failed"] == 1
+
+
+def test_home_response_renders_trusted_user_feedback_gate(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    _write_trusted_feedback(runs_dir / "run-maya", tester="Maya")
+    _write_trusted_feedback(runs_dir / "run-sam", tester="Sam", outcome="failed")
+    _write_trusted_feedback(runs_dir / "run-lee", tester="Lee", outcome="partial")
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Trusted-user feedback" in response.text
+    assert "passed" in response.text
+    assert "3 / 3 trusted users" in response.text
+    assert "Feedback packets: 3" in response.text
+    assert "Maya" in response.text
+    assert "Sam" in response.text
+    assert "Lee" in response.text
+    assert "printpipe beta-feedback-status --runs-dir runs --strict" in response.text
+    assert 'href="/beta-feedback-status.json"' in response.text
 
 
 def test_beta_plan_json_endpoint_accepts_regression_manifest_query(
