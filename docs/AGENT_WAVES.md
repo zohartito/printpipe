@@ -656,3 +656,15 @@ Status: partial progress for original item 122. PrintPipe can now build and run 
 6. Done: extracted `PrintPipe.exe --version` returned `printpipe 0.1.0`; dry-run launch printed the `http://127.0.0.1:8765/` local web UI command.
 7. Done: extracted `PrintPipe.exe package-smoke --platform windows ... --json` returned `status=ok` with reports and a Bambu `.3mf`.
 8. Remaining: signed Windows installer, Start Menu/file-association integration for the standalone executable, live Windows+Bambu slice evidence, Developer ID notarization, and physical print validation stay open.
+
+## Wave 60 - Release Bundle Windows Standalone Inclusion
+
+Status: partial progress for original item 122. The release folder can now carry the prebuilt Windows standalone runtime ZIP as a checksummed manifest artifact, but the ZIP is still not a signed Windows installer.
+
+1. Done: added `windows_standalone_zip` support to `build_release_bundle()`.
+2. Done: added `printpipe build-release --windows-standalone-zip dist/PrintPipe-Windows-standalone.zip`.
+3. Done: release building copies the prebuilt ZIP to `PrintPipe-Windows-standalone.zip` inside the release folder.
+4. Done: release building validates that the ZIP contains `PrintPipe/PrintPipe.exe` and bundled Python runtime files before manifesting it.
+5. Done: manifest records the copied artifact as `windows_standalone_zip` with `bundles_python_runtime=true`, `bundles_bambu_studio=false`, `signed=false`, and `notarized=false`.
+6. Done: release boundary text distinguishes macOS-only, Windows-only, and combined standalone-runtime release shapes.
+7. Remaining: signed Windows installer, live Windows+Bambu slice evidence, Developer ID notarization, and physical print validation stay open.

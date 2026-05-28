@@ -160,6 +160,71 @@ def test_build_release_bundle_can_include_macos_standalone_runtime_zip(
     assert stat.S_IFMT(runtime_link_info.external_attr >> 16) == stat.S_IFLNK
 
 
+def test_build_release_bundle_can_include_prebuilt_windows_standalone_zip(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import printpipe.packaging.release as release
+
+    def fake_zipapp_builder(*, project_root: str | Path, output_path: str | Path) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("zipapp", encoding="utf-8")
+        return {"bundles_python_runtime": False, "bundles_bambu_studio": False}
+
+    def fake_dmg_builder(
+        *,
+        project_root: str | Path,
+        output_path: str | Path,
+        adhoc_sign: bool,
+    ) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("dmg", encoding="utf-8")
+        return {
+            "bundles_python_runtime": False,
+            "bundles_bambu_studio": False,
+            "signed": adhoc_sign,
+        }
+
+    def fake_windows_portable_builder(
+        *,
+        project_root: str | Path,
+        output_path: str | Path,
+    ) -> dict[str, object]:
+        path = Path(output_path)
+        path.write_text("windows portable", encoding="utf-8")
+        return {"bundles_python_runtime": False, "bundles_bambu_studio": False}
+
+    monkeypatch.setattr(release, "build_zipapp_package", fake_zipapp_builder)
+    monkeypatch.setattr(release, "build_macos_dmg_package", fake_dmg_builder)
+    monkeypatch.setattr(release, "build_windows_portable_package", fake_windows_portable_builder)
+    prebuilt = tmp_path / "prebuilt" / "PrintPipe-Windows-standalone.zip"
+    prebuilt.parent.mkdir()
+    with zipfile.ZipFile(prebuilt, "w") as archive:
+        archive.writestr("PrintPipe/PrintPipe.exe", "exe")
+        archive.writestr("PrintPipe/_internal/python311.dll", "runtime")
+        archive.writestr("PrintPipe/README.txt", "readme")
+    output_dir = tmp_path / "release"
+
+    result = release.build_release_bundle(
+        project_root=REPO_ROOT,
+        output_dir=output_dir,
+        windows_standalone_zip=prebuilt,
+    )
+    manifest = json.loads((output_dir / "release_manifest.json").read_text(encoding="utf-8"))
+    artifacts = {artifact["kind"]: artifact for artifact in manifest["artifacts"]}
+
+    assert result["artifact_count"] == 4
+    assert artifacts["windows_standalone_zip"]["path"] == "PrintPipe-Windows-standalone.zip"
+    assert artifacts["windows_standalone_zip"]["signed"] is False
+    assert artifacts["windows_standalone_zip"]["notarized"] is False
+    assert artifacts["windows_standalone_zip"]["bundles_python_runtime"] is True
+    assert artifacts["windows_standalone_zip"]["bundles_bambu_studio"] is False
+    assert (output_dir / "PrintPipe-Windows-standalone.zip").read_bytes() == prebuilt.read_bytes()
+    assert "Windows standalone artifact bundles Python; other artifacts do not." in manifest[
+        "boundaries"
+    ]
+
+
 def test_cli_build_release_json_reports_manifest(tmp_path: Path, capsys) -> None:
     if shutil.which("hdiutil") is None:
         return
@@ -200,6 +265,21 @@ def test_cli_build_release_parser_accepts_standalone_options() -> None:
     assert args.command == "build-release"
     assert args.include_standalone is True
     assert args.pyinstaller == "uvx --from pyinstaller pyinstaller"
+
+
+def test_cli_build_release_parser_accepts_windows_standalone_zip() -> None:
+    from printpipe.cli import build_parser
+
+    args = build_parser().parse_args(
+        [
+            "build-release",
+            "--windows-standalone-zip",
+            "dist/PrintPipe-Windows-standalone.zip",
+        ]
+    )
+
+    assert args.command == "build-release"
+    assert args.windows_standalone_zip == Path("dist/PrintPipe-Windows-standalone.zip")
 
 
 def test_verify_release_bundle_accepts_manifest_and_artifact_hashes(tmp_path: Path) -> None:

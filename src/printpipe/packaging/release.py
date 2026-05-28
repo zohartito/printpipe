@@ -35,6 +35,7 @@ def build_release_bundle(
     adhoc_sign: bool = False,
     include_standalone: bool = False,
     pyinstaller_command: str = "pyinstaller",
+    windows_standalone_zip: str | Path | None = None,
 ) -> dict[str, Any]:
     """Build current distributable artifacts and write a checksum manifest."""
 
@@ -101,6 +102,26 @@ def build_release_bundle(
                 path=target / "PrintPipeStandalone-macOS.zip",
                 metadata=standalone,
                 signed=bool(standalone["signed"]),
+                notarized=False,
+            )
+        )
+    if windows_standalone_zip is not None:
+        source = Path(windows_standalone_zip).expanduser()
+        if not source.is_absolute():
+            source = root / source
+        source = source.resolve()
+        if not source.exists():
+            raise FileNotFoundError(f"Windows standalone ZIP not found: {source}")
+        if source.suffix.lower() != ".zip":
+            raise ValueError("Windows standalone release artifact must be a .zip file")
+        standalone_target = target / "PrintPipe-Windows-standalone.zip"
+        shutil.copy2(source, standalone_target)
+        artifacts.append(
+            _artifact_manifest(
+                kind="windows_standalone_zip",
+                path=standalone_target,
+                metadata=_windows_standalone_zip_metadata(standalone_target),
+                signed=False,
                 notarized=False,
             )
         )
@@ -225,11 +246,25 @@ def _artifact_manifest(
 
 
 def _release_boundaries(artifacts: list[dict[str, Any]]) -> list[str]:
-    bundles_python = any(bool(artifact.get("bundles_python_runtime")) for artifact in artifacts)
-    if not bundles_python:
+    runtime_artifacts = {
+        str(artifact.get("kind"))
+        for artifact in artifacts
+        if bool(artifact.get("bundles_python_runtime"))
+    }
+    if not runtime_artifacts:
         return RELEASE_BOUNDARIES
+    if runtime_artifacts == {"macos_standalone_zip"}:
+        runtime_boundary = "macOS standalone artifact bundles Python; other artifacts do not."
+    elif runtime_artifacts == {"windows_standalone_zip"}:
+        runtime_boundary = "Windows standalone artifact bundles Python; other artifacts do not."
+    elif runtime_artifacts == {"macos_standalone_zip", "windows_standalone_zip"}:
+        runtime_boundary = (
+            "macOS and Windows standalone artifacts bundle Python; other artifacts do not."
+        )
+    else:
+        runtime_boundary = "Some artifacts bundle Python; other artifacts do not."
     return [
-        "macOS standalone artifact bundles Python; other artifacts do not.",
+        runtime_boundary,
         "No artifact bundles Bambu Studio.",
         "macOS artifacts are not Developer ID signed or notarized.",
         "Windows artifact is not a signed installer.",
@@ -254,6 +289,29 @@ def _zip_directory(*, source_dir: Path, target: Path) -> None:
                 archive.writestr(info, os.readlink(path))
             elif path.is_file():
                 archive.write(path, relative_path)
+
+
+def _windows_standalone_zip_metadata(path: Path) -> dict[str, bool]:
+    with zipfile.ZipFile(path) as archive:
+        names = set(archive.namelist())
+    has_executable = "PrintPipe/PrintPipe.exe" in names
+    has_runtime = any(
+        name.startswith("PrintPipe/_internal/")
+        and (
+            name.lower().endswith(".dll")
+            or "python" in Path(name).name.lower()
+            or Path(name).name == "base_library.zip"
+        )
+        for name in names
+    )
+    if not has_executable:
+        raise ValueError("Windows standalone ZIP must contain PrintPipe/PrintPipe.exe")
+    if not has_runtime:
+        raise ValueError("Windows standalone ZIP must contain bundled Python runtime files")
+    return {
+        "bundles_python_runtime": True,
+        "bundles_bambu_studio": False,
+    }
 
 
 def _verify_artifact(

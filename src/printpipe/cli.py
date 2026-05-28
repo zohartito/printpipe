@@ -342,6 +342,12 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     build_release.add_argument(
+        "--windows-standalone-zip",
+        type=Path,
+        default=None,
+        help="Copy a prebuilt PrintPipe-Windows-standalone.zip into the release bundle.",
+    )
+    build_release.add_argument(
         "--json",
         action="store_true",
         help="Print release build output as JSON.",
@@ -608,6 +614,7 @@ def main(argv: list[str] | None = None) -> int:
             adhoc_sign=args.adhoc_sign,
             include_standalone=args.include_standalone,
             pyinstaller_command=args.pyinstaller,
+            windows_standalone_zip=args.windows_standalone_zip,
         )
 
     if args.command == "verify-release":
@@ -798,6 +805,7 @@ def _build_release(
     adhoc_sign: bool,
     include_standalone: bool,
     pyinstaller_command: str,
+    windows_standalone_zip: Path | None,
 ) -> int:
     from printpipe.packaging.release import build_release_bundle
 
@@ -806,6 +814,7 @@ def _build_release(
         adhoc_sign=adhoc_sign,
         include_standalone=include_standalone,
         pyinstaller_command=pyinstaller_command,
+        windows_standalone_zip=windows_standalone_zip,
     )
     if json_output:
         print(json.dumps(payload, indent=2, sort_keys=True))

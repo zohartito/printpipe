@@ -88,6 +88,7 @@ printpipe build-windows-standalone --output dist/PrintPipe-Windows-standalone.zi
 
 printpipe build-release --output-dir dist/release --adhoc-sign
 printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller"
+printpipe build-release --output-dir dist/release --adhoc-sign --windows-standalone-zip dist/PrintPipe-Windows-standalone.zip
 printpipe verify-release dist/release --json
 
 printpipe build-macos-app --output dist/PrintPipe.app

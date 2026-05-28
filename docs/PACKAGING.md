@@ -530,6 +530,7 @@ writes checksums:
 ```bash
 printpipe build-release --output-dir dist/release --adhoc-sign --json
 printpipe build-release --output-dir dist/release --adhoc-sign --include-standalone --pyinstaller "uvx --from pyinstaller pyinstaller" --json
+printpipe build-release --output-dir dist/release --adhoc-sign --windows-standalone-zip dist/PrintPipe-Windows-standalone.zip --json
 printpipe verify-release dist/release --json
 ```
 
@@ -544,6 +545,11 @@ With `--include-standalone`, the release folder also contains:
 
 - `PrintPipeStandalone-macOS.zip`
 
+With `--windows-standalone-zip dist/PrintPipe-Windows-standalone.zip`, the
+release folder also contains a copied prebuilt artifact:
+
+- `PrintPipe-Windows-standalone.zip`
+
 `release_manifest.json` records each artifact's relative path, size, SHA-256
 `sha256`, signing/notarization flags, and boundary claims. The default release
 bundle is still honest about the remaining gates: no bundled Python, no bundled
@@ -554,6 +560,13 @@ When `--include-standalone` is used, the manifest adds a
 `macos_standalone_zip` artifact with `bundles_python_runtime=true` and changes
 the Python-runtime boundary to: `macOS standalone artifact bundles Python; other
 artifacts do not.`
+
+When `--windows-standalone-zip` is used, the manifest adds a
+`windows_standalone_zip` artifact with `bundles_python_runtime=true` and changes
+the Python-runtime boundary to: `Windows standalone artifact bundles Python;
+other artifacts do not.` If both standalone artifacts are present, the boundary
+states that macOS and Windows standalone artifacts bundle Python while the other
+artifacts do not.
 
 The standalone ZIP preserves the PyInstaller app's symlinks. A live unzip smoke
 verified `codesign --verify --deep --strict`, `PrintPipeStandalone --version`,
