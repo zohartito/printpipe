@@ -61,6 +61,7 @@ To scaffold the generic adapter protocol instead of starting from a blank file:
 printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
 export PRINTPIPE_MEDIA_MESHGEN_COMMAND="$(pwd)/scripts/media_meshgen_adapter.py"
 printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
+printpipe media-meshgen-smoke-status --runs-dir runs --strict
 ```
 
 The generated script is executable and intentionally exits with an adapter
@@ -71,6 +72,8 @@ hosted wrapper, or provider API call.
 bundling, or slicing. Use it to prove the adapter writes a mesh before starting a
 full PrintPipe run. `printpipe readiness --strict` treats a configured provider
 without a successful smoke receipt as action-required instead of ready.
+Use `media-meshgen-smoke-status` to inspect the smoke receipts directly before
+debugging broader readiness gates.
 
 If an OBJ, GLB, GLTF, or 3MF input fails at `mesh_repair` with a
 `printpipe[mesh-repair]` message, install the optional mesh repair dependencies

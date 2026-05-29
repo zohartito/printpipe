@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 166: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 167: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 166 made the media meshgen readiness gate require a successful smoke receipt, not just an environment variable. `printpipe readiness` now treats a configured media/Hunyuan provider with no successful `20_meshgen/smoke.json` as action-required and points at `printpipe media-meshgen-smoke`. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured and smoke-proven live media meshgen provider for non-mesh inputs.
+Latest status: Wave 167 added `printpipe media-meshgen-smoke-status`, a direct CLI proof surface for media meshgen smoke receipts. Agents no longer need to parse full readiness JSON to answer whether a configured image/GIF/video provider has produced a valid smoke mesh. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured and smoke-proven live media meshgen provider for non-mesh inputs.
 
 ## Goal
 

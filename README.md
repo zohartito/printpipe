@@ -54,6 +54,7 @@ Generate a starter script for the generic media meshgen hook:
 printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
 export PRINTPIPE_MEDIA_MESHGEN_COMMAND="$(pwd)/scripts/media_meshgen_adapter.py"
 printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
+printpipe media-meshgen-smoke-status --runs-dir runs --strict
 ```
 
 Optional media cleanup hooks:

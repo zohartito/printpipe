@@ -1826,3 +1826,14 @@ Status: complete for preventing configured-but-untested media providers from cou
 4. Done: the `media_meshgen` readiness gate stays action-required when a provider is configured but no successful smoke receipt exists.
 5. Done: when a configured provider has a successful smoke receipt, the gate returns ready and names the latest smoke run.
 6. Boundary: this still does not install a real model or close the physical/beta/signing gates. It prevents env-var-only media readiness from becoming a fake-positive release claim.
+
+## Wave 167 - Media Meshgen Smoke Status CLI
+
+Status: complete for making media meshgen smoke evidence directly inspectable from the terminal.
+
+1. Done: added `printpipe media-meshgen-smoke-status`.
+2. Done: the command scans `*/20_meshgen/smoke.json` receipts through the same status builder used by beta readiness.
+3. Done: `--json` returns the machine-readable status payload, including latest successful smoke receipt metadata.
+4. Done: `--strict` returns exit code `2` unless at least one successful smoke receipt points at an existing output mesh.
+5. Done: human output shows runs dir, overall status, receipt counts, latest successful run, provider, output, and next action.
+6. Boundary: this is an evidence-inspection surface only. It does not install a provider, run a model, or close the physical/beta/signing gates.

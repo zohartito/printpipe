@@ -33,6 +33,27 @@ def test_media_meshgen_smoke_parser_accepts_input_command_and_runs_dir(tmp_path:
     assert args.output_format == "stl"
 
 
+def test_media_meshgen_smoke_status_parser_accepts_runs_dir_json_and_strict(
+    tmp_path: Path,
+):
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "media-meshgen-smoke-status",
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--json",
+            "--strict",
+        ]
+    )
+
+    assert args.command == "media-meshgen-smoke-status"
+    assert args.runs_dir == tmp_path / "runs"
+    assert args.json is True
+    assert args.strict is True
+
+
 def test_media_meshgen_smoke_runs_configured_command_and_writes_receipt(
     tmp_path: Path,
     capsys,
@@ -148,3 +169,61 @@ def test_media_meshgen_smoke_status_reports_missing_when_no_success_exists(tmp_p
     assert status["overall_status"] == "missing"
     assert status["successful_smoke_count"] == 0
     assert "media-meshgen-smoke" in status["action"]
+
+
+def test_media_meshgen_smoke_status_cli_prints_json_and_gates_strictly(
+    tmp_path: Path,
+    capsys,
+):
+    exit_code = main(
+        [
+            "media-meshgen-smoke-status",
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--json",
+            "--strict",
+        ]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 2
+    assert payload["overall_status"] == "missing"
+    assert payload["successful_smoke_count"] == 0
+    assert "media-meshgen-smoke" in payload["action"]
+
+
+def test_media_meshgen_smoke_status_cli_prints_human_summary(
+    tmp_path: Path,
+    capsys,
+):
+    run_root = tmp_path / "runs" / "smoke-ok"
+    meshgen_dir = run_root / "20_meshgen"
+    meshgen_dir.mkdir(parents=True)
+    (meshgen_dir / "media_command.stl").write_text(
+        "solid smoke\nendsolid smoke\n",
+        encoding="ascii",
+    )
+    (meshgen_dir / "smoke.json").write_text(
+        json.dumps(
+            {
+                "status": "succeeded",
+                "provider_id": "media_command",
+                "output_path": "20_meshgen/media_command.stl",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "media-meshgen-smoke-status",
+            "--runs-dir",
+            str(tmp_path / "runs"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Media Meshgen Smoke Status" in captured.out
+    assert "overall: passed" in captured.out
+    assert "latest successful smoke: smoke-ok" in captured.out

@@ -225,6 +225,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--prompt",
         help="Optional prompt hint passed through to the media meshgen adapter.",
     )
+    media_smoke_status = subparsers.add_parser(
+        "media-meshgen-smoke-status",
+        help="Summarize successful media meshgen smoke receipts.",
+    )
+    media_smoke_status.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("runs"),
+        help="Runs directory to scan for */20_meshgen/smoke.json receipts.",
+    )
+    media_smoke_status.add_argument(
+        "--json",
+        action="store_true",
+        help="Print media meshgen smoke status as JSON.",
+    )
+    media_smoke_status.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless a successful smoke receipt exists.",
+    )
 
     package_smoke = subparsers.add_parser(
         "package-smoke",
@@ -1325,6 +1345,13 @@ def main(argv: list[str] | None = None) -> int:
             parser=parser,
         )
 
+    if args.command == "media-meshgen-smoke-status":
+        return _media_meshgen_smoke_status(
+            runs_dir=args.runs_dir,
+            json_output=args.json,
+            strict=args.strict,
+        )
+
     if args.command == "package-smoke":
         return _package_smoke(
             platform_name=args.platform,
@@ -2251,6 +2278,44 @@ def _media_meshgen_smoke(
     if payload.get("error"):
         print(f"error: {payload['error']}", file=sys.stderr)
     return smoke_exit_code(payload)
+
+
+def _media_meshgen_smoke_status(
+    *,
+    runs_dir: Path,
+    json_output: bool,
+    strict: bool,
+) -> int:
+    from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
+
+    status = build_media_meshgen_smoke_status(runs_dir)
+    if json_output:
+        print(json.dumps(status, indent=2, sort_keys=True))
+    else:
+        print(_render_media_meshgen_smoke_status(status), end="")
+    if strict and status["overall_status"] != "passed":
+        return 2
+    return 0
+
+
+def _render_media_meshgen_smoke_status(status: dict[str, Any]) -> str:
+    lines = [
+        "Media Meshgen Smoke Status",
+        f"runs dir: {status['runs_dir']}",
+        f"overall: {status['overall_status']}",
+        f"smoke receipts: {status['smoke_receipt_count']}",
+        f"successful: {status['successful_smoke_count']}",
+        f"failed: {status['failed_smoke_count']}",
+        f"message: {status['message']}",
+    ]
+    latest = status.get("latest_successful_smoke")
+    if isinstance(latest, dict):
+        lines.append(f"latest successful smoke: {latest.get('run_id', '')}")
+        lines.append(f"provider: {latest.get('provider_id', '')}")
+        if latest.get("output_path"):
+            lines.append(f"output: {latest['output_path']}")
+    lines.append(f"action: {status['action']}")
+    return "\n".join(lines) + "\n"
 
 
 def _package_smoke(
