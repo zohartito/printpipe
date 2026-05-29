@@ -98,6 +98,13 @@ command form and `media-meshgen-configure --params-json ...` apply the same
 static workflow check when `comfyui_workflow` is provided.
 Doctor/readiness checks also re-inspect that saved workflow later, so deleted or
 edited workflow JSON does not keep counting as a live media provider.
+Before running a full smoke, check whether the ComfyUI API is reachable and has
+the expected 3D node class:
+
+```bash
+printpipe media-meshgen-comfyui-preflight --json --strict
+```
+
 Browser and helper-driven smoke tests resolve the adapter command and adapter
 params from the same project workspace when a workspace is provided.
 The final-readiness panel links the open media gate back to the local browser
@@ -108,8 +115,9 @@ workflow can be promoted into project config without losing workflow or patch
 paths. When that tested-command promotion becomes the active final action, the
 local app points back to `/#media-meshgen-setup` with the exact terminal command
 still visible.
-That browser setup step still does not prove semantic reconstruction; a real
-`media-meshgen-smoke` receipt is required before the media gate is ready.
+The ComfyUI runtime preflight and browser setup steps still do not prove
+semantic reconstruction; a real `media-meshgen-smoke` receipt is required before
+the media gate is ready.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke
 gate before physical beta/release handoffs when it is still missing.
 

@@ -220,6 +220,37 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the workflow inspection report as JSON.",
     )
+    media_comfyui_preflight = subparsers.add_parser(
+        "media-meshgen-comfyui-preflight",
+        help="Check whether a ComfyUI API endpoint is reachable for 3D workflows.",
+    )
+    media_comfyui_preflight.add_argument(
+        "--url",
+        default="http://127.0.0.1:8188",
+        help="Base URL for the ComfyUI API.",
+    )
+    media_comfyui_preflight.add_argument(
+        "--timeout",
+        type=float,
+        default=3.0,
+        help="HTTP timeout in seconds for each preflight request.",
+    )
+    media_comfyui_preflight.add_argument(
+        "--required-node",
+        action="append",
+        default=None,
+        help="ComfyUI node class required by the workflow; defaults to SaveGLB.",
+    )
+    media_comfyui_preflight.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the runtime preflight report as JSON.",
+    )
+    media_comfyui_preflight.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return exit code 2 unless the runtime preflight is ready.",
+    )
     media_heightfield = subparsers.add_parser(
         "media-meshgen-heightfield",
         help=(
@@ -1423,6 +1454,9 @@ def main(argv: list[str] | None = None) -> int:
             parser=parser,
         )
 
+    if args.command == "media-meshgen-comfyui-preflight":
+        return _media_meshgen_comfyui_preflight(args)
+
     if args.command == "media-meshgen-heightfield":
         return _media_meshgen_heightfield(args)
 
@@ -2365,6 +2399,26 @@ def _media_meshgen_comfyui_inspect(
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(render_comfyui_workflow_report(report), end="")
+    return 0
+
+
+def _media_meshgen_comfyui_preflight(args: argparse.Namespace) -> int:
+    from printpipe.meshgen.comfyui_runtime import (
+        preflight_comfyui_runtime,
+        render_comfyui_runtime_preflight,
+    )
+
+    report = preflight_comfyui_runtime(
+        str(args.url),
+        timeout_seconds=float(args.timeout),
+        required_nodes=tuple(args.required_node or ["SaveGLB"]),
+    )
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_comfyui_runtime_preflight(report), end="")
+    if args.strict and report.get("status") != "ready":
+        return 2
     return 0
 
 

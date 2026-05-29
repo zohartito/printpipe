@@ -53,6 +53,7 @@ from printpipe.meshgen.command_template import (
 )
 from printpipe.meshgen.comfyui_workflow import inspect_comfyui_workflow
 from printpipe.meshgen.comfyui_workflow import validate_comfyui_params
+from printpipe.meshgen.comfyui_runtime import preflight_comfyui_runtime
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.meshgen.smoke import run_media_meshgen_smoke
 from printpipe.packaging.release_plan import (
@@ -298,6 +299,8 @@ class PrintPipeWebApp:
             )
         if path == "/media-meshgen-smoke-status.json":
             return self.media_meshgen_smoke_status_response()
+        if path == "/media-meshgen/comfyui-preflight.json":
+            return self.media_meshgen_comfyui_preflight_response(query)
         if path == "/release-status.json":
             return self.release_status_response(
                 regression_manifest_path=self._regression_manifest_for_query(query)
@@ -866,6 +869,22 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
 
+    def media_meshgen_comfyui_preflight_response(
+        self,
+        query: dict[str, list[str]],
+    ) -> WebResponse:
+        url = (query.get("url") or ["http://127.0.0.1:8188"])[0]
+        timeout_raw = (query.get("timeout") or ["1.5"])[0]
+        try:
+            timeout_seconds = float(timeout_raw)
+        except ValueError:
+            timeout_seconds = 1.5
+        report = preflight_comfyui_runtime(
+            url,
+            timeout_seconds=timeout_seconds,
+        )
+        return WebResponse.json(report)
+
     def release_status_response(
         self,
         *,
@@ -1383,6 +1402,13 @@ class PrintPipeWebApp:
     def _render_media_meshgen_setup_panel(self) -> str:
         current_command = configured_media_meshgen_command(cwd=self.workspace_dir)
         current_params = configured_media_meshgen_params(cwd=self.workspace_dir)
+        current_comfyui_url = str(
+            current_params.get("comfyui_url") or "http://127.0.0.1:8188"
+        )
+        preflight_href = (
+            "/media-meshgen/comfyui-preflight.json?url="
+            f"{quote(current_comfyui_url, safe='')}"
+        )
         template_path = self.workspace_dir / "scripts" / "media_meshgen_adapter.py"
         preset_options = "".join(
             f'<option value="{escape(preset, quote=True)}">{escape(_media_template_preset_label(preset))}</option>'
@@ -1400,6 +1426,11 @@ class PrintPipeWebApp:
                 "        <h2>Media meshgen setup</h2>",
                 "        <p>This does not prove semantic reconstruction. Create or point at a real adapter, then run a smoke test.</p>",
                 f'        <p class="muted">{current_markup}</p>',
+                (
+                    '        <p class="muted">ComfyUI runtime preflight: '
+                    f'<a href="{preflight_href}">JSON</a> · '
+                    '<code>printpipe media-meshgen-comfyui-preflight --json</code></p>'
+                ),
                 "      </div>",
                 '      <div class="readiness-grid">',
                 '        <article class="readiness-gate readiness-gate-action-required">',

@@ -113,6 +113,16 @@ printpipe media-meshgen-configure --command "printpipe media-meshgen-heightfield
 
 The command writes `.printpipe/config.json`, which is local-machine state and is
 ignored by git.
+For ComfyUI adapters, use runtime preflight before a full smoke when the workflow
+looks right but the provider still fails:
+
+```bash
+printpipe media-meshgen-comfyui-preflight --json --strict
+```
+
+That checks the ComfyUI API URL for `/system_stats`, `/object_info`, and the
+required node class `SaveGLB`. It only proves reachability and node availability;
+it does not queue the workflow or replace the smoke receipt.
 `media-meshgen-smoke` creates a narrow run folder and writes
 `20_meshgen/smoke.json`, `summary.json`, and `attempts.jsonl` without repairing,
 bundling, or slicing. Use it to prove the adapter writes a mesh before starting a

@@ -2107,3 +2107,14 @@ Status: complete for pointing the smoke-proven-but-not-configured media action a
 2. Done: the tested-command final-plan action now includes `browser_path: /#media-meshgen-setup`.
 3. Done: the browser label is `Promote tested media meshgen command in the local app`, distinguishing this state from blank provider setup and first-smoke setup.
 4. Boundary: this is still handoff UX. It does not create a semantic provider, write config automatically, or close the media gate without a successful configured-provider smoke receipt.
+
+## Wave 193 - ComfyUI Runtime Preflight
+
+Status: complete for checking whether a ComfyUI API runtime is reachable before a full media smoke.
+
+1. Done: added `printpipe media-meshgen-comfyui-preflight`.
+2. Done: the preflight checks `/system_stats` and `/object_info` on the ComfyUI base URL.
+3. Done: it reports whether required node classes, defaulting to `SaveGLB`, are available.
+4. Done: it supports `--json`, `--strict`, `--timeout`, and repeated `--required-node` flags.
+5. Done: the local media setup panel links to `/media-meshgen/comfyui-preflight.json` and shows the matching terminal command.
+6. Boundary: this proves runtime reachability and node availability only. It does not queue a workflow, generate a mesh, inspect mesh quality, or close the media gate without `media-meshgen-smoke`.

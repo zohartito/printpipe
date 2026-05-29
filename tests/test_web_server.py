@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote
 
@@ -24,6 +26,30 @@ from printpipe.runs.paths import create_run
 from printpipe.web import PrintPipeWebApp, create_app
 from printpipe.web import run_detail
 from printpipe.web import server as web_server
+
+
+class _ComfyRuntimeHandler(BaseHTTPRequestHandler):
+    responses: dict[str, tuple[int, dict[str, object]]] = {}
+
+    def do_GET(self) -> None:
+        status, payload = self.responses.get(self.path, (404, {"error": "not found"}))
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: object) -> None:
+        return None
+
+
+def _serve_comfy_runtime(responses: dict[str, tuple[int, dict[str, object]]]) -> str:
+    handler = type("ComfyRuntimeHandler", (_ComfyRuntimeHandler,), {"responses": responses})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return f"http://127.0.0.1:{server.server_port}"
 
 
 def _multipart_form_body(
@@ -1281,6 +1307,8 @@ def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
     assert 'action="/media-meshgen/comfyui-workflow"' in response.text
     assert 'action="/media-meshgen/configure"' in response.text
     assert 'action="/media-meshgen/smoke"' in response.text
+    assert "/media-meshgen/comfyui-preflight.json" in response.text
+    assert "media-meshgen-comfyui-preflight" in response.text
     assert 'name="preset"' in response.text
     assert 'name="workflow"' in response.text
     assert 'name="command"' in response.text
@@ -1292,6 +1320,25 @@ def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
     assert 'value="comfyui-api"' in response.text
     assert 'value="glb"' in response.text
     assert "This does not prove semantic reconstruction" in response.text
+
+
+def test_media_meshgen_comfyui_preflight_json_reports_runtime(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    comfy_url = _serve_comfy_runtime(
+        {
+            "/system_stats": (200, {"system": {"os": "posix"}}),
+            "/object_info": (200, {"SaveGLB": {}}),
+        }
+    )
+
+    response = app.handle(
+        f"/media-meshgen/comfyui-preflight.json?url={quote(comfy_url, safe='')}"
+    )
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert payload["status"] == "ready"
+    assert payload["comfyui_url"] == comfy_url
 
 
 def test_post_media_meshgen_comfyui_workflow_upload_configures_params(
