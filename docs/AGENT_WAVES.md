@@ -1936,3 +1936,14 @@ Status: complete for recording handoff-backed trusted-user feedback from the loc
 4. Done: blank summaries are rejected before writing a feedback packet.
 5. Done: optional uploaded review artifacts are copied into `90_beta/artifacts/`, and the route writes feedback JSON/Markdown through the same writer as `printpipe record-beta-feedback`.
 6. Boundary: this records feedback packets. It does not create real testers or complete the trusted-user beta gate until three unique trusted users submit real completed feedback.
+
+## Wave 177 - Browser Release Handoff Start
+
+Status: complete for creating the release-distribution handoff from the local browser.
+
+1. Done: added `POST /release/start` to the local web app.
+2. Done: the home-page release distribution plan now has a stable `release-distribution-plan` anchor and renders a `Create release handoff` form when any release action exposes a start command.
+3. Done: posting the form calls `start_release_distribution_handoff()` with the configured release dir, runs dir, and optional regression manifest.
+4. Done: the route redirects back to `/#release-distribution-plan` so the refreshed panel can show the handoff state.
+5. Done: web tests cover both the rendered browser form and the POST route writing `release_distribution_handoff.md`.
+6. Boundary: this starts an operator handoff only. It does not sign, notarize, build installers, create a release manifest, or close the distribution gates.

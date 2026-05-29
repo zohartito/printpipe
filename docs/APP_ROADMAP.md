@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 176: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 177: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 176 added browser-side trusted-user feedback intake for handoff-backed beta review rows. The local app now renders a `POST /beta-feedback/record` form when a trusted-user handoff exists, resolves the target run/tester/material/printer from the current feedback plan, writes the same structured feedback JSON/Markdown as the CLI, and copies an optional review artifact into `90_beta/artifacts/`. Waves 175 and 174 added browser physical evidence intake and starter packets, and Wave 173 added local media meshgen project config. The remaining open gates are real-world evidence gates: actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 177 added browser-side release handoff creation. The home-page release distribution panel now exposes a `POST /release/start` form when the release plan has CLI handoff commands, writes the same `release_distribution_handoff.md` as `printpipe release-start`, and redirects back to the release panel without creating signed-distribution evidence. Waves 176, 175, and 174 added browser trusted-user feedback intake, physical evidence intake, and physical starter packets. The remaining open gates are real-world evidence gates: actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 

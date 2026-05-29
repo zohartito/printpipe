@@ -43,7 +43,10 @@ from printpipe.web.final_readiness import (
 )
 from printpipe.local_open import open_run_folder
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
-from printpipe.packaging.release_plan import build_release_distribution_plan
+from printpipe.packaging.release_plan import (
+    build_release_distribution_plan,
+    start_release_distribution_handoff,
+)
 from printpipe.packaging.release_status import build_release_status_report
 from printpipe.pipeline import (
     PipelineError,
@@ -227,6 +230,8 @@ class PrintPipeWebApp:
                 return self.record_physical_response(headers=headers, body=body)
             if path == "/physical/start":
                 return self.start_physical_response(headers=headers, body=body)
+            if path == "/release/start":
+                return self.start_release_response()
             if path == "/runs":
                 return self.create_run_response(headers=headers, body=body)
             if path.startswith(_RUNS_PREFIX):
@@ -378,6 +383,27 @@ class PrintPipeWebApp:
         except (FileNotFoundError, ValueError):
             return self.not_found_response()
         return WebResponse.redirect(f"/runs/{quote(run_id, safe='')}")
+
+    def start_release_response(self) -> WebResponse:
+        if self.release_dir is None or self.runs_dir is None:
+            return WebResponse.from_text(
+                "Release directory or runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            start_release_distribution_handoff(
+                release_dir=self.release_dir,
+                runs_dir=self.runs_dir,
+                regression_manifest_path=self.regression_manifest_path,
+            )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        return WebResponse.redirect("/#release-distribution-plan")
 
     def start_physical_response(self, *, headers: Any | None, body: bytes) -> WebResponse:
         if self.runs_dir is None:
@@ -1265,15 +1291,30 @@ class PrintPipeWebApp:
             command += f" --regression-manifest {manifest_arg}"
         return "\n".join(
             [
-                '    <section class="panel release-plan-panel">',
+                '    <section id="release-distribution-plan" class="panel release-plan-panel">',
                 "      <div>",
                 "        <h2>Release distribution plan</h2>",
                 f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
                 f"        <p>{escape(proof_boundary)}</p>",
+                self._render_release_distribution_start_form(actions),
                 "      </div>",
                 f'      <div class="physical-action-grid">{action_cards}</div>',
                 f'      <code>{escape(command)}</code>',
                 "    </section>",
+            ]
+        )
+
+    def _render_release_distribution_start_form(
+        self,
+        actions: list[dict[str, Any]],
+    ) -> str:
+        if not any(str(action.get("start_command") or "") for action in actions):
+            return ""
+        return "\n".join(
+            [
+                '        <form method="post" action="/release/start">',
+                '          <button type="submit">Create release handoff</button>',
+                "        </form>",
             ]
         )
 

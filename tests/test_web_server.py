@@ -662,6 +662,62 @@ def test_home_response_renders_release_distribution_plan(monkeypatch, tmp_path: 
     assert 'href="/release-plan.json"' in response.text
 
 
+def test_home_response_renders_release_start_form(monkeypatch, tmp_path: Path):
+    def fake_release_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        return {
+            "schema_version": 1,
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "A release plan is not signed distribution evidence.",
+            "actions": [
+                {
+                    "id": "macos_distribution",
+                    "label": "macOS distribution",
+                    "status": "action_required",
+                    "start_command": "printpipe release-start --release-dir dist/release --runs-dir runs",
+                    "command": "printpipe build-release --developer-id-identity ...",
+                },
+            ],
+        }
+
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_distribution_plan",
+        fake_release_plan,
+    )
+    app = create_app(
+        release_dir=tmp_path / "release",
+        runs_dir=tmp_path / "runs",
+    )
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert 'id="release-distribution-plan"' in response.text
+    assert 'action="/release/start"' in response.text
+    assert "Create release handoff" in response.text
+
+
+def test_post_release_start_writes_handoff_and_redirects(tmp_path: Path):
+    release_dir = tmp_path / "release"
+    runs_dir = tmp_path / "runs"
+    app = create_app(release_dir=release_dir, runs_dir=runs_dir)
+
+    response = app.handle(
+        "/release/start",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=b"",
+    )
+
+    handoff = release_dir.parent / "release_handoffs" / "release_distribution_handoff.md"
+    text = handoff.read_text(encoding="utf-8")
+    assert response.status == 303
+    assert response.header("Location") == "/#release-distribution-plan"
+    assert "Release Distribution Handoff" in text
+    assert "A release plan is not signed distribution evidence" in text
+    assert not (release_dir / "release_manifest.json").exists()
+
+
 def test_final_plan_json_endpoint_returns_ordered_endgame_plan(monkeypatch, tmp_path: Path):
     def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
         assert release_dir == tmp_path / "release"
