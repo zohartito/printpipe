@@ -113,27 +113,65 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--quality", default="balanced")
     parser.add_argument("--prompt")
     parser.add_argument("--seed", type=int)
-    parser.add_argument("--params-json", type=Path)
+    parser.add_argument("--params-json")
     return parser
 
 
-def _env(name: str, default: str = "") -> str:
+def _load_params(args: argparse.Namespace) -> dict[str, Any]:
+    if not args.params_json:
+        return {}
+    stripped = args.params_json.strip()
+    if stripped.startswith("{"):
+        raw = stripped
+    else:
+        candidate = Path(args.params_json).expanduser()
+        raw = candidate.read_text(encoding="utf-8") if candidate.exists() else args.params_json
+    payload = json.loads(raw)
+    if not isinstance(payload, dict):
+        raise RuntimeError("--params-json must be a JSON object or path to one")
+    return payload
+
+
+def _env(name: str, default: str = "", *, params: dict[str, Any] | None = None, key: str | None = None) -> str:
+    configured = os.environ.get(name, "").strip()
+    if configured:
+        return configured
+    if params is not None:
+        value = params.get(key or name)
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, bool):
+            return "1" if value else "0"
+        if value is not None:
+            return str(value).strip()
     return os.environ.get(name, default).strip()
 
 
-def _env_paths(name: str) -> tuple[str, ...]:
-    raw = _env(name)
+def _env_paths(name: str, *, params: dict[str, Any], key: str) -> tuple[str, ...]:
+    value = params.get(key)
+    if isinstance(value, list):
+        return tuple(str(part).strip() for part in value if str(part).strip())
+    raw = _env(name, params=params, key=key)
     if not raw:
         return ()
     return tuple(part.strip() for part in raw.split(",") if part.strip())
 
 
-def _comfy_url() -> str:
-    return _env("PRINTPIPE_COMFYUI_URL", DEFAULT_COMFYUI_URL).rstrip("/")
+def _comfy_url(params: dict[str, Any]) -> str:
+    return _env(
+        "PRINTPIPE_COMFYUI_URL",
+        DEFAULT_COMFYUI_URL,
+        params=params,
+        key="comfyui_url",
+    ).rstrip("/")
 
 
-def _load_workflow() -> dict[str, Any]:
-    workflow_path = _env("PRINTPIPE_COMFYUI_WORKFLOW")
+def _load_workflow(params: dict[str, Any]) -> dict[str, Any]:
+    workflow_path = _env(
+        "PRINTPIPE_COMFYUI_WORKFLOW",
+        params=params,
+        key="comfyui_workflow",
+    )
     if not workflow_path:
         raise RuntimeError(
             "PRINTPIPE_COMFYUI_WORKFLOW is required; export a ComfyUI API workflow "
@@ -218,8 +256,15 @@ def _history(comfy_url: str, prompt_id: str) -> dict[str, Any]:
     return payload[prompt_id]
 
 
-def _wait_for_history(comfy_url: str, prompt_id: str) -> dict[str, Any]:
-    timeout_seconds = int(_env("PRINTPIPE_COMFYUI_TIMEOUT_SECONDS", "900"))
+def _wait_for_history(comfy_url: str, prompt_id: str, params: dict[str, Any]) -> dict[str, Any]:
+    timeout_seconds = int(
+        _env(
+            "PRINTPIPE_COMFYUI_TIMEOUT_SECONDS",
+            "900",
+            params=params,
+            key="comfyui_timeout_seconds",
+        )
+    )
     deadline = time.monotonic() + timeout_seconds
     last_error: Exception | None = None
     while time.monotonic() < deadline:
@@ -268,29 +313,49 @@ def generate_mesh(args: argparse.Namespace) -> None:
             "--output-format glb or add a separate conversion step."
         )
 
-    workflow = _load_workflow()
+    params = _load_params(args)
+    workflow = _load_workflow(params)
     if args.prompt:
-        for patch_path in _env_paths("PRINTPIPE_COMFYUI_PROMPT_PATHS"):
+        for patch_path in _env_paths(
+            "PRINTPIPE_COMFYUI_PROMPT_PATHS",
+            params=params,
+            key="comfyui_prompt_paths",
+        ):
             _patch_path(workflow, patch_path, args.prompt)
     if args.seed is not None:
-        for patch_path in _env_paths("PRINTPIPE_COMFYUI_SEED_PATHS"):
+        for patch_path in _env_paths(
+            "PRINTPIPE_COMFYUI_SEED_PATHS",
+            params=params,
+            key="comfyui_seed_paths",
+        ):
             _patch_path(workflow, patch_path, args.seed)
 
-    image_paths = _env_paths("PRINTPIPE_COMFYUI_IMAGE_PATHS")
+    comfy_url = _comfy_url(params)
+    image_paths = _env_paths(
+        "PRINTPIPE_COMFYUI_IMAGE_PATHS",
+        params=params,
+        key="comfyui_image_paths",
+    )
     if image_paths:
-        uploaded_name = _upload_reference(_comfy_url(), Path(args.source[0]))
+        uploaded_name = _upload_reference(comfy_url, Path(args.source[0]))
         for patch_path in image_paths:
             _patch_path(workflow, patch_path, uploaded_name)
-    elif _env("PRINTPIPE_COMFYUI_ALLOW_NO_SOURCE_PATCH") != "1":
+    elif (
+        _env(
+            "PRINTPIPE_COMFYUI_ALLOW_NO_SOURCE_PATCH",
+            params=params,
+            key="comfyui_allow_no_source_patch",
+        )
+        != "1"
+    ):
         raise RuntimeError(
             "PRINTPIPE_COMFYUI_IMAGE_PATHS is required so the adapter injects "
             "PrintPipe's reference image/frame into the workflow. Set "
             "PRINTPIPE_COMFYUI_ALLOW_NO_SOURCE_PATCH=1 only for prompt-only workflows."
         )
 
-    comfy_url = _comfy_url()
     prompt_id = _queue_prompt(comfy_url, workflow)
-    history = _wait_for_history(comfy_url, prompt_id)
+    history = _wait_for_history(comfy_url, prompt_id, params)
     file_info = _first_3d_output(history, args.output_format)
     _download_view(comfy_url, file_info, args.output)
 

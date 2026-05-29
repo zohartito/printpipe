@@ -59,15 +59,18 @@ To scaffold a concrete ComfyUI API adapter handoff instead of starting from a bl
 
 ```bash
 printpipe media-meshgen-template --preset comfyui-api --output scripts/media_meshgen_adapter.py
-export PRINTPIPE_MEDIA_MESHGEN_COMMAND="$(pwd)/scripts/media_meshgen_adapter.py"
+printpipe media-meshgen-configure \
+  --command "python scripts/media_meshgen_adapter.py" \
+  --params-json '{"comfyui_url":"http://127.0.0.1:8188","comfyui_workflow":"workflows/image_to_glb.json","comfyui_image_paths":["12.inputs.image"]}'
 printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke --output-format glb
 printpipe media-meshgen-smoke-status --runs-dir runs --strict
 ```
 
 The generated script is executable and intentionally exits with an adapter
-setup error until `PRINTPIPE_COMFYUI_WORKFLOW` points at a real exported
+setup error until the saved `comfyui_workflow` path points at a real exported
 ComfyUI API workflow ending in `SaveGLB`, with prompt/image patch paths supplied
-as needed. Use `--preset generic` if you want the blank adapter protocol stub.
+as needed. Environment variables like `PRINTPIPE_COMFYUI_WORKFLOW` still override
+saved params. Use `--preset generic` if you want the blank adapter protocol stub.
 For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
 
 ```bash

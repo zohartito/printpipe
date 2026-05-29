@@ -1282,6 +1282,9 @@ def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
     assert 'action="/media-meshgen/smoke"' in response.text
     assert 'name="preset"' in response.text
     assert 'name="command"' in response.text
+    assert 'name="comfyui_workflow"' in response.text
+    assert 'name="comfyui_image_paths"' in response.text
+    assert 'name="params_json"' in response.text
     assert 'name="reference"' in response.text
     assert 'name="output_format"' in response.text
     assert 'value="comfyui-api"' in response.text
@@ -1343,6 +1346,38 @@ def test_post_media_meshgen_configure_writes_project_config_and_redirects(
     assert config["media_meshgen_command"] == "python scripts/media_meshgen_adapter.py"
 
 
+def test_post_media_meshgen_configure_writes_comfyui_params_and_redirects(
+    tmp_path: Path,
+):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+
+    response = app.handle(
+        "/media-meshgen/configure",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=(
+            b"command=python+scripts%2Fmedia_meshgen_adapter.py"
+            b"&comfyui_url=http%3A%2F%2F127.0.0.1%3A8188"
+            b"&comfyui_workflow=workflows%2Fimage_to_glb.json"
+            b"&comfyui_image_paths=12.inputs.image%2C13.inputs.image"
+            b"&comfyui_prompt_paths=6.inputs.text"
+            b"&comfyui_allow_no_source_patch=1"
+        ),
+    )
+
+    config = json.loads((tmp_path / ".printpipe" / "config.json").read_text())
+    assert response.status == 303
+    assert response.header("Location") == "/#media-meshgen-setup"
+    assert config["media_meshgen_command"] == "python scripts/media_meshgen_adapter.py"
+    assert config["media_meshgen_params"] == {
+        "comfyui_allow_no_source_patch": True,
+        "comfyui_image_paths": ["12.inputs.image", "13.inputs.image"],
+        "comfyui_prompt_paths": ["6.inputs.text"],
+        "comfyui_url": "http://127.0.0.1:8188",
+        "comfyui_workflow": "workflows/image_to_glb.json",
+    }
+
+
 def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
     tmp_path: Path,
 ):
@@ -1400,6 +1435,74 @@ def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
     assert payload["command"] == command
     assert payload["output_path"].endswith(".glb")
     assert (smoke_paths[0].parents[1] / payload["output_path"]).exists()
+
+
+def test_post_media_meshgen_smoke_forwards_saved_adapter_params(tmp_path: Path):
+    source_mesh = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    fake_adapter = tmp_path / "fake_media_adapter.py"
+    fake_adapter.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "import json",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--output', required=True)",
+                "parser.add_argument('--params-json')",
+                "args, _ = parser.parse_known_args()",
+                f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
+                "Path(args.output).with_suffix('.params.json').write_text(args.params_json or '{}', encoding='utf-8')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runs_dir = tmp_path / "runs"
+    command = f"python {fake_adapter}"
+    (tmp_path / ".printpipe").mkdir()
+    (tmp_path / ".printpipe" / "config.json").write_text(
+        json.dumps(
+            {
+                "media_meshgen_command": command,
+                "media_meshgen_params": {
+                    "comfyui_workflow": "workflows/image_to_glb.json",
+                    "comfyui_image_paths": ["12.inputs.image"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = create_app(runs_dir=runs_dir, workspace_dir=tmp_path)
+    body, content_type = _multipart_form_body(
+        fields={"prompt": "printable hook", "output_format": "glb"},
+        file_field="reference",
+        filename="reference.png",
+        content_type="image/png",
+        file_content=b"fake image",
+    )
+
+    response = app.handle(
+        "/media-meshgen/smoke",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    smoke_path = next(runs_dir.glob("*/20_meshgen/smoke.json"))
+    payload = json.loads(smoke_path.read_text(encoding="utf-8"))
+    params_path = (smoke_path.parent / "media_command.params.json")
+    params = json.loads(params_path.read_text(encoding="utf-8"))
+    assert response.status == 303
+    assert payload["status"] == "succeeded"
+    assert params["comfyui_workflow"] == "workflows/image_to_glb.json"
+    assert params["comfyui_image_paths"] == ["12.inputs.image"]
+    assert params["smoke"] is True
 
 
 def test_post_media_meshgen_smoke_requires_reference(tmp_path: Path):

@@ -77,6 +77,15 @@ printpipe media-meshgen-configure --command "printpipe media-meshgen-heightfield
 ```
 
 That writes `.printpipe/config.json`, which is intentionally ignored by git.
+For a ComfyUI API workflow, persist the workflow and patch paths beside the
+command:
+
+```bash
+printpipe media-meshgen-template --preset comfyui-api --output scripts/media_meshgen_adapter.py
+printpipe media-meshgen-configure \
+  --command "python scripts/media_meshgen_adapter.py" \
+  --params-json '{"comfyui_workflow":"workflows/image_to_glb.json","comfyui_image_paths":["12.inputs.image"]}'
+```
 
 The local web app also exposes the same proof surface on the home page and at
 `/media-meshgen-smoke-status.json`.

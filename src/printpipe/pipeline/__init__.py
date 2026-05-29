@@ -16,6 +16,7 @@ from printpipe.bambu.threemf import BambuProfileIds, GuiSafeTransform, validate_
 from printpipe.bambu.threemf.mesh_adapter import write_bundle_from_ascii_stl
 from printpipe.calibration import write_flex_coupon_artifacts
 from printpipe.contracts import Artifact, ArtifactKind, InputKind, StageReceipt, StageStatus
+from printpipe.config import configured_media_meshgen_params
 from printpipe.geometry import (
     BedSize,
     candidate_rotations,
@@ -279,7 +280,10 @@ def run_existing_mesh_pipeline_on_layout(
             reference_images=reference_paths,
             output_formats=("stl", "glb", "obj"),
             prompt_hint=prompt_hint,
-            provider_params={"original_input": str(layout.original_input)},
+            provider_params={
+                **configured_media_meshgen_params(),
+                "original_input": str(layout.original_input),
+            },
         )
 
     mesh_result = generate_with_retries(provider, request, layout)

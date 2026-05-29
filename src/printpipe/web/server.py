@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
-from printpipe.config import configured_media_meshgen_command, write_project_config
 from printpipe.beta.beta_plan import build_beta_action_plan
 from printpipe.beta.feedback import (
     FeedbackArtifact,
@@ -36,6 +35,11 @@ from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_start import start_physical_validation
 from printpipe.beta.physical_status import build_physical_validation_status
+from printpipe.config import (
+    configured_media_meshgen_command,
+    configured_media_meshgen_params,
+    write_project_config,
+)
 from printpipe.env.doctor import build_environment_report
 from printpipe.final_plan import build_final_action_plan, build_final_next_action_payload
 from printpipe.web.final_readiness import (
@@ -462,7 +466,10 @@ class PrintPipeWebApp:
                     "Media meshgen command is required.",
                 )
             write_project_config(
-                updates={"media_meshgen_command": command},
+                updates={
+                    "media_meshgen_command": command,
+                    **_media_meshgen_config_updates_from_fields(fields),
+                },
                 cwd=self.workspace_dir,
             )
         except _FormError as exc:
@@ -515,6 +522,7 @@ class PrintPipeWebApp:
                     command=command,
                     output_format=_media_smoke_output_format(form.fields),
                     prompt=form.fields.get("prompt") or None,
+                    config_cwd=self.workspace_dir,
                 )
         except _FormError as exc:
             return WebResponse.from_text(
@@ -1294,6 +1302,7 @@ class PrintPipeWebApp:
 
     def _render_media_meshgen_setup_panel(self) -> str:
         current_command = configured_media_meshgen_command(cwd=self.workspace_dir)
+        current_params = configured_media_meshgen_params(cwd=self.workspace_dir)
         template_path = self.workspace_dir / "scripts" / "media_meshgen_adapter.py"
         preset_options = "".join(
             f'<option value="{escape(preset, quote=True)}">{escape(_media_template_preset_label(preset))}</option>'
@@ -1333,6 +1342,46 @@ class PrintPipeWebApp:
                     '            <input id="media-meshgen-command" name="command" '
                     'type="text" placeholder="python scripts/media_meshgen_adapter.py" '
                     f'value="{escape(current_command, quote=True)}">'
+                ),
+                '            <label for="media-comfyui-url">ComfyUI URL</label>',
+                (
+                    '            <input id="media-comfyui-url" name="comfyui_url" '
+                    'type="text" placeholder="http://127.0.0.1:8188" '
+                    f'value="{escape(str(current_params.get("comfyui_url", "")), quote=True)}">'
+                ),
+                '            <label for="media-comfyui-workflow">ComfyUI workflow JSON</label>',
+                (
+                    '            <input id="media-comfyui-workflow" name="comfyui_workflow" '
+                    'type="text" placeholder="workflows/image_to_glb.json" '
+                    f'value="{escape(str(current_params.get("comfyui_workflow", "")), quote=True)}">'
+                ),
+                '            <label for="media-comfyui-image-paths">Image patch paths</label>',
+                (
+                    '            <input id="media-comfyui-image-paths" name="comfyui_image_paths" '
+                    'type="text" placeholder="12.inputs.image" '
+                    f'value="{escape(_comma_join_param(current_params.get("comfyui_image_paths")), quote=True)}">'
+                ),
+                '            <label for="media-comfyui-prompt-paths">Prompt patch paths</label>',
+                (
+                    '            <input id="media-comfyui-prompt-paths" name="comfyui_prompt_paths" '
+                    'type="text" placeholder="6.inputs.text" '
+                    f'value="{escape(_comma_join_param(current_params.get("comfyui_prompt_paths")), quote=True)}">'
+                ),
+                '            <label for="media-comfyui-seed-paths">Seed patch paths</label>',
+                (
+                    '            <input id="media-comfyui-seed-paths" name="comfyui_seed_paths" '
+                    'type="text" placeholder="3.inputs.seed" '
+                    f'value="{escape(_comma_join_param(current_params.get("comfyui_seed_paths")), quote=True)}">'
+                ),
+                (
+                    '            <label><input name="comfyui_allow_no_source_patch" type="checkbox" value="1"'
+                    f'{_checked(bool(current_params.get("comfyui_allow_no_source_patch")))}> '
+                    "Prompt-only workflow has no image patch</label>"
+                ),
+                '            <label for="media-params-json">Extra params JSON</label>',
+                (
+                    '            <textarea id="media-params-json" name="params_json" '
+                    'placeholder=\'{"model_version":"..."}\'></textarea>'
                 ),
                 '            <button type="submit">Save media command</button>',
                 "          </form>",
@@ -3025,6 +3074,58 @@ def _media_smoke_output_format(fields: dict[str, str]) -> str:
             "Media smoke output format must be stl, glb, or obj.",
         )
     return output_format
+
+
+def _media_meshgen_config_updates_from_fields(fields: dict[str, str]) -> dict[str, Any]:
+    raw_params = fields.get("params_json", "").strip()
+    params = _json_object_form_field(raw_params) if raw_params else {}
+    params.update(_comfyui_params_from_fields(fields))
+    return {"media_meshgen_params": params} if params else {}
+
+
+def _comfyui_params_from_fields(fields: dict[str, str]) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+    for key in ("comfyui_url", "comfyui_workflow"):
+        value = fields.get(key, "").strip()
+        if value:
+            params[key] = value
+    for key in (
+        "comfyui_image_paths",
+        "comfyui_prompt_paths",
+        "comfyui_seed_paths",
+    ):
+        values = _split_comma_field(fields.get(key, ""))
+        if values:
+            params[key] = values
+    if fields.get("comfyui_allow_no_source_patch", "").strip() in {"1", "on", "true"}:
+        params["comfyui_allow_no_source_patch"] = True
+    return params
+
+
+def _json_object_form_field(raw: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Media params JSON must be an object.") from exc
+    if not isinstance(payload, dict):
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Media params JSON must be an object.")
+    return payload
+
+
+def _split_comma_field(value: str) -> list[str]:
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def _comma_join_param(value: Any) -> str:
+    if isinstance(value, list):
+        return ", ".join(str(part) for part in value)
+    if isinstance(value, str):
+        return value
+    return ""
+
+
+def _checked(enabled: bool) -> str:
+    return " checked" if enabled else ""
 
 
 def _safe_upload_filename(filename: str) -> str:

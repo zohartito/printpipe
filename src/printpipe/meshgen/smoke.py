@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from printpipe.config import configured_media_meshgen_command
+from printpipe.config import configured_media_meshgen_command, configured_media_meshgen_params
 from printpipe.contracts import InputKind, StageStatus
 from printpipe.inputs import classify_input_path, prepare_input
 from printpipe.meshgen.contracts import MeshGenRequest, MeshGenResult, MeshGenProvider
@@ -31,6 +31,7 @@ def run_media_meshgen_smoke(
     command: str | None = None,
     output_format: str = "stl",
     prompt: str | None = None,
+    config_cwd: Path | None = None,
 ) -> dict[str, Any]:
     """Run configured media meshgen only, writing a narrow smoke receipt."""
 
@@ -50,7 +51,11 @@ def run_media_meshgen_smoke(
         output_formats=(output_format,),
         prompt_hint=prompt,
         max_attempts=1,
-        provider_params={"smoke": True, "original_input": str(layout.original_input)},
+        provider_params={
+            **configured_media_meshgen_params(cwd=config_cwd),
+            "smoke": True,
+            "original_input": str(layout.original_input),
+        },
     )
     result = generate_with_retries(provider, request, layout)
     return _write_smoke_receipt(

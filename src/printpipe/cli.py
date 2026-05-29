@@ -252,6 +252,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="PRINTPIPE_MEDIA_MESHGEN_COMMAND-compatible adapter command.",
     )
     media_configure.add_argument(
+        "--params-json",
+        help=(
+            "Optional JSON object, or path to one, with adapter params to pass as "
+            "--params-json during media runs."
+        ),
+    )
+    media_configure.add_argument(
         "--config",
         dest="config_path",
         type=Path,
@@ -1399,10 +1406,14 @@ def main(argv: list[str] | None = None) -> int:
         return _media_meshgen_heightfield(args)
 
     if args.command == "media-meshgen-configure":
-        return _media_meshgen_configure(
-            command=args.media_meshgen_command,
-            config_path=args.config_path,
-        )
+        try:
+            return _media_meshgen_configure(
+                command=args.media_meshgen_command,
+                params_json=args.params_json,
+                config_path=args.config_path,
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
 
     if args.command == "media-meshgen-smoke":
         return _media_meshgen_smoke(
@@ -2336,17 +2347,43 @@ def _media_meshgen_heightfield(args: argparse.Namespace) -> int:
     return 0
 
 
-def _media_meshgen_configure(*, command: str, config_path: Path | None) -> int:
+def _media_meshgen_configure(
+    *,
+    command: str,
+    params_json: str | None,
+    config_path: Path | None,
+) -> int:
     from printpipe.config import write_project_config
 
+    updates: dict[str, Any] = {"media_meshgen_command": command}
+    if params_json:
+        updates["media_meshgen_params"] = _json_object_arg(params_json)
     written = write_project_config(
-        updates={"media_meshgen_command": command},
+        updates=updates,
         config_path=config_path,
     )
     print(f"wrote PrintPipe config: {written}")
     print(f"media meshgen command: {command}")
+    if params_json:
+        print("media meshgen params: configured")
     print("follow-up: printpipe doctor")
     return 0
+
+
+def _json_object_arg(value: str) -> dict[str, Any]:
+    stripped = value.strip()
+    if stripped.startswith("{"):
+        raw = stripped
+    else:
+        candidate = Path(value).expanduser()
+        raw = candidate.read_text(encoding="utf-8") if candidate.exists() else value
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"expected JSON object or JSON file path: {value}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("expected JSON object for media meshgen params")
+    return payload
 
 
 def _media_meshgen_smoke(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -138,3 +139,44 @@ def test_comfyui_api_template_fails_closed_without_workflow(tmp_path: Path, caps
 
     assert result.returncode == 2
     assert "PRINTPIPE_COMFYUI_WORKFLOW is required" in result.stderr
+
+
+def test_comfyui_api_template_reads_inline_params_json(tmp_path: Path):
+    output_path = tmp_path / "adapters" / "media_meshgen_adapter.py"
+    missing_workflow = tmp_path / "missing_workflow.json"
+    reference = tmp_path / "reference.png"
+    reference.write_bytes(b"fake image")
+
+    exit_code = main(
+        [
+            "media-meshgen-template",
+            "--preset",
+            "comfyui-api",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(output_path),
+            "--input-kind",
+            "image",
+            "--source",
+            str(reference),
+            "--output",
+            str(tmp_path / "mesh.glb"),
+            "--output-format",
+            "glb",
+            "--params-json",
+            json.dumps({"comfyui_workflow": str(missing_workflow)}),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert exit_code == 0
+    assert result.returncode == 2
+    assert f"PRINTPIPE_COMFYUI_WORKFLOW does not exist: {missing_workflow}" in result.stderr

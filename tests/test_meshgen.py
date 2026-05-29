@@ -298,6 +298,48 @@ def test_media_command_provider_runs_generic_command_and_writes_receipts(tmp_pat
     assert summary["output_paths"]["normalized_mesh_path"] == "20_meshgen/media_command.stl"
 
 
+def test_media_command_provider_forwards_provider_params_json(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    command_output = tmp_path / "generic-output.glb"
+    calls = []
+
+    def fake_runner(argv, *, timeout_seconds):
+        del timeout_seconds
+        calls.append(tuple(argv))
+        command_output.write_bytes(b"glTF")
+        return subprocess.CompletedProcess(
+            argv,
+            0,
+            stdout=json.dumps({"output_path": str(command_output)}),
+            stderr="",
+        )
+
+    layout = create_run(source, tmp_path / "runs", run_id="run-media-command-params")
+    provider = MediaCommandMeshProvider(command=("media-meshgen",), runner=fake_runner)
+    request = MeshGenRequest(
+        input_kind=InputKind.IMAGE,
+        source_paths=(layout.original_input,),
+        output_formats=("glb",),
+        provider_params={
+            "comfyui_workflow": "workflows/image_to_glb.json",
+            "comfyui_url": "http://127.0.0.1:8188",
+            "comfyui_image_paths": ["12.inputs.image"],
+        },
+    )
+
+    result = provider.generate(request, layout)
+
+    argv = calls[0]
+    params = json.loads(argv[argv.index("--params-json") + 1])
+    assert result.status == StageStatus.SUCCEEDED
+    assert params == {
+        "comfyui_image_paths": ["12.inputs.image"],
+        "comfyui_url": "http://127.0.0.1:8188",
+        "comfyui_workflow": "workflows/image_to_glb.json",
+    }
+
+
 def test_media_meshgen_readiness_treats_builtin_heightfield_as_plumbing_only():
     readiness = build_media_meshgen_readiness(
         env={"PRINTPIPE_MEDIA_MESHGEN_COMMAND": "printpipe media-meshgen-heightfield"}

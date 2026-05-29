@@ -12,6 +12,7 @@ from typing import Any
 CONFIG_PATH_ENV = "PRINTPIPE_CONFIG_PATH"
 MEDIA_MESHGEN_COMMAND_ENV = "PRINTPIPE_MEDIA_MESHGEN_COMMAND"
 DEFAULT_CONFIG_PATH = Path(".printpipe") / "config.json"
+MEDIA_MESHGEN_PARAMS_KEY = "media_meshgen_params"
 
 
 def resolve_config_path(
@@ -76,3 +77,14 @@ def configured_media_meshgen_command(
     config = load_project_config(env=env, cwd=cwd, config_path=config_path)
     command = config.get("media_meshgen_command")
     return command.strip() if isinstance(command, str) else ""
+
+
+def configured_media_meshgen_params(
+    *,
+    env: Mapping[str, str] | None = None,
+    cwd: Path | None = None,
+    config_path: Path | None = None,
+) -> dict[str, Any]:
+    config = load_project_config(env=env, cwd=cwd, config_path=config_path)
+    params = config.get(MEDIA_MESHGEN_PARAMS_KEY)
+    return dict(params) if isinstance(params, Mapping) else {}

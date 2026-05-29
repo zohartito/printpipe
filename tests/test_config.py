@@ -7,6 +7,7 @@ from printpipe.cli import build_parser, main
 from printpipe.config import (
     CONFIG_PATH_ENV,
     configured_media_meshgen_command,
+    configured_media_meshgen_params,
     load_project_config,
 )
 from printpipe.env.doctor import build_environment_report
@@ -31,6 +32,26 @@ def test_media_meshgen_configure_parser_accepts_command_and_config_path(tmp_path
     assert args.config_path == config_path
 
 
+def test_media_meshgen_configure_parser_accepts_params_json(tmp_path: Path):
+    parser = build_parser()
+    config_path = tmp_path / "config.json"
+
+    args = parser.parse_args(
+        [
+            "media-meshgen-configure",
+            "--command",
+            "python scripts/media_meshgen_adapter.py",
+            "--params-json",
+            '{"comfyui_workflow":"workflows/image_to_glb.json"}',
+            "--config",
+            str(config_path),
+        ]
+    )
+
+    assert args.command == "media-meshgen-configure"
+    assert args.params_json == '{"comfyui_workflow":"workflows/image_to_glb.json"}'
+
+
 def test_media_meshgen_configure_writes_project_config(
     tmp_path: Path,
     capsys,
@@ -52,6 +73,64 @@ def test_media_meshgen_configure_writes_project_config(
     assert exit_code == 0
     assert payload["media_meshgen_command"] == "printpipe media-meshgen-heightfield"
     assert f"wrote PrintPipe config: {config_path}" in captured.out
+
+
+def test_media_meshgen_configure_writes_project_config_params(
+    tmp_path: Path,
+    capsys,
+):
+    config_path = tmp_path / ".printpipe" / "config.json"
+
+    exit_code = main(
+        [
+            "media-meshgen-configure",
+            "--command",
+            "python scripts/media_meshgen_adapter.py",
+            "--params-json",
+            json.dumps(
+                {
+                    "comfyui_url": "http://127.0.0.1:8188",
+                    "comfyui_workflow": "workflows/image_to_glb.json",
+                    "comfyui_image_paths": ["12.inputs.image"],
+                }
+            ),
+            "--config",
+            str(config_path),
+        ]
+    )
+
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert payload["media_meshgen_command"] == "python scripts/media_meshgen_adapter.py"
+    assert payload["media_meshgen_params"] == {
+        "comfyui_image_paths": ["12.inputs.image"],
+        "comfyui_url": "http://127.0.0.1:8188",
+        "comfyui_workflow": "workflows/image_to_glb.json",
+    }
+    assert f"wrote PrintPipe config: {config_path}" in captured.out
+
+
+def test_configured_media_meshgen_params_reads_project_config(tmp_path: Path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "media_meshgen_params": {
+                    "comfyui_workflow": "workflows/image_to_glb.json",
+                    "comfyui_image_paths": ["12.inputs.image"],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    params = configured_media_meshgen_params(config_path=config_path)
+
+    assert params == {
+        "comfyui_image_paths": ["12.inputs.image"],
+        "comfyui_workflow": "workflows/image_to_glb.json",
+    }
 
 
 def test_configured_media_meshgen_command_uses_env_before_project_config(

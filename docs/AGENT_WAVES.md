@@ -1992,3 +1992,15 @@ Status: complete for making the media-provider handoff more concrete without pre
 5. Done: final-next now recommends the ComfyUI preset scaffold plus a GLB smoke command when no semantic media provider is configured.
 6. Done: focused CLI/web tests cover preset parsing, ComfyUI scaffold output, fail-closed behavior, browser preset writing, and browser GLB smoke request plumbing.
 7. Boundary: this does not install ComfyUI, supply API credentials, create a Tripo/Meshy/Hunyuan workflow, run a live semantic smoke, or close the media meshgen provider gate.
+
+## Wave 182 - ComfyUI Media Adapter Project Params
+
+Status: complete for persisting ComfyUI adapter setup details and passing them into media smoke/run commands.
+
+1. Done: `.printpipe/config.json` can now store `media_meshgen_params` beside `media_meshgen_command`.
+2. Done: `printpipe media-meshgen-configure` accepts `--params-json` as an inline JSON object or path to a JSON file.
+3. Done: normal media runs and `media-meshgen-smoke` merge saved project params into the adapter `--params-json` payload while preserving run-specific fields like `original_input` and `smoke`.
+4. Done: the ComfyUI adapter preset reads `--params-json` as inline JSON or a JSON file and uses those values as fallbacks for ComfyUI URL, workflow path, prompt/image/seed patch paths, timeout, and no-source-patch mode.
+5. Done: the browser media setup form now exposes ComfyUI URL, workflow, image/prompt/seed patch paths, prompt-only no-source mode, and extra JSON params.
+6. Done: tests cover CLI config writes, config reads, adapter params parsing, web form rendering, web config writes, and browser smoke forwarding saved params.
+7. Boundary: this still does not provide a real ComfyUI workflow, model weights, provider API key, or successful semantic smoke receipt.
