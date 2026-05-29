@@ -17,6 +17,7 @@ from printpipe.meshgen import (
     MeshGenTiming,
     PlaceholderMeshProvider,
     available_provider_ids,
+    build_media_meshgen_readiness,
     default_registry,
     generate_with_retries,
     get_provider,
@@ -295,6 +296,24 @@ def test_media_command_provider_runs_generic_command_and_writes_receipts(tmp_pat
     summary = json.loads((layout.meshgen_dir / "summary.json").read_text())
     assert summary["provider_id"] == "media_command"
     assert summary["output_paths"]["normalized_mesh_path"] == "20_meshgen/media_command.stl"
+
+
+def test_media_meshgen_readiness_treats_builtin_heightfield_as_plumbing_only():
+    readiness = build_media_meshgen_readiness(
+        env={"PRINTPIPE_MEDIA_MESHGEN_COMMAND": "printpipe media-meshgen-heightfield"}
+    )
+
+    provider = next(
+        item
+        for item in readiness["providers"]
+        if item["provider_id"] == "media_command"
+    )
+    assert readiness["overall_status"] == "action_required"
+    assert readiness["live_media_provider_count"] == 0
+    assert readiness["plumbing_only_media_provider_count"] == 1
+    assert "heightfield" in readiness["message"]
+    assert "semantic" in readiness["action"]
+    assert provider["plumbing_only"] is True
 
 
 def test_placeholder_providers_are_healthy_but_not_implemented(tmp_path: Path):

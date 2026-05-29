@@ -1947,3 +1947,14 @@ Status: complete for creating the release-distribution handoff from the local br
 4. Done: the route redirects back to `/#release-distribution-plan` so the refreshed panel can show the handoff state.
 5. Done: web tests cover both the rendered browser form and the POST route writing `release_distribution_handoff.md`.
 6. Boundary: this starts an operator handoff only. It does not sign, notarize, build installers, create a release manifest, or close the distribution gates.
+
+## Wave 178 - Media Heightfield Honesty Gate
+
+Status: complete for preventing plumbing smoke from closing the semantic media-provider gate.
+
+1. Done: media readiness now detects `media-meshgen-heightfield` as a built-in plumbing-only adapter.
+2. Done: the heightfield adapter still appears in provider summaries, but increments `plumbing_only_media_provider_count` instead of `live_media_provider_count`.
+3. Done: readiness/final-plan now keep the media meshgen gate action-required when heightfield is the only configured media command.
+4. Done: final-plan no longer recommends configuring a successful heightfield smoke command as the semantic media provider.
+5. Done: project-configured `media-meshgen-smoke` runs now write the resolved command into `20_meshgen/smoke.json`.
+6. Boundary: this does not install Hunyuan3D, Meshy, Rodin, Chimney, or another product-quality provider. It makes the remaining semantic-provider gap visible again.

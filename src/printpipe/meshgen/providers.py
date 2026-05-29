@@ -810,6 +810,7 @@ def build_media_meshgen_readiness(
     )
     provider_summaries: list[dict[str, Any]] = []
     live_media_provider_count = 0
+    plumbing_only_media_provider_count = 0
     for provider in actual_registry.values():
         health = provider.healthcheck()
         input_kinds = tuple(kind.value for kind in provider.capabilities.input_kinds)
@@ -817,8 +818,16 @@ def build_media_meshgen_readiness(
             input_kind in provider.capabilities.input_kinds
             for input_kind in MEDIA_MESHGEN_INPUT_KINDS
         )
+        plumbing_only = (
+            supports_media
+            and health.status == StageStatus.SUCCEEDED
+            and _is_builtin_heightfield_provider(provider)
+        )
         if supports_media and health.status == StageStatus.SUCCEEDED:
-            live_media_provider_count += 1
+            if plumbing_only:
+                plumbing_only_media_provider_count += 1
+            else:
+                live_media_provider_count += 1
         provider_summaries.append(
             {
                 "provider_id": provider.provider_id,
@@ -829,26 +838,41 @@ def build_media_meshgen_readiness(
                 "supports_media": supports_media,
                 "supports_cloud": provider.capabilities.supports_cloud,
                 "supports_local": provider.capabilities.supports_local,
+                "plumbing_only": plumbing_only,
             }
         )
 
     ready = live_media_provider_count > 0
+    if ready:
+        message = "At least one live image/GIF/video meshgen provider is configured."
+        action = "No action needed."
+    elif plumbing_only_media_provider_count:
+        message = (
+            "Only the built-in heightfield media meshgen adapter is configured. "
+            "It proves image/GIF/video plumbing, not semantic 3D reconstruction."
+        )
+        action = (
+            "Configure a semantic media meshgen adapter such as Hunyuan3D, "
+            "a hosted provider, or a custom command, then run "
+            "printpipe media-meshgen-smoke."
+        )
+    else:
+        message = MEDIA_MESHGEN_UNAVAILABLE_MESSAGE
+        action = MEDIA_MESHGEN_SETUP_ACTION
     return {
         "overall_status": "ready" if ready else "action_required",
         "live_media_provider_count": live_media_provider_count,
+        "plumbing_only_media_provider_count": plumbing_only_media_provider_count,
         "required_input_kinds": [kind.value for kind in MEDIA_MESHGEN_INPUT_KINDS],
-        "message": (
-            "At least one live image/GIF/video meshgen provider is configured."
-            if ready
-            else MEDIA_MESHGEN_UNAVAILABLE_MESSAGE
-        ),
-        "action": (
-            "No action needed."
-            if ready
-            else MEDIA_MESHGEN_SETUP_ACTION
-        ),
+        "message": message,
+        "action": action,
         "providers": provider_summaries,
     }
+
+
+def _is_builtin_heightfield_provider(provider: MeshGenProvider) -> bool:
+    command = tuple(str(part) for part in getattr(provider, "command", ()) or ())
+    return any("media-meshgen-heightfield" in part for part in command)
 
 
 def default_registry() -> dict[str, MeshGenProvider]:

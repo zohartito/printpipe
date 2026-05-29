@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from printpipe.config import configured_media_meshgen_command
 from printpipe.contracts import InputKind, StageStatus
 from printpipe.inputs import classify_input_path, prepare_input
 from printpipe.meshgen.contracts import MeshGenRequest, MeshGenResult, MeshGenProvider
@@ -73,7 +74,7 @@ def _smoke_provider(*, command: str | None) -> MeshGenProvider:
 def _configured_smoke_command(command: str | None) -> str:
     if command:
         return command.strip()
-    media_command = os.environ.get(MEDIA_MESHGEN_COMMAND_ENV, "").strip()
+    media_command = configured_media_meshgen_command()
     if media_command:
         return media_command
     hunyuan_command = os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip()

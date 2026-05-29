@@ -159,6 +159,43 @@ def test_media_meshgen_action_plan_configures_tested_smoke_command(
             "overall_status": "passed",
             "successful_smoke_count": 1,
             "latest_successful_smoke": {
+                "run_id": "semantic-smoke",
+                "provider_id": "media_command",
+                "command": "python scripts/media_meshgen_adapter.py",
+            },
+        },
+    )
+
+    action = plan["actions"][0]
+    assert action["id"] == "configure_tested_media_meshgen_provider"
+    assert action["start_command"] == (
+        "printpipe media-meshgen-configure --command 'python scripts/media_meshgen_adapter.py'"
+    )
+    assert "semantic-smoke" in action["detail"]
+    assert action["followup_command"].endswith("--strict")
+
+
+def test_media_meshgen_action_plan_does_not_promote_builtin_heightfield_smoke(
+    tmp_path: Path,
+) -> None:
+    plan = build_media_meshgen_action_plan(
+        tmp_path / "runs",
+        environment_report={
+            "meshgen": {
+                "overall_status": "action_required",
+                "live_media_provider_count": 0,
+                "plumbing_only_media_provider_count": 1,
+                "message": (
+                    "Only built-in heightfield plumbing smoke is configured; "
+                    "semantic reconstruction still needs a real provider."
+                ),
+                "action": "Configure a semantic media meshgen provider.",
+            }
+        },
+        smoke_status={
+            "overall_status": "passed",
+            "successful_smoke_count": 1,
+            "latest_successful_smoke": {
                 "run_id": "heightfield-smoke",
                 "provider_id": "media_command",
                 "command": "printpipe media-meshgen-heightfield",
@@ -167,12 +204,10 @@ def test_media_meshgen_action_plan_configures_tested_smoke_command(
     )
 
     action = plan["actions"][0]
-    assert action["id"] == "configure_tested_media_meshgen_provider"
-    assert action["start_command"] == (
-        "printpipe media-meshgen-configure --command 'printpipe media-meshgen-heightfield'"
-    )
-    assert "heightfield-smoke" in action["detail"]
-    assert action["followup_command"].endswith("--strict")
+    assert plan["overall_status"] == "action_required"
+    assert action["id"] == "configure_media_meshgen_provider"
+    assert "semantic" in action["detail"]
+    assert "media-meshgen-template" in action["start_command"]
 
 
 def test_media_meshgen_action_plan_requires_smoke_when_provider_is_ready(

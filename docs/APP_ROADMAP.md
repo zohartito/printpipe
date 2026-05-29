@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 177: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 178: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 177 added browser-side release handoff creation. The home-page release distribution panel now exposes a `POST /release/start` form when the release plan has CLI handoff commands, writes the same `release_distribution_handoff.md` as `printpipe release-start`, and redirects back to the release panel without creating signed-distribution evidence. Waves 176, 175, and 174 added browser trusted-user feedback intake, physical evidence intake, and physical starter packets. The remaining open gates are real-world evidence gates: actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 178 tightened media-meshgen honesty. The built-in heightfield adapter still proves image/GIF/video plumbing and can write smoke receipts, but it no longer counts as the semantic media reconstruction provider in readiness or final-plan gates. Project-configured media smoke runs now record the resolved adapter command in `20_meshgen/smoke.json`, so future handoffs know exactly what was tested. Wave 177 added browser-side release handoff creation. The remaining open gates are real-world evidence gates: actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 

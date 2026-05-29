@@ -109,6 +109,63 @@ def test_media_meshgen_smoke_runs_configured_command_and_writes_receipt(
     assert (run_root / "20_meshgen" / "media_command.stl").exists()
 
 
+def test_media_meshgen_smoke_records_project_config_command(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+):
+    source_mesh = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    fake_adapter = tmp_path / "fake_media_adapter.py"
+    fake_adapter.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--output', required=True)",
+                "args, _ = parser.parse_known_args()",
+                f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config_path = tmp_path / ".printpipe" / "config.json"
+    config_path.parent.mkdir()
+    command = f"{sys.executable} {fake_adapter}"
+    config_path.write_text(
+        json.dumps({"media_meshgen_command": command}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(config_path))
+    monkeypatch.delenv("PRINTPIPE_MEDIA_MESHGEN_COMMAND", raising=False)
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "smoke-runs"
+
+    exit_code = main(
+        [
+            "media-meshgen-smoke",
+            str(source),
+            "--runs-dir",
+            str(runs_dir),
+        ]
+    )
+
+    capsys.readouterr()
+    assert exit_code == 0
+    run_root = next(runs_dir.iterdir())
+    payload = json.loads((run_root / "20_meshgen" / "smoke.json").read_text())
+    assert payload["status"] == "succeeded"
+    assert payload["command"] == command
+
+
 def test_media_meshgen_smoke_without_provider_fails_with_setup_action(
     tmp_path: Path,
     capsys,

@@ -128,9 +128,11 @@ def test_environment_report_counts_project_config_media_command_provider(
         provider["provider_id"]: provider
         for provider in report["meshgen"]["providers"]
     }
-    assert report["meshgen"]["overall_status"] == "ready"
-    assert report["meshgen"]["live_media_provider_count"] == 1
+    assert report["meshgen"]["overall_status"] == "action_required"
+    assert report["meshgen"]["live_media_provider_count"] == 0
+    assert report["meshgen"]["plumbing_only_media_provider_count"] == 1
     assert providers["media_command"]["status"] == "succeeded"
+    assert providers["media_command"]["plumbing_only"] is True
     assert "project config" in providers["media_command"]["message"]
 
 
@@ -158,9 +160,11 @@ def test_environment_report_reads_default_project_config_for_real_environment(
         provider["provider_id"]: provider
         for provider in report["meshgen"]["providers"]
     }
-    assert report["meshgen"]["overall_status"] == "ready"
-    assert report["meshgen"]["live_media_provider_count"] == 1
+    assert report["meshgen"]["overall_status"] == "action_required"
+    assert report["meshgen"]["live_media_provider_count"] == 0
+    assert report["meshgen"]["plumbing_only_media_provider_count"] == 1
     assert providers["media_command"]["status"] == "succeeded"
+    assert providers["media_command"]["plumbing_only"] is True
     assert "project config" in providers["media_command"]["message"]
 
 

@@ -232,6 +232,8 @@ def _tested_media_command_action(
     command = str(latest.get("command") or "").strip()
     if not command:
         return None
+    if _is_builtin_heightfield_command(command):
+        return None
     provider_id = str(latest.get("provider_id") or "")
     env_name = (
         HUNYUAN3D_COMMAND_ENV
@@ -268,6 +270,10 @@ def _tested_media_command_action(
         "input_type": "image/GIF/video",
         "latest_successful_smoke_run_id": run_id,
     }
+
+
+def _is_builtin_heightfield_command(command: str) -> bool:
+    return "media-meshgen-heightfield" in command
 
 
 def render_final_action_plan(plan: Mapping[str, Any]) -> str:
