@@ -33,6 +33,7 @@ from printpipe.web.final_readiness import (
     render_final_readiness_panel,
 )
 from printpipe.local_open import open_run_folder
+from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.packaging.release_plan import build_release_distribution_plan
 from printpipe.packaging.release_status import build_release_status_report
 from printpipe.pipeline import (
@@ -226,6 +227,8 @@ class PrintPipeWebApp:
             return self.readiness_response(
                 regression_manifest_path=self._regression_manifest_for_query(query)
             )
+        if path == "/media-meshgen-smoke-status.json":
+            return self.media_meshgen_smoke_status_response()
         if path == "/release-status.json":
             return self.release_status_response(
                 regression_manifest_path=self._regression_manifest_for_query(query)
@@ -389,6 +392,22 @@ class PrintPipeWebApp:
                     regression_manifest_path=manifest_path,
                 )
             )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+    def media_meshgen_smoke_status_response(self) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            return WebResponse.json(build_media_meshgen_smoke_status(self.runs_dir))
         except (OSError, ValueError) as exc:
             return WebResponse.from_text(
                 f"{exc}\n",
@@ -717,6 +736,7 @@ class PrintPipeWebApp:
                 self._render_release_status_panel(),
                 self._render_release_distribution_plan_panel(),
                 self._render_readiness_panel(),
+                self._render_media_meshgen_smoke_status_panel(),
                 self._render_physical_beta_gate_panel(),
                 self._render_physical_action_plan_panel(),
                 self._render_trusted_feedback_gate_panel(),
@@ -730,6 +750,7 @@ class PrintPipeWebApp:
                 f'      <p><a href="{escape(self._service_href("/release-status.json"), quote=True)}">Release status JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/release-plan.json"), quote=True)}">Release plan JSON</a></p>',
                 f'      <p><a href="{escape(self._service_href("/readiness.json"), quote=True)}">Readiness JSON</a></p>',
+                '      <p><a href="/media-meshgen-smoke-status.json">Media meshgen smoke JSON</a></p>',
                 '      <p><a href="/physical-plan.json">Physical plan JSON</a></p>',
                 '      <p><a href="/beta-feedback-status.json">Trusted-user feedback JSON</a></p>',
                 '      <p><a href="/beta-feedback-plan.json">Trusted-user feedback plan JSON</a></p>',
@@ -861,6 +882,48 @@ class PrintPipeWebApp:
                 f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
                 "      </div>",
                 f'      <div class="readiness-grid">{gate_cards}</div>',
+                "    </section>",
+            ]
+        )
+
+    def _render_media_meshgen_smoke_status_panel(self) -> str:
+        if self.runs_dir is None:
+            return ""
+        try:
+            status = build_media_meshgen_smoke_status(self.runs_dir)
+        except (OSError, ValueError):
+            return ""
+
+        overall = str(status.get("overall_status") or "unknown")
+        message = str(status.get("message") or "No media meshgen smoke status recorded.")
+        action = str(status.get("action") or "No action recorded.")
+        latest_value = status.get("latest_successful_smoke")
+        latest = latest_value if isinstance(latest_value, dict) else {}
+        latest_label = str(latest.get("run_id") or "none")
+        provider = str(latest.get("provider_id") or "none")
+        output_path = str(latest.get("output_path") or "none")
+        return "\n".join(
+            [
+                '    <section class="panel readiness-panel media-smoke-panel">',
+                "      <div>",
+                "        <h2>Media meshgen smoke</h2>",
+                f'        <p class="muted">overall: {escape(overall)}</p>',
+                "      </div>",
+                '      <div class="readiness-grid">',
+                f'        <article class="readiness-gate readiness-gate-{_class_name(overall)}">',
+                "          <span>Smoke receipts</span>",
+                f"          <strong>{escape(str(status.get('successful_smoke_count', 0)))} successful</strong>",
+                f"          <p>{escape(message)}</p>",
+                f'          <p class="muted">{escape(action)}</p>',
+                "        </article>",
+                f'        <article class="readiness-gate readiness-gate-{_class_name(overall)}">',
+                "          <span>Latest successful smoke</span>",
+                f"          <strong>{escape(latest_label)}</strong>",
+                f"          <p>Provider: {escape(provider)}</p>",
+                f'          <p class="muted">Output: {escape(output_path)}</p>',
+                "        </article>",
+                "      </div>",
+                '      <p class="muted"><a href="/media-meshgen-smoke-status.json">Media meshgen smoke JSON</a></p>',
                 "    </section>",
             ]
         )

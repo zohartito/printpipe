@@ -73,7 +73,8 @@ bundling, or slicing. Use it to prove the adapter writes a mesh before starting 
 full PrintPipe run. `printpipe readiness --strict` treats a configured provider
 without a successful smoke receipt as action-required instead of ready.
 Use `media-meshgen-smoke-status` to inspect the smoke receipts directly before
-debugging broader readiness gates.
+debugging broader readiness gates. The local web app mirrors this status on the
+home page and at `/media-meshgen-smoke-status.json`.
 
 If an OBJ, GLB, GLTF, or 3MF input fails at `mesh_repair` with a
 `printpipe[mesh-repair]` message, install the optional mesh repair dependencies

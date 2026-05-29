@@ -896,6 +896,61 @@ def test_home_response_renders_combined_readiness_summary(monkeypatch, tmp_path:
     assert "Print and record passed coupons." in response.text
 
 
+def test_media_meshgen_smoke_status_json_endpoint(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(
+        "printpipe.web.server.build_media_meshgen_smoke_status",
+        lambda runs_dir: {
+            "schema_version": 1,
+            "runs_dir": str(runs_dir),
+            "overall_status": "passed",
+            "smoke_receipt_count": 1,
+            "successful_smoke_count": 1,
+            "failed_smoke_count": 0,
+            "latest_successful_smoke": {
+                "run_id": "smoke-ok",
+                "provider_id": "media_command",
+                "output_path": "20_meshgen/media_command.stl",
+            },
+            "message": "1 successful media meshgen smoke receipt(s) found.",
+            "action": "No action needed.",
+        },
+    )
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/media-meshgen-smoke-status.json")
+
+    payload = json.loads(response.text)
+    assert response.status == 200
+    assert payload["overall_status"] == "passed"
+    assert payload["latest_successful_smoke"]["run_id"] == "smoke-ok"
+
+
+def test_home_response_renders_media_meshgen_smoke_status(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(
+        "printpipe.web.server.build_media_meshgen_smoke_status",
+        lambda runs_dir: {
+            "schema_version": 1,
+            "runs_dir": str(runs_dir),
+            "overall_status": "missing",
+            "smoke_receipt_count": 0,
+            "successful_smoke_count": 0,
+            "failed_smoke_count": 0,
+            "latest_successful_smoke": None,
+            "message": "No successful media meshgen smoke receipt found.",
+            "action": "Run printpipe media-meshgen-smoke reference.png --runs-dir runs",
+        },
+    )
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert "Media meshgen smoke" in response.text
+    assert "overall: missing" in response.text
+    assert "No successful media meshgen smoke receipt found." in response.text
+    assert "media-meshgen-smoke-status.json" in response.text
+
+
 def test_home_response_renders_release_status_summary(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         "printpipe.web.server.build_release_status_report",

@@ -57,6 +57,9 @@ printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
 printpipe media-meshgen-smoke-status --runs-dir runs --strict
 ```
 
+The local web app also exposes the same proof surface on the home page and at
+`/media-meshgen-smoke-status.json`.
+
 Optional media cleanup hooks:
 
 ```bash

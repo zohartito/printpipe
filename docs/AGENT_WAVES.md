@@ -1837,3 +1837,14 @@ Status: complete for making media meshgen smoke evidence directly inspectable fr
 4. Done: `--strict` returns exit code `2` unless at least one successful smoke receipt points at an existing output mesh.
 5. Done: human output shows runs dir, overall status, receipt counts, latest successful run, provider, output, and next action.
 6. Boundary: this is an evidence-inspection surface only. It does not install a provider, run a model, or close the physical/beta/signing gates.
+
+## Wave 168 - Media Meshgen Smoke Status Web Surface
+
+Status: complete for surfacing media meshgen smoke proof in the local browser UI.
+
+1. Done: added `/media-meshgen-smoke-status.json`.
+2. Done: the endpoint returns the same smoke status payload as `printpipe media-meshgen-smoke-status --json`.
+3. Done: the home page now renders a `Media meshgen smoke` panel with overall status, receipt counts, latest successful run, provider, output, message, and action.
+4. Done: the service-link area includes the media smoke JSON endpoint.
+5. Done: web tests cover both the JSON endpoint and home-page panel.
+6. Boundary: this still does not install or validate a live provider. It makes the missing or passed smoke evidence visible in the browser.
