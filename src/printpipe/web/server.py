@@ -25,6 +25,7 @@ from printpipe.beta.feedback import (
 )
 from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_plan import build_physical_validation_plan
+from printpipe.beta.physical_start import start_physical_validation
 from printpipe.beta.physical_status import build_physical_validation_status
 from printpipe.env.doctor import build_environment_report
 from printpipe.final_plan import build_final_action_plan, build_final_next_action_payload
@@ -200,6 +201,8 @@ class PrintPipeWebApp:
         path = split_target.path or "/"
         query = parse_qs(split_target.query, keep_blank_values=True)
         if request_method == "POST":
+            if path == "/physical/start":
+                return self.start_physical_response(headers=headers, body=body)
             if path == "/runs":
                 return self.create_run_response(headers=headers, body=body)
             if path.startswith(_RUNS_PREFIX):
@@ -351,6 +354,42 @@ class PrintPipeWebApp:
         except (FileNotFoundError, ValueError):
             return self.not_found_response()
         return WebResponse.redirect(f"/runs/{quote(run_id, safe='')}")
+
+    def start_physical_response(self, *, headers: Any | None, body: bytes) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+        try:
+            fields = _parse_edit_form(headers=headers, body=body)
+            family = fields.get("family", "").strip().lower()
+            if family not in {"pla", "petg", "tpu"}:
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "Physical validation family must be pla, petg, or tpu.",
+                )
+            start_physical_validation(
+                self.runs_dir,
+                family=family,
+                operator=fields.get("operator", "").strip(),
+            )
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+        return WebResponse.redirect("/#physical-action-plan")
 
     def home_response(self) -> WebResponse:
         return WebResponse.html(self.render_home())
@@ -1221,7 +1260,7 @@ class PrintPipeWebApp:
         command = "printpipe physical-plan --runs-dir runs"
         return "\n".join(
             [
-                '    <section class="panel physical-plan-panel">',
+                '    <section id="physical-action-plan" class="panel physical-plan-panel">',
                 "      <div>",
                 "        <h2>Physical action plan</h2>",
                 f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
@@ -1255,6 +1294,7 @@ class PrintPipeWebApp:
             else ""
         )
         start_command = str(action.get("start_command") or "")
+        start_form_markup = self._physical_start_form(action) if start_command else ""
         start_markup = (
             "\n".join(
                 [
@@ -1315,6 +1355,7 @@ class PrintPipeWebApp:
                 f'          <p class="muted">Required: {escape(required_text or "not recorded")}</p>',
                 file_markup,
                 setup_markup,
+                start_form_markup,
                 start_markup,
                 handoff_command_markup,
                 slice_command_markup,
@@ -1358,6 +1399,20 @@ class PrintPipeWebApp:
                     f"{escape(value)}</p>"
                 )
         return "\n".join(rows)
+
+    def _physical_start_form(self, action: dict[str, Any]) -> str:
+        family = str(action.get("family", "")).strip().lower()
+        if family not in {"pla", "petg", "tpu"}:
+            return ""
+        return "\n".join(
+            [
+                '          <form method="post" action="/physical/start">',
+                f'            <input type="hidden" name="family" value="{escape(family, quote=True)}">',
+                '            <input type="hidden" name="operator" value="Zohar">',
+                "            <button type=\"submit\">Create starter packet</button>",
+                "          </form>",
+            ]
+        )
 
     def _render_trusted_feedback_gate_panel(self) -> str:
         if self.runs_dir is None:

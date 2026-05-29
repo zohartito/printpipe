@@ -353,6 +353,39 @@ def test_home_response_renders_physical_action_plan(tmp_path: Path):
     assert "printpipe physical-plan --runs-dir runs" in response.text
 
 
+def test_home_response_renders_physical_start_form(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs")
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert 'action="/physical/start"' in response.text
+    assert 'name="family" value="pla"' in response.text
+    assert 'name="operator" value="Zohar"' in response.text
+
+
+def test_post_physical_start_creates_starter_packet_and_redirects(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle(
+        "/physical/start",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=b"family=pla&operator=Zohar",
+    )
+
+    run_root = runs_dir / "physical-pla-validation"
+    evidence_path = run_root / "90_physical" / "physical_evidence.json"
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert response.status == 303
+    assert response.header("Location") == "/#physical-action-plan"
+    assert evidence["print_status"] == "not_printed"
+    assert evidence["operator"] == "Zohar"
+    assert (run_root / "40_geometry" / "physical_validation_coupon_40x15x3.stl").exists()
+    assert (run_root / "60_bundle" / "physical_validation_coupon_40x15x3.3mf").exists()
+
+
 def test_home_response_renders_started_physical_action_context_and_files(
     tmp_path: Path,
 ) -> None:

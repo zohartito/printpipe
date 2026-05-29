@@ -1903,3 +1903,14 @@ Status: complete for persisting a tested media meshgen command without editing s
 4. Done: `final-next` now recommends `printpipe media-meshgen-configure --command ...` for a smoke-proven generic media command.
 5. Done: `.printpipe/` is ignored so local provider config does not become a repo artifact.
 6. Boundary: the config command only persists a command. It does not prove semantic reconstruction quality or physical print success.
+
+## Wave 174 - Browser Physical Starter Action
+
+Status: complete for letting the local browser create physical validation starter packets.
+
+1. Done: added `POST /physical/start` to the local web app.
+2. Done: the physical action-plan cards now render a local form for missing PLA/PETG/TPU validation gates.
+3. Done: posting a family creates the same not-yet-printed coupon STL, sidecar JSON, Bambu `.3mf`, bundle-validation receipt, physical evidence starter packet, and handoff Markdown as `printpipe physical-start`.
+4. Done: the route redirects back to the physical action-plan panel so the refreshed page shows generated artifacts and the post-print record command.
+5. Done: web tests cover both the rendered form and the POST route.
+6. Boundary: this starts a print packet only. It does not record passed physical evidence or close the physical gate.

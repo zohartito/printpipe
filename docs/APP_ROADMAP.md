@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 173: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 174: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 173 added local project config for tested media meshgen commands. `printpipe media-meshgen-configure --command ...` writes `.printpipe/config.json`; doctor/readiness and normal media runs read it when `PRINTPIPE_MEDIA_MESHGEN_COMMAND` is not exported. `final-next` now points at that configure command when a one-off smoke has passed. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 174 added a browser-side physical validation starter action. The home page now renders a `POST /physical/start` control for missing PLA/PETG/TPU physical gates, and the local app can create the same not-yet-printed coupon starter packet as `printpipe physical-start` without claiming physical proof. Wave 173 also added local project config for tested media meshgen commands, so media provider readiness now works from `.printpipe/config.json`. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 
