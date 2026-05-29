@@ -82,6 +82,7 @@ command:
 
 ```bash
 printpipe media-meshgen-template --preset comfyui-api --output scripts/media_meshgen_adapter.py
+printpipe media-meshgen-comfyui-inspect workflows/image_to_glb.json
 printpipe media-meshgen-configure \
   --command "python scripts/media_meshgen_adapter.py" \
   --params-json '{"comfyui_workflow":"workflows/image_to_glb.json","comfyui_image_paths":["12.inputs.image"]}'

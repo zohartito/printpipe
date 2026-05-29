@@ -206,6 +206,20 @@ def build_parser() -> argparse.ArgumentParser:
         default="generic",
         help="Adapter template preset to print or write.",
     )
+    media_comfyui_inspect = subparsers.add_parser(
+        "media-meshgen-comfyui-inspect",
+        help="Inspect an exported ComfyUI API workflow and suggest adapter patch paths.",
+    )
+    media_comfyui_inspect.add_argument(
+        "workflow",
+        type=Path,
+        help="ComfyUI workflow JSON exported with File > Export (API).",
+    )
+    media_comfyui_inspect.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the workflow inspection report as JSON.",
+    )
     media_heightfield = subparsers.add_parser(
         "media-meshgen-heightfield",
         help=(
@@ -1402,6 +1416,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "media-meshgen-template":
         return _media_meshgen_template(output_path=args.output, preset=args.preset)
 
+    if args.command == "media-meshgen-comfyui-inspect":
+        return _media_meshgen_comfyui_inspect(
+            workflow=args.workflow,
+            json_output=args.json,
+            parser=parser,
+        )
+
     if args.command == "media-meshgen-heightfield":
         return _media_meshgen_heightfield(args)
 
@@ -2322,6 +2343,28 @@ def _media_meshgen_template(*, output_path: Path | None, preset: str) -> int:
     print(f"wrote media meshgen adapter template: {written}")
     print(f"preset: {preset}")
     print(f"export PRINTPIPE_MEDIA_MESHGEN_COMMAND={shlex.quote(str(written))}")
+    return 0
+
+
+def _media_meshgen_comfyui_inspect(
+    *,
+    workflow: Path,
+    json_output: bool,
+    parser: argparse.ArgumentParser,
+) -> int:
+    from printpipe.meshgen.comfyui_workflow import (
+        inspect_comfyui_workflow,
+        render_comfyui_workflow_report,
+    )
+
+    try:
+        report = inspect_comfyui_workflow(workflow)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        parser.error(str(exc))
+    if json_output:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_comfyui_workflow_report(report), end="")
     return 0
 
 

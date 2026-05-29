@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 180: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 183: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 180 completed the browser media setup loop by adding `POST /media-meshgen/smoke`. After creating/configuring an adapter from the home page, Zohar can now upload an image/GIF/video reference and run the existing `media-meshgen-smoke` path from the browser. The route writes the same `20_meshgen/smoke.json` receipts as the CLI and redirects back to the setup panel. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 183 added static ComfyUI workflow inspection for exported API JSON. PrintPipe can now generate a ComfyUI adapter preset, inspect a workflow for `SaveGLB` plus image/prompt/seed patch candidates, persist those params in `.printpipe/config.json`, and run the existing smoke path from the CLI or browser. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 
@@ -219,6 +219,8 @@ Wave 161 made run-detail preview chips actionable instead of decorative. The Mod
 Wave 181 made the open media-meshgen provider handoff more concrete. `media-meshgen-template` can now write a generic adapter or a ComfyUI API preset scaffold that expects an exported ComfyUI workflow ending in `SaveGLB`; the local browser can choose the preset and request GLB smoke output. This is still not semantic mesh evidence. The gate remains open until a real workflow/provider is configured and a successful image/GIF/video smoke receipt proves it.
 
 Wave 182 made that ComfyUI handoff persistent instead of shell-only. `.printpipe/config.json` can now store adapter params such as ComfyUI URL, workflow JSON path, image/prompt/seed patch paths, timeout, and prompt-only mode; CLI, browser smoke, and normal media runs pass those params into the adapter through `--params-json`. This reduces setup friction but still does not close the media gate without a real successful smoke receipt.
+
+Wave 183 added `media-meshgen-comfyui-inspect`, a static workflow inspector for ComfyUI API exports. It detects `SaveGLB`, suggests image/prompt/seed patch paths, and prints a ready-to-use `media-meshgen-configure --params-json ...` command. This makes provider setup less manual, but still requires a real workflow, credentials/model weights when applicable, and a successful smoke receipt before the media gate can close.
 
 Wave 139 made trusted-user beta handoff rows operational instead of placeholder-heavy. When a `trusted_user_feedback_handoff_*.md` file exists, `beta-feedback-plan` and `final-plan` now point the immediate action at the real run folder and produce a concrete `record-beta-feedback` command with the actual run root, tester slot, input type, material, printer, and report artifact path. The beta gate remains open until real trusted users return completed packets.
 

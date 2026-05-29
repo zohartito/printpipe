@@ -2004,3 +2004,15 @@ Status: complete for persisting ComfyUI adapter setup details and passing them i
 5. Done: the browser media setup form now exposes ComfyUI URL, workflow, image/prompt/seed patch paths, prompt-only no-source mode, and extra JSON params.
 6. Done: tests cover CLI config writes, config reads, adapter params parsing, web form rendering, web config writes, and browser smoke forwarding saved params.
 7. Boundary: this still does not provide a real ComfyUI workflow, model weights, provider API key, or successful semantic smoke receipt.
+
+## Wave 183 - ComfyUI Workflow Inspector
+
+Status: complete for reducing manual ComfyUI patch-path guesswork before smoke testing.
+
+1. Done: added `printpipe media-meshgen-comfyui-inspect <workflow.json>`.
+2. Done: the inspector accepts ComfyUI API-exported node JSON and detects `SaveGLB` nodes.
+3. Done: it suggests `comfyui_image_paths`, `comfyui_prompt_paths`, and `comfyui_seed_paths` from editable workflow inputs.
+4. Done: JSON output includes `suggested_params` and a concrete `media-meshgen-configure --params-json ...` command.
+5. Done: terminal output gives the same patch-path summary for humans.
+6. Done: tests cover parser behavior, ready workflow detection, missing `SaveGLB` warnings, and JSON CLI output.
+7. Boundary: this is static workflow inspection. It does not run ComfyUI, prove provider credentials, install model weights, or create semantic smoke evidence.
