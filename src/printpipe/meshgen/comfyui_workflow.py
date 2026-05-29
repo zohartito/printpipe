@@ -67,6 +67,41 @@ def inspect_comfyui_workflow(workflow_path: Path) -> dict[str, Any]:
     }
 
 
+def validate_comfyui_params(
+    params: dict[str, Any],
+    *,
+    workspace_dir: Path,
+) -> dict[str, Any] | None:
+    """Validate ComfyUI adapter params when a workflow path is configured."""
+
+    workflow_value = params.get("comfyui_workflow")
+    if not isinstance(workflow_value, str) or not workflow_value.strip():
+        return None
+
+    workflow_path = Path(workflow_value).expanduser()
+    if not workflow_path.is_absolute():
+        workflow_path = workspace_dir.expanduser() / workflow_path
+
+    try:
+        report = inspect_comfyui_workflow(workflow_path)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"ComfyUI workflow could not be inspected: {exc}") from exc
+
+    if report.get("status") != "ready":
+        raise ValueError(_unready_workflow_message(report))
+    return report
+
+
+def _unready_workflow_message(report: dict[str, Any]) -> str:
+    warnings = [
+        str(warning)
+        for warning in report.get("warnings", [])
+        if isinstance(warning, str) and warning
+    ]
+    detail = "\n".join(warnings) if warnings else "Workflow inspector returned action_required."
+    return f"ComfyUI workflow is not ready for PrintPipe.\n{detail}"
+
+
 def render_comfyui_workflow_report(report: dict[str, Any]) -> str:
     lines = [
         f"ComfyUI workflow: {report['workflow_path']}",

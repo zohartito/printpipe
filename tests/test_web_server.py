@@ -1458,6 +1458,20 @@ def test_post_media_meshgen_configure_writes_comfyui_params_and_redirects(
     tmp_path: Path,
 ):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    workflow_path = tmp_path / "workflows" / "image_to_glb.json"
+    workflow_path.parent.mkdir(parents=True)
+    workflow_path.write_text(
+        json.dumps(
+            {
+                "12": {"class_type": "LoadImage", "inputs": {"image": "reference.png"}},
+                "20": {
+                    "class_type": "SaveGLB",
+                    "inputs": {"mesh": ["12", 0], "filename_prefix": "3d/PrintPipe"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     response = app.handle(
         "/media-meshgen/configure",
@@ -1484,6 +1498,34 @@ def test_post_media_meshgen_configure_writes_comfyui_params_and_redirects(
         "comfyui_url": "http://127.0.0.1:8188",
         "comfyui_workflow": "workflows/image_to_glb.json",
     }
+
+
+def test_post_media_meshgen_configure_rejects_unready_comfyui_params(
+    tmp_path: Path,
+):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    workflow_path = tmp_path / "workflows" / "bad.json"
+    workflow_path.parent.mkdir(parents=True)
+    workflow_path.write_text(
+        json.dumps({"12": {"class_type": "LoadImage", "inputs": {"image": "reference.png"}}}),
+        encoding="utf-8",
+    )
+
+    response = app.handle(
+        "/media-meshgen/configure",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=(
+            b"command=python+scripts%2Fmedia_meshgen_adapter.py"
+            b"&comfyui_workflow=workflows%2Fbad.json"
+            b"&comfyui_image_paths=12.inputs.image"
+        ),
+    )
+
+    assert response.status == 400
+    assert "ComfyUI workflow is not ready for PrintPipe." in response.text
+    assert "Workflow does not include a SaveGLB node." in response.text
+    assert not (tmp_path / ".printpipe" / "config.json").exists()
 
 
 def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(

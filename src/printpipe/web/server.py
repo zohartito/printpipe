@@ -52,6 +52,7 @@ from printpipe.meshgen.command_template import (
     write_media_meshgen_command_template,
 )
 from printpipe.meshgen.comfyui_workflow import inspect_comfyui_workflow
+from printpipe.meshgen.comfyui_workflow import validate_comfyui_params
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.meshgen.smoke import run_media_meshgen_smoke
 from printpipe.packaging.release_plan import (
@@ -540,10 +541,14 @@ class PrintPipeWebApp:
                     HTTPStatus.BAD_REQUEST,
                     "Media meshgen command is required.",
                 )
+            updates = _media_meshgen_config_updates_from_fields(fields)
+            params = updates.get("media_meshgen_params")
+            if isinstance(params, dict):
+                validate_comfyui_params(params, workspace_dir=self.workspace_dir)
             write_project_config(
                 updates={
                     "media_meshgen_command": command,
-                    **_media_meshgen_config_updates_from_fields(fields),
+                    **updates,
                 },
                 cwd=self.workspace_dir,
             )
@@ -553,7 +558,7 @@ class PrintPipeWebApp:
                 status=exc.status,
                 content_type=_TEXT_MEDIA_TYPE,
             )
-        except OSError as exc:
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
             return WebResponse.from_text(
                 f"{exc}\n",
                 status=HTTPStatus.BAD_REQUEST,

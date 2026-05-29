@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import build_parser, main
 from printpipe.config import (
     CONFIG_PATH_ENV,
@@ -80,6 +82,20 @@ def test_media_meshgen_configure_writes_project_config_params(
     capsys,
 ):
     config_path = tmp_path / ".printpipe" / "config.json"
+    workflow_path = tmp_path / "workflows" / "image_to_glb.json"
+    workflow_path.parent.mkdir(parents=True)
+    workflow_path.write_text(
+        json.dumps(
+            {
+                "12": {"class_type": "LoadImage", "inputs": {"image": "reference.png"}},
+                "20": {
+                    "class_type": "SaveGLB",
+                    "inputs": {"mesh": ["12", 0], "filename_prefix": "3d/PrintPipe"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     exit_code = main(
         [
@@ -109,6 +125,43 @@ def test_media_meshgen_configure_writes_project_config_params(
         "comfyui_workflow": "workflows/image_to_glb.json",
     }
     assert f"wrote PrintPipe config: {config_path}" in captured.out
+
+
+def test_media_meshgen_configure_rejects_unready_comfyui_params(
+    tmp_path: Path,
+    capsys,
+):
+    config_path = tmp_path / ".printpipe" / "config.json"
+    workflow_path = tmp_path / "workflows" / "bad.json"
+    workflow_path.parent.mkdir(parents=True)
+    workflow_path.write_text(
+        json.dumps({"12": {"class_type": "LoadImage", "inputs": {"image": "reference.png"}}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        main(
+            [
+                "media-meshgen-configure",
+                "--command",
+                "python scripts/media_meshgen_adapter.py",
+                "--params-json",
+                json.dumps(
+                    {
+                        "comfyui_workflow": "workflows/bad.json",
+                        "comfyui_image_paths": ["12.inputs.image"],
+                    }
+                ),
+                "--config",
+                str(config_path),
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert excinfo.value.code == 2
+    assert "ComfyUI workflow is not ready for PrintPipe." in captured.err
+    assert "Workflow does not include a SaveGLB node." in captured.err
+    assert not config_path.exists()
 
 
 def test_configured_media_meshgen_params_reads_project_config(tmp_path: Path):

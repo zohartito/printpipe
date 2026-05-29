@@ -2036,3 +2036,14 @@ Status: complete for preventing unready ComfyUI workflow uploads from becoming c
 3. Done: the uploaded workflow JSON is still saved under `workflows/` so the user can inspect or correct the exported graph.
 4. Done: focused tests cover the unready-workflow path and prove it does not write adapter/config files.
 5. Boundary: this is still static validation. A ready upload is not semantic proof until a real `media-meshgen-smoke` receipt exists.
+
+## Wave 186 - ComfyUI Config Write Guard
+
+Status: complete for applying the ComfyUI workflow readiness guard to manual config paths.
+
+1. Done: added shared ComfyUI param validation for config writes that include `comfyui_workflow`.
+2. Done: `printpipe media-meshgen-configure --params-json ...` now inspects the configured workflow path before writing `.printpipe/config.json`.
+3. Done: browser `POST /media-meshgen/configure` now uses the same validation before writing project config.
+4. Done: relative workflow paths are resolved against the project/config workspace for validation while preserving the stored relative path.
+5. Done: tests cover CLI and browser rejection paths, proving unready workflows do not write config.
+6. Boundary: this still does not run ComfyUI or close the media meshgen gate; it only prevents known-bad ComfyUI config from being persisted.

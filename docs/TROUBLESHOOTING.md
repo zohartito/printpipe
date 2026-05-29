@@ -79,8 +79,10 @@ uploading the workflow JSON; it writes the preset adapter, stores the workflow
 under `workflows/`, runs the same static inspector, and saves the suggested
 params into `.printpipe/config.json` only when the inspector reports the workflow
 is ready. Missing `SaveGLB` or missing patch targets return a browser error
-before adapter/config state is written. This setup path still does not contact
-ComfyUI or close readiness without a successful smoke receipt.
+before adapter/config state is written. The manual browser command form and CLI
+`media-meshgen-configure --params-json ...` use the same check when
+`comfyui_workflow` is present. These setup paths still do not contact ComfyUI or
+close readiness without a successful smoke receipt.
 For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
 
 ```bash
