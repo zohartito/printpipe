@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 183: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 185: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 183 added static ComfyUI workflow inspection for exported API JSON. PrintPipe can now generate a ComfyUI adapter preset, inspect a workflow for `SaveGLB` plus image/prompt/seed patch candidates, persist those params in `.printpipe/config.json`, and run the existing smoke path from the CLI or browser. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 185 tightened browser ComfyUI workflow intake so unready workflows, such as exports without `SaveGLB`, fail before writing adapter/config state. PrintPipe can now generate a ComfyUI adapter preset, inspect a workflow for `SaveGLB` plus image/prompt/seed patch candidates, persist those params in `.printpipe/config.json`, and run the existing smoke path from the CLI or browser. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 
@@ -223,6 +223,8 @@ Wave 182 made that ComfyUI handoff persistent instead of shell-only. `.printpipe
 Wave 183 added `media-meshgen-comfyui-inspect`, a static workflow inspector for ComfyUI API exports. It detects `SaveGLB`, suggests image/prompt/seed patch paths, and prints a ready-to-use `media-meshgen-configure --params-json ...` command. This makes provider setup less manual, but still requires a real workflow, credentials/model weights when applicable, and a successful smoke receipt before the media gate can close.
 
 Wave 184 moved that static ComfyUI workflow intake into the local browser. The home-page media setup panel can now accept an exported workflow JSON, save it under `workflows/`, write the ComfyUI adapter preset, inspect the workflow, and persist the suggested patch paths plus ComfyUI URL into `.printpipe/config.json`. This is still setup only: no ComfyUI server is contacted and the media gate remains open until a real smoke receipt proves a semantic provider generated a mesh.
+
+Wave 185 tightened that browser setup path. Uploaded ComfyUI workflows now have to pass the static inspector before PrintPipe writes `scripts/media_meshgen_adapter.py` or `.printpipe/config.json`; missing `SaveGLB` or missing patch targets returns a browser error with the inspector warnings. The uploaded JSON is still saved for diagnosis, but unready workflows no longer become configured provider state.
 
 Wave 139 made trusted-user beta handoff rows operational instead of placeholder-heavy. When a `trusted_user_feedback_handoff_*.md` file exists, `beta-feedback-plan` and `final-plan` now point the immediate action at the real run folder and produce a concrete `record-beta-feedback` command with the actual run root, tester slot, input type, material, printer, and report artifact path. The beta gate remains open until real trusted users return completed packets.
 

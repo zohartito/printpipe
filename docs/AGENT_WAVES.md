@@ -2022,7 +2022,17 @@ Status: complete for reducing manual ComfyUI patch-path guesswork before smoke t
 Status: complete for bringing the ComfyUI workflow inspector into the local browser setup path.
 
 1. Done: added `POST /media-meshgen/comfyui-workflow` to accept an exported ComfyUI API workflow JSON upload.
-2. Done: the route saves the workflow under `workflows/`, writes the `comfyui-api` media adapter preset to `scripts/media_meshgen_adapter.py`, runs the static workflow inspector, and persists `media_meshgen_command` plus `media_meshgen_params` into `.printpipe/config.json`.
+2. Done: for inspector-ready workflows, the route saves the workflow under `workflows/`, writes the `comfyui-api` media adapter preset to `scripts/media_meshgen_adapter.py`, and persists `media_meshgen_command` plus `media_meshgen_params` into `.printpipe/config.json`.
 3. Done: the home-page `Media meshgen setup` panel now has a ComfyUI workflow upload form with command and ComfyUI URL fields.
 4. Done: browser tests cover the setup form, successful upload/configuration, and missing-upload error path.
 5. Boundary: this is setup and static inspection only. It does not run ComfyUI, download model weights, validate API credentials, prove mesh quality, or close the media meshgen gate without a later successful smoke receipt from a real workflow/provider.
+
+## Wave 185 - Browser ComfyUI Intake Guard
+
+Status: complete for preventing unready ComfyUI workflow uploads from becoming configured provider state.
+
+1. Done: `POST /media-meshgen/comfyui-workflow` now inspects the uploaded workflow before writing `scripts/media_meshgen_adapter.py` or `.printpipe/config.json`.
+2. Done: workflows without `SaveGLB` or without image/prompt patch targets return a browser `400` with the inspector warnings.
+3. Done: the uploaded workflow JSON is still saved under `workflows/` so the user can inspect or correct the exported graph.
+4. Done: focused tests cover the unready-workflow path and prove it does not write adapter/config files.
+5. Boundary: this is still static validation. A ready upload is not semantic proof until a real `media-meshgen-smoke` receipt exists.

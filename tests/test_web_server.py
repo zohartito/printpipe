@@ -1364,6 +1364,42 @@ def test_post_media_meshgen_comfyui_workflow_requires_upload(tmp_path: Path):
     assert "ComfyUI workflow JSON upload is required." in response.text
 
 
+def test_post_media_meshgen_comfyui_workflow_rejects_unready_workflow(
+    tmp_path: Path,
+):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    workflow_payload = json.dumps(
+        {
+            "1": {"class_type": "LoadImage", "inputs": {"image": "reference.png"}},
+            "2": {"class_type": "PreviewImage", "inputs": {"images": ["1", 0]}},
+        }
+    ).encode("utf-8")
+    body, content_type = _multipart_form_body(
+        fields={
+            "command": "python scripts/media_meshgen_adapter.py",
+            "comfyui_url": "http://127.0.0.1:8188",
+        },
+        file_field="workflow",
+        filename="missing_save_glb.json",
+        content_type="application/json",
+        file_content=workflow_payload,
+    )
+
+    response = app.handle(
+        "/media-meshgen/comfyui-workflow",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    assert response.status == 400
+    assert "ComfyUI workflow is not ready for PrintPipe." in response.text
+    assert "Workflow does not include a SaveGLB node." in response.text
+    assert (tmp_path / "workflows" / "missing_save_glb.json").exists()
+    assert not (tmp_path / "scripts" / "media_meshgen_adapter.py").exists()
+    assert not (tmp_path / ".printpipe" / "config.json").exists()
+
+
 def test_post_media_meshgen_template_writes_adapter_and_redirects(tmp_path: Path):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
 

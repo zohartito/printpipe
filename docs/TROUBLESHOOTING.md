@@ -77,7 +77,9 @@ saved params. Use `--preset generic` if you want the blank adapter protocol stub
 The local browser home page has a matching `Media meshgen setup` form for
 uploading the workflow JSON; it writes the preset adapter, stores the workflow
 under `workflows/`, runs the same static inspector, and saves the suggested
-params into `.printpipe/config.json`. This setup path still does not contact
+params into `.printpipe/config.json` only when the inspector reports the workflow
+is ready. Missing `SaveGLB` or missing patch targets return a browser error
+before adapter/config state is written. This setup path still does not contact
 ComfyUI or close readiness without a successful smoke receipt.
 For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
 

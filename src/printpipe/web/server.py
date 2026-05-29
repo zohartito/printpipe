@@ -481,11 +481,22 @@ class PrintPipeWebApp:
             )
             workflow_path.parent.mkdir(parents=True, exist_ok=True)
             workflow_path.write_bytes(form.workflow.content)
+            report = inspect_comfyui_workflow(workflow_path)
+            if report.get("status") != "ready":
+                warnings = [
+                    str(warning)
+                    for warning in report.get("warnings", [])
+                    if isinstance(warning, str) and warning
+                ]
+                detail = "\n".join(warnings) if warnings else "Workflow inspector returned action_required."
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    f"ComfyUI workflow is not ready for PrintPipe.\n{detail}",
+                )
             write_media_meshgen_command_template(
                 self.workspace_dir / "scripts" / "media_meshgen_adapter.py",
                 preset="comfyui-api",
             )
-            report = inspect_comfyui_workflow(workflow_path)
             params = dict(report["suggested_params"])
             comfyui_url = form.fields.get("comfyui_url", "").strip()
             if comfyui_url:
