@@ -1859,3 +1859,14 @@ Status: complete for making image/GIF/video provider readiness part of the final
 4. Done: when a provider and successful smoke receipt both exist, the media section is ready and contributes zero actions.
 5. Done: terminal rendering now carries the media proof boundary, required inputs, smoke command, and follow-up smoke-status check.
 6. Boundary: this does not install a model/provider. It prevents the final checklist from skipping the media meshgen gap.
+
+## Wave 170 - Final Readiness Labels Media Setup Flow
+
+Status: complete for making the browser final-readiness command sequence clearer.
+
+1. Done: the final-readiness renderer now labels `start_command` and `setup_command` primary commands as `Immediate setup`.
+2. Done: media meshgen final-next in the web UI now separates provider template setup, smoke run, and smoke-status follow-up.
+3. Done: checklist rows receive the same command-kind label from the section action.
+4. Done: focused web tests cover the media-provider next action shape.
+5. Done: existing physical, trusted-user, release, and final-plan tests still pass.
+6. Boundary: this is a UI clarity pass only. It does not install a provider or create smoke evidence.

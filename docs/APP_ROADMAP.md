@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 169: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 170: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 169 moved the media meshgen provider/smoke gate into `final-plan` and `final-next`. The endgame checklist now starts with the configurable image/GIF/video provider path when no live provider is configured or no successful smoke receipt exists, instead of hiding that gap behind aggregate readiness. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured and smoke-proven live media meshgen provider for non-mesh inputs.
+Latest status: Wave 170 tightened the browser final-readiness rendering for the new media meshgen top action. Setup/start commands are now labeled `Immediate setup`, with the smoke run and smoke-status follow-up shown as separate steps, so the web command-center does not present the provider scaffold command as an unlabeled generic command. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured and smoke-proven live media meshgen provider for non-mesh inputs.
 
 ## Goal
 

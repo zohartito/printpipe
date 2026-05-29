@@ -54,6 +54,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
     next_action_markup = ""
     if next_action:
         command = str(next_action.get("command") or "")
+        command_kind = str(next_action.get("command_kind") or "")
         setup_command = str(next_action.get("setup_command") or "")
         run_command = str(next_action.get("run_command") or "")
         followup_command = str(next_action.get("followup_command") or "")
@@ -88,6 +89,11 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
             else ""
         )
         next_action_file_markup = _render_next_action_files(next_action)
+        command_markup = _primary_command_block(
+            command,
+            command_kind=command_kind,
+            indent="        ",
+        )
         next_action_markup = "\n".join(
             [
                 '        <p class="final-readiness-next">',
@@ -96,11 +102,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
                 f"{escape(str(next_action.get('label') or ''))} — ",
                 f"{escape(str(next_action.get('detail') or ''))}",
                 "        </p>",
-                (
-                    f'        <pre><code>{escape(command)}</code></pre>'
-                    if command
-                    else ""
-                ),
+                command_markup,
                 context_markup,
                 required_markup,
                 evidence_fields_markup,
@@ -257,6 +259,7 @@ def _action_item(
         "label": _action_label(action),
         "detail": _action_detail(action),
         "command": _action_command(action),
+        "command_kind": _action_command_kind(action),
         "setup_command": str(action.get("setup_command") or ""),
         "run_command": _action_run_command(action),
         "followup_command": str(action.get("followup_command") or ""),
@@ -387,6 +390,22 @@ def _action_command(action: Mapping[str, Any]) -> str:
     return ""
 
 
+def _action_command_kind(action: Mapping[str, Any]) -> str:
+    if action.get("command_kind"):
+        return str(action.get("command_kind"))
+    if action.get("start_command"):
+        return "start_command"
+    if action.get("setup_command"):
+        return "setup_command"
+    if action.get("command"):
+        return "command"
+    if action.get("record_command"):
+        return "record_command"
+    if action.get("followup_command"):
+        return "followup_command"
+    return ""
+
+
 def _action_run_command(action: Mapping[str, Any]) -> str:
     command = str(action.get("command") or "")
     if not command:
@@ -444,6 +463,7 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     label = str(action.get("label") or "Remaining action")
     detail = str(action.get("detail") or "")
     command = str(action.get("command") or "")
+    command_kind = str(action.get("command_kind") or "")
     setup_command = str(action.get("setup_command") or "")
     run_command = str(action.get("run_command") or "")
     followup_command = str(action.get("followup_command") or "")
@@ -462,10 +482,10 @@ def _render_action_row(action: Mapping[str, Any]) -> str:
     bundle_validation_path = str(action.get("bundle_validation_path") or "")
     slice_result_path = str(action.get("slice_result_path") or "")
     handoff_markdown_path = str(action.get("handoff_markdown_path") or "")
-    command_markup = (
-        f'            <pre><code>{escape(command)}</code></pre>'
-        if command
-        else ""
+    command_markup = _primary_command_block(
+        command,
+        command_kind=command_kind,
+        indent="            ",
     )
     run_markup = (
         "\n".join(
@@ -554,6 +574,26 @@ def _file_row(label: str, value: str) -> str:
         f'            <p class="muted">{escape(label)}: '
         f"{_path_code_or_link(value)}</p>"
     )
+
+
+def _primary_command_block(command: str, *, command_kind: str, indent: str) -> str:
+    if not command:
+        return ""
+    label = _primary_command_label(command_kind)
+    if not label:
+        return f'{indent}<pre><code>{escape(command)}</code></pre>'
+    return "\n".join(
+        [
+            f'{indent}<p class="muted"><strong>{escape(label)}:</strong></p>',
+            f'{indent}<pre><code>{escape(command)}</code></pre>',
+        ]
+    )
+
+
+def _primary_command_label(command_kind: str) -> str:
+    if command_kind in {"start_command", "setup_command"}:
+        return "Immediate setup"
+    return ""
 
 
 def _required_inputs_row(values: list[str]) -> str:

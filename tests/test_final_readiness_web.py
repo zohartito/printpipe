@@ -370,6 +370,73 @@ def test_render_final_readiness_panel_includes_honest_boundaries() -> None:
     assert 'href="/final-next.json"' in html
 
 
+def test_render_final_readiness_panel_labels_media_meshgen_setup_flow() -> None:
+    html = render_final_readiness_panel(
+        {
+            "overall_status": "action_required",
+            "action_count": 10,
+            "proof_boundary": "A final plan is not evidence.",
+            "next_action": {
+                "section_id": "media_meshgen_provider",
+                "section_label": "Media meshgen provider",
+                "action_id": "configure_media_meshgen_provider",
+                "label": "Configure media meshgen provider",
+                "status": "action_required",
+                "detail": "No live image/GIF/video meshgen provider is configured.",
+                "command": "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py",
+                "command_kind": "start_command",
+                "run_command": "printpipe media-meshgen-smoke reference.png --runs-dir runs",
+                "followup_command": "printpipe media-meshgen-smoke-status --runs-dir runs --strict",
+                "required_inputs": [
+                    "real local, hosted, or API-backed media meshgen adapter",
+                    "image, GIF, or video reference for smoke testing",
+                ],
+                "input_type": "image/GIF/video",
+            },
+            "pillars": [
+                {
+                    "id": "media_meshgen_provider",
+                    "label": "Media meshgen provider",
+                    "status": "action_required",
+                    "headline": "Configure and smoke-prove the image/GIF/video meshgen provider.",
+                    "note": "A configured command is not proof.",
+                    "action_count": 1,
+                    "command": "printpipe media-meshgen-smoke-status --runs-dir runs --strict",
+                }
+            ],
+            "actions": [
+                {
+                    "section_id": "media_meshgen_provider",
+                    "section_label": "Media meshgen provider",
+                    "label": "Configure media meshgen provider",
+                    "status": "action_required",
+                    "detail": "No live image/GIF/video meshgen provider is configured.",
+                    "command": "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py",
+                    "command_kind": "start_command",
+                    "run_command": "printpipe media-meshgen-smoke reference.png --runs-dir runs",
+                    "followup_command": "printpipe media-meshgen-smoke-status --runs-dir runs --strict",
+                    "required_inputs": [
+                        "real local, hosted, or API-backed media meshgen adapter",
+                        "image, GIF, or video reference for smoke testing",
+                    ],
+                    "input_type": "image/GIF/video",
+                }
+            ],
+        }
+    )
+
+    assert "Media meshgen provider" in html
+    assert "Configure media meshgen provider" in html
+    assert "Immediate setup:" in html
+    assert "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py" in html
+    assert "Run after prerequisites:" in html
+    assert "printpipe media-meshgen-smoke reference.png --runs-dir runs" in html
+    assert "Follow-up check:" in html
+    assert "printpipe media-meshgen-smoke-status --runs-dir runs --strict" in html
+    assert "Next action context: Input: image/GIF/video" in html
+    assert "Next action required inputs:" in html
+
+
 def test_render_final_readiness_panel_links_run_artifact_paths() -> None:
     html = render_final_readiness_panel(
         {
