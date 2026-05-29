@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 172: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 173: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 172 made media smoke receipts remember the command that produced a successful mesh. When a one-off smoke has passed but the provider is not configured in the environment, `final-next` now points at the exact `export PRINTPIPE_MEDIA_MESHGEN_COMMAND=...` handoff instead of sending the user back to a blank template. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured and smoke-proven semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 173 added local project config for tested media meshgen commands. `printpipe media-meshgen-configure --command ...` writes `.printpipe/config.json`; doctor/readiness and normal media runs read it when `PRINTPIPE_MEDIA_MESHGEN_COMMAND` is not exported. `final-next` now points at that configure command when a one-off smoke has passed. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 

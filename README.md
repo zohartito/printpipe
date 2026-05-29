@@ -69,8 +69,14 @@ printpipe media-meshgen-smoke reference.png \
 
 Successful one-off smoke receipts record the command that produced the mesh.
 If that command is not yet configured in the environment, `printpipe final-next`
-will surface the exact `export PRINTPIPE_MEDIA_MESHGEN_COMMAND=...` handoff
-instead of sending you back to the blank adapter template.
+will surface the exact local config handoff instead of sending you back to the
+blank adapter template:
+
+```bash
+printpipe media-meshgen-configure --command "printpipe media-meshgen-heightfield"
+```
+
+That writes `.printpipe/config.json`, which is intentionally ignored by git.
 
 The local web app also exposes the same proof surface on the home page and at
 `/media-meshgen-smoke-status.json`.

@@ -169,7 +169,7 @@ def test_media_meshgen_action_plan_configures_tested_smoke_command(
     action = plan["actions"][0]
     assert action["id"] == "configure_tested_media_meshgen_provider"
     assert action["start_command"] == (
-        "export PRINTPIPE_MEDIA_MESHGEN_COMMAND='printpipe media-meshgen-heightfield'"
+        "printpipe media-meshgen-configure --command 'printpipe media-meshgen-heightfield'"
     )
     assert "heightfield-smoke" in action["detail"]
     assert action["followup_command"].endswith("--strict")

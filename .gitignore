@@ -12,3 +12,4 @@ build/
 /artifacts/
 .env
 .env.*
+.printpipe/

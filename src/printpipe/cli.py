@@ -233,6 +233,23 @@ def build_parser() -> argparse.ArgumentParser:
     media_heightfield.add_argument("--height-mm", type=float, default=4.0)
     media_heightfield.add_argument("--base-thickness-mm", type=float, default=1.0)
     media_heightfield.add_argument("--max-grid", type=int, default=32)
+    media_configure = subparsers.add_parser(
+        "media-meshgen-configure",
+        help="Persist a tested media meshgen adapter command in local PrintPipe config.",
+    )
+    media_configure.add_argument(
+        "--command",
+        dest="media_meshgen_command",
+        required=True,
+        help="PRINTPIPE_MEDIA_MESHGEN_COMMAND-compatible adapter command.",
+    )
+    media_configure.add_argument(
+        "--config",
+        dest="config_path",
+        type=Path,
+        default=None,
+        help="Config path to write. Defaults to .printpipe/config.json.",
+    )
 
     media_smoke = subparsers.add_parser(
         "media-meshgen-smoke",
@@ -1373,6 +1390,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "media-meshgen-heightfield":
         return _media_meshgen_heightfield(args)
 
+    if args.command == "media-meshgen-configure":
+        return _media_meshgen_configure(
+            command=args.media_meshgen_command,
+            config_path=args.config_path,
+        )
+
     if args.command == "media-meshgen-smoke":
         return _media_meshgen_smoke(
             input_path=args.input,
@@ -2301,6 +2324,19 @@ def _media_meshgen_heightfield(args: argparse.Namespace) -> int:
         print(str(exc), file=sys.stderr)
         return 2
     print(json.dumps({"output_path": str(written)}))
+    return 0
+
+
+def _media_meshgen_configure(*, command: str, config_path: Path | None) -> int:
+    from printpipe.config import write_project_config
+
+    written = write_project_config(
+        updates={"media_meshgen_command": command},
+        config_path=config_path,
+    )
+    print(f"wrote PrintPipe config: {written}")
+    print(f"media meshgen command: {command}")
+    print("follow-up: printpipe doctor")
     return 0
 
 

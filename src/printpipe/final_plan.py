@@ -247,7 +247,12 @@ def _tested_media_command_action(
             f"{detail} Latest successful smoke {run_id} used a command that can "
             f"be exported as {env_name}."
         ),
-        "start_command": f"export {env_name}={_quote(command)}",
+        "start_command": (
+            "printpipe media-meshgen-configure --command "
+            f"{_quote(command)}"
+            if env_name == MEDIA_MESHGEN_COMMAND_ENV
+            else f"export {env_name}={_quote(command)}"
+        ),
         "command": (
             "printpipe media-meshgen-smoke reference.png --runs-dir "
             f"{_quote(str(runs_path))}"

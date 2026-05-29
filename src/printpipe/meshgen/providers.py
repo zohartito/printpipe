@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, MutableMapping
 
 from printpipe.contracts import Artifact, ArtifactKind, InputKind, StageStatus
+from printpipe.config import configured_media_meshgen_command
 from printpipe.runs.paths import RunLayout
 
 from .contracts import (
@@ -681,13 +682,38 @@ class MediaCommandMeshProvider(Hunyuan3DProvider):
     model_id = "generic-media-command"
     command_env = MEDIA_MESHGEN_COMMAND_ENV
 
+    def _configured_command(
+        self,
+        command: str | Path | Sequence[str | Path] | None,
+    ) -> tuple[str, ...]:
+        if command is None:
+            value = configured_media_meshgen_command()
+            return tuple(shlex.split(value)) if value else ()
+        return super()._configured_command(command)
+
     def _not_configured_message(self) -> str:
         return MEDIA_MESHGEN_SETUP_MESSAGE
 
     def _not_configured_health_message(self) -> str:
+        config_path = os.environ.get("PRINTPIPE_CONFIG_PATH", ".printpipe/config.json")
         return (
             f"{self.display_name} is not configured. "
-            f"{MEDIA_MESHGEN_SETUP_ACTION}"
+            f"{MEDIA_MESHGEN_SETUP_ACTION} Or run "
+            f"printpipe media-meshgen-configure --command '<adapter command>' "
+            f"to write {config_path}."
+        )
+
+    def healthcheck(self) -> ProviderHealth:
+        health = super().healthcheck()
+        if health.status != StageStatus.SUCCEEDED:
+            return health
+        env_command = os.environ.get(self.command_env, "").strip()
+        source = "environment" if env_command else "project config"
+        return ProviderHealth(
+            provider_id=health.provider_id,
+            status=health.status,
+            message=f"{self.display_name} is configured from {source}: {self.command[0]}",
+            checked_at=health.checked_at,
         )
 
 
@@ -844,7 +870,7 @@ def _default_readiness_registry(
     media_command = None
     if env is not None:
         hunyuan_command = env.get(HUNYUAN3D_COMMAND_ENV, "")
-        media_command = env.get(MEDIA_MESHGEN_COMMAND_ENV, "")
+        media_command = configured_media_meshgen_command(env=env)
     registry: dict[str, MeshGenProvider] = {}
     register_provider(ExistingMeshProvider(), registry)
     register_provider(Hunyuan3DProvider(command=hunyuan_command), registry)

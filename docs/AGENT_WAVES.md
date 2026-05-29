@@ -1892,3 +1892,14 @@ Status: complete for turning successful one-off smoke evidence into a concrete p
 4. Done: the command handoff preserves the same smoke-status follow-up check instead of treating the prior one-off smoke as permanent environment configuration.
 5. Done: tests cover the receipt field, status contract, and final-plan action switch.
 6. Boundary: this does not silently mutate shell/profile/app environment. It tells the user exactly how to configure the tested command.
+
+## Wave 173 - Local Media Meshgen Project Config
+
+Status: complete for persisting a tested media meshgen command without editing shell profiles.
+
+1. Done: added `.printpipe/config.json` support with `PRINTPIPE_CONFIG_PATH` override.
+2. Done: added `printpipe media-meshgen-configure --command ...`, which writes `media_meshgen_command` into local project config.
+3. Done: `MediaCommandMeshProvider`, `printpipe doctor`, readiness, and normal media runs now read the local config when `PRINTPIPE_MEDIA_MESHGEN_COMMAND` is not exported.
+4. Done: `final-next` now recommends `printpipe media-meshgen-configure --command ...` for a smoke-proven generic media command.
+5. Done: `.printpipe/` is ignored so local provider config does not become a repo artifact.
+6. Boundary: the config command only persists a command. It does not prove semantic reconstruction quality or physical print success.
