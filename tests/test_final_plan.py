@@ -143,6 +143,20 @@ def test_media_meshgen_action_plan_requires_provider_before_smoke(
     assert "--output-format glb" in action["command"]
     assert "media-meshgen-smoke-status" in action["followup_command"]
     assert str(tmp_path / "runs") in action["followup_command"]
+    assert action["browser_path"] == "/#media-meshgen-setup"
+    assert action["browser_label"] == "Open Media meshgen setup in the local app"
+
+    next_payload = build_final_next_action_payload(
+        build_final_action_plan(
+            runs_dir=tmp_path / "runs",
+            release_dir=tmp_path / "release",
+            media_meshgen_plan=plan,
+            physical_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+            trusted_feedback_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+            release_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+        )
+    )
+    assert next_payload["next_action"]["browser_path"] == "/#media-meshgen-setup"
 
 
 def test_media_meshgen_action_plan_configures_tested_smoke_command(

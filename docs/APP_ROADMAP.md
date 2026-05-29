@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 188: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 189: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 188 aligned the shared media smoke helper with browser/project workspace config. `run_media_meshgen_smoke(..., config_cwd=...)` now resolves both adapter command and adapter params from that project workspace instead of silently ignoring the command half. PrintPipe can generate a ComfyUI adapter preset, inspect a workflow for `SaveGLB` plus image/prompt/seed patch candidates, persist those params in `.printpipe/config.json`, and run the existing smoke path from the CLI or browser. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 189 made the media-provider final handoff browser-aware. Final-next/final-readiness now carry a direct local-app link to `/#media-meshgen-setup` beside the existing terminal setup, smoke, and follow-up commands. PrintPipe can generate a ComfyUI adapter preset, inspect a workflow for `SaveGLB` plus image/prompt/seed patch candidates, persist those params in `.printpipe/config.json`, and run the existing smoke path from the CLI or browser. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 
@@ -231,6 +231,8 @@ Wave 186 applied the same validation to manual media-provider configuration. Bro
 Wave 187 made readiness re-check saved ComfyUI params instead of trusting previously written config forever. If `.printpipe/config.json` points at a workflow that has since been deleted, edited, or no longer passes the static inspector, the generic media command provider reports `failed`, readiness stays `action_required`, and the message points at the ComfyUI workflow problem before the user reaches smoke/run time.
 
 Wave 188 aligned the media smoke helper with the same project-config model. The helper already accepted `config_cwd` for saved adapter params, but it still resolved the adapter command from the process environment/current checkout. It now resolves the command and params from the same explicit workspace, while preserving explicit command and environment-command precedence. This closes a lower-level mismatch beneath the browser smoke route.
+
+Wave 189 made the final media-provider handoff point at the browser setup flow we built. The configure-provider action now carries `browser_path: /#media-meshgen-setup` and the final-readiness panel renders it as a local-app link, while still preserving the terminal setup, smoke, and follow-up commands for CLI/agent workflows.
 
 Wave 139 made trusted-user beta handoff rows operational instead of placeholder-heavy. When a `trusted_user_feedback_handoff_*.md` file exists, `beta-feedback-plan` and `final-plan` now point the immediate action at the real run folder and produce a concrete `record-beta-feedback` command with the actual run root, tester slot, input type, material, printer, and report artifact path. The beta gate remains open until real trusted users return completed packets.
 

@@ -180,6 +180,8 @@ def build_media_meshgen_action_plan(
                 "image, GIF, or video reference for smoke testing",
             ],
             "input_type": "image/GIF/video",
+            "browser_path": "/#media-meshgen-setup",
+            "browser_label": "Open Media meshgen setup in the local app",
         }
         return _media_meshgen_plan(
             overall_status="action_required",
@@ -614,6 +616,8 @@ def _next_action(sections: list[dict[str, Any]]) -> dict[str, Any]:
             "print_type",
             "input_type",
             "tester",
+            "browser_path",
+            "browser_label",
         ):
             value = str(action.get(key) or "")
             if value:

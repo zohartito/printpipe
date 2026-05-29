@@ -398,6 +398,8 @@ def test_render_final_readiness_panel_labels_media_meshgen_setup_flow() -> None:
                     "image, GIF, or video reference for smoke testing",
                 ],
                 "input_type": "image/GIF/video",
+                "browser_path": "/#media-meshgen-setup",
+                "browser_label": "Open Media meshgen setup in the local app",
             },
             "pillars": [
                 {
@@ -432,6 +434,8 @@ def test_render_final_readiness_panel_labels_media_meshgen_setup_flow() -> None:
                         "image, GIF, or video reference for smoke testing",
                     ],
                     "input_type": "image/GIF/video",
+                    "browser_path": "/#media-meshgen-setup",
+                    "browser_label": "Open Media meshgen setup in the local app",
                 }
             ],
         }
@@ -452,6 +456,8 @@ def test_render_final_readiness_panel_labels_media_meshgen_setup_flow() -> None:
     assert "printpipe media-meshgen-smoke-status --runs-dir runs --strict" in html
     assert "Next action context: Input: image/GIF/video" in html
     assert "Next action required inputs:" in html
+    assert 'href="/#media-meshgen-setup"' in html
+    assert "Open Media meshgen setup in the local app" in html
 
 
 def test_render_final_readiness_panel_links_run_artifact_paths() -> None:

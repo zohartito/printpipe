@@ -2068,3 +2068,13 @@ Status: complete for making the shared media smoke helper honor explicit project
 3. Done: explicit `--command` and `PRINTPIPE_MEDIA_MESHGEN_COMMAND` still take precedence over project config.
 4. Done: browser smoke tests continue to pass, including forwarding saved adapter params.
 5. Boundary: this does not create a semantic provider or smoke receipt. It removes a mismatch that could make agent/browser smoke paths ignore the intended project config.
+
+## Wave 189 - Browser-Aware Media Final Handoff
+
+Status: complete for pointing final-next/final-readiness at the browser media setup flow.
+
+1. Done: the `configure_media_meshgen_provider` final-plan action now includes `browser_path: /#media-meshgen-setup`.
+2. Done: final-next payloads preserve `browser_path` and `browser_label` for agents or UI clients.
+3. Done: the final-readiness panel renders a `Browser setup` link beside the existing terminal commands.
+4. Done: focused tests cover final-plan payload propagation and final-readiness HTML rendering.
+5. Boundary: this is handoff UX only. It does not configure a real provider or close the media meshgen gate.

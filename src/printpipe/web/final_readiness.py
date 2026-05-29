@@ -63,6 +63,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
         context_markup = _next_action_context(next_action)
         required_markup = _next_action_required_inputs(next_action)
         evidence_fields_markup = _next_action_required_fields(next_action)
+        browser_markup = _next_action_browser_link(next_action)
         setup_markup = _next_action_command_block(
             "Setup prerequisite",
             setup_command,
@@ -106,6 +107,7 @@ def render_final_readiness_panel(view: Mapping[str, Any]) -> str:
                 context_markup,
                 required_markup,
                 evidence_fields_markup,
+                browser_markup,
                 setup_markup,
                 run_markup,
                 followup_markup,
@@ -346,6 +348,17 @@ def _next_action_required_fields(next_action: Mapping[str, Any]) -> str:
     return (
         '        <p class="muted">Next action required evidence fields: '
         f"{escape(', '.join(required))}</p>"
+    )
+
+
+def _next_action_browser_link(next_action: Mapping[str, Any]) -> str:
+    href = str(next_action.get("browser_path") or "")
+    if not href:
+        return ""
+    label = str(next_action.get("browser_label") or "Open setup in the local app")
+    return (
+        '        <p class="muted">Browser setup: '
+        f'<a href="{escape(href, quote=True)}">{escape(label)}</a></p>'
     )
 
 

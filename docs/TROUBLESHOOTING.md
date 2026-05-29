@@ -87,6 +87,8 @@ provider back to action-required before smoke/run time. These setup paths still
 do not contact ComfyUI or close readiness without a successful smoke receipt.
 When the local web app launches with a workspace, browser smoke uses that
 workspace's `.printpipe/config.json` for both command and params.
+If final-readiness says the media provider gate is open, use the browser link to
+`/#media-meshgen-setup` or run the printed terminal commands.
 For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
 
 ```bash
