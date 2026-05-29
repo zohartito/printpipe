@@ -7,6 +7,7 @@ from pathlib import Path
 from printpipe.cli import build_parser, main
 from printpipe.config import CONFIG_PATH_ENV
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
+from printpipe.meshgen.smoke import run_media_meshgen_smoke
 
 
 def test_media_meshgen_smoke_parser_accepts_input_command_and_runs_dir(tmp_path: Path):
@@ -162,6 +163,55 @@ def test_media_meshgen_smoke_records_project_config_command(
     assert exit_code == 0
     run_root = next(runs_dir.iterdir())
     payload = json.loads((run_root / "20_meshgen" / "smoke.json").read_text())
+    assert payload["status"] == "succeeded"
+    assert payload["command"] == command
+
+
+def test_run_media_meshgen_smoke_resolves_command_from_config_cwd(
+    tmp_path: Path,
+    monkeypatch,
+):
+    source_mesh = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    fake_adapter = tmp_path / "fake_media_adapter.py"
+    fake_adapter.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--output', required=True)",
+                "args, _ = parser.parse_known_args()",
+                f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    command = f"{sys.executable} {fake_adapter}"
+    config_path = tmp_path / ".printpipe" / "config.json"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        json.dumps({"media_meshgen_command": command}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(tmp_path / "ignored-config.json"))
+    monkeypatch.delenv("PRINTPIPE_MEDIA_MESHGEN_COMMAND", raising=False)
+    monkeypatch.delenv("PRINTPIPE_HUNYUAN3D_COMMAND", raising=False)
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+
+    payload = run_media_meshgen_smoke(
+        source,
+        runs_dir=tmp_path / "smoke-runs",
+        config_cwd=tmp_path,
+    )
+
     assert payload["status"] == "succeeded"
     assert payload["command"] == command
 

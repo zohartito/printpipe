@@ -2058,3 +2058,13 @@ Status: complete for catching stale ComfyUI workflow config during media-provide
 4. Done: media readiness surfaces the failed provider message instead of counting that provider as live.
 5. Done: focused regression tests cover stale missing-`SaveGLB` config and preserve the heightfield plumbing-only behavior.
 6. Boundary: this still does not run ComfyUI or prove semantic mesh quality. It prevents stale ComfyUI config from being mistaken for provider readiness.
+
+## Wave 188 - Media Smoke Workspace Config Alignment
+
+Status: complete for making the shared media smoke helper honor explicit project workspace config.
+
+1. Done: added a regression for `run_media_meshgen_smoke(..., config_cwd=workspace)` resolving the media command from `workspace/.printpipe/config.json`.
+2. Done: the smoke helper now resolves adapter command and adapter params from the same explicit workspace when `config_cwd` is passed.
+3. Done: explicit `--command` and `PRINTPIPE_MEDIA_MESHGEN_COMMAND` still take precedence over project config.
+4. Done: browser smoke tests continue to pass, including forwarding saved adapter params.
+5. Boundary: this does not create a semantic provider or smoke receipt. It removes a mismatch that could make agent/browser smoke paths ignore the intended project config.

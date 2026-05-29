@@ -42,8 +42,11 @@ def run_media_meshgen_smoke(
     layout = create_run(input_path, runs_dir)
     input_result = prepare_input(layout.original_input, layout.frames_dir)
     reference_paths = tuple(Path(artifact.path) for artifact in input_result.selected_references)
-    provider = _smoke_provider(command=command)
-    configured_command = _configured_smoke_command(command)
+    provider = _smoke_provider(command=command, config_cwd=config_cwd)
+    configured_command = _configured_smoke_command(
+        command,
+        config_cwd=config_cwd,
+    )
     request = MeshGenRequest(
         input_kind=input_result.kind,
         source_paths=reference_paths,
@@ -52,7 +55,7 @@ def run_media_meshgen_smoke(
         prompt_hint=prompt,
         max_attempts=1,
         provider_params={
-            **configured_media_meshgen_params(cwd=config_cwd),
+            **_configured_smoke_params(config_cwd=config_cwd),
             "smoke": True,
             "original_input": str(layout.original_input),
         },
@@ -66,26 +69,54 @@ def run_media_meshgen_smoke(
     )
 
 
-def _smoke_provider(*, command: str | None) -> MeshGenProvider:
+def _smoke_provider(
+    *,
+    command: str | None,
+    config_cwd: Path | None,
+) -> MeshGenProvider:
     if command:
         return MediaCommandMeshProvider(command=command)
-    if os.environ.get(MEDIA_MESHGEN_COMMAND_ENV, "").strip():
-        return MediaCommandMeshProvider()
+    media_command = _configured_project_media_command(config_cwd=config_cwd)
+    if media_command:
+        return MediaCommandMeshProvider(command=media_command)
     if os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip():
         return Hunyuan3DProvider()
     return MediaCommandMeshProvider()
 
 
-def _configured_smoke_command(command: str | None) -> str:
+def _configured_smoke_command(
+    command: str | None,
+    *,
+    config_cwd: Path | None,
+) -> str:
     if command:
         return command.strip()
-    media_command = configured_media_meshgen_command()
+    media_command = _configured_project_media_command(config_cwd=config_cwd)
     if media_command:
         return media_command
     hunyuan_command = os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip()
     if hunyuan_command:
         return hunyuan_command
     return ""
+
+
+def _configured_project_media_command(*, config_cwd: Path | None) -> str:
+    if config_cwd is None:
+        return configured_media_meshgen_command()
+    env_command = os.environ.get(MEDIA_MESHGEN_COMMAND_ENV, "").strip()
+    if env_command:
+        return env_command
+    return configured_media_meshgen_command(config_path=_project_config_path(config_cwd))
+
+
+def _configured_smoke_params(*, config_cwd: Path | None) -> dict[str, Any]:
+    if config_cwd is None:
+        return configured_media_meshgen_params()
+    return configured_media_meshgen_params(config_path=_project_config_path(config_cwd))
+
+
+def _project_config_path(config_cwd: Path) -> Path:
+    return config_cwd.expanduser() / ".printpipe" / "config.json"
 
 
 def _write_smoke_receipt(

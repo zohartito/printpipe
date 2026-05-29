@@ -85,6 +85,8 @@ before adapter/config state is written. The manual browser command form and CLI
 workflow validation later, so deleting or editing the saved workflow can move the
 provider back to action-required before smoke/run time. These setup paths still
 do not contact ComfyUI or close readiness without a successful smoke receipt.
+When the local web app launches with a workspace, browser smoke uses that
+workspace's `.printpipe/config.json` for both command and params.
 For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
 
 ```bash

@@ -85,8 +85,10 @@ Unready workflows fail before adapter/config state is written. Manual config
 writes through the browser command form or CLI apply the same static validation
 when `comfyui_workflow` is present, and media-provider readiness re-runs that
 validation so stale config cannot keep counting as live. Those paths are
-configuration only. The architecture still treats the media provider as unproven
-until a smoke receipt shows a real adapter generated a mesh from a reference.
+configuration only. Media smoke execution resolves command and params from the
+same explicit project workspace when one is supplied. The architecture still
+treats the media provider as unproven until a smoke receipt shows a real adapter
+generated a mesh from a reference.
 
 OpenAI prompt-image cost is treated as a user-configured estimate, not a hardcoded
 pricing promise. If `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` is set and the estimate

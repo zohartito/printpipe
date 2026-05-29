@@ -98,6 +98,8 @@ command form and `media-meshgen-configure --params-json ...` apply the same
 static workflow check when `comfyui_workflow` is provided.
 Doctor/readiness checks also re-inspect that saved workflow later, so deleted or
 edited workflow JSON does not keep counting as a live media provider.
+Browser and helper-driven smoke tests resolve the adapter command and adapter
+params from the same project workspace when a workspace is provided.
 That browser setup step still does not prove semantic reconstruction; a real
 `media-meshgen-smoke` receipt is required before the media gate is ready.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke
