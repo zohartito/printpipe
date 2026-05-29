@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 178: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 179: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 178 tightened media-meshgen honesty. The built-in heightfield adapter still proves image/GIF/video plumbing and can write smoke receipts, but it no longer counts as the semantic media reconstruction provider in readiness or final-plan gates. Project-configured media smoke runs now record the resolved adapter command in `20_meshgen/smoke.json`, so future handoffs know exactly what was tested. Wave 177 added browser-side release handoff creation. The remaining open gates are real-world evidence gates: actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 179 made semantic media-provider setup executable from the local browser. The home page now has a media meshgen setup panel with `POST /media-meshgen/template` to write `scripts/media_meshgen_adapter.py` and `POST /media-meshgen/configure` to save a command into `.printpipe/config.json`. This is still setup only: the media gate remains open until a real semantic adapter replaces the template and passes `media-meshgen-smoke`. Wave 178 tightened heightfield honesty so plumbing smoke does not count as semantic reconstruction. The remaining open gates are real-world evidence gates: actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 

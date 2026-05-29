@@ -1270,6 +1270,55 @@ def test_home_response_renders_media_meshgen_smoke_status(monkeypatch, tmp_path:
     assert "media-meshgen-smoke-status.json" in response.text
 
 
+def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert 'id="media-meshgen-setup"' in response.text
+    assert 'action="/media-meshgen/template"' in response.text
+    assert 'action="/media-meshgen/configure"' in response.text
+    assert 'name="command"' in response.text
+    assert "This does not prove semantic reconstruction" in response.text
+
+
+def test_post_media_meshgen_template_writes_adapter_and_redirects(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+
+    response = app.handle(
+        "/media-meshgen/template",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=b"",
+    )
+
+    adapter = tmp_path / "scripts" / "media_meshgen_adapter.py"
+    assert response.status == 303
+    assert response.header("Location") == "/#media-meshgen-setup"
+    assert adapter.exists()
+    assert "PrintPipe media meshgen adapter template" in adapter.read_text(encoding="utf-8")
+    assert adapter.stat().st_mode & 0o111
+
+
+def test_post_media_meshgen_configure_writes_project_config_and_redirects(
+    tmp_path: Path,
+):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+
+    response = app.handle(
+        "/media-meshgen/configure",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=b"command=python+scripts%2Fmedia_meshgen_adapter.py",
+    )
+
+    config = json.loads((tmp_path / ".printpipe" / "config.json").read_text())
+    assert response.status == 303
+    assert response.header("Location") == "/#media-meshgen-setup"
+    assert config["media_meshgen_command"] == "python scripts/media_meshgen_adapter.py"
+
+
 def test_home_response_renders_release_status_summary(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         "printpipe.web.server.build_release_status_report",

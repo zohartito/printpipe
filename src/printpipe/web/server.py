@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
+from printpipe.config import configured_media_meshgen_command, write_project_config
 from printpipe.beta.beta_plan import build_beta_action_plan
 from printpipe.beta.feedback import (
     FeedbackArtifact,
@@ -42,6 +43,7 @@ from printpipe.web.final_readiness import (
     render_final_readiness_panel,
 )
 from printpipe.local_open import open_run_folder
+from printpipe.meshgen.command_template import write_media_meshgen_command_template
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.packaging.release_plan import (
     build_release_distribution_plan,
@@ -198,10 +200,12 @@ class PrintPipeWebApp:
         release_dir: str | Path | None = Path("dist/release"),
         regression_manifest_path: str | Path | None = None,
         path_opener: Callable[[Path], object] | None = None,
+        workspace_dir: str | Path | None = None,
     ) -> None:
         self.static_roots = tuple(Path(root) for root in static_roots)
         self.runs_dir = Path(runs_dir) if runs_dir is not None else None
         self.release_dir = Path(release_dir) if release_dir is not None else None
+        self.workspace_dir = Path(workspace_dir) if workspace_dir is not None else Path.cwd()
         self.regression_manifest_path = (
             Path(regression_manifest_path).expanduser()
             if regression_manifest_path is not None
@@ -232,6 +236,10 @@ class PrintPipeWebApp:
                 return self.start_physical_response(headers=headers, body=body)
             if path == "/release/start":
                 return self.start_release_response()
+            if path == "/media-meshgen/template":
+                return self.start_media_meshgen_template_response()
+            if path == "/media-meshgen/configure":
+                return self.configure_media_meshgen_response(headers=headers, body=body)
             if path == "/runs":
                 return self.create_run_response(headers=headers, body=body)
             if path.startswith(_RUNS_PREFIX):
@@ -404,6 +412,51 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         return WebResponse.redirect("/#release-distribution-plan")
+
+    def start_media_meshgen_template_response(self) -> WebResponse:
+        try:
+            write_media_meshgen_command_template(
+                self.workspace_dir / "scripts" / "media_meshgen_adapter.py"
+            )
+        except OSError as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        return WebResponse.redirect("/#media-meshgen-setup")
+
+    def configure_media_meshgen_response(
+        self,
+        *,
+        headers: Any | None,
+        body: bytes,
+    ) -> WebResponse:
+        try:
+            fields = _parse_edit_form(headers=headers, body=body)
+            command = str(fields.get("command") or "").strip()
+            if not command:
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "Media meshgen command is required.",
+                )
+            write_project_config(
+                updates={"media_meshgen_command": command},
+                cwd=self.workspace_dir,
+            )
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except OSError as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        return WebResponse.redirect("/#media-meshgen-setup")
 
     def start_physical_response(self, *, headers: Any | None, body: bytes) -> WebResponse:
         if self.runs_dir is None:
@@ -974,6 +1027,7 @@ class PrintPipeWebApp:
                 self._render_release_status_panel(),
                 self._render_release_distribution_plan_panel(),
                 self._render_readiness_panel(),
+                self._render_media_meshgen_setup_panel(),
                 self._render_media_meshgen_smoke_status_panel(),
                 self._render_physical_beta_gate_panel(),
                 self._render_physical_action_plan_panel(),
@@ -1162,6 +1216,49 @@ class PrintPipeWebApp:
                 "        </article>",
                 "      </div>",
                 '      <p class="muted"><a href="/media-meshgen-smoke-status.json">Media meshgen smoke JSON</a></p>',
+                "    </section>",
+            ]
+        )
+
+    def _render_media_meshgen_setup_panel(self) -> str:
+        current_command = configured_media_meshgen_command(cwd=self.workspace_dir)
+        template_path = self.workspace_dir / "scripts" / "media_meshgen_adapter.py"
+        current_markup = (
+            f"Current saved command: <code>{escape(current_command)}</code>"
+            if current_command
+            else "No media meshgen command saved in project config."
+        )
+        return "\n".join(
+            [
+                '    <section id="media-meshgen-setup" class="panel media-meshgen-setup-panel">',
+                "      <div>",
+                "        <h2>Media meshgen setup</h2>",
+                "        <p>This does not prove semantic reconstruction. Create or point at a real adapter, then run a smoke test.</p>",
+                f'        <p class="muted">{current_markup}</p>',
+                "      </div>",
+                '      <div class="readiness-grid">',
+                '        <article class="readiness-gate readiness-gate-action-required">',
+                "          <span>Adapter template</span>",
+                f"          <p>Writes <code>{escape(str(template_path))}</code>.</p>",
+                '          <form method="post" action="/media-meshgen/template">',
+                '            <button type="submit">Create adapter template</button>',
+                "          </form>",
+                "        </article>",
+                '        <article class="readiness-gate readiness-gate-action-required">',
+                "          <span>Project command</span>",
+                '          <form method="post" action="/media-meshgen/configure">',
+                '            <label for="media-meshgen-command">Command</label>',
+                (
+                    '            <input id="media-meshgen-command" name="command" '
+                    'type="text" placeholder="python scripts/media_meshgen_adapter.py" '
+                    f'value="{escape(current_command, quote=True)}">'
+                ),
+                '            <button type="submit">Save media command</button>',
+                "          </form>",
+                "        </article>",
+                "      </div>",
+                "      <p class=\"muted\">After replacing the template with a real provider, run: "
+                "<code>printpipe media-meshgen-smoke reference.png --runs-dir runs</code></p>",
                 "    </section>",
             ]
         )
@@ -2268,6 +2365,7 @@ def create_app(
     release_dir: str | Path | None = Path("dist/release"),
     regression_manifest_path: str | Path | None = None,
     path_opener: Callable[[Path], object] | None = None,
+    workspace_dir: str | Path | None = None,
 ) -> PrintPipeWebApp:
     """Create the local web app without binding a socket."""
 
@@ -2280,6 +2378,7 @@ def create_app(
         release_dir=release_dir,
         regression_manifest_path=regression_manifest_path,
         path_opener=path_opener,
+        workspace_dir=workspace_dir,
     )
 
 

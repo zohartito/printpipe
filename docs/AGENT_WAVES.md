@@ -1958,3 +1958,14 @@ Status: complete for preventing plumbing smoke from closing the semantic media-p
 4. Done: final-plan no longer recommends configuring a successful heightfield smoke command as the semantic media provider.
 5. Done: project-configured `media-meshgen-smoke` runs now write the resolved command into `20_meshgen/smoke.json`.
 6. Boundary: this does not install Hunyuan3D, Meshy, Rodin, Chimney, or another product-quality provider. It makes the remaining semantic-provider gap visible again.
+
+## Wave 179 - Browser Media Provider Setup
+
+Status: complete for making the semantic media-provider setup action executable from the local browser.
+
+1. Done: added `POST /media-meshgen/template` to write `scripts/media_meshgen_adapter.py` using the same template writer as the CLI.
+2. Done: added `POST /media-meshgen/configure` to save a media meshgen command into `.printpipe/config.json`.
+3. Done: added a home-page `Media meshgen setup` panel with template creation, command entry, current saved command, and the follow-up smoke command.
+4. Done: added `workspace_dir` support to the web app factory so tests and local launches can write project config/template files deterministically.
+5. Done: web tests cover rendering the setup forms, writing the adapter template, and writing project config.
+6. Boundary: this is setup only. It does not prove semantic reconstruction, run smoke automatically, or close the media meshgen provider gate.
