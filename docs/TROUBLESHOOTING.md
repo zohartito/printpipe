@@ -74,6 +74,11 @@ as needed. Environment variables like `PRINTPIPE_COMFYUI_WORKFLOW` still overrid
 saved params. Use `--preset generic` if you want the blank adapter protocol stub.
 `media-meshgen-comfyui-inspect` reads exported workflow JSON and suggests the
 `comfyui_image_paths`, `comfyui_prompt_paths`, and `comfyui_seed_paths` to store.
+The local browser home page has a matching `Media meshgen setup` form for
+uploading the workflow JSON; it writes the preset adapter, stores the workflow
+under `workflows/`, runs the same static inspector, and saves the suggested
+params into `.printpipe/config.json`. This setup path still does not contact
+ComfyUI or close readiness without a successful smoke receipt.
 For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
 
 ```bash

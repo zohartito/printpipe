@@ -1278,9 +1278,11 @@ def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
     assert response.status == 200
     assert 'id="media-meshgen-setup"' in response.text
     assert 'action="/media-meshgen/template"' in response.text
+    assert 'action="/media-meshgen/comfyui-workflow"' in response.text
     assert 'action="/media-meshgen/configure"' in response.text
     assert 'action="/media-meshgen/smoke"' in response.text
     assert 'name="preset"' in response.text
+    assert 'name="workflow"' in response.text
     assert 'name="command"' in response.text
     assert 'name="comfyui_workflow"' in response.text
     assert 'name="comfyui_image_paths"' in response.text
@@ -1290,6 +1292,76 @@ def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
     assert 'value="comfyui-api"' in response.text
     assert 'value="glb"' in response.text
     assert "This does not prove semantic reconstruction" in response.text
+
+
+def test_post_media_meshgen_comfyui_workflow_upload_configures_params(
+    tmp_path: Path,
+):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    workflow_payload = json.dumps(
+        {
+            "1": {"class_type": "LoadImage", "inputs": {"image": "reference.png"}},
+            "2": {
+                "class_type": "TripoImageToModelNode",
+                "inputs": {"image": ["1", 0], "model_seed": 42},
+            },
+            "3": {"class_type": "CLIPTextEncode", "inputs": {"text": "hook"}},
+            "4": {
+                "class_type": "SaveGLB",
+                "inputs": {"mesh": ["2", 2], "filename_prefix": "3d/PrintPipe"},
+            },
+        }
+    ).encode("utf-8")
+    body, content_type = _multipart_form_body(
+        fields={
+            "command": "python scripts/media_meshgen_adapter.py",
+            "comfyui_url": "http://127.0.0.1:8188",
+        },
+        file_field="workflow",
+        filename="image_to_glb.json",
+        content_type="application/json",
+        file_content=workflow_payload,
+    )
+
+    response = app.handle(
+        "/media-meshgen/comfyui-workflow",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    saved_workflow = tmp_path / "workflows" / "image_to_glb.json"
+    adapter = tmp_path / "scripts" / "media_meshgen_adapter.py"
+    config = json.loads((tmp_path / ".printpipe" / "config.json").read_text())
+    assert response.status == 303
+    assert response.header("Location") == "/#media-meshgen-setup"
+    assert saved_workflow.exists()
+    assert "ComfyUI API media meshgen adapter preset" in adapter.read_text(encoding="utf-8")
+    assert config["media_meshgen_command"] == "python scripts/media_meshgen_adapter.py"
+    assert config["media_meshgen_params"] == {
+        "comfyui_image_paths": ["1.inputs.image"],
+        "comfyui_prompt_paths": ["3.inputs.text"],
+        "comfyui_seed_paths": ["2.inputs.model_seed"],
+        "comfyui_url": "http://127.0.0.1:8188",
+        "comfyui_workflow": str(saved_workflow),
+    }
+
+
+def test_post_media_meshgen_comfyui_workflow_requires_upload(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    body, content_type = _multipart_fields_body(
+        {"command": "python scripts/media_meshgen_adapter.py"}
+    )
+
+    response = app.handle(
+        "/media-meshgen/comfyui-workflow",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    assert response.status == 400
+    assert "ComfyUI workflow JSON upload is required." in response.text
 
 
 def test_post_media_meshgen_template_writes_adapter_and_redirects(tmp_path: Path):

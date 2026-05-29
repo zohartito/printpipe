@@ -2016,3 +2016,13 @@ Status: complete for reducing manual ComfyUI patch-path guesswork before smoke t
 5. Done: terminal output gives the same patch-path summary for humans.
 6. Done: tests cover parser behavior, ready workflow detection, missing `SaveGLB` warnings, and JSON CLI output.
 7. Boundary: this is static workflow inspection. It does not run ComfyUI, prove provider credentials, install model weights, or create semantic smoke evidence.
+
+## Wave 184 - Browser ComfyUI Workflow Intake
+
+Status: complete for bringing the ComfyUI workflow inspector into the local browser setup path.
+
+1. Done: added `POST /media-meshgen/comfyui-workflow` to accept an exported ComfyUI API workflow JSON upload.
+2. Done: the route saves the workflow under `workflows/`, writes the `comfyui-api` media adapter preset to `scripts/media_meshgen_adapter.py`, runs the static workflow inspector, and persists `media_meshgen_command` plus `media_meshgen_params` into `.printpipe/config.json`.
+3. Done: the home-page `Media meshgen setup` panel now has a ComfyUI workflow upload form with command and ComfyUI URL fields.
+4. Done: browser tests cover the setup form, successful upload/configuration, and missing-upload error path.
+5. Boundary: this is setup and static inspection only. It does not run ComfyUI, download model weights, validate API credentials, prove mesh quality, or close the media meshgen gate without a later successful smoke receipt from a real workflow/provider.

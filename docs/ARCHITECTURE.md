@@ -78,6 +78,12 @@ printpipe run input.gif \
 printpipe run --prompt "small ergonomic desk hook" --prompt-image-provider openai
 ```
 
+The local web home page mirrors the ComfyUI setup path: an exported workflow JSON
+upload can write the preset adapter, run the static inspector, and persist
+workflow/patch-path params. That browser path is configuration only. The
+architecture still treats the media provider as unproven until a smoke receipt
+shows a real adapter generated a mesh from a reference.
+
 OpenAI prompt-image cost is treated as a user-configured estimate, not a hardcoded
 pricing promise. If `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` is set and the estimate
 is missing or above the cap, the prompt-reference stage fails before making the

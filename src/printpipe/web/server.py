@@ -51,6 +51,7 @@ from printpipe.meshgen.command_template import (
     available_media_meshgen_template_presets,
     write_media_meshgen_command_template,
 )
+from printpipe.meshgen.comfyui_workflow import inspect_comfyui_workflow
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.meshgen.smoke import run_media_meshgen_smoke
 from printpipe.packaging.release_plan import (
@@ -196,6 +197,12 @@ class _ParsedMediaSmokeForm:
     reference: _UploadedFile | None
 
 
+@dataclass(frozen=True)
+class _ParsedMediaWorkflowForm:
+    fields: dict[str, str]
+    workflow: _UploadedFile | None
+
+
 class _FormError(ValueError):
     def __init__(self, status: HTTPStatus, message: str) -> None:
         super().__init__(message)
@@ -252,6 +259,11 @@ class PrintPipeWebApp:
                 return self.start_release_response()
             if path == "/media-meshgen/template":
                 return self.start_media_meshgen_template_response(headers=headers, body=body)
+            if path == "/media-meshgen/comfyui-workflow":
+                return self.configure_media_meshgen_comfyui_workflow_response(
+                    headers=headers,
+                    body=body,
+                )
             if path == "/media-meshgen/configure":
                 return self.configure_media_meshgen_response(headers=headers, body=body)
             if path == "/media-meshgen/smoke":
@@ -446,6 +458,58 @@ class PrintPipeWebApp:
             message = exc.message if isinstance(exc, _FormError) else str(exc)
             return WebResponse.from_text(
                 f"{message}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        return WebResponse.redirect("/#media-meshgen-setup")
+
+    def configure_media_meshgen_comfyui_workflow_response(
+        self,
+        *,
+        headers: Any | None,
+        body: bytes,
+    ) -> WebResponse:
+        try:
+            form = _parse_media_workflow_form(headers=headers, body=body)
+            if form.workflow is None or not form.workflow.content:
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "ComfyUI workflow JSON upload is required.",
+                )
+            workflow_path = self.workspace_dir / "workflows" / _safe_upload_filename(
+                form.workflow.filename
+            )
+            workflow_path.parent.mkdir(parents=True, exist_ok=True)
+            workflow_path.write_bytes(form.workflow.content)
+            write_media_meshgen_command_template(
+                self.workspace_dir / "scripts" / "media_meshgen_adapter.py",
+                preset="comfyui-api",
+            )
+            report = inspect_comfyui_workflow(workflow_path)
+            params = dict(report["suggested_params"])
+            comfyui_url = form.fields.get("comfyui_url", "").strip()
+            if comfyui_url:
+                params["comfyui_url"] = comfyui_url
+            command = (
+                form.fields.get("command", "").strip()
+                or "python scripts/media_meshgen_adapter.py"
+            )
+            write_project_config(
+                updates={
+                    "media_meshgen_command": command,
+                    "media_meshgen_params": params,
+                },
+                cwd=self.workspace_dir,
+            )
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
                 status=HTTPStatus.BAD_REQUEST,
                 content_type=_TEXT_MEDIA_TYPE,
             )
@@ -1332,6 +1396,27 @@ class PrintPipeWebApp:
                     f"{preset_options}</select>"
                 ),
                 '            <button type="submit">Create adapter template</button>',
+                "          </form>",
+                "        </article>",
+                '        <article class="readiness-gate readiness-gate-action-required">',
+                "          <span>ComfyUI workflow</span>",
+                "          <p>Upload an exported API workflow to inspect and save patch paths.</p>",
+                '          <form method="post" action="/media-meshgen/comfyui-workflow" enctype="multipart/form-data">',
+                '            <label for="media-comfyui-workflow-upload">Workflow JSON</label>',
+                '            <input id="media-comfyui-workflow-upload" name="workflow" type="file" accept="application/json,.json">',
+                '            <label for="media-comfyui-upload-command">Command</label>',
+                (
+                    '            <input id="media-comfyui-upload-command" name="command" '
+                    'type="text" placeholder="python scripts/media_meshgen_adapter.py" '
+                    f'value="{escape(current_command or "python scripts/media_meshgen_adapter.py", quote=True)}">'
+                ),
+                '            <label for="media-comfyui-upload-url">ComfyUI URL</label>',
+                (
+                    '            <input id="media-comfyui-upload-url" name="comfyui_url" '
+                    'type="text" placeholder="http://127.0.0.1:8188" '
+                    f'value="{escape(str(current_params.get("comfyui_url", "")), quote=True)}">'
+                ),
+                '            <button type="submit">Inspect and save workflow</button>',
                 "          </form>",
                 "        </article>",
                 '        <article class="readiness-gate readiness-gate-action-required">',
@@ -2874,6 +2959,69 @@ def _parse_media_smoke_form(
         fields[field_name] = payload.decode(part.get_content_charset() or "utf-8", "replace").strip()
 
     return _ParsedMediaSmokeForm(fields=fields, reference=reference)
+
+
+def _parse_media_workflow_form(
+    *,
+    headers: Any | None,
+    body: bytes,
+) -> _ParsedMediaWorkflowForm:
+    if len(body) > _MAX_FORM_BODY_BYTES:
+        raise _FormError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Form upload is too large.")
+
+    content_type = _header_value(headers, "Content-Type")
+    if content_type is None or "multipart/form-data" not in content_type.lower():
+        raise _FormError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Expected multipart/form-data.")
+
+    try:
+        message = BytesParser(policy=email_policy).parsebytes(
+            f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+            + body
+        )
+    except (LookupError, ValueError) as exc:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.") from exc
+
+    if not message.is_multipart():
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.")
+
+    fields: dict[str, str] = {}
+    workflow: _UploadedFile | None = None
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+        field_name = part.get_param("name", header="content-disposition")
+        if not field_name:
+            continue
+
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            payload_text = part.get_payload()
+            payload = str(payload_text).encode(part.get_content_charset() or "utf-8", "replace")
+
+        filename = part.get_filename()
+        if filename is not None:
+            if field_name != "workflow":
+                continue
+            if not filename and not payload:
+                continue
+            if len(payload) > _MAX_UPLOAD_BYTES:
+                raise _FormError(
+                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                    "Uploaded workflow is too large.",
+                )
+            workflow = _UploadedFile(
+                field_name=field_name,
+                filename=filename,
+                content_type=part.get_content_type(),
+                content=payload,
+            )
+            continue
+
+        if len(payload) > _MAX_FIELD_CHARS:
+            raise _FormError(HTTPStatus.BAD_REQUEST, f"Form field is too long: {field_name}.")
+        fields[field_name] = payload.decode(part.get_content_charset() or "utf-8", "replace").strip()
+
+    return _ParsedMediaWorkflowForm(fields=fields, workflow=workflow)
 
 
 def _parse_edit_form(*, headers: Any | None, body: bytes) -> dict[str, str]:

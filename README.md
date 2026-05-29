@@ -89,7 +89,11 @@ printpipe media-meshgen-configure \
 ```
 
 The local web app also exposes the same proof surface on the home page and at
-`/media-meshgen-smoke-status.json`.
+`/media-meshgen-smoke-status.json`. From the home page, the ComfyUI workflow
+upload form can save an exported API workflow, write the ComfyUI adapter preset,
+inspect patch paths, and persist those params into `.printpipe/config.json`.
+That browser setup step still does not prove semantic reconstruction; a real
+`media-meshgen-smoke` receipt is required before the media gate is ready.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke
 gate before physical beta/release handoffs when it is still missing.
 
