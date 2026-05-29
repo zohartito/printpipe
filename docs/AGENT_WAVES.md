@@ -1914,3 +1914,14 @@ Status: complete for letting the local browser create physical validation starte
 4. Done: the route redirects back to the physical action-plan panel so the refreshed page shows generated artifacts and the post-print record command.
 5. Done: web tests cover both the rendered form and the POST route.
 6. Boundary: this starts a print packet only. It does not record passed physical evidence or close the physical gate.
+
+## Wave 175 - Browser Physical Evidence Intake
+
+Status: complete for recording post-print physical evidence from the local browser.
+
+1. Done: added `POST /physical/record` to the local web app.
+2. Done: already-started physical validation cards now render a multipart evidence form with material-family observation fields.
+3. Done: the route only records against the current family action run folder inside the configured runs dir; it rejects missing starter packets.
+4. Done: a photo upload is required before the browser route writes a printed evidence packet.
+5. Done: uploaded photos are copied into `90_physical/artifacts/`, and the route writes structured physical evidence JSON/Markdown through the same physical evidence writer as the CLI.
+6. Boundary: this still does not manufacture evidence. The physical gate only closes after Zohar performs the real print and uploads a real photo with observations.

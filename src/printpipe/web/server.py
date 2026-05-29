@@ -23,6 +23,11 @@ from printpipe.beta.feedback import (
     build_trusted_user_feedback_plan,
     build_trusted_user_feedback_status,
 )
+from printpipe.beta.physical import (
+    PhysicalArtifact,
+    build_physical_print_evidence,
+    write_physical_evidence_files,
+)
 from printpipe.beta.readiness import build_beta_readiness_report
 from printpipe.beta.physical_plan import build_physical_validation_plan
 from printpipe.beta.physical_start import start_physical_validation
@@ -157,6 +162,12 @@ class _ParsedRunForm:
     launch_options: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class _ParsedPhysicalRecordForm:
+    fields: dict[str, str]
+    photo: _UploadedFile | None
+
+
 class _FormError(ValueError):
     def __init__(self, status: HTTPStatus, message: str) -> None:
         super().__init__(message)
@@ -201,6 +212,8 @@ class PrintPipeWebApp:
         path = split_target.path or "/"
         query = parse_qs(split_target.query, keep_blank_values=True)
         if request_method == "POST":
+            if path == "/physical/record":
+                return self.record_physical_response(headers=headers, body=body)
             if path == "/physical/start":
                 return self.start_physical_response(headers=headers, body=body)
             if path == "/runs":
@@ -376,6 +389,77 @@ class PrintPipeWebApp:
                 family=family,
                 operator=fields.get("operator", "").strip(),
             )
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+        return WebResponse.redirect("/#physical-action-plan")
+
+    def record_physical_response(self, *, headers: Any | None, body: bytes) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+        try:
+            form = _parse_physical_record_form(headers=headers, body=body)
+            action = self._physical_record_action(form.fields.get("family", ""))
+            run_root = self._physical_action_run_root(action)
+            if form.photo is None or not form.photo.content:
+                raise _FormError(HTTPStatus.BAD_REQUEST, "Physical evidence photo is required.")
+            print_status = form.fields.get("print_status", "").strip().lower()
+            if print_status not in {"passed", "failed", "partial"}:
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "Physical print status must be passed, failed, or partial.",
+                )
+            with tempfile.TemporaryDirectory() as temp_dir:
+                photo_path = Path(temp_dir) / _safe_upload_filename(form.photo.filename)
+                photo_path.write_bytes(form.photo.content)
+                evidence = build_physical_print_evidence(
+                    run_id=run_root.name,
+                    material=str(action.get("material_hint") or action.get("material") or ""),
+                    printer="Bambu Lab P2S",
+                    object_label=str(action.get("object_label") or ""),
+                    print_type=str(action.get("print_type") or "coupon"),
+                    print_status=print_status,
+                    operator=form.fields.get("operator", "").strip(),
+                    slice_status=form.fields.get("slice_status", "").strip(),
+                    filament_drying=form.fields.get("filament_drying", "").strip(),
+                    bed_prep=form.fields.get("bed_prep", "").strip(),
+                    first_layer=form.fields.get("first_layer", "").strip(),
+                    adhesion=form.fields.get("adhesion", "").strip(),
+                    warping=form.fields.get("warping", "").strip(),
+                    stringing=form.fields.get("stringing", "").strip(),
+                    layer_bonding=form.fields.get("layer_bonding", "").strip(),
+                    flex_recovery=form.fields.get("flex_recovery", "").strip(),
+                    support_removal=form.fields.get("support_removal", "").strip(),
+                    artifacts=(
+                        PhysicalArtifact(
+                            label="Physical print photo",
+                            path=photo_path,
+                            kind="photo",
+                            notes="Uploaded from the local PrintPipe browser.",
+                        ),
+                    ),
+                    notes=("Recorded from the local PrintPipe browser.",),
+                )
+                write_physical_evidence_files(
+                    run_root=run_root,
+                    evidence=evidence,
+                    copy_artifacts=True,
+                )
         except _FormError as exc:
             return WebResponse.from_text(
                 f"{exc.message}\n",
@@ -1328,6 +1412,7 @@ class PrintPipeWebApp:
             else ""
         )
         record_command = str(action.get("record_command") or "")
+        record_form_markup = self._physical_record_form(action) if record_command else ""
         record_command_markup = (
             "\n".join(
                 [
@@ -1359,6 +1444,7 @@ class PrintPipeWebApp:
                 start_markup,
                 handoff_command_markup,
                 slice_command_markup,
+                record_form_markup,
                 record_command_markup,
                 "        </article>",
             ]
@@ -1413,6 +1499,67 @@ class PrintPipeWebApp:
                 "          </form>",
             ]
         )
+
+    def _physical_record_form(self, action: dict[str, Any]) -> str:
+        family = str(action.get("family", "")).strip().lower()
+        if family not in {"pla", "petg", "tpu"}:
+            return ""
+        if not str(action.get("handoff_markdown_path") or ""):
+            return ""
+        material_fields = _physical_record_fields_for_family(family)
+        field_markup = "\n".join(
+            f'            <label><span>{escape(label)}</span>'
+            f'<input name="{escape(name, quote=True)}"></label>'
+            for name, label in material_fields
+        )
+        return "\n".join(
+            [
+                '          <form class="physical-record-form" method="post" action="/physical/record" enctype="multipart/form-data">',
+                f'            <input type="hidden" name="family" value="{escape(family, quote=True)}">',
+                '            <input type="hidden" name="operator" value="Zohar">',
+                '            <label><span>Print status</span><select name="print_status"><option value="passed">Passed</option><option value="partial">Partial</option><option value="failed">Failed</option></select></label>',
+                '            <label><span>Photo</span><input type="file" name="photo" accept="image/*" required></label>',
+                field_markup,
+                '            <button type="submit">Record physical evidence</button>',
+                "          </form>",
+            ]
+        )
+
+    def _physical_record_action(self, family: str) -> dict[str, Any]:
+        normalized = family.strip().lower()
+        if normalized not in {"pla", "petg", "tpu"}:
+            raise _FormError(
+                HTTPStatus.BAD_REQUEST,
+                "Physical validation family must be pla, petg, or tpu.",
+            )
+        if self.runs_dir is None:
+            raise _FormError(HTTPStatus.SERVICE_UNAVAILABLE, "Runs directory is not configured.")
+        plan = build_physical_validation_plan(
+            self.runs_dir,
+            required_families=(normalized,),
+        )
+        actions = _as_dicts(plan.get("actions"))
+        for action in actions:
+            if str(action.get("family") or "").lower() == normalized:
+                return action
+        raise _FormError(
+            HTTPStatus.BAD_REQUEST,
+            "Physical validation family already has passed evidence or no starter packet is required.",
+        )
+
+    def _physical_action_run_root(self, action: dict[str, Any]) -> Path:
+        if self.runs_dir is None:
+            raise _FormError(HTTPStatus.SERVICE_UNAVAILABLE, "Runs directory is not configured.")
+        runs_root = self.runs_dir.expanduser().resolve()
+        run_root = Path(str(action.get("run_root") or "")).expanduser().resolve()
+        if not _is_relative_to(run_root, runs_root):
+            raise _FormError(HTTPStatus.BAD_REQUEST, "Physical run folder is outside runs dir.")
+        if not run_root.is_dir():
+            raise _FormError(
+                HTTPStatus.BAD_REQUEST,
+                "Physical starter packet must exist before recording evidence.",
+            )
+        return run_root
 
     def _render_trusted_feedback_gate_panel(self) -> str:
         if self.runs_dir is None:
@@ -2101,6 +2248,72 @@ def _parse_run_form(*, headers: Any | None, body: bytes) -> _ParsedRunForm:
     )
 
 
+def _parse_physical_record_form(
+    *,
+    headers: Any | None,
+    body: bytes,
+) -> _ParsedPhysicalRecordForm:
+    if len(body) > _MAX_FORM_BODY_BYTES:
+        raise _FormError(
+            HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+            "Physical evidence upload is too large.",
+        )
+
+    content_type = _header_value(headers, "Content-Type")
+    if content_type is None or "multipart/form-data" not in content_type.lower():
+        raise _FormError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Expected multipart/form-data.")
+
+    try:
+        message = BytesParser(policy=email_policy).parsebytes(
+            f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+            + body
+        )
+    except (LookupError, ValueError) as exc:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.") from exc
+
+    if not message.is_multipart():
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.")
+
+    fields: dict[str, str] = {}
+    photo: _UploadedFile | None = None
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+        field_name = part.get_param("name", header="content-disposition")
+        if not field_name:
+            continue
+
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            payload_text = part.get_payload()
+            payload = str(payload_text).encode(part.get_content_charset() or "utf-8", "replace")
+
+        filename = part.get_filename()
+        if filename is not None:
+            if field_name != "photo":
+                continue
+            if not filename and not payload:
+                continue
+            if len(payload) > _MAX_UPLOAD_BYTES:
+                raise _FormError(
+                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                    "Physical evidence photo is too large.",
+                )
+            photo = _UploadedFile(
+                field_name=field_name,
+                filename=filename,
+                content_type=part.get_content_type(),
+                content=payload,
+            )
+            continue
+
+        if len(payload) > _MAX_FIELD_CHARS * 4:
+            raise _FormError(HTTPStatus.BAD_REQUEST, f"Form field is too long: {field_name}.")
+        fields[field_name] = payload.decode(part.get_content_charset() or "utf-8", "replace").strip()
+
+    return _ParsedPhysicalRecordForm(fields=fields, photo=photo)
+
+
 def _parse_edit_form(*, headers: Any | None, body: bytes) -> dict[str, str]:
     if len(body) > _MAX_FORM_BODY_BYTES:
         raise _FormError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Edit form is too large.")
@@ -2204,6 +2417,27 @@ def _input_mode(*, uploaded_filename: str | None, prompt: str) -> str:
     if prompt:
         return "file+prompt"
     return "file"
+
+
+def _physical_record_fields_for_family(family: str) -> tuple[tuple[str, str], ...]:
+    if family == "tpu":
+        return (
+            ("filament_drying", "Filament drying"),
+            ("layer_bonding", "Layer bonding"),
+            ("flex_recovery", "Flex recovery"),
+            ("adhesion", "Adhesion"),
+        )
+    if family == "petg":
+        return (
+            ("first_layer", "First layer"),
+            ("adhesion", "Adhesion"),
+            ("warping", "Warping"),
+            ("stringing", "Stringing"),
+        )
+    return (
+        ("first_layer", "First layer"),
+        ("adhesion", "Adhesion"),
+    )
 
 
 def _positive_float(value: str, *, field_name: str) -> float:

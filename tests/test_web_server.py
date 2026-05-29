@@ -420,6 +420,114 @@ def test_home_response_renders_started_physical_action_context_and_files(
     assert "Record after print:" in response.text
 
 
+def test_home_response_renders_physical_record_form_after_starter_packet(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    start_physical_validation(
+        runs_dir,
+        family="pla",
+        operator="Zohar",
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert 'action="/physical/record"' in response.text
+    assert 'enctype="multipart/form-data"' in response.text
+    assert 'name="family" value="pla"' in response.text
+    assert 'name="print_status"' in response.text
+    assert 'name="first_layer"' in response.text
+    assert 'name="adhesion"' in response.text
+    assert 'name="photo"' in response.text
+
+
+def test_post_physical_record_writes_passed_evidence_and_copies_photo(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    start_physical_validation(
+        runs_dir,
+        family="pla",
+        operator="Zohar",
+    )
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_form_body(
+        fields={
+            "family": "pla",
+            "print_status": "passed",
+            "operator": "Zohar",
+            "first_layer": "clean first layer",
+            "adhesion": "held through print",
+        },
+        file_field="photo",
+        filename="first-layer.jpg",
+        content_type="image/jpeg",
+        file_content=b"jpeg-ish",
+    )
+
+    response = app.handle(
+        "/physical/record",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    run_root = runs_dir / "physical-pla-validation"
+    evidence_path = run_root / "90_physical" / "physical_evidence.json"
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    artifact_path = run_root / evidence["artifacts"][0]["path"]
+    status = json.loads(app.handle("/physical-status.json").text)
+    assert response.status == 303
+    assert response.header("Location") == "/#physical-action-plan"
+    assert evidence["print_status"] == "passed"
+    assert evidence["operator"] == "Zohar"
+    assert evidence["first_layer"] == "clean first layer"
+    assert evidence["adhesion"] == "held through print"
+    assert evidence["artifacts"][0]["kind"] == "photo"
+    assert artifact_path.read_bytes() == b"jpeg-ish"
+    assert status["family_status"]["pla"]["status"] == "passed"
+
+
+def test_post_physical_record_requires_photo(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    start_physical_validation(
+        runs_dir,
+        family="pla",
+        operator="Zohar",
+    )
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_fields_body(
+        {
+            "family": "pla",
+            "print_status": "passed",
+            "operator": "Zohar",
+            "first_layer": "clean first layer",
+            "adhesion": "held through print",
+        }
+    )
+
+    response = app.handle(
+        "/physical/record",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    evidence = json.loads(
+        (
+            runs_dir
+            / "physical-pla-validation"
+            / "90_physical"
+            / "physical_evidence.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert response.status == 400
+    assert "Physical evidence photo is required." in response.text
+    assert evidence["print_status"] == "not_printed"
+
+
 def test_beta_plan_json_endpoint_returns_action_plan(tmp_path: Path):
     app = create_app(runs_dir=tmp_path / "runs")
 
