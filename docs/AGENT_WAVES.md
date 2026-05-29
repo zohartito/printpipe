@@ -1815,3 +1815,14 @@ Status: partial progress for the remaining live media-meshgen provider gate.
 4. Done: the command returns `0` only when a mesh is produced and `2` for provider/configuration failures.
 5. Done: README and troubleshooting docs now show the template-to-smoke flow before a full media run.
 6. Boundary: this does not install a model or make placeholder geometry count as real media-to-mesh. It gives Zohar and future agents a cheap proof step for any adapter they wire in.
+
+## Wave 166 - Media Meshgen Readiness Requires Smoke Evidence
+
+Status: complete for preventing configured-but-untested media providers from counting as beta/release ready.
+
+1. Done: added media meshgen smoke status scanning over `*/20_meshgen/smoke.json` receipts.
+2. Done: a smoke receipt counts as successful only when it reports `status=succeeded` and the referenced output mesh still exists.
+3. Done: `build_beta_readiness_report()` now includes `media_meshgen_smoke_status`.
+4. Done: the `media_meshgen` readiness gate stays action-required when a provider is configured but no successful smoke receipt exists.
+5. Done: when a configured provider has a successful smoke receipt, the gate returns ready and names the latest smoke run.
+6. Boundary: this still does not install a real model or close the physical/beta/signing gates. It prevents env-var-only media readiness from becoming a fake-positive release claim.

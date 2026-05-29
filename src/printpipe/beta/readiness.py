@@ -27,6 +27,7 @@ def build_beta_readiness_report(
     rule_update_status: Mapping[str, Any] | None = None,
     failure_regression_status: Mapping[str, Any] | None = None,
     environment_report: Mapping[str, Any] | None = None,
+    media_meshgen_smoke_status: Mapping[str, Any] | None = None,
     regression_status: Mapping[str, Any] | None = None,
     regression_manifest_path: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -41,6 +42,11 @@ def build_beta_readiness_report(
         dict(environment_report)
         if environment_report is not None
         else build_environment_report()
+    )
+    media_smoke = (
+        dict(media_meshgen_smoke_status)
+        if media_meshgen_smoke_status is not None
+        else _build_media_meshgen_smoke_status(runs_dir)
     )
     regression = _regression_status(
         regression_status=regression_status,
@@ -74,7 +80,7 @@ def build_beta_readiness_report(
         _failure_regressions_gate(failure_regressions),
         _regression_gate(regression, regression_manifest_path=regression_manifest_path),
         _dependency_gate(environment),
-        _meshgen_gate(environment),
+        _meshgen_gate(environment, media_smoke_status=media_smoke),
         _filesystem_gate(environment),
         _bambu_studio_gate(environment),
         _bambu_profiles_gate(environment),
@@ -91,6 +97,7 @@ def build_beta_readiness_report(
         "rule_update_status": rule_updates,
         "failure_regression_status": failure_regressions,
         "regression_status": regression,
+        "media_meshgen_smoke_status": media_smoke,
         "environment_summary": {
             "platform": _dict(environment.get("platform")),
             "summary": _dict(environment.get("summary")),
@@ -254,7 +261,11 @@ def _failure_regressions_gate(status: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
-def _meshgen_gate(environment: Mapping[str, Any]) -> dict[str, Any]:
+def _meshgen_gate(
+    environment: Mapping[str, Any],
+    *,
+    media_smoke_status: Mapping[str, Any],
+) -> dict[str, Any]:
     meshgen = _dict(environment.get("meshgen"))
     if not meshgen:
         return _gate(
@@ -266,11 +277,36 @@ def _meshgen_gate(environment: Mapping[str, Any]) -> dict[str, Any]:
         )
     if meshgen.get("overall_status") == "ready":
         provider_count = int(meshgen.get("live_media_provider_count") or 0)
+        smoke = _dict(media_smoke_status)
+        if smoke.get("overall_status") != "passed":
+            return _gate(
+                "media_meshgen",
+                "Media meshgen provider",
+                ACTION_REQUIRED,
+                (
+                    f"{provider_count} live image/GIF/video meshgen provider(s) "
+                    "configured, but no successful smoke receipt found."
+                ),
+                str(
+                    smoke.get("action")
+                    or "Run printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke."
+                ),
+            )
+        latest = _dict(smoke.get("latest_successful_smoke"))
+        suffix = (
+            f" Latest smoke run: {latest.get('run_id')}."
+            if latest.get("run_id")
+            else ""
+        )
         return _gate(
             "media_meshgen",
             "Media meshgen provider",
             READY,
-            f"{provider_count} live image/GIF/video meshgen provider(s) configured.",
+            (
+                f"{provider_count} live image/GIF/video meshgen provider(s) "
+                f"configured and {smoke.get('successful_smoke_count', 0)} "
+                f"successful smoke receipt(s) found.{suffix}"
+            ),
             "No action needed.",
         )
     return _gate(
@@ -280,6 +316,12 @@ def _meshgen_gate(environment: Mapping[str, Any]) -> dict[str, Any]:
         str(meshgen.get("message") or "No live media meshgen provider is configured."),
         str(meshgen.get("action") or "Configure a live image/GIF/video meshgen provider."),
     )
+
+
+def _build_media_meshgen_smoke_status(runs_dir: str | Path) -> dict[str, Any]:
+    from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
+
+    return build_media_meshgen_smoke_status(runs_dir)
 
 
 def _regression_status(

@@ -102,3 +102,80 @@ def _relative(layout: RunLayout, path: Path) -> str:
 
 def smoke_exit_code(payload: dict[str, Any]) -> int:
     return 0 if payload.get("status") == StageStatus.SUCCEEDED.value else 2
+
+
+def build_media_meshgen_smoke_status(runs_dir: str | Path) -> dict[str, Any]:
+    """Summarize successful media meshgen smoke receipts under a runs dir."""
+
+    root = Path(runs_dir).expanduser().resolve()
+    smoke_receipts: list[dict[str, Any]] = []
+    successful: list[dict[str, Any]] = []
+    if root.exists():
+        for smoke_path in sorted(root.glob("*/20_meshgen/smoke.json")):
+            receipt = _read_smoke_receipt(root, smoke_path)
+            if receipt is None:
+                continue
+            smoke_receipts.append(receipt)
+            if receipt["status"] == StageStatus.SUCCEEDED.value and receipt.get(
+                "output_exists"
+            ):
+                successful.append(receipt)
+
+    latest = successful[-1] if successful else None
+    passed = latest is not None
+    return {
+        "schema_version": 1,
+        "runs_dir": str(root),
+        "overall_status": "passed" if passed else "missing",
+        "smoke_receipt_count": len(smoke_receipts),
+        "successful_smoke_count": len(successful),
+        "failed_smoke_count": sum(
+            1 for receipt in smoke_receipts if receipt["status"] != StageStatus.SUCCEEDED.value
+        ),
+        "latest_successful_smoke": latest,
+        "message": (
+            f"{len(successful)} successful media meshgen smoke receipt(s) found."
+            if passed
+            else "No successful media meshgen smoke receipt found."
+        ),
+        "action": (
+            "No action needed."
+            if passed
+            else (
+                "Run printpipe media-meshgen-smoke reference.png "
+                f"--runs-dir {root}"
+            )
+        ),
+    }
+
+
+def _read_smoke_receipt(root: Path, smoke_path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(smoke_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    run_root = smoke_path.parents[1]
+    output_path = payload.get("output_path")
+    output_exists = False
+    if isinstance(output_path, str) and output_path:
+        output_exists = (run_root / output_path).exists()
+    return {
+        "run_id": str(payload.get("run_id") or run_root.name),
+        "run_root": str(run_root),
+        "provider_id": str(payload.get("provider_id") or "unknown"),
+        "status": str(payload.get("status") or "unknown"),
+        "smoke_path": _relative_to(root, smoke_path),
+        "output_path": output_path if isinstance(output_path, str) else None,
+        "output_exists": output_exists,
+        "error": payload.get("error") if isinstance(payload.get("error"), str) else None,
+    }
+
+
+def _relative_to(root: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)

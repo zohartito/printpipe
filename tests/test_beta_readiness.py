@@ -67,6 +67,7 @@ def test_beta_readiness_report_passes_when_all_gates_are_ready(tmp_path: Path) -
         physical_status=physical_status,
         trusted_feedback_status=_passed_trusted_feedback_status(),
         environment_report=environment_report,
+        media_meshgen_smoke_status=_passed_media_smoke_status(),
     )
 
     assert report["overall_status"] == "ready"
@@ -84,6 +85,7 @@ def test_beta_readiness_report_marks_missing_regression_manifest_not_applicable(
         physical_status=_passed_physical_status(),
         trusted_feedback_status=_passed_trusted_feedback_status(),
         environment_report=_ready_environment_report(),
+        media_meshgen_smoke_status=_passed_media_smoke_status(),
     )
 
     gates = {gate["id"]: gate for gate in report["gates"]}
@@ -103,6 +105,7 @@ def test_beta_readiness_report_blocks_on_incomplete_rule_update_packets(
         physical_status=_passed_physical_status(),
         trusted_feedback_status=_passed_trusted_feedback_status(),
         environment_report=_ready_environment_report(),
+        media_meshgen_smoke_status=_passed_media_smoke_status(),
         rule_update_status={
             "overall_status": "incomplete",
             "missing_rule_types": ["material", "repair"],
@@ -258,6 +261,7 @@ def test_beta_readiness_report_blocks_when_media_meshgen_provider_unavailable(
         trusted_feedback_status=_passed_trusted_feedback_status(),
         rule_update_status=_passed_rule_update_status(),
         environment_report=environment,
+        media_meshgen_smoke_status=_passed_media_smoke_status(),
     )
 
     gates = {gate["id"]: gate for gate in report["gates"]}
@@ -268,6 +272,29 @@ def test_beta_readiness_report_blocks_when_media_meshgen_provider_unavailable(
     assert "printpipe media-meshgen-template" in gate["action"]
     assert "PRINTPIPE_MEDIA_MESHGEN_COMMAND" in gate["action"]
     assert "PRINTPIPE_HUNYUAN3D_COMMAND" in gate["action"]
+
+
+def test_beta_readiness_report_blocks_when_media_provider_lacks_smoke_evidence(
+    tmp_path: Path,
+) -> None:
+    report = build_beta_readiness_report(
+        tmp_path / "runs",
+        physical_status=_passed_physical_status(),
+        trusted_feedback_status=_passed_trusted_feedback_status(),
+        rule_update_status=_passed_rule_update_status(),
+        environment_report=_ready_environment_report(),
+        media_meshgen_smoke_status={
+            "overall_status": "missing",
+            "successful_smoke_count": 0,
+            "action": "Run printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke.",
+        },
+    )
+
+    gate = {gate["id"]: gate for gate in report["gates"]}["media_meshgen"]
+    assert report["overall_status"] == "action_required"
+    assert gate["status"] == "action_required"
+    assert "configured, but no successful smoke receipt" in gate["detail"]
+    assert "media-meshgen-smoke" in gate["action"]
 
 
 def _passed_physical_status() -> dict[str, object]:
@@ -300,6 +327,18 @@ def _passed_rule_update_status() -> dict[str, object]:
         "verified_rule_types": ["material", "orientation", "repair"],
         "missing_rule_types": [],
         "packet_count": 3,
+    }
+
+
+def _passed_media_smoke_status() -> dict[str, object]:
+    return {
+        "overall_status": "passed",
+        "successful_smoke_count": 1,
+        "latest_successful_smoke": {
+            "run_id": "media-smoke-ok",
+            "provider_id": "media_command",
+            "output_path": "20_meshgen/media_command.stl",
+        },
     }
 
 

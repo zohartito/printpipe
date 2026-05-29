@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 165: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 166: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 165 added `printpipe media-meshgen-smoke`, a narrow adapter validation command for image/GIF/video providers. It creates a smoke run, prepares references, invokes either an explicit `--command` or the configured media/Hunyuan adapter, writes `20_meshgen/smoke.json`, and stops before repair/bundling/slicing. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured live media meshgen provider for non-mesh inputs.
+Latest status: Wave 166 made the media meshgen readiness gate require a successful smoke receipt, not just an environment variable. `printpipe readiness` now treats a configured media/Hunyuan provider with no successful `20_meshgen/smoke.json` as action-required and points at `printpipe media-meshgen-smoke`. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured and smoke-proven live media meshgen provider for non-mesh inputs.
 
 ## Goal
 

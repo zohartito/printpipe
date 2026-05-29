@@ -44,7 +44,9 @@ Current input support is intentionally explicit:
 
 `printpipe doctor` and `printpipe readiness` also surface media-meshgen readiness
 upfront, so image/GIF/video/prompt runs show an action-required setup gate when
-no live provider is configured.
+no live provider is configured. A configured provider only satisfies the
+release/beta readiness gate after a successful `media-meshgen-smoke` receipt is
+present under the runs directory.
 
 Generate a starter script for the generic media meshgen hook:
 

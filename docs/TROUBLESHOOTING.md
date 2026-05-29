@@ -69,7 +69,8 @@ hosted wrapper, or provider API call.
 `media-meshgen-smoke` creates a narrow run folder and writes
 `20_meshgen/smoke.json`, `summary.json`, and `attempts.jsonl` without repairing,
 bundling, or slicing. Use it to prove the adapter writes a mesh before starting a
-full PrintPipe run.
+full PrintPipe run. `printpipe readiness --strict` treats a configured provider
+without a successful smoke receipt as action-required instead of ready.
 
 If an OBJ, GLB, GLTF, or 3MF input fails at `mesh_repair` with a
 `printpipe[mesh-repair]` message, install the optional mesh repair dependencies
