@@ -163,10 +163,13 @@ def build_media_meshgen_action_plan(
                 or meshgen.get("action")
                 or "No live image/GIF/video meshgen provider is configured."
             ),
-            "start_command": "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py",
+            "start_command": (
+                "printpipe media-meshgen-template --preset comfyui-api "
+                "--output scripts/media_meshgen_adapter.py"
+            ),
             "command": (
                 "printpipe media-meshgen-smoke reference.png --runs-dir "
-                f"{_quote(str(runs_path))}"
+                f"{_quote(str(runs_path))} --output-format glb"
             ),
             "followup_command": (
                 "printpipe media-meshgen-smoke-status --runs-dir "

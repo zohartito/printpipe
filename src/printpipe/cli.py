@@ -27,6 +27,8 @@ DEFAULT_REGRESSION_MANIFEST = Path("regressions/dogfood_failures.json")
 
 
 def build_parser() -> argparse.ArgumentParser:
+    from printpipe.meshgen.command_template import available_media_meshgen_template_presets
+
     parser = argparse.ArgumentParser(
         prog="printpipe",
         description="Local-first reference-to-print pipeline.",
@@ -197,6 +199,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         help="Write the executable Python adapter template to this path instead of stdout.",
+    )
+    media_template.add_argument(
+        "--preset",
+        choices=available_media_meshgen_template_presets(),
+        default="generic",
+        help="Adapter template preset to print or write.",
     )
     media_heightfield = subparsers.add_parser(
         "media-meshgen-heightfield",
@@ -1385,7 +1393,7 @@ def main(argv: list[str] | None = None) -> int:
         return _doctor(json_output=args.json, platform_name=args.platform)
 
     if args.command == "media-meshgen-template":
-        return _media_meshgen_template(output_path=args.output)
+        return _media_meshgen_template(output_path=args.output, preset=args.preset)
 
     if args.command == "media-meshgen-heightfield":
         return _media_meshgen_heightfield(args)
@@ -2289,18 +2297,19 @@ def _doctor(*, json_output: bool, platform_name: str | None) -> int:
     return 0
 
 
-def _media_meshgen_template(*, output_path: Path | None) -> int:
+def _media_meshgen_template(*, output_path: Path | None, preset: str) -> int:
     from printpipe.meshgen.command_template import (
         render_media_meshgen_command_template,
         write_media_meshgen_command_template,
     )
 
     if output_path is None:
-        print(render_media_meshgen_command_template(), end="")
+        print(render_media_meshgen_command_template(preset=preset), end="")
         return 0
 
-    written = write_media_meshgen_command_template(output_path)
+    written = write_media_meshgen_command_template(output_path, preset=preset)
     print(f"wrote media meshgen adapter template: {written}")
+    print(f"preset: {preset}")
     print(f"export PRINTPIPE_MEDIA_MESHGEN_COMMAND={shlex.quote(str(written))}")
     return 0
 

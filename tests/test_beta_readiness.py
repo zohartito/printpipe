@@ -242,7 +242,8 @@ def test_beta_readiness_report_blocks_when_media_meshgen_provider_unavailable(
         "live_media_provider_count": 0,
         "message": "No live image/GIF/video meshgen provider is configured.",
         "action": (
-            "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+            "Run printpipe media-meshgen-template --preset comfyui-api "
+            "--output scripts/media_meshgen_adapter.py, "
             "set PRINTPIPE_MEDIA_MESHGEN_COMMAND, set PRINTPIPE_HUNYUAN3D_COMMAND, "
             "or configure a hosted mesh provider."
         ),

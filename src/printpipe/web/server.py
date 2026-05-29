@@ -43,7 +43,10 @@ from printpipe.web.final_readiness import (
     render_final_readiness_panel,
 )
 from printpipe.local_open import open_run_folder
-from printpipe.meshgen.command_template import write_media_meshgen_command_template
+from printpipe.meshgen.command_template import (
+    available_media_meshgen_template_presets,
+    write_media_meshgen_command_template,
+)
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.meshgen.smoke import run_media_meshgen_smoke
 from printpipe.packaging.release_plan import (
@@ -244,7 +247,7 @@ class PrintPipeWebApp:
             if path == "/release/start":
                 return self.start_release_response()
             if path == "/media-meshgen/template":
-                return self.start_media_meshgen_template_response()
+                return self.start_media_meshgen_template_response(headers=headers, body=body)
             if path == "/media-meshgen/configure":
                 return self.configure_media_meshgen_response(headers=headers, body=body)
             if path == "/media-meshgen/smoke":
@@ -422,14 +425,23 @@ class PrintPipeWebApp:
             )
         return WebResponse.redirect("/#release-distribution-plan")
 
-    def start_media_meshgen_template_response(self) -> WebResponse:
+    def start_media_meshgen_template_response(
+        self,
+        *,
+        headers: Any | None,
+        body: bytes,
+    ) -> WebResponse:
         try:
+            fields = _parse_edit_form(headers=headers, body=body) if body else {}
+            preset = fields.get("preset", "generic")
             write_media_meshgen_command_template(
-                self.workspace_dir / "scripts" / "media_meshgen_adapter.py"
+                self.workspace_dir / "scripts" / "media_meshgen_adapter.py",
+                preset=preset,
             )
-        except OSError as exc:
+        except (OSError, ValueError, _FormError) as exc:
+            message = exc.message if isinstance(exc, _FormError) else str(exc)
             return WebResponse.from_text(
-                f"{exc}\n",
+                f"{message}\n",
                 status=HTTPStatus.BAD_REQUEST,
                 content_type=_TEXT_MEDIA_TYPE,
             )
@@ -501,6 +513,7 @@ class PrintPipeWebApp:
                     reference_path,
                     runs_dir=self.runs_dir,
                     command=command,
+                    output_format=_media_smoke_output_format(form.fields),
                     prompt=form.fields.get("prompt") or None,
                 )
         except _FormError as exc:
@@ -1282,6 +1295,10 @@ class PrintPipeWebApp:
     def _render_media_meshgen_setup_panel(self) -> str:
         current_command = configured_media_meshgen_command(cwd=self.workspace_dir)
         template_path = self.workspace_dir / "scripts" / "media_meshgen_adapter.py"
+        preset_options = "".join(
+            f'<option value="{escape(preset, quote=True)}">{escape(_media_template_preset_label(preset))}</option>'
+            for preset in available_media_meshgen_template_presets()
+        )
         current_markup = (
             f"Current saved command: <code>{escape(current_command)}</code>"
             if current_command
@@ -1300,6 +1317,11 @@ class PrintPipeWebApp:
                 "          <span>Adapter template</span>",
                 f"          <p>Writes <code>{escape(str(template_path))}</code>.</p>",
                 '          <form method="post" action="/media-meshgen/template">',
+                '            <label for="media-template-preset">Preset</label>',
+                (
+                    '            <select id="media-template-preset" name="preset">'
+                    f"{preset_options}</select>"
+                ),
                 '            <button type="submit">Create adapter template</button>',
                 "          </form>",
                 "        </article>",
@@ -1322,12 +1344,18 @@ class PrintPipeWebApp:
                 '            <input id="media-smoke-reference" name="reference" type="file" accept="image/*,video/*,.gif">',
                 '            <label for="media-smoke-prompt">Prompt hint</label>',
                 '            <input id="media-smoke-prompt" name="prompt" type="text" placeholder="printable desk hook">',
+                '            <label for="media-smoke-output-format">Output format</label>',
+                '            <select id="media-smoke-output-format" name="output_format">',
+                '              <option value="stl">STL</option>',
+                '              <option value="glb">GLB</option>',
+                '              <option value="obj">OBJ</option>',
+                '            </select>',
                 '            <button type="submit">Run media smoke</button>',
                 "          </form>",
                 "        </article>",
                 "      </div>",
                 "      <p class=\"muted\">After replacing the template with a real provider, run: "
-                "<code>printpipe media-meshgen-smoke reference.png --runs-dir runs</code></p>",
+                "<code>printpipe media-meshgen-smoke reference.png --runs-dir runs --output-format glb</code></p>",
                 "    </section>",
             ]
         )
@@ -2981,6 +3009,22 @@ def _header_value(headers: Any | None, name: str) -> str | None:
             if str(key).lower() == lower_name:
                 return str(value)
     return None
+
+
+def _media_template_preset_label(preset: str) -> str:
+    if preset == "comfyui-api":
+        return "ComfyUI API / SaveGLB"
+    return "Generic Python adapter"
+
+
+def _media_smoke_output_format(fields: dict[str, str]) -> str:
+    output_format = fields.get("output_format", "stl").strip().lower() or "stl"
+    if output_format not in {"stl", "glb", "obj"}:
+        raise _FormError(
+            HTTPStatus.BAD_REQUEST,
+            "Media smoke output format must be stl, glb, or obj.",
+        )
+    return output_format
 
 
 def _safe_upload_filename(filename: str) -> str:

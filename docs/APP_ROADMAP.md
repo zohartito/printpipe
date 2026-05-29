@@ -216,6 +216,8 @@ Wave 160 tightened local UI and static-report truthfulness. Recent-run cards now
 
 Wave 161 made run-detail preview chips actionable instead of decorative. The Model, Bed Fit, Upper Fit, Support Risk, and Slice chips now link to real in-page targets in the existing server-rendered workbench, so the UI no longer presents static controls as if they were interactive tabs.
 
+Wave 181 made the open media-meshgen provider handoff more concrete. `media-meshgen-template` can now write a generic adapter or a ComfyUI API preset scaffold that expects an exported ComfyUI workflow ending in `SaveGLB`; the local browser can choose the preset and request GLB smoke output. This is still not semantic mesh evidence. The gate remains open until a real workflow/provider is configured and a successful image/GIF/video smoke receipt proves it.
+
 Wave 139 made trusted-user beta handoff rows operational instead of placeholder-heavy. When a `trusted_user_feedback_handoff_*.md` file exists, `beta-feedback-plan` and `final-plan` now point the immediate action at the real run folder and produce a concrete `record-beta-feedback` command with the actual run root, tester slot, input type, material, printer, and report artifact path. The beta gate remains open until real trusted users return completed packets.
 
 Wave 138 made the remaining endgame planning commands use the same standard `regressions/dogfood_failures.json` manifest when that file exists. `beta-plan`, `release-status`, `release-plan`, `release-start`, `final-plan`, and `final-next` now default to the dogfood regression manifest unless an explicit path is provided. That keeps terminal planning, release handoffs, and final next-action checks aligned with readiness and the local web app.

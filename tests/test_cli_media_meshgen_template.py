@@ -16,6 +16,26 @@ def test_media_meshgen_template_parser_accepts_output_path(tmp_path: Path):
 
     assert args.command == "media-meshgen-template"
     assert args.output == output_path
+    assert args.preset == "generic"
+
+
+def test_media_meshgen_template_parser_accepts_comfyui_preset(tmp_path: Path):
+    parser = build_parser()
+    output_path = tmp_path / "media_adapter.py"
+
+    args = parser.parse_args(
+        [
+            "media-meshgen-template",
+            "--preset",
+            "comfyui-api",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    assert args.command == "media-meshgen-template"
+    assert args.output == output_path
+    assert args.preset == "comfyui-api"
 
 
 def test_media_meshgen_template_prints_protocol_script(capsys):
@@ -28,6 +48,20 @@ def test_media_meshgen_template_prints_protocol_script(capsys):
     assert "parser.add_argument(\"--output\"" in captured.out
     assert "parser.add_argument(\"--output-format\"" in captured.out
     assert "print(json.dumps({\"output_path\": str(args.output)}))" in captured.out
+
+
+def test_media_meshgen_template_prints_comfyui_api_preset(capsys):
+    exit_code = main(["media-meshgen-template", "--preset", "comfyui-api"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "ComfyUI API media meshgen adapter preset" in captured.out
+    assert "PRINTPIPE_COMFYUI_WORKFLOW" in captured.out
+    assert "PRINTPIPE_COMFYUI_URL" in captured.out
+    assert "\"/prompt\"" in captured.out
+    assert "\"/history/\"" in captured.out
+    assert "\"/view?\"" in captured.out
+    assert "SaveGLB" in captured.out
 
 
 def test_media_meshgen_template_writes_executable_stub(tmp_path: Path, capsys):
@@ -61,3 +95,46 @@ def test_media_meshgen_template_writes_executable_stub(tmp_path: Path, capsys):
 
     assert result.returncode == 2
     assert "Replace generate_mesh() with a real image/GIF/video-to-mesh call" in result.stderr
+
+
+def test_comfyui_api_template_fails_closed_without_workflow(tmp_path: Path, capsys):
+    output_path = tmp_path / "adapters" / "media_meshgen_adapter.py"
+
+    exit_code = main(
+        [
+            "media-meshgen-template",
+            "--preset",
+            "comfyui-api",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "preset: comfyui-api" in captured.out
+
+    reference = tmp_path / "reference.png"
+    reference.write_bytes(b"fake image")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(output_path),
+            "--input-kind",
+            "image",
+            "--source",
+            str(reference),
+            "--output",
+            str(tmp_path / "mesh.glb"),
+            "--output-format",
+            "glb",
+            "--prompt",
+            "printable phone stand",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "PRINTPIPE_COMFYUI_WORKFLOW is required" in result.stderr

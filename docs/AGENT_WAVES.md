@@ -1980,3 +1980,15 @@ Status: complete for running configured media-provider smoke tests from the loca
 4. Done: browser smoke writes normal `20_meshgen/smoke.json` receipts into the configured runs directory.
 5. Done: web tests cover successful smoke execution through a fake adapter and the missing-reference error path.
 6. Boundary: this runs a smoke test only. It does not make heightfield semantic, install a provider, or override readiness gates.
+
+## Wave 181 - ComfyUI Media Adapter Preset
+
+Status: complete for making the media-provider handoff more concrete without pretending a semantic provider is installed.
+
+1. Done: `printpipe media-meshgen-template` now accepts `--preset generic` and `--preset comfyui-api`.
+2. Done: the ComfyUI preset writes an executable adapter scaffold for an exported ComfyUI API workflow with `SaveGLB`, using ComfyUI `/prompt`, `/history`, `/view`, and optional `/upload/image`.
+3. Done: the preset fails closed until `PRINTPIPE_COMFYUI_WORKFLOW` points at a real exported workflow and source-image patch paths are supplied or explicitly bypassed.
+4. Done: the browser media setup panel can write either preset and can request STL, GLB, or OBJ in browser smoke tests.
+5. Done: final-next now recommends the ComfyUI preset scaffold plus a GLB smoke command when no semantic media provider is configured.
+6. Done: focused CLI/web tests cover preset parsing, ComfyUI scaffold output, fail-closed behavior, browser preset writing, and browser GLB smoke request plumbing.
+7. Boundary: this does not install ComfyUI, supply API credentials, create a Tripo/Meshy/Hunyuan workflow, run a live semantic smoke, or close the media meshgen provider gate.

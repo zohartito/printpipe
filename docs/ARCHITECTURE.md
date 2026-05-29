@@ -56,10 +56,10 @@ The current end-to-end command target uses an existing mesh:
 printpipe run input.stl --slice
 ```
 
-Image/GIF/video now uses the same repair/orient/bundle path after a configured media meshgen command writes a mesh. Use the generic hook for any adapter that accepts PrintPipe's command arguments, or the Hunyuan-specific hook for that local adapter:
+Image/GIF/video now uses the same repair/orient/bundle path after a configured media meshgen command writes a mesh. Use the ComfyUI preset for an exported API workflow ending in `SaveGLB`, the generic hook for any adapter that accepts PrintPipe's command arguments, or the Hunyuan-specific hook for that local adapter:
 
 ```bash
-printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
+printpipe media-meshgen-template --preset comfyui-api --output scripts/media_meshgen_adapter.py
 export PRINTPIPE_MEDIA_MESHGEN_COMMAND="/path/to/media_meshgen_adapter"
 printpipe media-meshgen-smoke reference.png --command "printpipe media-meshgen-heightfield"
 export PRINTPIPE_HUNYUAN3D_COMMAND="/path/to/hunyuan_adapter"

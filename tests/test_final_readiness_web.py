@@ -383,9 +383,15 @@ def test_render_final_readiness_panel_labels_media_meshgen_setup_flow() -> None:
                 "label": "Configure media meshgen provider",
                 "status": "action_required",
                 "detail": "No live image/GIF/video meshgen provider is configured.",
-                "command": "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py",
+                "command": (
+                    "printpipe media-meshgen-template --preset comfyui-api "
+                    "--output scripts/media_meshgen_adapter.py"
+                ),
                 "command_kind": "start_command",
-                "run_command": "printpipe media-meshgen-smoke reference.png --runs-dir runs",
+                "run_command": (
+                    "printpipe media-meshgen-smoke reference.png --runs-dir runs "
+                    "--output-format glb"
+                ),
                 "followup_command": "printpipe media-meshgen-smoke-status --runs-dir runs --strict",
                 "required_inputs": [
                     "real local, hosted, or API-backed media meshgen adapter",
@@ -411,9 +417,15 @@ def test_render_final_readiness_panel_labels_media_meshgen_setup_flow() -> None:
                     "label": "Configure media meshgen provider",
                     "status": "action_required",
                     "detail": "No live image/GIF/video meshgen provider is configured.",
-                    "command": "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py",
+                    "command": (
+                        "printpipe media-meshgen-template --preset comfyui-api "
+                        "--output scripts/media_meshgen_adapter.py"
+                    ),
                     "command_kind": "start_command",
-                    "run_command": "printpipe media-meshgen-smoke reference.png --runs-dir runs",
+                    "run_command": (
+                        "printpipe media-meshgen-smoke reference.png --runs-dir runs "
+                        "--output-format glb"
+                    ),
                     "followup_command": "printpipe media-meshgen-smoke-status --runs-dir runs --strict",
                     "required_inputs": [
                         "real local, hosted, or API-backed media meshgen adapter",
@@ -428,9 +440,14 @@ def test_render_final_readiness_panel_labels_media_meshgen_setup_flow() -> None:
     assert "Media meshgen provider" in html
     assert "Configure media meshgen provider" in html
     assert "Immediate setup:" in html
-    assert "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py" in html
+    assert (
+        "printpipe media-meshgen-template --preset comfyui-api "
+        "--output scripts/media_meshgen_adapter.py"
+    ) in html
     assert "Run after prerequisites:" in html
-    assert "printpipe media-meshgen-smoke reference.png --runs-dir runs" in html
+    assert (
+        "printpipe media-meshgen-smoke reference.png --runs-dir runs --output-format glb"
+    ) in html
     assert "Follow-up check:" in html
     assert "printpipe media-meshgen-smoke-status --runs-dir runs --strict" in html
     assert "Next action context: Input: image/GIF/video" in html

@@ -136,9 +136,11 @@ def test_media_meshgen_action_plan_requires_provider_before_smoke(
     action = plan["actions"][0]
     assert action["id"] == "configure_media_meshgen_provider"
     assert action["start_command"] == (
-        "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py"
+        "printpipe media-meshgen-template --preset comfyui-api "
+        "--output scripts/media_meshgen_adapter.py"
     )
     assert action["command"].startswith("printpipe media-meshgen-smoke")
+    assert "--output-format glb" in action["command"]
     assert "media-meshgen-smoke-status" in action["followup_command"]
     assert str(tmp_path / "runs") in action["followup_command"]
 

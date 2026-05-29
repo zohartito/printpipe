@@ -1280,8 +1280,12 @@ def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
     assert 'action="/media-meshgen/template"' in response.text
     assert 'action="/media-meshgen/configure"' in response.text
     assert 'action="/media-meshgen/smoke"' in response.text
+    assert 'name="preset"' in response.text
     assert 'name="command"' in response.text
     assert 'name="reference"' in response.text
+    assert 'name="output_format"' in response.text
+    assert 'value="comfyui-api"' in response.text
+    assert 'value="glb"' in response.text
     assert "This does not prove semantic reconstruction" in response.text
 
 
@@ -1301,6 +1305,24 @@ def test_post_media_meshgen_template_writes_adapter_and_redirects(tmp_path: Path
     assert adapter.exists()
     assert "PrintPipe media meshgen adapter template" in adapter.read_text(encoding="utf-8")
     assert adapter.stat().st_mode & 0o111
+
+
+def test_post_media_meshgen_template_writes_selected_preset_and_redirects(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+
+    response = app.handle(
+        "/media-meshgen/template",
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=b"preset=comfyui-api",
+    )
+
+    adapter = tmp_path / "scripts" / "media_meshgen_adapter.py"
+    assert response.status == 303
+    assert response.header("Location") == "/#media-meshgen-setup"
+    text = adapter.read_text(encoding="utf-8")
+    assert "ComfyUI API media meshgen adapter preset" in text
+    assert "PRINTPIPE_COMFYUI_WORKFLOW" in text
 
 
 def test_post_media_meshgen_configure_writes_project_config_and_redirects(
@@ -1339,6 +1361,7 @@ def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
                 "import argparse",
                 "parser = argparse.ArgumentParser()",
                 "parser.add_argument('--output', required=True)",
+                "parser.add_argument('--output-format', required=True)",
                 "args, _ = parser.parse_known_args()",
                 f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
                 "",
@@ -1355,7 +1378,7 @@ def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
     )
     app = create_app(runs_dir=runs_dir, workspace_dir=tmp_path)
     body, content_type = _multipart_form_body(
-        fields={"prompt": "printable hook"},
+        fields={"prompt": "printable hook", "output_format": "glb"},
         file_field="reference",
         filename="reference.png",
         content_type="image/png",
@@ -1375,6 +1398,7 @@ def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
     assert response.header("Location") == "/#media-meshgen-setup"
     assert payload["status"] == "succeeded"
     assert payload["command"] == command
+    assert payload["output_path"].endswith(".glb")
     assert (smoke_paths[0].parents[1] / payload["output_path"]).exists()
 
 
@@ -2541,7 +2565,8 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(
     assert ("meshgen", "failed") in stages
     assert report["warnings"] == [
         "No live image/GIF/video meshgen provider is configured. "
-        "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+        "Run printpipe media-meshgen-template --preset comfyui-api "
+        "--output scripts/media_meshgen_adapter.py, "
         "set PRINTPIPE_MEDIA_MESHGEN_COMMAND, set PRINTPIPE_HUNYUAN3D_COMMAND, "
         "or configure a hosted mesh provider."
     ]

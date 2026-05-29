@@ -55,18 +55,19 @@ mesh inputs do not need either provider.
 `printpipe doctor` and `printpipe readiness --strict` show the same provider
 gap before you start a media run.
 
-To scaffold the generic adapter protocol instead of starting from a blank file:
+To scaffold a concrete ComfyUI API adapter handoff instead of starting from a blank file:
 
 ```bash
-printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
+printpipe media-meshgen-template --preset comfyui-api --output scripts/media_meshgen_adapter.py
 export PRINTPIPE_MEDIA_MESHGEN_COMMAND="$(pwd)/scripts/media_meshgen_adapter.py"
-printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
+printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke --output-format glb
 printpipe media-meshgen-smoke-status --runs-dir runs --strict
 ```
 
 The generated script is executable and intentionally exits with an adapter
-placeholder error until `generate_mesh()` is replaced with a real local model,
-hosted wrapper, or provider API call.
+setup error until `PRINTPIPE_COMFYUI_WORKFLOW` points at a real exported
+ComfyUI API workflow ending in `SaveGLB`, with prompt/image patch paths supplied
+as needed. Use `--preset generic` if you want the blank adapter protocol stub.
 For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
 
 ```bash

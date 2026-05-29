@@ -41,7 +41,8 @@ MEDIA_MESHGEN_UNAVAILABLE_MESSAGE = (
     "No live image/GIF/video meshgen provider is configured."
 )
 MEDIA_MESHGEN_SETUP_ACTION = (
-    "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+    "Run printpipe media-meshgen-template --preset comfyui-api "
+    "--output scripts/media_meshgen_adapter.py, "
     f"set {MEDIA_MESHGEN_COMMAND_ENV}, set {HUNYUAN3D_COMMAND_ENV}, "
     "or configure a hosted mesh provider."
 )

@@ -14,7 +14,8 @@ from printpipe.runs.editing import EditRecipe, EditScale, create_edit_run
 
 MEDIA_MESHGEN_SETUP_MESSAGE = (
     "No live image/GIF/video meshgen provider is configured. "
-    "Run printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py, "
+    "Run printpipe media-meshgen-template --preset comfyui-api "
+    "--output scripts/media_meshgen_adapter.py, "
     "set PRINTPIPE_MEDIA_MESHGEN_COMMAND, set PRINTPIPE_HUNYUAN3D_COMMAND, "
     "or configure a hosted mesh provider."
 )
