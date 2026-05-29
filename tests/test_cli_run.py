@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from printpipe.cli import main
+from printpipe.config import CONFIG_PATH_ENV
 from printpipe.runs.editing import EditRecipe, EditScale, create_edit_run
 
 
@@ -22,7 +23,9 @@ MEDIA_MESHGEN_SETUP_MESSAGE = (
 def test_run_media_input_writes_failed_meshgen_report_and_returns_nonzero(
     tmp_path: Path,
     capsys,
+    monkeypatch: pytest.MonkeyPatch,
 ):
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(tmp_path / "missing-config.json"))
     source = tmp_path / "reference.png"
     source.write_bytes(b"not really an image yet")
     runs_dir = tmp_path / "runs"

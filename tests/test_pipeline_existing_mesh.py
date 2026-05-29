@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import printpipe.pipeline as pipeline_module
+from printpipe.config import CONFIG_PATH_ENV
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
 from printpipe.meshgen import MeshGenCost, MeshGenResult, MeshGenTiming
 from printpipe.pipeline import PipelineError, run_edit_recipe_pipeline, run_existing_mesh_pipeline
@@ -341,7 +342,11 @@ def test_existing_mesh_pipeline_preserves_requested_slice_failure_report(
     assert checklist["slice_gate"]["status"] == "failed"
 
 
-def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(tmp_path: Path):
+def test_existing_mesh_pipeline_rejects_media_inputs_with_reported_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(tmp_path / "missing-config.json"))
     source = tmp_path / "reference.png"
     source.write_bytes(b"not a real image yet")
     runs_dir = tmp_path / "runs"

@@ -50,7 +50,8 @@ def build_environment_report(
         artifact_paths=artifact_paths,
         env=environment,
     )
-    meshgen = build_media_meshgen_readiness(env=environment)
+    meshgen_env = None if env is None else environment
+    meshgen = build_media_meshgen_readiness(env=meshgen_env)
 
     return {
         "schema_version": 1,

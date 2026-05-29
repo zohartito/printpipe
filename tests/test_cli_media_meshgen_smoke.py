@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from printpipe.cli import build_parser, main
+from printpipe.config import CONFIG_PATH_ENV
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 
 
@@ -113,6 +114,7 @@ def test_media_meshgen_smoke_without_provider_fails_with_setup_action(
     capsys,
     monkeypatch,
 ):
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(tmp_path / "missing-config.json"))
     monkeypatch.delenv("PRINTPIPE_MEDIA_MESHGEN_COMMAND", raising=False)
     monkeypatch.delenv("PRINTPIPE_HUNYUAN3D_COMMAND", raising=False)
     source = tmp_path / "reference.png"

@@ -15,6 +15,7 @@ from printpipe.beta.feedback import (
     start_trusted_user_feedback,
     write_trusted_user_feedback_files,
 )
+from printpipe.config import CONFIG_PATH_ENV
 from printpipe.contracts import Artifact, ArtifactKind, StageReceipt, StageStatus
 from printpipe.reports import build_run_report_dict, write_run_report
 from printpipe.reports.html import write_html_report
@@ -2044,7 +2045,11 @@ def test_post_run_open_folder_opens_safe_bundle_folder_and_redirects(tmp_path: P
     assert opened == [layout.bundle_dir]
 
 
-def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(tmp_path: Path):
+def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(
+    tmp_path: Path,
+    monkeypatch,
+):
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(tmp_path / "missing-config.json"))
     runs_dir = tmp_path / "runs"
     app = create_app(runs_dir=runs_dir)
     body, content_type = _multipart_form_body(

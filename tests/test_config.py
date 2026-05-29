@@ -88,6 +88,25 @@ def test_configured_media_meshgen_command_ignores_default_config_when_env_inject
     assert command == ""
 
 
+def test_configured_media_meshgen_command_reads_default_project_config(
+    monkeypatch,
+    tmp_path: Path,
+):
+    config_path = tmp_path / ".printpipe" / "config.json"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        json.dumps({"media_meshgen_command": "configured-command"}),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CONFIG_PATH_ENV, raising=False)
+    monkeypatch.delenv("PRINTPIPE_MEDIA_MESHGEN_COMMAND", raising=False)
+
+    command = configured_media_meshgen_command()
+
+    assert command == "configured-command"
+
+
 def test_environment_report_counts_project_config_media_command_provider(
     tmp_path: Path,
 ):
@@ -101,6 +120,36 @@ def test_environment_report_counts_project_config_media_command_provider(
         platform_name="linux",
         env={CONFIG_PATH_ENV: str(config_path)},
         workspace_paths=(tmp_path,),
+        bambu_studio_roots=(),
+        profile_base_paths=(),
+    )
+
+    providers = {
+        provider["provider_id"]: provider
+        for provider in report["meshgen"]["providers"]
+    }
+    assert report["meshgen"]["overall_status"] == "ready"
+    assert report["meshgen"]["live_media_provider_count"] == 1
+    assert providers["media_command"]["status"] == "succeeded"
+    assert "project config" in providers["media_command"]["message"]
+
+
+def test_environment_report_reads_default_project_config_for_real_environment(
+    monkeypatch,
+    tmp_path: Path,
+):
+    config_path = tmp_path / ".printpipe" / "config.json"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        json.dumps({"media_meshgen_command": "printpipe media-meshgen-heightfield"}),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(CONFIG_PATH_ENV, raising=False)
+    monkeypatch.delenv("PRINTPIPE_MEDIA_MESHGEN_COMMAND", raising=False)
+
+    report = build_environment_report(
+        platform_name="linux",
         bambu_studio_roots=(),
         profile_base_paths=(),
     )

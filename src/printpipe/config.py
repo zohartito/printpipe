@@ -73,6 +73,6 @@ def configured_media_meshgen_command(
     env_command = environment.get(MEDIA_MESHGEN_COMMAND_ENV, "").strip()
     if env_command:
         return env_command
-    config = load_project_config(env=environment, cwd=cwd, config_path=config_path)
+    config = load_project_config(env=env, cwd=cwd, config_path=config_path)
     command = config.get("media_meshgen_command")
     return command.strip() if isinstance(command, str) else ""
