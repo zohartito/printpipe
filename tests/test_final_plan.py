@@ -191,6 +191,41 @@ def test_media_meshgen_action_plan_configures_tested_smoke_command(
     assert action["followup_command"].endswith("--strict")
 
 
+def test_media_meshgen_action_plan_preserves_tested_safe_params(
+    tmp_path: Path,
+) -> None:
+    plan = build_media_meshgen_action_plan(
+        tmp_path / "runs",
+        environment_report={
+            "meshgen": {
+                "overall_status": "action_required",
+                "live_media_provider_count": 0,
+                "message": "No live image/GIF/video meshgen provider is configured.",
+            }
+        },
+        smoke_status={
+            "overall_status": "passed",
+            "successful_smoke_count": 1,
+            "latest_successful_smoke": {
+                "run_id": "semantic-smoke",
+                "provider_id": "media_command",
+                "command": "python scripts/media_meshgen_adapter.py",
+                "adapter_params": {
+                    "api_key": "do-not-copy",
+                    "comfyui_workflow": "workflows/image_to_glb.json",
+                    "comfyui_image_paths": ["12.inputs.image"],
+                },
+            },
+        },
+    )
+
+    command = plan["actions"][0]["start_command"]
+    assert "--params-json" in command
+    assert "comfyui_workflow" in command
+    assert "12.inputs.image" in command
+    assert "api_key" not in command
+
+
 def test_media_meshgen_action_plan_does_not_promote_builtin_heightfield_smoke(
     tmp_path: Path,
 ) -> None:

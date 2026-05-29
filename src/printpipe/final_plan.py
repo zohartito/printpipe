@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shlex
 from collections.abc import Mapping
 from pathlib import Path
@@ -242,6 +243,7 @@ def _tested_media_command_action(
     if _is_builtin_heightfield_command(command):
         return None
     provider_id = str(latest.get("provider_id") or "")
+    adapter_params = _safe_adapter_params(_dict(latest.get("adapter_params")))
     env_name = (
         HUNYUAN3D_COMMAND_ENV
         if provider_id == "hunyuan3d"
@@ -256,11 +258,10 @@ def _tested_media_command_action(
             f"{detail} Latest successful smoke {run_id} used a command that can "
             f"be exported as {env_name}."
         ),
-        "start_command": (
-            "printpipe media-meshgen-configure --command "
-            f"{_quote(command)}"
-            if env_name == MEDIA_MESHGEN_COMMAND_ENV
-            else f"export {env_name}={_quote(command)}"
+        "start_command": _tested_media_start_command(
+            command=command,
+            env_name=env_name,
+            adapter_params=adapter_params,
         ),
         "command": (
             "printpipe media-meshgen-smoke reference.png --runs-dir "
@@ -277,6 +278,36 @@ def _tested_media_command_action(
         "input_type": "image/GIF/video",
         "latest_successful_smoke_run_id": run_id,
     }
+
+
+def _tested_media_start_command(
+    *,
+    command: str,
+    env_name: str,
+    adapter_params: Mapping[str, Any],
+) -> str:
+    if env_name != MEDIA_MESHGEN_COMMAND_ENV:
+        return f"export {env_name}={_quote(command)}"
+    start = f"printpipe media-meshgen-configure --command {_quote(command)}"
+    if adapter_params:
+        start += f" --params-json {_quote(json.dumps(dict(adapter_params), sort_keys=True))}"
+    return start
+
+
+def _safe_adapter_params(params: Mapping[str, Any]) -> dict[str, Any]:
+    from printpipe.meshgen.smoke import SAFE_RECEIPT_PARAM_KEYS
+
+    safe: dict[str, Any] = {}
+    for key in sorted(SAFE_RECEIPT_PARAM_KEYS):
+        if key not in params:
+            continue
+        value = params[key]
+        try:
+            json.dumps(value)
+        except TypeError:
+            continue
+        safe[key] = value
+    return safe
 
 
 def _is_builtin_heightfield_command(command: str) -> bool:

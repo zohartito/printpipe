@@ -216,6 +216,70 @@ def test_run_media_meshgen_smoke_resolves_command_from_config_cwd(
     assert payload["command"] == command
 
 
+def test_media_meshgen_smoke_receipt_preserves_safe_adapter_params(
+    tmp_path: Path,
+    monkeypatch,
+):
+    source_mesh = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    fake_adapter = tmp_path / "fake_media_adapter.py"
+    fake_adapter.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--output', required=True)",
+                "args, _ = parser.parse_known_args()",
+                f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    command = f"{sys.executable} {fake_adapter}"
+    config_path = tmp_path / ".printpipe" / "config.json"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        json.dumps(
+            {
+                "media_meshgen_command": command,
+                "media_meshgen_params": {
+                    "api_key": "do-not-copy",
+                    "comfyui_url": "http://127.0.0.1:8188",
+                    "comfyui_workflow": "workflows/image_to_glb.json",
+                    "comfyui_image_paths": ["12.inputs.image"],
+                    "comfyui_timeout_seconds": 120,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(config_path))
+    monkeypatch.delenv("PRINTPIPE_MEDIA_MESHGEN_COMMAND", raising=False)
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"fake image")
+    runs_dir = tmp_path / "smoke-runs"
+
+    payload = run_media_meshgen_smoke(source, runs_dir=runs_dir)
+    status = build_media_meshgen_smoke_status(runs_dir)
+
+    assert payload["status"] == "succeeded"
+    assert payload["adapter_params"] == {
+        "comfyui_image_paths": ["12.inputs.image"],
+        "comfyui_timeout_seconds": 120,
+        "comfyui_url": "http://127.0.0.1:8188",
+        "comfyui_workflow": "workflows/image_to_glb.json",
+    }
+    assert "api_key" not in payload["adapter_params"]
+    assert status["latest_successful_smoke"]["adapter_params"] == payload["adapter_params"]
+
+
 def test_media_meshgen_smoke_without_provider_fails_with_setup_action(
     tmp_path: Path,
     capsys,

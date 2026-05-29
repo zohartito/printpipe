@@ -22,6 +22,18 @@ from printpipe.runs import RunLayout, create_run
 
 
 MEDIA_INPUT_KINDS = frozenset({InputKind.IMAGE, InputKind.GIF, InputKind.VIDEO})
+SAFE_RECEIPT_PARAM_KEYS = frozenset(
+    {
+        "comfyui_allow_no_source_patch",
+        "comfyui_image_paths",
+        "comfyui_prompt_paths",
+        "comfyui_seed_paths",
+        "comfyui_timeout_seconds",
+        "comfyui_url",
+        "comfyui_workflow",
+        "model_version",
+    }
+)
 
 
 def run_media_meshgen_smoke(
@@ -47,6 +59,7 @@ def run_media_meshgen_smoke(
         command,
         config_cwd=config_cwd,
     )
+    configured_params = _configured_smoke_params(config_cwd=config_cwd)
     request = MeshGenRequest(
         input_kind=input_result.kind,
         source_paths=reference_paths,
@@ -55,7 +68,7 @@ def run_media_meshgen_smoke(
         prompt_hint=prompt,
         max_attempts=1,
         provider_params={
-            **_configured_smoke_params(config_cwd=config_cwd),
+            **configured_params,
             "smoke": True,
             "original_input": str(layout.original_input),
         },
@@ -66,6 +79,7 @@ def run_media_meshgen_smoke(
         input_kind=input_result.kind,
         result=result,
         command=configured_command,
+        adapter_params=_safe_receipt_params(configured_params),
     )
 
 
@@ -125,6 +139,7 @@ def _write_smoke_receipt(
     input_kind: InputKind,
     result: MeshGenResult,
     command: str,
+    adapter_params: dict[str, Any],
 ) -> dict[str, Any]:
     smoke_path = layout.meshgen_dir / "smoke.json"
     payload: dict[str, Any] = {
@@ -140,6 +155,8 @@ def _write_smoke_receipt(
     }
     if command:
         payload["command"] = command
+    if adapter_params:
+        payload["adapter_params"] = adapter_params
     if result.normalized_mesh_path is not None:
         payload["output_path"] = _relative(layout, result.normalized_mesh_path)
     if result.error is not None:
@@ -229,8 +246,27 @@ def _read_smoke_receipt(root: Path, smoke_path: Path) -> dict[str, Any] | None:
         "output_path": output_path if isinstance(output_path, str) else None,
         "output_exists": output_exists,
         "command": payload.get("command") if isinstance(payload.get("command"), str) else "",
+        "adapter_params": _payload_mapping(payload.get("adapter_params")),
         "error": payload.get("error") if isinstance(payload.get("error"), str) else None,
     }
+
+
+def _safe_receipt_params(params: dict[str, Any]) -> dict[str, Any]:
+    safe: dict[str, Any] = {}
+    for key in sorted(SAFE_RECEIPT_PARAM_KEYS):
+        if key not in params:
+            continue
+        value = params[key]
+        try:
+            json.dumps(value)
+        except TypeError:
+            continue
+        safe[key] = value
+    return safe
+
+
+def _payload_mapping(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
 
 
 def _relative_to(root: Path, path: Path) -> str:

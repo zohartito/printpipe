@@ -103,6 +103,9 @@ params from the same project workspace when a workspace is provided.
 The final-readiness panel links the open media gate back to the local browser
 setup panel at `/#media-meshgen-setup`, both before provider setup and before
 the first required smoke test.
+Successful smoke receipts preserve safe adapter params, so a tested ComfyUI
+workflow can be promoted into project config without losing workflow or patch
+paths.
 That browser setup step still does not prove semantic reconstruction; a real
 `media-meshgen-smoke` receipt is required before the media gate is ready.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke

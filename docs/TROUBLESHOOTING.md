@@ -90,6 +90,9 @@ workspace's `.printpipe/config.json` for both command and params.
 If final-readiness says the media provider gate is open, use the browser link to
 `/#media-meshgen-setup` or run the printed terminal commands. The same panel
 contains both setup and smoke-test forms.
+When a one-off smoke succeeds, `media-meshgen-smoke-status` can preserve safe
+adapter params so the follow-up configure command does not drop ComfyUI workflow
+or patch paths.
 For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
 
 ```bash

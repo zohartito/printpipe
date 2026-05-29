@@ -2087,3 +2087,14 @@ Status: complete for pointing the configured-provider/no-smoke final action at t
 2. Done: the browser label for this state is `Run media meshgen smoke in the local app`.
 3. Done: focused tests cover the provider-ready/no-smoke action payload and preserve the configure-provider browser handoff.
 4. Boundary: this is handoff UX only. It does not run smoke or close the media meshgen gate without a successful receipt.
+
+## Wave 191 - Reproducible Media Smoke Params
+
+Status: complete for preserving safe adapter params from successful smoke receipts into final configuration handoffs.
+
+1. Done: media smoke receipts now include allowlisted `adapter_params` for safe setup values.
+2. Done: `media-meshgen-smoke-status` exposes those params on `latest_successful_smoke`.
+3. Done: final-plan uses those params when promoting a successful one-off smoke command into `media-meshgen-configure --params-json ...`.
+4. Done: obvious unallowlisted keys such as `api_key` are not copied into receipts or final-next commands.
+5. Done: focused tests cover receipt persistence, status propagation, and final-plan command generation.
+6. Boundary: this does not create or validate a semantic provider. It makes a future successful smoke reproducible without silently dropping workflow/patch-path params.
