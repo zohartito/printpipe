@@ -209,6 +209,8 @@ def build_media_meshgen_action_plan(
             ),
             "required_inputs": ["image, GIF, or video reference"],
             "input_type": "image/GIF/video",
+            "browser_path": "/#media-meshgen-setup",
+            "browser_label": "Run media meshgen smoke in the local app",
         }
         return _media_meshgen_plan(
             overall_status="action_required",

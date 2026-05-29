@@ -248,6 +248,8 @@ def test_media_meshgen_action_plan_requires_smoke_when_provider_is_ready(
     assert plan["provider_count"] == 1
     assert plan["actions"][0]["id"] == "media_meshgen_smoke"
     assert plan["actions"][0]["command"].startswith("printpipe media-meshgen-smoke")
+    assert plan["actions"][0]["browser_path"] == "/#media-meshgen-setup"
+    assert plan["actions"][0]["browser_label"] == "Run media meshgen smoke in the local app"
 
 
 def test_media_meshgen_action_plan_ready_after_successful_smoke(tmp_path: Path) -> None:

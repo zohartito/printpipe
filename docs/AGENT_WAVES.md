@@ -2078,3 +2078,12 @@ Status: complete for pointing final-next/final-readiness at the browser media se
 3. Done: the final-readiness panel renders a `Browser setup` link beside the existing terminal commands.
 4. Done: focused tests cover final-plan payload propagation and final-readiness HTML rendering.
 5. Boundary: this is handoff UX only. It does not configure a real provider or close the media meshgen gate.
+
+## Wave 190 - Browser-Aware Media Smoke Handoff
+
+Status: complete for pointing the configured-provider/no-smoke final action at the browser smoke form.
+
+1. Done: the `media_meshgen_smoke` final-plan action now includes `browser_path: /#media-meshgen-setup`.
+2. Done: the browser label for this state is `Run media meshgen smoke in the local app`.
+3. Done: focused tests cover the provider-ready/no-smoke action payload and preserve the configure-provider browser handoff.
+4. Boundary: this is handoff UX only. It does not run smoke or close the media meshgen gate without a successful receipt.
