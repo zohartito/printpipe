@@ -67,6 +67,11 @@ printpipe media-meshgen-smoke reference.png \
   --runs-dir runs/media-meshgen-smoke
 ```
 
+Successful one-off smoke receipts record the command that produced the mesh.
+If that command is not yet configured in the environment, `printpipe final-next`
+will surface the exact `export PRINTPIPE_MEDIA_MESHGEN_COMMAND=...` handoff
+instead of sending you back to the blank adapter template.
+
 The local web app also exposes the same proof surface on the home page and at
 `/media-meshgen-smoke-status.json`.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke

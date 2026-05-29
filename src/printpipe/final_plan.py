@@ -9,6 +9,7 @@ from typing import Any
 
 from printpipe.beta.feedback import build_trusted_user_feedback_plan
 from printpipe.beta.physical_plan import build_physical_validation_plan
+from printpipe.meshgen.providers import HUNYUAN3D_COMMAND_ENV, MEDIA_MESHGEN_COMMAND_ENV
 from printpipe.env.doctor import build_environment_report
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.packaging.release_plan import build_release_distribution_plan
@@ -137,6 +138,22 @@ def build_media_meshgen_action_plan(
     )
     meshgen = _dict(environment.get("meshgen"))
     if meshgen.get("overall_status") != "ready":
+        tested_command_action = _tested_media_command_action(
+            runs_path=runs_path,
+            smoke_status=smoke,
+            detail=str(
+                meshgen.get("message")
+                or meshgen.get("action")
+                or "No live image/GIF/video meshgen provider is configured."
+            ),
+        )
+        if tested_command_action is not None:
+            return _media_meshgen_plan(
+                overall_status="action_required",
+                action=tested_command_action,
+                provider_count=int(meshgen.get("live_media_provider_count") or 0),
+                smoke_status=smoke,
+            )
         action = {
             "id": "configure_media_meshgen_provider",
             "label": "Configure media meshgen provider",
@@ -201,6 +218,51 @@ def build_media_meshgen_action_plan(
         provider_count=int(meshgen.get("live_media_provider_count") or 0),
         smoke_status=smoke,
     )
+
+
+def _tested_media_command_action(
+    *,
+    runs_path: Path,
+    smoke_status: Mapping[str, Any],
+    detail: str,
+) -> dict[str, Any] | None:
+    if smoke_status.get("overall_status") != "passed":
+        return None
+    latest = _dict(smoke_status.get("latest_successful_smoke"))
+    command = str(latest.get("command") or "").strip()
+    if not command:
+        return None
+    provider_id = str(latest.get("provider_id") or "")
+    env_name = (
+        HUNYUAN3D_COMMAND_ENV
+        if provider_id == "hunyuan3d"
+        else MEDIA_MESHGEN_COMMAND_ENV
+    )
+    run_id = str(latest.get("run_id") or "latest successful smoke")
+    return {
+        "id": "configure_tested_media_meshgen_provider",
+        "label": "Configure tested media meshgen command",
+        "status": "action_required",
+        "detail": (
+            f"{detail} Latest successful smoke {run_id} used a command that can "
+            f"be exported as {env_name}."
+        ),
+        "start_command": f"export {env_name}={_quote(command)}",
+        "command": (
+            "printpipe media-meshgen-smoke reference.png --runs-dir "
+            f"{_quote(str(runs_path))}"
+        ),
+        "followup_command": (
+            "printpipe media-meshgen-smoke-status --runs-dir "
+            f"{_quote(str(runs_path))} --strict"
+        ),
+        "required_inputs": [
+            "shell session, launch agent, or app environment where the export is set",
+            "image, GIF, or video reference for a fresh configured-provider smoke",
+        ],
+        "input_type": "image/GIF/video",
+        "latest_successful_smoke_run_id": run_id,
+    }
 
 
 def render_final_action_plan(plan: Mapping[str, Any]) -> str:

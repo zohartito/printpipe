@@ -143,6 +143,38 @@ def test_media_meshgen_action_plan_requires_provider_before_smoke(
     assert str(tmp_path / "runs") in action["followup_command"]
 
 
+def test_media_meshgen_action_plan_configures_tested_smoke_command(
+    tmp_path: Path,
+) -> None:
+    plan = build_media_meshgen_action_plan(
+        tmp_path / "runs",
+        environment_report={
+            "meshgen": {
+                "overall_status": "action_required",
+                "live_media_provider_count": 0,
+                "message": "No live image/GIF/video meshgen provider is configured.",
+            }
+        },
+        smoke_status={
+            "overall_status": "passed",
+            "successful_smoke_count": 1,
+            "latest_successful_smoke": {
+                "run_id": "heightfield-smoke",
+                "provider_id": "media_command",
+                "command": "printpipe media-meshgen-heightfield",
+            },
+        },
+    )
+
+    action = plan["actions"][0]
+    assert action["id"] == "configure_tested_media_meshgen_provider"
+    assert action["start_command"] == (
+        "export PRINTPIPE_MEDIA_MESHGEN_COMMAND='printpipe media-meshgen-heightfield'"
+    )
+    assert "heightfield-smoke" in action["detail"]
+    assert action["followup_command"].endswith("--strict")
+
+
 def test_media_meshgen_action_plan_requires_smoke_when_provider_is_ready(
     tmp_path: Path,
 ) -> None:

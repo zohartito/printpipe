@@ -41,6 +41,7 @@ def run_media_meshgen_smoke(
     input_result = prepare_input(layout.original_input, layout.frames_dir)
     reference_paths = tuple(Path(artifact.path) for artifact in input_result.selected_references)
     provider = _smoke_provider(command=command)
+    configured_command = _configured_smoke_command(command)
     request = MeshGenRequest(
         input_kind=input_result.kind,
         source_paths=reference_paths,
@@ -51,7 +52,12 @@ def run_media_meshgen_smoke(
         provider_params={"smoke": True, "original_input": str(layout.original_input)},
     )
     result = generate_with_retries(provider, request, layout)
-    return _write_smoke_receipt(layout, input_kind=input_result.kind, result=result)
+    return _write_smoke_receipt(
+        layout,
+        input_kind=input_result.kind,
+        result=result,
+        command=configured_command,
+    )
 
 
 def _smoke_provider(*, command: str | None) -> MeshGenProvider:
@@ -64,11 +70,24 @@ def _smoke_provider(*, command: str | None) -> MeshGenProvider:
     return MediaCommandMeshProvider()
 
 
+def _configured_smoke_command(command: str | None) -> str:
+    if command:
+        return command.strip()
+    media_command = os.environ.get(MEDIA_MESHGEN_COMMAND_ENV, "").strip()
+    if media_command:
+        return media_command
+    hunyuan_command = os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip()
+    if hunyuan_command:
+        return hunyuan_command
+    return ""
+
+
 def _write_smoke_receipt(
     layout: RunLayout,
     *,
     input_kind: InputKind,
     result: MeshGenResult,
+    command: str,
 ) -> dict[str, Any]:
     smoke_path = layout.meshgen_dir / "smoke.json"
     payload: dict[str, Any] = {
@@ -82,6 +101,8 @@ def _write_smoke_receipt(
         "summary_path": _relative(layout, layout.meshgen_dir / "summary.json"),
         "attempts_path": _relative(layout, layout.meshgen_dir / "attempts.jsonl"),
     }
+    if command:
+        payload["command"] = command
     if result.normalized_mesh_path is not None:
         payload["output_path"] = _relative(layout, result.normalized_mesh_path)
     if result.error is not None:
@@ -170,6 +191,7 @@ def _read_smoke_receipt(root: Path, smoke_path: Path) -> dict[str, Any] | None:
         "smoke_path": _relative_to(root, smoke_path),
         "output_path": output_path if isinstance(output_path, str) else None,
         "output_exists": output_exists,
+        "command": payload.get("command") if isinstance(payload.get("command"), str) else "",
         "error": payload.get("error") if isinstance(payload.get("error"), str) else None,
     }
 

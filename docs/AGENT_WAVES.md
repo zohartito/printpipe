@@ -1881,3 +1881,14 @@ Status: complete for adding a no-dependency local media-to-STL plumbing smoke pa
 4. Done: tests cover parser behavior, direct command output, and the smoke command using the built-in adapter through the real subprocess provider path.
 5. Done: README, troubleshooting, architecture, and research notes now document the distinction between plumbing smoke and semantic AI reconstruction.
 6. Boundary: this does not replace Hunyuan, ComfyUI, Chimney, or hosted semantic image-to-object mesh generation. It proves the adapter protocol and downstream media plumbing with a real mesh.
+
+## Wave 172 - Tested Media Command Handoff
+
+Status: complete for turning successful one-off smoke evidence into a concrete provider-configuration handoff.
+
+1. Done: `media-meshgen-smoke` now writes the tested adapter command into `20_meshgen/smoke.json` when a command is supplied or resolved from the environment.
+2. Done: `media-meshgen-smoke-status` now exposes the tested command on `latest_successful_smoke`.
+3. Done: when a successful smoke exists but no live provider is configured, `final-next` now recommends `export PRINTPIPE_MEDIA_MESHGEN_COMMAND=...` or the Hunyuan-specific env var based on the smoke provider.
+4. Done: the command handoff preserves the same smoke-status follow-up check instead of treating the prior one-off smoke as permanent environment configuration.
+5. Done: tests cover the receipt field, status contract, and final-plan action switch.
+6. Boundary: this does not silently mutate shell/profile/app environment. It tells the user exactly how to configure the tested command.

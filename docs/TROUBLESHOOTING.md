@@ -77,6 +77,9 @@ printpipe media-meshgen-smoke reference.png \
 
 That command writes a real STL relief mesh from the PNG pixels, but it is not a
 semantic image-to-object model.
+Successful one-off smoke receipts record the command that produced the mesh, so
+`printpipe final-next` can point at the exact `export PRINTPIPE_MEDIA_MESHGEN_COMMAND=...`
+step when the command is proven but not configured in the current environment.
 `media-meshgen-smoke` creates a narrow run folder and writes
 `20_meshgen/smoke.json`, `summary.json`, and `attempts.jsonl` without repairing,
 bundling, or slicing. Use it to prove the adapter writes a mesh before starting a
