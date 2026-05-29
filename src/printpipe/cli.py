@@ -2396,6 +2396,7 @@ def _media_meshgen_configure(
     params_json: str | None,
     config_path: Path | None,
 ) -> int:
+    from printpipe.config import resolve_config_workspace
     from printpipe.config import write_project_config
     from printpipe.meshgen.comfyui_workflow import validate_comfyui_params
 
@@ -2404,7 +2405,7 @@ def _media_meshgen_configure(
         params = _json_object_arg(params_json)
         validate_comfyui_params(
             params,
-            workspace_dir=_media_config_workspace_dir(config_path),
+            workspace_dir=resolve_config_workspace(config_path=config_path),
         )
         updates["media_meshgen_params"] = params
     written = write_project_config(
@@ -2417,15 +2418,6 @@ def _media_meshgen_configure(
         print("media meshgen params: configured")
     print("follow-up: printpipe doctor")
     return 0
-
-
-def _media_config_workspace_dir(config_path: Path | None) -> Path:
-    if config_path is None:
-        return Path.cwd()
-    resolved = config_path.expanduser()
-    if resolved.name == "config.json" and resolved.parent.name == ".printpipe":
-        return resolved.parent.parent
-    return resolved.parent
 
 
 def _json_object_arg(value: str) -> dict[str, Any]:

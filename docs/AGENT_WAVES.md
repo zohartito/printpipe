@@ -2047,3 +2047,14 @@ Status: complete for applying the ComfyUI workflow readiness guard to manual con
 4. Done: relative workflow paths are resolved against the project/config workspace for validation while preserving the stored relative path.
 5. Done: tests cover CLI and browser rejection paths, proving unready workflows do not write config.
 6. Boundary: this still does not run ComfyUI or close the media meshgen gate; it only prevents known-bad ComfyUI config from being persisted.
+
+## Wave 187 - ComfyUI Readiness Drift Guard
+
+Status: complete for catching stale ComfyUI workflow config during media-provider readiness checks.
+
+1. Done: added a shared config workspace resolver so relative workflow paths can be validated consistently from CLI, browser, and readiness paths.
+2. Done: generic media command provider health checks now validate saved `comfyui_workflow` params when present.
+3. Done: stale, deleted, or edited workflows that no longer pass the static inspector make the media provider report `failed`.
+4. Done: media readiness surfaces the failed provider message instead of counting that provider as live.
+5. Done: focused regression tests cover stale missing-`SaveGLB` config and preserve the heightfield plumbing-only behavior.
+6. Boundary: this still does not run ComfyUI or prove semantic mesh quality. It prevents stale ComfyUI config from being mistaken for provider readiness.

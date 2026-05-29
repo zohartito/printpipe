@@ -33,6 +33,18 @@ def resolve_config_path(
     return base / DEFAULT_CONFIG_PATH
 
 
+def resolve_config_workspace(
+    *,
+    env: Mapping[str, str] | None = None,
+    cwd: Path | None = None,
+    config_path: Path | None = None,
+) -> Path:
+    path = resolve_config_path(env=env, cwd=cwd, config_path=config_path).expanduser()
+    if path.name == "config.json" and path.parent.name == ".printpipe":
+        return path.parent.parent
+    return path.parent
+
+
 def load_project_config(
     *,
     env: Mapping[str, str] | None = None,

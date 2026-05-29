@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from printpipe.contracts import ArtifactKind, InputKind, StageStatus
+from printpipe.config import CONFIG_PATH_ENV
 from printpipe.meshgen import (
     ExistingMeshProvider,
     Hunyuan3DProvider,
@@ -356,6 +357,45 @@ def test_media_meshgen_readiness_treats_builtin_heightfield_as_plumbing_only():
     assert "heightfield" in readiness["message"]
     assert "semantic" in readiness["action"]
     assert provider["plumbing_only"] is True
+
+
+def test_media_meshgen_readiness_rejects_stale_comfyui_workflow_config(
+    tmp_path: Path,
+):
+    config_path = tmp_path / ".printpipe" / "config.json"
+    workflow_path = tmp_path / "workflows" / "bad.json"
+    workflow_path.parent.mkdir(parents=True)
+    workflow_path.write_text(
+        json.dumps({"12": {"class_type": "LoadImage", "inputs": {"image": "reference.png"}}}),
+        encoding="utf-8",
+    )
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "media_meshgen_command": "python scripts/media_meshgen_adapter.py",
+                "media_meshgen_params": {
+                    "comfyui_workflow": "workflows/bad.json",
+                    "comfyui_image_paths": ["12.inputs.image"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    readiness = build_media_meshgen_readiness(env={CONFIG_PATH_ENV: str(config_path)})
+
+    provider = next(
+        item
+        for item in readiness["providers"]
+        if item["provider_id"] == "media_command"
+    )
+    assert readiness["overall_status"] == "action_required"
+    assert readiness["live_media_provider_count"] == 0
+    assert provider["status"] == "failed"
+    assert "ComfyUI workflow is not ready for PrintPipe." in provider["message"]
+    assert "Workflow does not include a SaveGLB node." in provider["message"]
+    assert "SaveGLB" in readiness["message"]
 
 
 def test_placeholder_providers_are_healthy_but_not_implemented(tmp_path: Path):

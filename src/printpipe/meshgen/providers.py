@@ -17,6 +17,9 @@ from typing import Any, MutableMapping
 
 from printpipe.contracts import Artifact, ArtifactKind, InputKind, StageStatus
 from printpipe.config import configured_media_meshgen_command
+from printpipe.config import configured_media_meshgen_params
+from printpipe.config import resolve_config_workspace
+from printpipe.meshgen.comfyui_workflow import validate_comfyui_params
 from printpipe.runs.paths import RunLayout
 
 from .contracts import (
@@ -683,6 +686,18 @@ class MediaCommandMeshProvider(Hunyuan3DProvider):
     model_id = "generic-media-command"
     command_env = MEDIA_MESHGEN_COMMAND_ENV
 
+    def __init__(
+        self,
+        command: str | Path | Sequence[str | Path] | None = None,
+        runner: CommandRunner | None = None,
+        *,
+        config_env: Mapping[str, str] | None = None,
+        config_cwd: Path | None = None,
+    ) -> None:
+        self._config_env = config_env
+        self._config_cwd = config_cwd
+        super().__init__(command=command, runner=runner)
+
     def _configured_command(
         self,
         command: str | Path | Sequence[str | Path] | None,
@@ -708,6 +723,22 @@ class MediaCommandMeshProvider(Hunyuan3DProvider):
         health = super().healthcheck()
         if health.status != StageStatus.SUCCEEDED:
             return health
+        params = configured_media_meshgen_params(env=self._config_env, cwd=self._config_cwd)
+        try:
+            validate_comfyui_params(
+                params,
+                workspace_dir=resolve_config_workspace(
+                    env=self._config_env,
+                    cwd=self._config_cwd,
+                ),
+            )
+        except ValueError as exc:
+            return ProviderHealth(
+                provider_id=health.provider_id,
+                status=StageStatus.FAILED,
+                message=str(exc),
+                checked_at=health.checked_at,
+            )
         env_command = os.environ.get(self.command_env, "").strip()
         source = "environment" if env_command else "project config"
         return ProviderHealth(
@@ -812,6 +843,7 @@ def build_media_meshgen_readiness(
     provider_summaries: list[dict[str, Any]] = []
     live_media_provider_count = 0
     plumbing_only_media_provider_count = 0
+    failed_media_messages: list[str] = []
     for provider in actual_registry.values():
         health = provider.healthcheck()
         input_kinds = tuple(kind.value for kind in provider.capabilities.input_kinds)
@@ -829,6 +861,8 @@ def build_media_meshgen_readiness(
                 plumbing_only_media_provider_count += 1
             else:
                 live_media_provider_count += 1
+        elif supports_media and health.status == StageStatus.FAILED:
+            failed_media_messages.append(health.message)
         provider_summaries.append(
             {
                 "provider_id": provider.provider_id,
@@ -857,6 +891,9 @@ def build_media_meshgen_readiness(
             "a hosted provider, or a custom command, then run "
             "printpipe media-meshgen-smoke."
         )
+    elif failed_media_messages:
+        message = failed_media_messages[0]
+        action = "Fix media meshgen provider config, then run printpipe media-meshgen-smoke."
     else:
         message = MEDIA_MESHGEN_UNAVAILABLE_MESSAGE
         action = MEDIA_MESHGEN_SETUP_ACTION
@@ -899,7 +936,7 @@ def _default_readiness_registry(
     registry: dict[str, MeshGenProvider] = {}
     register_provider(ExistingMeshProvider(), registry)
     register_provider(Hunyuan3DProvider(command=hunyuan_command), registry)
-    register_provider(MediaCommandMeshProvider(command=media_command), registry)
+    register_provider(MediaCommandMeshProvider(command=media_command, config_env=env), registry)
     register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
     register_provider(PlaceholderMeshProvider("meshy", "Meshy"), registry)
     register_provider(PlaceholderMeshProvider("rodin", "Rodin"), registry)

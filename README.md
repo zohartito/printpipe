@@ -96,6 +96,8 @@ Uploads that fail static inspection, such as workflows without `SaveGLB`, return
 a browser error before adapter/config state is written. The manual browser
 command form and `media-meshgen-configure --params-json ...` apply the same
 static workflow check when `comfyui_workflow` is provided.
+Doctor/readiness checks also re-inspect that saved workflow later, so deleted or
+edited workflow JSON does not keep counting as a live media provider.
 That browser setup step still does not prove semantic reconstruction; a real
 `media-meshgen-smoke` receipt is required before the media gate is ready.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke
