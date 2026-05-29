@@ -9,12 +9,21 @@ from typing import Any
 
 from printpipe.beta.feedback import build_trusted_user_feedback_plan
 from printpipe.beta.physical_plan import build_physical_validation_plan
+from printpipe.env.doctor import build_environment_report
+from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.packaging.release_plan import build_release_distribution_plan
 
 FINAL_PLAN_PROOF_BOUNDARY = (
-    "A final plan is not evidence. Physical validation, trusted-user beta, "
-    "and signed distribution gates only close when their underlying evidence "
-    "packets or verified signed artifacts exist on disk."
+    "A final plan is not evidence. Media meshgen, physical validation, "
+    "trusted-user beta, and signed distribution gates only close when their "
+    "underlying smoke receipts, evidence packets, or verified signed artifacts "
+    "exist on disk."
+)
+
+MEDIA_MESHGEN_PROOF_BOUNDARY = (
+    "A configured media meshgen command is not proof. This gate closes only "
+    "after a successful media-meshgen-smoke receipt points at an existing "
+    "output mesh."
 )
 
 
@@ -24,6 +33,7 @@ def build_final_action_plan(
     release_dir: str | Path,
     regression_manifest_path: str | Path | None = None,
     physical_plan: Mapping[str, Any] | None = None,
+    media_meshgen_plan: Mapping[str, Any] | None = None,
     trusted_feedback_plan: Mapping[str, Any] | None = None,
     release_plan: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -31,6 +41,11 @@ def build_final_action_plan(
 
     runs_path = Path(runs_dir).expanduser()
     release_path = Path(release_dir).expanduser()
+    media = (
+        dict(media_meshgen_plan)
+        if media_meshgen_plan is not None
+        else build_media_meshgen_action_plan(runs_path)
+    )
     physical = dict(physical_plan) if physical_plan is not None else build_physical_validation_plan(runs_path)
     trusted = (
         dict(trusted_feedback_plan)
@@ -47,6 +62,16 @@ def build_final_action_plan(
         )
     )
     sections = [
+        _section(
+            "media_meshgen_provider",
+            "Media meshgen provider",
+            media,
+            detail="Configure and smoke-prove the image/GIF/video meshgen provider.",
+            command=(
+                "printpipe media-meshgen-smoke-status --runs-dir "
+                f"{_quote(str(runs_path))} --strict"
+            ),
+        ),
         _section(
             "physical_validation",
             "Physical validation",
@@ -89,6 +114,93 @@ def build_final_action_plan(
         "proof_boundary": FINAL_PLAN_PROOF_BOUNDARY,
         "sections": sections,
     }
+
+
+def build_media_meshgen_action_plan(
+    runs_dir: str | Path,
+    *,
+    environment_report: Mapping[str, Any] | None = None,
+    smoke_status: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return final-plan actions for media meshgen provider proof."""
+
+    runs_path = Path(runs_dir).expanduser()
+    environment = (
+        dict(environment_report)
+        if environment_report is not None
+        else build_environment_report()
+    )
+    smoke = (
+        dict(smoke_status)
+        if smoke_status is not None
+        else build_media_meshgen_smoke_status(runs_path)
+    )
+    meshgen = _dict(environment.get("meshgen"))
+    if meshgen.get("overall_status") != "ready":
+        action = {
+            "id": "configure_media_meshgen_provider",
+            "label": "Configure media meshgen provider",
+            "status": "action_required",
+            "detail": str(
+                meshgen.get("message")
+                or meshgen.get("action")
+                or "No live image/GIF/video meshgen provider is configured."
+            ),
+            "start_command": "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py",
+            "command": (
+                "printpipe media-meshgen-smoke reference.png --runs-dir "
+                f"{_quote(str(runs_path))}"
+            ),
+            "followup_command": (
+                "printpipe media-meshgen-smoke-status --runs-dir "
+                f"{_quote(str(runs_path))} --strict"
+            ),
+            "required_inputs": [
+                "real local, hosted, or API-backed media meshgen adapter",
+                "image, GIF, or video reference for smoke testing",
+            ],
+            "input_type": "image/GIF/video",
+        }
+        return _media_meshgen_plan(
+            overall_status="action_required",
+            action=action,
+            provider_count=int(meshgen.get("live_media_provider_count") or 0),
+            smoke_status=smoke,
+        )
+
+    if smoke.get("overall_status") != "passed":
+        action = {
+            "id": "media_meshgen_smoke",
+            "label": "Media meshgen smoke",
+            "status": str(smoke.get("overall_status") or "missing"),
+            "detail": str(
+                smoke.get("message")
+                or "Configured provider has no successful media meshgen smoke receipt."
+            ),
+            "command": (
+                "printpipe media-meshgen-smoke reference.png --runs-dir "
+                f"{_quote(str(runs_path))}"
+            ),
+            "followup_command": (
+                "printpipe media-meshgen-smoke-status --runs-dir "
+                f"{_quote(str(runs_path))} --strict"
+            ),
+            "required_inputs": ["image, GIF, or video reference"],
+            "input_type": "image/GIF/video",
+        }
+        return _media_meshgen_plan(
+            overall_status="action_required",
+            action=action,
+            provider_count=int(meshgen.get("live_media_provider_count") or 0),
+            smoke_status=smoke,
+        )
+
+    return _media_meshgen_plan(
+        overall_status="ready",
+        action=None,
+        provider_count=int(meshgen.get("live_media_provider_count") or 0),
+        smoke_status=smoke,
+    )
 
 
 def render_final_action_plan(plan: Mapping[str, Any]) -> str:
@@ -227,6 +339,25 @@ def _section(
         "command": command,
         "proof_boundary": str(source_plan.get("proof_boundary") or ""),
         "actions": _list(source_plan.get("actions")),
+    }
+
+
+def _media_meshgen_plan(
+    *,
+    overall_status: str,
+    action: Mapping[str, Any] | None,
+    provider_count: int,
+    smoke_status: Mapping[str, Any],
+) -> dict[str, Any]:
+    actions = [dict(action)] if action is not None else []
+    return {
+        "schema_version": 1,
+        "overall_status": overall_status,
+        "action_count": len(actions),
+        "provider_count": provider_count,
+        "smoke_status": dict(smoke_status),
+        "proof_boundary": MEDIA_MESHGEN_PROOF_BOUNDARY,
+        "actions": actions,
     }
 
 
@@ -553,8 +684,10 @@ def _list(value: Any) -> list[Any]:
 
 __all__ = [
     "FINAL_PLAN_PROOF_BOUNDARY",
+    "MEDIA_MESHGEN_PROOF_BOUNDARY",
     "build_final_action_plan",
     "build_final_next_action_payload",
+    "build_media_meshgen_action_plan",
     "render_final_action_plan",
     "render_final_next_action",
 ]

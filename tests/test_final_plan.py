@@ -7,6 +7,7 @@ from printpipe.cli import build_parser, main
 from printpipe.final_plan import (
     build_final_action_plan,
     build_final_next_action_payload,
+    build_media_meshgen_action_plan,
     render_final_action_plan,
     render_final_next_action,
 )
@@ -16,6 +17,11 @@ def test_final_action_plan_orders_remaining_external_gates(tmp_path: Path) -> No
     plan = build_final_action_plan(
         runs_dir=tmp_path / "runs",
         release_dir=tmp_path / "release",
+        media_meshgen_plan={
+            "overall_status": "ready",
+            "action_count": 0,
+            "actions": [],
+        },
         physical_plan={
             "overall_status": "action_required",
             "action_count": 3,
@@ -46,21 +52,147 @@ def test_final_action_plan_orders_remaining_external_gates(tmp_path: Path) -> No
     )
     assert plan["next_command"] == plan["next_action"]["command"]
     assert [section["id"] for section in plan["sections"]] == [
+        "media_meshgen_provider",
         "physical_validation",
         "trusted_user_beta",
         "release_distribution",
     ]
-    assert [section["action_count"] for section in plan["sections"]] == [3, 2, 3]
-    assert plan["sections"][0]["command"].startswith("printpipe physical-plan")
-    assert plan["sections"][1]["command"].startswith("printpipe beta-feedback-plan")
-    assert plan["sections"][2]["command"].startswith("printpipe release-plan")
+    assert [section["action_count"] for section in plan["sections"]] == [0, 3, 2, 3]
+    assert plan["sections"][0]["command"].startswith("printpipe media-meshgen-smoke-status")
+    assert plan["sections"][1]["command"].startswith("printpipe physical-plan")
+    assert plan["sections"][2]["command"].startswith("printpipe beta-feedback-plan")
+    assert plan["sections"][3]["command"].startswith("printpipe release-plan")
     assert "not evidence" in plan["proof_boundary"]
+
+
+def test_final_action_plan_prioritizes_media_meshgen_when_unproven(
+    tmp_path: Path,
+) -> None:
+    plan = build_final_action_plan(
+        runs_dir=tmp_path / "runs",
+        release_dir=tmp_path / "release",
+        media_meshgen_plan={
+            "overall_status": "action_required",
+            "action_count": 1,
+            "proof_boundary": "media smoke proof only",
+            "actions": [
+                {
+                    "id": "media_meshgen_smoke",
+                    "label": "Media meshgen smoke",
+                    "status": "missing",
+                    "detail": "Provider configured but no smoke receipt exists.",
+                    "command": "printpipe media-meshgen-smoke reference.png --runs-dir runs",
+                    "followup_command": "printpipe media-meshgen-smoke-status --runs-dir runs --strict",
+                    "required_inputs": ["image, GIF, or video reference"],
+                }
+            ],
+        },
+        physical_plan={
+            "overall_status": "action_required",
+            "action_count": 1,
+            "actions": [{"family": "pla"}],
+        },
+        trusted_feedback_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+        release_plan={"overall_status": "ready", "action_count": 0, "actions": []},
+    )
+
+    assert plan["overall_status"] == "action_required"
+    assert plan["action_count"] == 2
+    assert plan["sections"][0]["id"] == "media_meshgen_provider"
+    assert plan["sections"][0]["proof_boundary"] == "media smoke proof only"
+    assert plan["next_action"]["section_id"] == "media_meshgen_provider"
+    assert plan["next_action"]["action_id"] == "media_meshgen_smoke"
+    assert plan["next_action"]["command"] == (
+        "printpipe media-meshgen-smoke reference.png --runs-dir runs"
+    )
+    assert plan["next_action"]["followup_command"] == (
+        "printpipe media-meshgen-smoke-status --runs-dir runs --strict"
+    )
+    assert plan["next_action"]["required_inputs"] == [
+        "image, GIF, or video reference"
+    ]
+
+
+def test_media_meshgen_action_plan_requires_provider_before_smoke(
+    tmp_path: Path,
+) -> None:
+    plan = build_media_meshgen_action_plan(
+        tmp_path / "runs",
+        environment_report={
+            "meshgen": {
+                "overall_status": "action_required",
+                "live_media_provider_count": 0,
+                "message": "No live image/GIF/video meshgen provider is configured.",
+            }
+        },
+        smoke_status={
+            "overall_status": "missing",
+            "successful_smoke_count": 0,
+        },
+    )
+
+    assert plan["overall_status"] == "action_required"
+    assert plan["action_count"] == 1
+    action = plan["actions"][0]
+    assert action["id"] == "configure_media_meshgen_provider"
+    assert action["start_command"] == (
+        "printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py"
+    )
+    assert action["command"].startswith("printpipe media-meshgen-smoke")
+    assert "media-meshgen-smoke-status" in action["followup_command"]
+    assert str(tmp_path / "runs") in action["followup_command"]
+
+
+def test_media_meshgen_action_plan_requires_smoke_when_provider_is_ready(
+    tmp_path: Path,
+) -> None:
+    plan = build_media_meshgen_action_plan(
+        tmp_path / "runs",
+        environment_report={
+            "meshgen": {
+                "overall_status": "ready",
+                "live_media_provider_count": 1,
+            }
+        },
+        smoke_status={
+            "overall_status": "missing",
+            "successful_smoke_count": 0,
+            "message": "No successful media meshgen smoke receipt found.",
+        },
+    )
+
+    assert plan["overall_status"] == "action_required"
+    assert plan["provider_count"] == 1
+    assert plan["actions"][0]["id"] == "media_meshgen_smoke"
+    assert plan["actions"][0]["command"].startswith("printpipe media-meshgen-smoke")
+
+
+def test_media_meshgen_action_plan_ready_after_successful_smoke(tmp_path: Path) -> None:
+    plan = build_media_meshgen_action_plan(
+        tmp_path / "runs",
+        environment_report={
+            "meshgen": {
+                "overall_status": "ready",
+                "live_media_provider_count": 1,
+            }
+        },
+        smoke_status={
+            "overall_status": "passed",
+            "successful_smoke_count": 1,
+            "latest_successful_smoke": {"run_id": "smoke-ok"},
+        },
+    )
+
+    assert plan["overall_status"] == "ready"
+    assert plan["action_count"] == 0
+    assert plan["actions"] == []
 
 
 def test_final_action_plan_reports_ready_when_all_sections_ready(tmp_path: Path) -> None:
     plan = build_final_action_plan(
         runs_dir=tmp_path / "runs",
         release_dir=tmp_path / "release",
+        media_meshgen_plan={"overall_status": "ready", "action_count": 0, "actions": []},
         physical_plan={"overall_status": "passed", "action_count": 0, "actions": []},
         trusted_feedback_plan={"overall_status": "ready", "action_count": 0, "actions": []},
         release_plan={"overall_status": "ready", "action_count": 0, "actions": []},
@@ -78,6 +210,7 @@ def test_final_action_plan_prefers_action_specific_start_command(
     plan = build_final_action_plan(
         runs_dir=tmp_path / "runs",
         release_dir=tmp_path / "release",
+        media_meshgen_plan=_ready_media_meshgen_plan(),
         physical_plan={
             "overall_status": "action_required",
             "action_count": 1,
@@ -115,6 +248,7 @@ def test_final_action_plan_next_action_keeps_handoff_and_artifact_paths(
     plan = build_final_action_plan(
         runs_dir=tmp_path / "runs",
         release_dir=tmp_path / "release",
+        media_meshgen_plan=_ready_media_meshgen_plan(),
         physical_plan={
             "overall_status": "action_required",
             "action_count": 1,
@@ -147,6 +281,7 @@ def test_final_action_plan_prefers_print_handoff_command_before_record_command(
     plan = build_final_action_plan(
         runs_dir=tmp_path / "runs",
         release_dir=tmp_path / "release",
+        media_meshgen_plan=_ready_media_meshgen_plan(),
         physical_plan={
             "overall_status": "action_required",
             "action_count": 1,
@@ -201,6 +336,7 @@ def test_final_action_plan_release_next_action_keeps_commands_and_required_input
     plan = build_final_action_plan(
         runs_dir=tmp_path / "runs",
         release_dir=tmp_path / "release",
+        media_meshgen_plan=_ready_media_meshgen_plan(),
         physical_plan={"overall_status": "passed", "action_count": 0, "actions": []},
         trusted_feedback_plan={"overall_status": "ready", "action_count": 0, "actions": []},
         release_plan={
@@ -703,3 +839,12 @@ def test_cli_final_next_uses_standard_regression_manifest_when_present(
     payload = json.loads(capsys.readouterr().out)
     assert exit_code == 0
     assert payload["next_action"]["action_id"] == "pla"
+
+
+def _ready_media_meshgen_plan() -> dict[str, object]:
+    return {
+        "overall_status": "ready",
+        "action_count": 0,
+        "proof_boundary": "media smoke proof only",
+        "actions": [],
+    }

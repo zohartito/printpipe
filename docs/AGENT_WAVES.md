@@ -1848,3 +1848,14 @@ Status: complete for surfacing media meshgen smoke proof in the local browser UI
 4. Done: the service-link area includes the media smoke JSON endpoint.
 5. Done: web tests cover both the JSON endpoint and home-page panel.
 6. Boundary: this still does not install or validate a live provider. It makes the missing or passed smoke evidence visible in the browser.
+
+## Wave 169 - Final Plan Includes Media Meshgen Provider Gate
+
+Status: complete for making image/GIF/video provider readiness part of the final endgame checklist.
+
+1. Done: added a media meshgen action-plan section to `build_final_action_plan()`.
+2. Done: `final-next` now prioritizes configuring a live media provider when no provider is configured.
+3. Done: when a provider is configured but smoke evidence is missing, the media section points at `printpipe media-meshgen-smoke`.
+4. Done: when a provider and successful smoke receipt both exist, the media section is ready and contributes zero actions.
+5. Done: terminal rendering now carries the media proof boundary, required inputs, smoke command, and follow-up smoke-status check.
+6. Boundary: this does not install a model/provider. It prevents the final checklist from skipping the media meshgen gap.

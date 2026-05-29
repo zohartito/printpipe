@@ -59,6 +59,8 @@ printpipe media-meshgen-smoke-status --runs-dir runs --strict
 
 The local web app also exposes the same proof surface on the home page and at
 `/media-meshgen-smoke-status.json`.
+`printpipe final-plan` and `printpipe final-next` include this provider/smoke
+gate before physical beta/release handoffs when it is still missing.
 
 Optional media cleanup hooks:
 
