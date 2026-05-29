@@ -276,6 +276,8 @@ def _tested_media_command_action(
             "image, GIF, or video reference for a fresh configured-provider smoke",
         ],
         "input_type": "image/GIF/video",
+        "browser_path": "/#media-meshgen-setup",
+        "browser_label": "Promote tested media meshgen command in the local app",
         "latest_successful_smoke_run_id": run_id,
     }
 

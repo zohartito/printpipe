@@ -105,7 +105,9 @@ setup panel at `/#media-meshgen-setup`, both before provider setup and before
 the first required smoke test.
 Successful smoke receipts preserve safe adapter params, so a tested ComfyUI
 workflow can be promoted into project config without losing workflow or patch
-paths.
+paths. When that tested-command promotion becomes the active final action, the
+local app points back to `/#media-meshgen-setup` with the exact terminal command
+still visible.
 That browser setup step still does not prove semantic reconstruction; a real
 `media-meshgen-smoke` receipt is required before the media gate is ready.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke

@@ -189,6 +189,8 @@ def test_media_meshgen_action_plan_configures_tested_smoke_command(
     )
     assert "semantic-smoke" in action["detail"]
     assert action["followup_command"].endswith("--strict")
+    assert action["browser_path"] == "/#media-meshgen-setup"
+    assert action["browser_label"] == "Promote tested media meshgen command in the local app"
 
 
 def test_media_meshgen_action_plan_preserves_tested_safe_params(

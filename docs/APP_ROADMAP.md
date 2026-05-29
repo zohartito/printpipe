@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 191: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 192: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 191 made successful media smoke receipts reproducible by preserving safe adapter params, such as ComfyUI workflow and patch paths, and promoting them into the follow-up `media-meshgen-configure --params-json ...` command. PrintPipe can generate a ComfyUI adapter preset, inspect a workflow for `SaveGLB` plus image/prompt/seed patch candidates, persist those params in `.printpipe/config.json`, and run the existing smoke path from the CLI or browser. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 192 completed the browser handoff loop for the media gate. The plain configure-provider action, the configured-provider/no-smoke action, and the tested-command-but-not-configured action all carry `browser_path: /#media-meshgen-setup` so the local app can guide Zohar back to the setup/smoke surface without losing the terminal commands. Wave 191 also made successful media smoke receipts reproducible by preserving safe adapter params, such as ComfyUI workflow and patch paths, and promoting them into the follow-up `media-meshgen-configure --params-json ...` command. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 
@@ -237,6 +237,8 @@ Wave 189 made the final media-provider handoff point at the browser setup flow w
 Wave 190 extended that browser-aware handoff to the next media state. When a live provider is configured but `media-meshgen-smoke-status` has no successful receipt, the smoke-required final-plan action now carries `browser_path: /#media-meshgen-setup` with a `Run media meshgen smoke in the local app` label.
 
 Wave 191 made successful one-off media smoke receipts reproducible. Smoke receipts now store an allowlisted `adapter_params` payload for non-secret setup values such as ComfyUI URL, workflow path, patch paths, timeout, and model version. `media-meshgen-smoke-status` exposes those params, and final-plan uses them when suggesting `media-meshgen-configure --command ... --params-json ...` for a tested command.
+
+Wave 192 closed the remaining browser handoff gap in that tested-command state. If a successful semantic smoke receipt exists but no live provider is configured, the `configure_tested_media_meshgen_provider` final-plan action now carries the same `/#media-meshgen-setup` browser target with a `Promote tested media meshgen command in the local app` label.
 
 Wave 139 made trusted-user beta handoff rows operational instead of placeholder-heavy. When a `trusted_user_feedback_handoff_*.md` file exists, `beta-feedback-plan` and `final-plan` now point the immediate action at the real run folder and produce a concrete `record-beta-feedback` command with the actual run root, tester slot, input type, material, printer, and report artifact path. The beta gate remains open until real trusted users return completed packets.
 

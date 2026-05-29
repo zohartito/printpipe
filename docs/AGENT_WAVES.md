@@ -2098,3 +2098,12 @@ Status: complete for preserving safe adapter params from successful smoke receip
 4. Done: obvious unallowlisted keys such as `api_key` are not copied into receipts or final-next commands.
 5. Done: focused tests cover receipt persistence, status propagation, and final-plan command generation.
 6. Boundary: this does not create or validate a semantic provider. It makes a future successful smoke reproducible without silently dropping workflow/patch-path params.
+
+## Wave 192 - Browser Handoff for Tested Media Command
+
+Status: complete for pointing the smoke-proven-but-not-configured media action at the local browser setup panel.
+
+1. Done: added a regression for `configure_tested_media_meshgen_provider` carrying a browser handoff target.
+2. Done: the tested-command final-plan action now includes `browser_path: /#media-meshgen-setup`.
+3. Done: the browser label is `Promote tested media meshgen command in the local app`, distinguishing this state from blank provider setup and first-smoke setup.
+4. Boundary: this is still handoff UX. It does not create a semantic provider, write config automatically, or close the media gate without a successful configured-provider smoke receipt.
