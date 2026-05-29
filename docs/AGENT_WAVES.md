@@ -1925,3 +1925,14 @@ Status: complete for recording post-print physical evidence from the local brows
 4. Done: a photo upload is required before the browser route writes a printed evidence packet.
 5. Done: uploaded photos are copied into `90_physical/artifacts/`, and the route writes structured physical evidence JSON/Markdown through the same physical evidence writer as the CLI.
 6. Boundary: this still does not manufacture evidence. The physical gate only closes after Zohar performs the real print and uploads a real photo with observations.
+
+## Wave 176 - Browser Trusted-User Feedback Intake
+
+Status: complete for recording handoff-backed trusted-user feedback from the local browser.
+
+1. Done: added `POST /beta-feedback/record` to the local web app.
+2. Done: trusted-user action cards with a real handoff now render a multipart feedback form.
+3. Done: the route resolves run folder, tester, input type, material, and printer from the current feedback plan action instead of trusting arbitrary form paths.
+4. Done: blank summaries are rejected before writing a feedback packet.
+5. Done: optional uploaded review artifacts are copied into `90_beta/artifacts/`, and the route writes feedback JSON/Markdown through the same writer as `printpipe record-beta-feedback`.
+6. Boundary: this records feedback packets. It does not create real testers or complete the trusted-user beta gate until three unique trusted users submit real completed feedback.

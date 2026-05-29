@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 175: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 176: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 175 added browser-side physical evidence intake for already-started PLA/PETG/TPU validation packets. The local app now renders a `POST /physical/record` form after a starter packet exists, requires a photo upload, copies that photo into `90_physical/artifacts/`, and writes the same structured evidence JSON/Markdown as the CLI without claiming proof when the photo is missing. Wave 174 added browser starter packets, and Wave 173 added local media meshgen project config. The remaining open gates are real-world evidence gates: actual physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 176 added browser-side trusted-user feedback intake for handoff-backed beta review rows. The local app now renders a `POST /beta-feedback/record` form when a trusted-user handoff exists, resolves the target run/tester/material/printer from the current feedback plan, writes the same structured feedback JSON/Markdown as the CLI, and copies an optional review artifact into `90_beta/artifacts/`. Waves 175 and 174 added browser physical evidence intake and starter packets, and Wave 173 added local media meshgen project config. The remaining open gates are real-world evidence gates: actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 

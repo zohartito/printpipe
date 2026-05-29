@@ -20,8 +20,11 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from printpipe.beta.beta_plan import build_beta_action_plan
 from printpipe.beta.feedback import (
+    FeedbackArtifact,
+    build_trusted_user_feedback,
     build_trusted_user_feedback_plan,
     build_trusted_user_feedback_status,
+    write_trusted_user_feedback_files,
 )
 from printpipe.beta.physical import (
     PhysicalArtifact,
@@ -168,6 +171,12 @@ class _ParsedPhysicalRecordForm:
     photo: _UploadedFile | None
 
 
+@dataclass(frozen=True)
+class _ParsedBetaFeedbackForm:
+    fields: dict[str, str]
+    artifact: _UploadedFile | None
+
+
 class _FormError(ValueError):
     def __init__(self, status: HTTPStatus, message: str) -> None:
         super().__init__(message)
@@ -212,6 +221,8 @@ class PrintPipeWebApp:
         path = split_target.path or "/"
         query = parse_qs(split_target.query, keep_blank_values=True)
         if request_method == "POST":
+            if path == "/beta-feedback/record":
+                return self.record_beta_feedback_response(headers=headers, body=body)
             if path == "/physical/record":
                 return self.record_physical_response(headers=headers, body=body)
             if path == "/physical/start":
@@ -474,6 +485,84 @@ class PrintPipeWebApp:
             )
 
         return WebResponse.redirect("/#physical-action-plan")
+
+    def record_beta_feedback_response(
+        self,
+        *,
+        headers: Any | None,
+        body: bytes,
+    ) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+        try:
+            form = _parse_beta_feedback_record_form(headers=headers, body=body)
+            action = self._trusted_feedback_record_action(form.fields.get("slot", ""))
+            run_root = self._trusted_feedback_action_run_root(action)
+            summary = form.fields.get("summary", "").strip()
+            if not summary:
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "Trusted-user feedback summary is required.",
+                )
+            recommendation = form.fields.get("recommendation", "").strip()
+            if not recommendation:
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "Trusted-user recommendation is required.",
+                )
+            artifacts: tuple[FeedbackArtifact, ...] = ()
+            with tempfile.TemporaryDirectory() as temp_dir:
+                if form.artifact is not None and form.artifact.content:
+                    artifact_path = Path(temp_dir) / _safe_upload_filename(
+                        form.artifact.filename
+                    )
+                    artifact_path.write_bytes(form.artifact.content)
+                    artifacts = (
+                        FeedbackArtifact(
+                            label="Trusted-user review artifact",
+                            path=artifact_path,
+                            kind="artifact",
+                            notes="Uploaded from the local PrintPipe browser.",
+                        ),
+                    )
+                feedback = build_trusted_user_feedback(
+                    run_id=run_root.name,
+                    tester=str(action.get("tester") or ""),
+                    tester_type="trusted_user",
+                    input_type=str(action.get("input_type") or "existing_stl"),
+                    material=str(action.get("material") or ""),
+                    printer=str(action.get("printer") or ""),
+                    outcome=form.fields.get("outcome", "").strip(),
+                    summary=summary,
+                    issues=_feedback_issues_from_fields(form.fields),
+                    would_print=form.fields.get("would_print", "").strip(),
+                    recommendation=recommendation,
+                    artifacts=artifacts,
+                )
+                write_trusted_user_feedback_files(
+                    run_root=run_root,
+                    feedback=feedback,
+                    copy_artifacts=True,
+                )
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+
+        return WebResponse.redirect("/#trusted-user-action-plan")
 
     def home_response(self) -> WebResponse:
         return WebResponse.html(self.render_home())
@@ -1683,7 +1772,7 @@ class PrintPipeWebApp:
         command = "printpipe beta-feedback-plan --runs-dir runs"
         return "\n".join(
             [
-                '    <section class="panel feedback-plan-panel">',
+                '    <section id="trusted-user-action-plan" class="panel feedback-plan-panel">',
                 "      <div>",
                 "        <h2>Trusted-user action plan</h2>",
                 f'        <p class="muted">Overall: <strong>{escape(overall)}</strong>; {escape(action_count)} action required.</p>',
@@ -1701,6 +1790,7 @@ class PrintPipeWebApp:
         detail = str(action.get("detail") or "Trusted-user feedback action required.")
         review_command = str(action.get("command") or "")
         record_command = str(action.get("record_command") or "")
+        record_form_markup = self._trusted_feedback_record_form(action) if record_command else ""
         context = self._trusted_feedback_action_context(action)
         context_markup = (
             f'          <p class="muted">Review context: {escape(context)}</p>'
@@ -1737,6 +1827,7 @@ class PrintPipeWebApp:
                 context_markup,
                 file_markup,
                 review_command_markup,
+                record_form_markup,
                 record_command_markup,
                 "        </article>",
             ]
@@ -1775,6 +1866,62 @@ class PrintPipeWebApp:
                     f"{escape(value)}</p>"
                 )
         return "\n".join(rows)
+
+    def _trusted_feedback_record_form(self, action: dict[str, Any]) -> str:
+        run_root = str(action.get("run_root") or "")
+        handoff = str(action.get("handoff_markdown_path") or "")
+        if not run_root or not handoff:
+            return ""
+        slot = str(action.get("slot") or "")
+        return "\n".join(
+            [
+                '          <form class="trusted-feedback-record-form" method="post" action="/beta-feedback/record" enctype="multipart/form-data">',
+                f'            <input type="hidden" name="slot" value="{escape(slot, quote=True)}">',
+                '            <label><span>Outcome</span><select name="outcome"><option value="passed">Passed</option><option value="partial">Partial</option><option value="failed">Failed</option><option value="not_run">Not run</option></select></label>',
+                '            <label><span>Summary</span><textarea name="summary"></textarea></label>',
+                '            <label><span>Would print?</span><select name="would_print"><option value="yes">Yes</option><option value="no">No</option><option value="unknown">Unknown</option></select></label>',
+                '            <label><span>Recommendation</span><input name="recommendation"></label>',
+                '            <label><span>Issue</span><input name="issue"></label>',
+                '            <label><span>Artifact</span><input type="file" name="artifact"></label>',
+                '            <button type="submit">Record trusted feedback</button>',
+                "          </form>",
+            ]
+        )
+
+    def _trusted_feedback_record_action(self, slot: str) -> dict[str, Any]:
+        try:
+            parsed_slot = int(slot)
+        except ValueError as exc:
+            raise _FormError(HTTPStatus.BAD_REQUEST, "Trusted-user slot is required.") from exc
+        if self.runs_dir is None:
+            raise _FormError(HTTPStatus.SERVICE_UNAVAILABLE, "Runs directory is not configured.")
+        plan = build_trusted_user_feedback_plan(self.runs_dir)
+        for action in _as_dicts(plan.get("actions")):
+            if int(action.get("slot") or 0) == parsed_slot:
+                if not str(action.get("run_root") or ""):
+                    raise _FormError(
+                        HTTPStatus.BAD_REQUEST,
+                        "Trusted-user handoff must exist before browser feedback can be recorded.",
+                    )
+                return action
+        raise _FormError(
+            HTTPStatus.BAD_REQUEST,
+            "Trusted-user slot is already complete or unavailable.",
+        )
+
+    def _trusted_feedback_action_run_root(self, action: dict[str, Any]) -> Path:
+        if self.runs_dir is None:
+            raise _FormError(HTTPStatus.SERVICE_UNAVAILABLE, "Runs directory is not configured.")
+        runs_root = self.runs_dir.expanduser().resolve()
+        run_root = Path(str(action.get("run_root") or "")).expanduser().resolve()
+        if not _is_relative_to(run_root, runs_root):
+            raise _FormError(HTTPStatus.BAD_REQUEST, "Trusted-user run folder is outside runs dir.")
+        if not run_root.is_dir():
+            raise _FormError(
+                HTTPStatus.BAD_REQUEST,
+                "Trusted-user handoff run folder must exist before recording feedback.",
+            )
+        return run_root
 
     def _render_beta_action_plan_panel(self) -> str:
         if self.runs_dir is None:
@@ -2314,6 +2461,72 @@ def _parse_physical_record_form(
     return _ParsedPhysicalRecordForm(fields=fields, photo=photo)
 
 
+def _parse_beta_feedback_record_form(
+    *,
+    headers: Any | None,
+    body: bytes,
+) -> _ParsedBetaFeedbackForm:
+    if len(body) > _MAX_FORM_BODY_BYTES:
+        raise _FormError(
+            HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+            "Trusted-user feedback upload is too large.",
+        )
+
+    content_type = _header_value(headers, "Content-Type")
+    if content_type is None or "multipart/form-data" not in content_type.lower():
+        raise _FormError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Expected multipart/form-data.")
+
+    try:
+        message = BytesParser(policy=email_policy).parsebytes(
+            f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+            + body
+        )
+    except (LookupError, ValueError) as exc:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.") from exc
+
+    if not message.is_multipart():
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.")
+
+    fields: dict[str, str] = {}
+    artifact: _UploadedFile | None = None
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+        field_name = part.get_param("name", header="content-disposition")
+        if not field_name:
+            continue
+
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            payload_text = part.get_payload()
+            payload = str(payload_text).encode(part.get_content_charset() or "utf-8", "replace")
+
+        filename = part.get_filename()
+        if filename is not None:
+            if field_name != "artifact":
+                continue
+            if not filename and not payload:
+                continue
+            if len(payload) > _MAX_UPLOAD_BYTES:
+                raise _FormError(
+                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                    "Trusted-user feedback artifact is too large.",
+                )
+            artifact = _UploadedFile(
+                field_name=field_name,
+                filename=filename,
+                content_type=part.get_content_type(),
+                content=payload,
+            )
+            continue
+
+        if len(payload) > _MAX_FIELD_CHARS * 4:
+            raise _FormError(HTTPStatus.BAD_REQUEST, f"Form field is too long: {field_name}.")
+        fields[field_name] = payload.decode(part.get_content_charset() or "utf-8", "replace").strip()
+
+    return _ParsedBetaFeedbackForm(fields=fields, artifact=artifact)
+
+
 def _parse_edit_form(*, headers: Any | None, body: bytes) -> dict[str, str]:
     if len(body) > _MAX_FORM_BODY_BYTES:
         raise _FormError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Edit form is too large.")
@@ -2438,6 +2651,11 @@ def _physical_record_fields_for_family(family: str) -> tuple[tuple[str, str], ..
         ("first_layer", "First layer"),
         ("adhesion", "Adhesion"),
     )
+
+
+def _feedback_issues_from_fields(fields: dict[str, str]) -> tuple[str, ...]:
+    issue = fields.get("issue", "").strip()
+    return (issue,) if issue else ()
 
 
 def _positive_float(value: str, *, field_name: str) -> float:

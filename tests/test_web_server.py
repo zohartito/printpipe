@@ -881,6 +881,127 @@ def test_home_response_renders_trusted_user_action_context_and_files(
     assert f"Bundle: {bundle.resolve()}" in response.text
 
 
+def test_home_response_renders_trusted_user_record_form_after_handoff(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    run_root = runs_dir / "run-trusted-ui-record"
+    report = run_root / "80_reports" / "run_report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text("<html>report</html>", encoding="utf-8")
+    start_trusted_user_feedback(
+        run_root,
+        tester="Maya",
+        input_type="existing_stl",
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+    )
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/")
+
+    assert response.status == 200
+    assert 'action="/beta-feedback/record"' in response.text
+    assert 'enctype="multipart/form-data"' in response.text
+    assert 'name="slot" value="1"' in response.text
+    assert 'name="outcome"' in response.text
+    assert 'name="summary"' in response.text
+    assert 'name="would_print"' in response.text
+    assert 'name="recommendation"' in response.text
+    assert 'name="artifact"' in response.text
+
+
+def test_post_beta_feedback_record_writes_packet_and_copies_artifact(
+    tmp_path: Path,
+) -> None:
+    runs_dir = tmp_path / "runs"
+    run_root = runs_dir / "run-trusted-ui-post"
+    report = run_root / "80_reports" / "run_report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text("<html>report</html>", encoding="utf-8")
+    start_trusted_user_feedback(
+        run_root,
+        tester="Maya",
+        input_type="existing_stl",
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+    )
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_form_body(
+        fields={
+            "slot": "1",
+            "outcome": "passed",
+            "summary": "Maya reviewed the run and would print it.",
+            "would_print": "yes",
+            "recommendation": "ready for a small test group",
+            "issue": "No blocking issue.",
+        },
+        file_field="artifact",
+        filename="review.png",
+        content_type="image/png",
+        file_content=b"png-ish",
+    )
+
+    response = app.handle(
+        "/beta-feedback/record",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    feedback_path = run_root / "90_beta" / "trusted_user_feedback.json"
+    feedback = json.loads(feedback_path.read_text(encoding="utf-8"))
+    artifact_path = run_root / feedback["artifacts"][0]["path"]
+    status = json.loads(app.handle("/beta-feedback-status.json").text)
+    assert response.status == 303
+    assert response.header("Location") == "/#trusted-user-action-plan"
+    assert feedback["tester"] == "Maya"
+    assert feedback["outcome"] == "passed"
+    assert feedback["summary"] == "Maya reviewed the run and would print it."
+    assert feedback["would_print"] == "yes"
+    assert feedback["recommendation"] == "ready for a small test group"
+    assert feedback["artifacts"][0]["kind"] == "artifact"
+    assert artifact_path.read_bytes() == b"png-ish"
+    assert status["unique_trusted_user_count"] == 1
+    assert status["trusted_users"] == ["Maya"]
+
+
+def test_post_beta_feedback_record_requires_summary(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    run_root = runs_dir / "run-trusted-ui-missing-summary"
+    report = run_root / "80_reports" / "run_report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text("<html>report</html>", encoding="utf-8")
+    start_trusted_user_feedback(
+        run_root,
+        tester="Maya",
+        input_type="existing_stl",
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+    )
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_fields_body(
+        {
+            "slot": "1",
+            "outcome": "passed",
+            "summary": "",
+            "would_print": "yes",
+            "recommendation": "ready",
+        }
+    )
+
+    response = app.handle(
+        "/beta-feedback/record",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    assert response.status == 400
+    assert "Trusted-user feedback summary is required." in response.text
+    assert not (run_root / "90_beta" / "trusted_user_feedback.json").exists()
+
+
 def test_home_response_renders_trusted_user_feedback_gate(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     _write_trusted_feedback(runs_dir / "run-maya", tester="Maya")
