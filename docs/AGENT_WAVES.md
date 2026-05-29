@@ -1969,3 +1969,14 @@ Status: complete for making the semantic media-provider setup action executable 
 4. Done: added `workspace_dir` support to the web app factory so tests and local launches can write project config/template files deterministically.
 5. Done: web tests cover rendering the setup forms, writing the adapter template, and writing project config.
 6. Boundary: this is setup only. It does not prove semantic reconstruction, run smoke automatically, or close the media meshgen provider gate.
+
+## Wave 180 - Browser Media Meshgen Smoke
+
+Status: complete for running configured media-provider smoke tests from the local browser.
+
+1. Done: added `POST /media-meshgen/smoke`.
+2. Done: the media setup panel now accepts an uploaded image/GIF/video reference and optional prompt hint.
+3. Done: the route resolves the current project-configured media command and calls the same `run_media_meshgen_smoke()` path used by the CLI.
+4. Done: browser smoke writes normal `20_meshgen/smoke.json` receipts into the configured runs directory.
+5. Done: web tests cover successful smoke execution through a fake adapter and the missing-reference error path.
+6. Boundary: this runs a smoke test only. It does not make heightfield semantic, install a provider, or override readiness gates.

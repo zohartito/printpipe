@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 179: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 180: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 179 made semantic media-provider setup executable from the local browser. The home page now has a media meshgen setup panel with `POST /media-meshgen/template` to write `scripts/media_meshgen_adapter.py` and `POST /media-meshgen/configure` to save a command into `.printpipe/config.json`. This is still setup only: the media gate remains open until a real semantic adapter replaces the template and passes `media-meshgen-smoke`. Wave 178 tightened heightfield honesty so plumbing smoke does not count as semantic reconstruction. The remaining open gates are real-world evidence gates: actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
+Latest status: Wave 180 completed the browser media setup loop by adding `POST /media-meshgen/smoke`. After creating/configuring an adapter from the home page, Zohar can now upload an image/GIF/video reference and run the existing `media-meshgen-smoke` path from the browser. The route writes the same `20_meshgen/smoke.json` receipts as the CLI and redirects back to the setup panel. This still does not close the gate by itself: heightfield remains plumbing-only, and the media gate needs a real semantic adapter with a successful smoke receipt. The remaining open gates are actual physical material prints, real trusted-user packets from three unique testers, Developer ID/notary credentials, Windows signing/installer tools, and a product-quality semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 

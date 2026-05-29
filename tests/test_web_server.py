@@ -1279,7 +1279,9 @@ def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
     assert 'id="media-meshgen-setup"' in response.text
     assert 'action="/media-meshgen/template"' in response.text
     assert 'action="/media-meshgen/configure"' in response.text
+    assert 'action="/media-meshgen/smoke"' in response.text
     assert 'name="command"' in response.text
+    assert 'name="reference"' in response.text
     assert "This does not prove semantic reconstruction" in response.text
 
 
@@ -1317,6 +1319,78 @@ def test_post_media_meshgen_configure_writes_project_config_and_redirects(
     assert response.status == 303
     assert response.header("Location") == "/#media-meshgen-setup"
     assert config["media_meshgen_command"] == "python scripts/media_meshgen_adapter.py"
+
+
+def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
+    tmp_path: Path,
+):
+    source_mesh = (
+        Path(__file__).parent
+        / "fixtures"
+        / "objects"
+        / "existing_stl_pipeline"
+        / "tiny_tetrahedron.stl"
+    )
+    fake_adapter = tmp_path / "fake_media_adapter.py"
+    fake_adapter.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                "import argparse",
+                "parser = argparse.ArgumentParser()",
+                "parser.add_argument('--output', required=True)",
+                "args, _ = parser.parse_known_args()",
+                f"Path(args.output).write_text(Path({str(source_mesh)!r}).read_text(encoding='ascii'), encoding='ascii')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runs_dir = tmp_path / "runs"
+    command = f"python {fake_adapter}"
+    (tmp_path / ".printpipe").mkdir()
+    (tmp_path / ".printpipe" / "config.json").write_text(
+        json.dumps({"media_meshgen_command": command}),
+        encoding="utf-8",
+    )
+    app = create_app(runs_dir=runs_dir, workspace_dir=tmp_path)
+    body, content_type = _multipart_form_body(
+        fields={"prompt": "printable hook"},
+        file_field="reference",
+        filename="reference.png",
+        content_type="image/png",
+        file_content=b"fake image",
+    )
+
+    response = app.handle(
+        "/media-meshgen/smoke",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    smoke_paths = list(runs_dir.glob("*/20_meshgen/smoke.json"))
+    payload = json.loads(smoke_paths[0].read_text(encoding="utf-8"))
+    assert response.status == 303
+    assert response.header("Location") == "/#media-meshgen-setup"
+    assert payload["status"] == "succeeded"
+    assert payload["command"] == command
+    assert (smoke_paths[0].parents[1] / payload["output_path"]).exists()
+
+
+def test_post_media_meshgen_smoke_requires_reference(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    body, content_type = _multipart_fields_body({"prompt": "printable hook"})
+
+    response = app.handle(
+        "/media-meshgen/smoke",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    assert response.status == 400
+    assert "Media meshgen reference upload is required." in response.text
 
 
 def test_home_response_renders_release_status_summary(monkeypatch, tmp_path: Path):

@@ -45,6 +45,7 @@ from printpipe.web.final_readiness import (
 from printpipe.local_open import open_run_folder
 from printpipe.meshgen.command_template import write_media_meshgen_command_template
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
+from printpipe.meshgen.smoke import run_media_meshgen_smoke
 from printpipe.packaging.release_plan import (
     build_release_distribution_plan,
     start_release_distribution_handoff,
@@ -182,6 +183,12 @@ class _ParsedBetaFeedbackForm:
     artifact: _UploadedFile | None
 
 
+@dataclass(frozen=True)
+class _ParsedMediaSmokeForm:
+    fields: dict[str, str]
+    reference: _UploadedFile | None
+
+
 class _FormError(ValueError):
     def __init__(self, status: HTTPStatus, message: str) -> None:
         super().__init__(message)
@@ -240,6 +247,8 @@ class PrintPipeWebApp:
                 return self.start_media_meshgen_template_response()
             if path == "/media-meshgen/configure":
                 return self.configure_media_meshgen_response(headers=headers, body=body)
+            if path == "/media-meshgen/smoke":
+                return self.run_media_meshgen_smoke_response(headers=headers, body=body)
             if path == "/runs":
                 return self.create_run_response(headers=headers, body=body)
             if path.startswith(_RUNS_PREFIX):
@@ -451,6 +460,56 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         except OSError as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        return WebResponse.redirect("/#media-meshgen-setup")
+
+    def run_media_meshgen_smoke_response(
+        self,
+        *,
+        headers: Any | None,
+        body: bytes,
+    ) -> WebResponse:
+        if self.runs_dir is None:
+            return WebResponse.from_text(
+                "Runs directory is not configured.\n",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        try:
+            form = _parse_media_smoke_form(headers=headers, body=body)
+            if form.reference is None or not form.reference.content:
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "Media meshgen reference upload is required.",
+                )
+            command = configured_media_meshgen_command(cwd=self.workspace_dir)
+            if not command:
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "Media meshgen command is not configured.",
+                )
+            with tempfile.TemporaryDirectory() as temp_dir:
+                reference_path = Path(temp_dir) / _safe_upload_filename(
+                    form.reference.filename
+                )
+                reference_path.write_bytes(form.reference.content)
+                run_media_meshgen_smoke(
+                    reference_path,
+                    runs_dir=self.runs_dir,
+                    command=command,
+                    prompt=form.fields.get("prompt") or None,
+                )
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except (OSError, ValueError) as exc:
             return WebResponse.from_text(
                 f"{exc}\n",
                 status=HTTPStatus.BAD_REQUEST,
@@ -1254,6 +1313,16 @@ class PrintPipeWebApp:
                     f'value="{escape(current_command, quote=True)}">'
                 ),
                 '            <button type="submit">Save media command</button>',
+                "          </form>",
+                "        </article>",
+                '        <article class="readiness-gate readiness-gate-action-required">',
+                "          <span>Smoke test</span>",
+                '          <form method="post" action="/media-meshgen/smoke" enctype="multipart/form-data">',
+                '            <label for="media-smoke-reference">Reference image/GIF/video</label>',
+                '            <input id="media-smoke-reference" name="reference" type="file" accept="image/*,video/*,.gif">',
+                '            <label for="media-smoke-prompt">Prompt hint</label>',
+                '            <input id="media-smoke-prompt" name="prompt" type="text" placeholder="printable desk hook">',
+                '            <button type="submit">Run media smoke</button>',
                 "          </form>",
                 "        </article>",
                 "      </div>",
@@ -2665,6 +2734,69 @@ def _parse_beta_feedback_record_form(
         fields[field_name] = payload.decode(part.get_content_charset() or "utf-8", "replace").strip()
 
     return _ParsedBetaFeedbackForm(fields=fields, artifact=artifact)
+
+
+def _parse_media_smoke_form(
+    *,
+    headers: Any | None,
+    body: bytes,
+) -> _ParsedMediaSmokeForm:
+    if len(body) > _MAX_FORM_BODY_BYTES:
+        raise _FormError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Form upload is too large.")
+
+    content_type = _header_value(headers, "Content-Type")
+    if content_type is None or "multipart/form-data" not in content_type.lower():
+        raise _FormError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Expected multipart/form-data.")
+
+    try:
+        message = BytesParser(policy=email_policy).parsebytes(
+            f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+            + body
+        )
+    except (LookupError, ValueError) as exc:
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.") from exc
+
+    if not message.is_multipart():
+        raise _FormError(HTTPStatus.BAD_REQUEST, "Malformed multipart form data.")
+
+    fields: dict[str, str] = {}
+    reference: _UploadedFile | None = None
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+        field_name = part.get_param("name", header="content-disposition")
+        if not field_name:
+            continue
+
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            payload_text = part.get_payload()
+            payload = str(payload_text).encode(part.get_content_charset() or "utf-8", "replace")
+
+        filename = part.get_filename()
+        if filename is not None:
+            if field_name != "reference":
+                continue
+            if not filename and not payload:
+                continue
+            if len(payload) > _MAX_UPLOAD_BYTES:
+                raise _FormError(
+                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                    "Uploaded reference is too large.",
+                )
+            reference = _UploadedFile(
+                field_name=field_name,
+                filename=filename,
+                content_type=part.get_content_type(),
+                content=payload,
+            )
+            continue
+
+        if len(payload) > _MAX_FIELD_CHARS:
+            raise _FormError(HTTPStatus.BAD_REQUEST, f"Form field is too long: {field_name}.")
+        fields[field_name] = payload.decode(part.get_content_charset() or "utf-8", "replace").strip()
+
+    return _ParsedMediaSmokeForm(fields=fields, reference=reference)
 
 
 def _parse_edit_form(*, headers: Any | None, body: bytes) -> dict[str, str]:
