@@ -1870,3 +1870,14 @@ Status: complete for making the browser final-readiness command sequence clearer
 4. Done: focused web tests cover the media-provider next action shape.
 5. Done: existing physical, trusted-user, release, and final-plan tests still pass.
 6. Boundary: this is a UI clarity pass only. It does not install a provider or create smoke evidence.
+
+## Wave 171 - Built-In Media Heightfield Smoke Adapter
+
+Status: complete for adding a no-dependency local media-to-STL plumbing smoke path.
+
+1. Done: added `printpipe media-meshgen-heightfield`, which accepts the same adapter protocol as `PRINTPIPE_MEDIA_MESHGEN_COMMAND`.
+2. Done: the adapter reads 8-bit PNG references and writes a real ASCII STL relief heightfield.
+3. Done: `printpipe media-meshgen-smoke reference.png --command "printpipe media-meshgen-heightfield"` can create a successful `20_meshgen/smoke.json` receipt and mesh output.
+4. Done: tests cover parser behavior, direct command output, and the smoke command using the built-in adapter through the real subprocess provider path.
+5. Done: README, troubleshooting, architecture, and research notes now document the distinction between plumbing smoke and semantic AI reconstruction.
+6. Boundary: this does not replace Hunyuan, ComfyUI, Chimney, or hosted semantic image-to-object mesh generation. It proves the adapter protocol and downstream media plumbing with a real mesh.

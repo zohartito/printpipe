@@ -67,6 +67,16 @@ printpipe media-meshgen-smoke-status --runs-dir runs --strict
 The generated script is executable and intentionally exits with an adapter
 placeholder error until `generate_mesh()` is replaced with a real local model,
 hosted wrapper, or provider API call.
+For adapter-protocol plumbing only, use the built-in PNG heightfield adapter:
+
+```bash
+printpipe media-meshgen-smoke reference.png \
+  --command "printpipe media-meshgen-heightfield" \
+  --runs-dir runs/media-meshgen-smoke
+```
+
+That command writes a real STL relief mesh from the PNG pixels, but it is not a
+semantic image-to-object model.
 `media-meshgen-smoke` creates a narrow run folder and writes
 `20_meshgen/smoke.json`, `summary.json`, and `attempts.jsonl` without repairing,
 bundling, or slicing. Use it to prove the adapter writes a mesh before starting a

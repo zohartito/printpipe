@@ -61,6 +61,7 @@ Image/GIF/video now uses the same repair/orient/bundle path after a configured m
 ```bash
 printpipe media-meshgen-template --output scripts/media_meshgen_adapter.py
 export PRINTPIPE_MEDIA_MESHGEN_COMMAND="/path/to/media_meshgen_adapter"
+printpipe media-meshgen-smoke reference.png --command "printpipe media-meshgen-heightfield"
 export PRINTPIPE_HUNYUAN3D_COMMAND="/path/to/hunyuan_adapter"
 export PRINTPIPE_PROMPT_IMAGE_COMMAND="/path/to/image_adapter --prompt-file {prompt_file} --output {output}"
 export OPENAI_API_KEY="sk-..."  # optional when --prompt-image-provider openai is selected

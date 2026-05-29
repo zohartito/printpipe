@@ -198,6 +198,41 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Write the executable Python adapter template to this path instead of stdout.",
     )
+    media_heightfield = subparsers.add_parser(
+        "media-meshgen-heightfield",
+        help=(
+            "Built-in local PNG-to-STL heightfield adapter for proving the media "
+            "meshgen command protocol."
+        ),
+    )
+    media_heightfield.add_argument(
+        "--input-kind",
+        required=True,
+        choices=("image", "gif", "video"),
+    )
+    media_heightfield.add_argument(
+        "--source",
+        action="append",
+        type=Path,
+        required=True,
+    )
+    media_heightfield.add_argument(
+        "--reference-image",
+        action="append",
+        type=Path,
+        default=[],
+    )
+    media_heightfield.add_argument("--output", type=Path, required=True)
+    media_heightfield.add_argument("--output-format", choices=("stl",), default="stl")
+    media_heightfield.add_argument("--target-use", default="3d_printing")
+    media_heightfield.add_argument("--quality", default="smoke")
+    media_heightfield.add_argument("--prompt")
+    media_heightfield.add_argument("--seed", type=int)
+    media_heightfield.add_argument("--params-json")
+    media_heightfield.add_argument("--size-mm", type=float, default=40.0)
+    media_heightfield.add_argument("--height-mm", type=float, default=4.0)
+    media_heightfield.add_argument("--base-thickness-mm", type=float, default=1.0)
+    media_heightfield.add_argument("--max-grid", type=int, default=32)
 
     media_smoke = subparsers.add_parser(
         "media-meshgen-smoke",
@@ -1335,6 +1370,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "media-meshgen-template":
         return _media_meshgen_template(output_path=args.output)
 
+    if args.command == "media-meshgen-heightfield":
+        return _media_meshgen_heightfield(args)
+
     if args.command == "media-meshgen-smoke":
         return _media_meshgen_smoke(
             input_path=args.input,
@@ -2241,6 +2279,28 @@ def _media_meshgen_template(*, output_path: Path | None) -> int:
     written = write_media_meshgen_command_template(output_path)
     print(f"wrote media meshgen adapter template: {written}")
     print(f"export PRINTPIPE_MEDIA_MESHGEN_COMMAND={shlex.quote(str(written))}")
+    return 0
+
+
+def _media_meshgen_heightfield(args: argparse.Namespace) -> int:
+    from printpipe.meshgen.heightfield import HeightfieldOptions, write_heightfield_stl
+
+    try:
+        written = write_heightfield_stl(
+            source_paths=list(args.source),
+            output_path=args.output,
+            output_format=args.output_format,
+            options=HeightfieldOptions(
+                size_mm=args.size_mm,
+                height_mm=args.height_mm,
+                base_thickness_mm=args.base_thickness_mm,
+                max_grid=args.max_grid,
+            ),
+        )
+    except (OSError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    print(json.dumps({"output_path": str(written)}))
     return 0
 
 

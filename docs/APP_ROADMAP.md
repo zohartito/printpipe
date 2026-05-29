@@ -2,9 +2,9 @@
 
 Status legend: `[ ]` pending, `[x]` done, `[~]` partial, `[!]` blocked.
 
-Original 142-item status after Wave 170: 138 done, 4 partial, 0 pending, 0 blocked.
+Original 142-item status after Wave 171: 138 done, 4 partial, 0 pending, 0 blocked.
 
-Latest status: Wave 170 tightened the browser final-readiness rendering for the new media meshgen top action. Setup/start commands are now labeled `Immediate setup`, with the smoke run and smoke-status follow-up shown as separate steps, so the web command-center does not present the provider scaffold command as an unlabeled generic command. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured and smoke-proven live media meshgen provider for non-mesh inputs.
+Latest status: Wave 171 added `printpipe media-meshgen-heightfield`, a dependency-free local PNG-to-STL heightfield adapter for proving the media meshgen command protocol with a real generated mesh. This is a plumbing smoke path, not semantic AI object reconstruction. The remaining open gates are real-world evidence gates: physical material prints, trusted-user packets, Developer ID/notary credentials, Windows signing/installer tools, and an actually configured and smoke-proven semantic media meshgen provider for non-mesh inputs.
 
 ## Goal
 

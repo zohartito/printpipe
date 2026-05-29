@@ -57,6 +57,16 @@ printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
 printpipe media-meshgen-smoke-status --runs-dir runs --strict
 ```
 
+For a no-dependency plumbing smoke, PrintPipe also ships a local heightfield
+adapter. It turns a PNG reference into a printable relief STL and proves the
+adapter protocol, but it is not semantic AI object reconstruction:
+
+```bash
+printpipe media-meshgen-smoke reference.png \
+  --command "printpipe media-meshgen-heightfield" \
+  --runs-dir runs/media-meshgen-smoke
+```
+
 The local web app also exposes the same proof surface on the home page and at
 `/media-meshgen-smoke-status.json`.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke

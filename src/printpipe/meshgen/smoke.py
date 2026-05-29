@@ -111,7 +111,7 @@ def build_media_meshgen_smoke_status(runs_dir: str | Path) -> dict[str, Any]:
     smoke_receipts: list[dict[str, Any]] = []
     successful: list[dict[str, Any]] = []
     if root.exists():
-        for smoke_path in sorted(root.glob("*/20_meshgen/smoke.json")):
+        for smoke_path in sorted(root.glob("**/20_meshgen/smoke.json")):
             receipt = _read_smoke_receipt(root, smoke_path)
             if receipt is None:
                 continue
