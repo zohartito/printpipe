@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from printpipe.fabrication.pipeline import (
+    FabricationModel,
+    FabricationSettings,
+    FitContext,
+    check_fit,
+    fabricate,
+)
 from printpipe.fabrication.report import (
     Check,
     Dimension,
@@ -30,13 +37,18 @@ __all__ = [
     "Check",
     "Dimension",
     "ExportResult",
+    "FabricationModel",
     "FabricationReport",
+    "FabricationSettings",
+    "FitContext",
     "OrientationCandidate",
     "PackingResult",
     "PartResult",
     "Provenance",
     "Status",
     "Target",
+    "check_fit",
+    "fabricate",
     "pack",
     "score_orientations",
     "thicken_to_solids",
