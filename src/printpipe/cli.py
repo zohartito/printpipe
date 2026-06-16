@@ -16,6 +16,7 @@ from printpipe.inputs import classify_input_path
 from printpipe.local_open import open_run_folder
 from printpipe.pipeline import (
     PipelineError,
+    resolve_slice_settings,
     run_edit_recipe_pipeline,
     run_existing_mesh_pipeline,
     run_prompt_pipeline,
@@ -24,6 +25,25 @@ from printpipe.runs import create_run, load_run
 
 
 DEFAULT_REGRESSION_MANIFEST = Path("regressions/dogfood_failures.json")
+
+
+def _parse_overrides(pairs: list[str]) -> dict[str, list[str]]:
+    """Parse repeated ``KEY=VALUE`` strings into the Bambu list-valued override map.
+
+    Bambu's ``project_settings.config`` stores values as lists of strings, so each
+    scalar value is wrapped in a single-element list. A comma in the value splits it
+    into a multi-element list (e.g. ``outer_wall_speed=200,500``).
+    """
+    overrides: dict[str, list[str]] = {}
+    for pair in pairs:
+        if "=" not in pair:
+            raise ValueError(f"invalid --set '{pair}': expected KEY=VALUE")
+        key, _, value = pair.partition("=")
+        key = key.strip()
+        if not key:
+            raise ValueError(f"invalid --set '{pair}': empty key")
+        overrides[key] = [part.strip() for part in value.split(",")]
+    return overrides
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -102,6 +122,47 @@ def build_parser() -> argparse.ArgumentParser:
         "--bambu-cli",
         type=Path,
         help="Explicit Bambu Studio executable path for --slice.",
+    )
+    run.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        dest="overrides",
+        help=(
+            "Override a Bambu slicer process setting for this slice "
+            "(repeatable), e.g. --set enable_support=1 --set wall_loops=4. "
+            "See 'printpipe slicer-settings <material>' for available keys."
+        ),
+    )
+
+    slicer_settings = subparsers.add_parser(
+        "slicer-settings",
+        help="Show the full Bambu slicer setting keyspace (process/filament/printer) for a material.",
+    )
+    slicer_settings.add_argument(
+        "material",
+        nargs="?",
+        default="Generic PLA",
+        help="Material/filament label to resolve settings for (default: Generic PLA).",
+    )
+    slicer_settings.add_argument(
+        "--group",
+        choices=("process", "filament", "printer", "all"),
+        default="process",
+        help="Which setting group to show (default: process).",
+    )
+    slicer_settings.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the resolved settings as JSON (machine-readable, for agents).",
+    )
+    slicer_settings.add_argument(
+        "--key",
+        action="append",
+        default=[],
+        metavar="KEY",
+        help="Show only these keys (repeatable). Implies a flat key=value listing.",
     )
 
     status = subparsers.add_parser(
@@ -1312,10 +1373,54 @@ def main(argv: list[str] | None = None) -> int:
         print(f"input: {layout.original_input}")
         return 0
 
+    if args.command == "slicer-settings":
+        try:
+            resolved = resolve_slice_settings(args.material)
+        except ValueError as exc:
+            parser.error(str(exc))
+        if args.key:
+            flat = {**resolved["process"], **resolved["filament"], **resolved["printer"]}
+            selected = {k: flat.get(k) for k in args.key}
+            if args.json:
+                print(json.dumps(selected, indent=2, sort_keys=True))
+            else:
+                for key in args.key:
+                    print(f"{key} = {flat.get(key)}")
+            return 0
+        groups = (
+            ["process", "filament", "printer"]
+            if args.group == "all"
+            else [args.group]
+        )
+        if args.json:
+            payload = {"material": resolved["material"], "profile_ids": resolved["profile_ids"]}
+            for group in groups:
+                payload[group] = resolved[group]
+            print(json.dumps(payload, indent=2, sort_keys=True))
+            return 0
+        print(f"material: {resolved['material']}")
+        for group in groups:
+            settings = resolved[group]
+            print(f"\n[{group}] ({len(settings)} keys)")
+            for key in sorted(settings):
+                print(f"  {key} = {settings[key]}")
+        return 0
+
     if args.command == "run":
         try:
             if args.bambu_cli is not None and not args.slice:
                 parser.error("--bambu-cli requires --slice")
+            process_overrides = _parse_overrides(args.overrides)
+            if process_overrides and not args.slice:
+                parser.error("--set requires --slice (overrides only apply to the slice stage)")
+            if process_overrides:
+                known_keys = set(resolve_slice_settings(args.material)["process"])
+                unknown_keys = sorted(k for k in process_overrides if k not in known_keys)
+                if unknown_keys:
+                    print(
+                        f"warning: unknown process setting key(s) applied anyway: {', '.join(unknown_keys)}",
+                        file=sys.stderr,
+                    )
             if args.input is None and args.prompt is None:
                 parser.error("run requires an input path or --prompt")
             input_kind = classify_input_path(args.input) if args.input is not None else InputKind.PROMPT
@@ -1344,6 +1449,7 @@ def main(argv: list[str] | None = None) -> int:
                     slice_executable=args.bambu_cli,
                     prompt_hint=args.prompt,
                     prompt_image_provider=args.prompt_image_provider,
+                    process_overrides=process_overrides or None,
                 )
             layout = result.layout
             report_json = layout.reports_dir / "run_report.json"

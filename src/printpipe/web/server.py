@@ -80,6 +80,7 @@ from printpipe.web.artifacts import discover_run_artifacts, resolve_artifact_req
 from printpipe.web.options import selector_catalog
 from printpipe.web.run_detail import render_run_detail_page
 from printpipe.web.status import build_run_status
+from printpipe.web.ui_api import export_run_glb, list_settings, reslice
 
 
 _HTML_MEDIA_TYPE = "text/html; charset=utf-8"
@@ -87,6 +88,16 @@ _JSON_MEDIA_TYPE = "application/json; charset=utf-8"
 _TEXT_MEDIA_TYPE = "text/plain; charset=utf-8"
 _STATIC_PREFIX = "/static/"
 _RUNS_PREFIX = "/runs/"
+_ASSET_MEDIA_TYPES = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+    ".glb": "model/gltf-binary",
+    ".gltf": "model/gltf+json",
+    ".wasm": "application/wasm",
+    ".svg": "image/svg+xml",
+    ".map": "application/json",
+}
 _HTML_SUFFIXES = {".html", ".htm"}
 _MAX_FORM_BODY_BYTES = 8 * 1024 * 1024
 _MAX_UPLOAD_BYTES = 8 * 1024 * 1024
@@ -281,6 +292,10 @@ class PrintPipeWebApp:
                 edit_run_id = _edit_route_id(relative_run_path)
                 if edit_run_id is not None:
                     return self.create_edit_response(edit_run_id, headers=headers, body=body)
+                if relative_run_path.endswith("/reslice"):
+                    return self.reslice_response(
+                        relative_run_path.removesuffix("/reslice"), headers=headers, body=body
+                    )
             return self._method_not_allowed()
         if request_method not in {"GET", "HEAD"}:
             return self._method_not_allowed()
@@ -329,8 +344,17 @@ class PrintPipeWebApp:
             return self.physical_plan_response()
         if path == "/physical-status.json":
             return self.physical_status_response()
+        if path == "/api/settings":
+            material = (query.get("material", ["Generic PLA"])[0] or "Generic PLA").strip() or "Generic PLA"
+            settings_payload = list_settings(material)
+            settings_payload["process"] = settings_payload.get("settings", {})  # settings.js reads .process
+            return WebResponse.json(settings_payload)
+        if path.startswith(_RUNS_PREFIX) and path.endswith("/model.glb"):
+            return self.model_glb_response(path.removeprefix(_RUNS_PREFIX).removesuffix("/model.glb"))
+        if path.startswith(_RUNS_PREFIX) and path.endswith("/status.json"):
+            return self.run_status_json_response(path.removeprefix(_RUNS_PREFIX).removesuffix("/status.json"))
         if path.startswith(_STATIC_PREFIX):
-            return self.static_response(path.removeprefix(_STATIC_PREFIX))
+            return self.static_asset_response(path.removeprefix(_STATIC_PREFIX))
         if path.startswith(_RUNS_PREFIX):
             relative_run_path = path.removeprefix(_RUNS_PREFIX)
             run_id = _run_detail_id(relative_run_path)
@@ -1149,6 +1173,64 @@ class PrintPipeWebApp:
                 ),
             ),
         )
+
+    def static_asset_response(self, relative_url_path: str) -> WebResponse:
+        """Serve packaged JS/CSS/GLB assets from web/static/ (static_response is HTML-only)."""
+        asset_root = (Path(__file__).resolve().parent / "static").resolve()
+        candidate = (asset_root / relative_url_path).resolve()
+        if not candidate.is_file() or not candidate.is_relative_to(asset_root):
+            return self.static_response(relative_url_path)
+        body = candidate.read_bytes()
+        media_type = _ASSET_MEDIA_TYPES.get(candidate.suffix.lower(), "application/octet-stream")
+        return WebResponse(
+            HTTPStatus.OK,
+            body,
+            (("Content-Type", media_type), ("Content-Length", str(len(body)))),
+        )
+
+    def model_glb_response(self, run_id: str) -> WebResponse:
+        run_root = self._run_root(run_id)
+        if run_root is None:
+            return self.not_found_response()
+        try:
+            glb_path = export_run_glb(run_root)
+        except (FileNotFoundError, ValueError):
+            return self.not_found_response()
+        data = Path(glb_path).read_bytes()
+        return WebResponse(
+            HTTPStatus.OK,
+            data,
+            (("Content-Type", "model/gltf-binary"), ("Content-Length", str(len(data)))),
+        )
+
+    def run_status_json_response(self, run_id: str) -> WebResponse:
+        run_root = self._run_root(run_id)
+        if run_root is None:
+            return self.not_found_response()
+        payload = build_run_status(run_root)
+        slice_result = run_root / "70_slice" / "slice_result.json"
+        if slice_result.is_file():
+            try:
+                payload["slice_result"] = json.loads(slice_result.read_text())
+            except (ValueError, OSError):
+                pass
+        return WebResponse.json(payload)
+
+    def reslice_response(self, run_id: str, *, headers: Any | None, body: bytes) -> WebResponse:
+        run_root = self._run_root(run_id)
+        if run_root is None:
+            return self.not_found_response()
+        try:
+            payload = json.loads(body.decode("utf-8")) if body else {}
+        except ValueError:
+            return WebResponse.json({"error": "invalid JSON body"}, status=int(HTTPStatus.BAD_REQUEST))
+        overrides = payload.get("process_overrides") or payload.get("overrides") or {}
+        material = payload.get("material")
+        try:
+            result = reslice(run_root, overrides, material=material)
+        except Exception as exc:  # surface slice failures to the UI
+            return WebResponse.json({"error": str(exc)}, status=int(HTTPStatus.INTERNAL_SERVER_ERROR))
+        return WebResponse.json(result)
 
     def run_detail_response(self, run_id: str) -> WebResponse:
         run_root = self._run_root(run_id)

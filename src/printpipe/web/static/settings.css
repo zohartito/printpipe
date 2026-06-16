@@ -1,0 +1,368 @@
+/*
+ * PrintPipe slicer-settings panel styling.
+ *
+ * Flat, neutral, Bambu-ish. Reuses the run-detail palette (teal accent,
+ * ink text, soft slate borders) so the panel reads as part of the same UI.
+ * All values are namespaced under .ppset-* to avoid colliding with the
+ * inlined RUN_DETAIL_CSS. Sliders and toggles are fully restyled so they
+ * never fall back to the default browser chrome.
+ */
+
+.ppset-card {
+  --ppset-accent: #327d9e;
+  --ppset-accent-strong: #24566d;
+  --ppset-ink: #17202a;
+  --ppset-muted: #52606d;
+  --ppset-surface: rgba(255, 255, 255, 0.94);
+  --ppset-surface-soft: #f8fafc;
+  --ppset-border: #cfd8e3;
+  --ppset-border-input: #bcccdc;
+  --ppset-track: #d9e2ec;
+
+  background: var(--ppset-surface);
+  border: 1px solid var(--ppset-border);
+  border-left: 4px solid var(--ppset-accent);
+  border-radius: 8px;
+  box-shadow: 0 18px 46px rgba(36, 47, 61, 0.1);
+  color: var(--ppset-ink);
+  display: grid;
+  gap: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+  padding: 0;
+}
+
+.ppset-head {
+  align-items: baseline;
+  border-bottom: 1px solid var(--ppset-border);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 13px 14px;
+}
+
+.ppset-title {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.ppset-material {
+  background: var(--ppset-surface-soft);
+  border: 1px solid var(--ppset-border);
+  border-radius: 999px;
+  color: var(--ppset-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 850;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.ppset-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0 14px;
+}
+
+.ppset-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ppset-field-wide {
+  grid-column: 1 / -1;
+}
+
+.ppset-label {
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.ppset-hint {
+  color: var(--ppset-muted);
+  font-size: 0.74rem;
+}
+
+.ppset-select,
+.ppset-number {
+  background: #fff;
+  border: 1px solid var(--ppset-border-input);
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: var(--ppset-ink);
+  font: inherit;
+  min-height: 40px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.ppset-select:focus,
+.ppset-number:focus,
+.ppset-range:focus-visible {
+  border-color: var(--ppset-accent);
+  outline: 2px solid rgba(50, 125, 158, 0.28);
+  outline-offset: 1px;
+}
+
+/* Range slider — restyled track + thumb across engines. */
+.ppset-range-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.ppset-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 22px;
+  margin: 0;
+  width: 100%;
+}
+
+.ppset-range::-webkit-slider-runnable-track {
+  background: var(--ppset-track);
+  border-radius: 999px;
+  height: 6px;
+}
+
+.ppset-range::-moz-range-track {
+  background: var(--ppset-track);
+  border-radius: 999px;
+  height: 6px;
+}
+
+.ppset-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--ppset-accent);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(36, 47, 61, 0.4);
+  height: 18px;
+  margin-top: -6px;
+  width: 18px;
+}
+
+.ppset-range::-moz-range-thumb {
+  background: var(--ppset-accent);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(36, 47, 61, 0.4);
+  height: 18px;
+  width: 18px;
+}
+
+.ppset-readout {
+  background: var(--ppset-surface-soft);
+  border: 1px solid var(--ppset-border);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  font-weight: 850;
+  min-width: 52px;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+/* Toggle switch. */
+.ppset-toggle-field {
+  align-items: center;
+  background: var(--ppset-surface-soft);
+  border: 1px solid var(--ppset-border);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.ppset-toggle {
+  display: inline-flex;
+  position: relative;
+}
+
+.ppset-toggle-input {
+  height: 26px;
+  margin: 0;
+  opacity: 0;
+  position: absolute;
+  width: 46px;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.ppset-toggle-track {
+  background: var(--ppset-track);
+  border-radius: 999px;
+  display: inline-block;
+  height: 26px;
+  position: relative;
+  transition: background 0.16s ease;
+  width: 46px;
+}
+
+.ppset-toggle-track::after {
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(36, 47, 61, 0.35);
+  content: "";
+  height: 20px;
+  left: 3px;
+  position: absolute;
+  top: 3px;
+  transition: transform 0.16s ease;
+  width: 20px;
+}
+
+.ppset-toggle-input:checked + .ppset-toggle-track {
+  background: var(--ppset-accent);
+}
+
+.ppset-toggle-input:checked + .ppset-toggle-track::after {
+  transform: translateX(20px);
+}
+
+.ppset-toggle-input:focus-visible + .ppset-toggle-track {
+  outline: 2px solid rgba(50, 125, 158, 0.4);
+  outline-offset: 2px;
+}
+
+.ppset-select:disabled {
+  background: var(--ppset-surface-soft);
+  color: #93a1ad;
+  cursor: not-allowed;
+}
+
+.ppset-actions {
+  align-items: center;
+  border-top: 1px solid var(--ppset-border);
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.ppset-slice {
+  background: var(--ppset-accent);
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+  min-height: 40px;
+  min-width: 120px;
+  padding: 8px 18px;
+}
+
+.ppset-slice:hover:not(:disabled) {
+  background: var(--ppset-accent-strong);
+}
+
+.ppset-slice:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+.ppset-status {
+  color: var(--ppset-muted);
+  font-size: 0.86rem;
+  margin: 0;
+}
+
+.ppset-status-busy {
+  color: var(--ppset-accent-strong);
+}
+
+.ppset-status-ok {
+  color: #126237;
+  font-weight: 800;
+}
+
+.ppset-status-error {
+  color: #9b1c1c;
+  font-weight: 800;
+}
+
+.ppset-applied {
+  padding: 0 14px;
+}
+
+.ppset-applied:empty {
+  display: none;
+}
+
+.ppset-applied-box {
+  background: #eef6f9;
+  border: 1px solid #c6dfe9;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
+.ppset-applied-title {
+  color: var(--ppset-accent-strong);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.ppset-applied-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.ppset-applied-row {
+  display: flex;
+  font-size: 0.84rem;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.ppset-applied-key {
+  color: var(--ppset-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.ppset-applied-value {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .ppset-grid {
+    grid-template-columns: 1fr;
+  }
+  .ppset-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Dark scheme: only engages if the host page opts into dark color-scheme. */
+@media (prefers-color-scheme: dark) {
+  .ppset-card[data-ppset-theme="auto"] {
+    --ppset-ink: #e7edf2;
+    --ppset-muted: #9fb3c8;
+    --ppset-surface: #1b2530;
+    --ppset-surface-soft: #232f3b;
+    --ppset-border: #33414f;
+    --ppset-border-input: #3c4b5a;
+    --ppset-track: #3c4b5a;
+  }
+  .ppset-card[data-ppset-theme="auto"] .ppset-select,
+  .ppset-card[data-ppset-theme="auto"] .ppset-number {
+    background: #232f3b;
+  }
+  .ppset-card[data-ppset-theme="auto"] .ppset-applied-box {
+    background: rgba(50, 125, 158, 0.14);
+    border-color: rgba(50, 125, 158, 0.4);
+  }
+}

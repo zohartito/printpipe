@@ -129,6 +129,7 @@ def run_existing_mesh_pipeline(
     meshgen_provider: MeshGenProvider | None = None,
     prompt_hint: str | None = None,
     prompt_image_provider: str | None = None,
+    process_overrides: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     """Run the currently wired pipeline spine for mesh or media input."""
 
@@ -144,6 +145,7 @@ def run_existing_mesh_pipeline(
         meshgen_provider=meshgen_provider,
         prompt_hint=prompt_hint,
         prompt_image_provider=prompt_image_provider,
+        process_overrides=process_overrides,
     )
 
 
@@ -188,6 +190,7 @@ def run_existing_mesh_pipeline_on_layout(
     meshgen_provider: MeshGenProvider | None = None,
     prompt_hint: str | None = None,
     prompt_image_provider: str | None = None,
+    process_overrides: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     """Run the mesh pipeline inside a pre-created run layout."""
 
@@ -431,6 +434,9 @@ def run_existing_mesh_pipeline_on_layout(
     object_name = _bundle_object_name(mesh_result.provider_id, imported_mesh)
     bundle_path = layout.bundle_dir / f"{object_name}.3mf"
     bundle_profile = _bundle_profile_config(material)
+    bundle_process_settings = dict(bundle_profile.process_settings)
+    if process_overrides:
+        bundle_process_settings.update(process_overrides)  # agent-controlled slicer settings
     write_bundle_from_ascii_stl(
         oriented_mesh,
         bundle_path,
@@ -438,7 +444,7 @@ def run_existing_mesh_pipeline_on_layout(
         object_name=object_name,
         transform=GuiSafeTransform.bed_center(DEFAULT_BED.width_mm, DEFAULT_BED.depth_mm),
         filament_settings=bundle_profile.filament_settings,
-        process_settings=bundle_profile.process_settings,
+        process_settings=bundle_process_settings,
         printer_settings=bundle_profile.printer_settings,
     )
     stages.append(
@@ -1143,6 +1149,31 @@ def bundle_profile_config_for_material(material: str) -> BundleProfileConfig:
     """Return the Bambu bundle profile config for a material label."""
 
     return _bundle_profile_config(material)
+
+
+def resolve_slice_settings(material: str) -> dict[str, Any]:
+    """The agent-facing VIEW of every slicer setting for a material.
+
+    Returns the full resolved Bambu keyspace (process / filament / printer) exactly as it
+    will be written into the .3mf and sliced. Pair with
+    ``run_existing_mesh_pipeline(..., process_overrides={key: value})`` to change any of them
+    (e.g. enable_support, support_type, wall_loops, layer_height, line_width,
+    sparse_infill_density, outer_wall_speed). Values follow the Bambu config format
+    (usually a list of strings).
+    """
+
+    cfg = _bundle_profile_config(material)
+    return {
+        "material": material,
+        "profile_ids": {
+            "filament_settings_id": cfg.profile_ids.filament_settings_id,
+            "print_settings_id": cfg.profile_ids.print_settings_id,
+            "printer_settings_id": cfg.profile_ids.printer_settings_id,
+        },
+        "process": dict(cfg.process_settings),
+        "filament": dict(cfg.filament_settings),
+        "printer": dict(cfg.printer_settings),
+    }
 
 
 def _generic_material_bundle_profile_config(

@@ -1,0 +1,128 @@
+/*
+ * PrintPipe live slice status chip styling.
+ * Tuned to match the settings/edit panel look in RUN_DETAIL_CSS
+ * (pill chips, monospace eyebrow accents, the #327d9e teal accent,
+ * and the #0b5cad / #327d9e button palette).
+ */
+
+.pp-status {
+  --pp-idle-bg: #f8fafc;
+  --pp-idle-border: #cfd8e3;
+  --pp-idle-fg: #52606d;
+  --pp-slicing-bg: #fff4d6;
+  --pp-slicing-border: #e7c36d;
+  --pp-slicing-fg: #7c4a03;
+  --pp-done-bg: #e3f8ec;
+  --pp-done-border: #a6d8ba;
+  --pp-done-fg: #126237;
+  --pp-fail-bg: #fde8e8;
+  --pp-fail-border: #e6a6a6;
+  --pp-fail-fg: #9b1c1c;
+
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.pp-status-chip {
+  align-items: center;
+  background: var(--pp-idle-bg);
+  border: 1px solid var(--pp-idle-border);
+  border-radius: 999px;
+  color: var(--pp-idle-fg);
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 850;
+  gap: 8px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+
+.pp-status-dot {
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+  background: #b8c6d4;
+}
+
+/* Phase tones mirror the .badge-* / .status-chip-* palette. */
+.pp-status-chip[data-phase="slicing"] {
+  background: var(--pp-slicing-bg);
+  border-color: var(--pp-slicing-border);
+  color: var(--pp-slicing-fg);
+}
+.pp-status-chip[data-phase="slicing"] .pp-status-dot {
+  background: #b7791f;
+  animation: pp-status-pulse 1.1s ease-in-out infinite;
+}
+
+.pp-status-chip[data-phase="done"] {
+  background: var(--pp-done-bg);
+  border-color: var(--pp-done-border);
+  color: var(--pp-done-fg);
+}
+.pp-status-chip[data-phase="done"] .pp-status-dot {
+  background: #1f8a4c;
+}
+
+.pp-status-chip[data-phase="failed"] {
+  background: var(--pp-fail-bg);
+  border-color: var(--pp-fail-border);
+  color: var(--pp-fail-fg);
+}
+.pp-status-chip[data-phase="failed"] .pp-status-dot {
+  background: #c23030;
+}
+
+@keyframes pp-status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-status-chip[data-phase="slicing"] .pp-status-dot {
+    animation: none;
+  }
+}
+
+/* Download button matches the teal .primary action button. */
+.pp-status-download {
+  background: #327d9e;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 800;
+  min-height: 36px;
+  align-items: center;
+  padding: 6px 14px;
+  text-decoration: none;
+}
+.pp-status-download:hover {
+  background: #2a6b88;
+}
+.pp-status-download[hidden] {
+  display: none;
+}
+
+/* Print-time / filament summary line, monospace like the .eyebrow accents. */
+.pp-status-metrics {
+  color: #52606d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.pp-status-metrics[hidden] {
+  display: none;
+}

@@ -1,0 +1,65 @@
+/* PrintPipe 3D model viewer styles.
+ * Scoped to the run-detail model-view figure (run_detail.py line 277):
+ *   <figure id="model-preview" class="model-view"> ... <canvas id="model-canvas"> ... </figure>
+ * The figure is already position:relative in RUN_DETAIL_CSS, so the canvas and
+ * overlays fill it absolutely. Palette mirrors RUN_DETAIL_CSS (teal #327d9e,
+ * ink #17202a). */
+
+#model-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  /* Let OrbitControls own pointer gestures without page scroll/zoom fighting. */
+  touch-action: none;
+  cursor: grab;
+}
+
+#model-canvas:active {
+  cursor: grabbing;
+}
+
+/* "drag to orbit · scroll to zoom" affordance, bottom-center of the figure. */
+.viewer-hint {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(50, 125, 158, 0.42);
+  border-radius: 999px;
+  color: #24566d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+/* Graceful, in-canvas error text when a model fails to load. */
+.viewer-error {
+  position: absolute;
+  inset: auto 12px 12px 12px;
+  z-index: 4;
+  display: none;
+  background: rgba(253, 232, 232, 0.96);
+  border: 1px solid #e6a6a6;
+  border-radius: 8px;
+  color: #9b1c1c;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .viewer-hint {
+    font-size: 0.68rem;
+  }
+}
