@@ -6,9 +6,12 @@ from html import escape
 from typing import Any
 from urllib.parse import quote
 
+from printpipe.web.ui_render import render_settings_panel
+
 
 def render_run_detail_page(*, detail: dict[str, Any], artifact_links: list[Any]) -> str:
     run_id = str(detail.get("run_id", "unknown-run"))
+    material = str(_mapping(detail.get("material")).get("label") or "Generic PLA")
     verdict = _mapping(detail.get("print_verdict"))
     status_label = str(verdict.get("label") or "Review before print")
     return "\n".join(
@@ -20,6 +23,11 @@ def render_run_detail_page(*, detail: dict[str, Any], artifact_links: list[Any])
             '  <meta name="viewport" content="width=device-width, initial-scale=1">',
             f"  <title>PrintPipe Workbench: {escape(run_id)}</title>",
             f"  <style>{RUN_DETAIL_CSS}</style>",
+            '  <link rel="stylesheet" href="/static/viewer.css">',
+            '  <link rel="stylesheet" href="/static/status.css">',
+            '  <script type="importmap">',
+            '  {"imports": {"three": "https://esm.sh/three@0.160.0", "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"}}',
+            "  </script>",
             "</head>",
             "<body>",
             '  <main class="app run-detail-app">',
@@ -41,8 +49,19 @@ def render_run_detail_page(*, detail: dict[str, Any], artifact_links: list[Any])
             _render_prompt_provider_panel(detail),
             _render_physical_evidence_panel(detail),
             _render_model_workbench(detail, artifact_links),
+            render_settings_panel(run_id, material),
+            '      <div id="live-slice-status" class="pp-status"></div>',
             "    </section>",
             "  </main>",
+            (
+                '  <script type="module">import { init } from "/static/viewer.js"; '
+                f'init({{ canvasId: "model-canvas", url: "/runs/{quote(run_id)}/model.glb", format: "glb" }});</script>'
+            ),
+            '  <script src="/static/status.js"></script>',
+            (
+                "  <script>window.PrintPipeStatus && window.PrintPipeStatus.init("
+                f'{{ runId: "{escape(run_id, quote=True)}", mountId: "live-slice-status" }});</script>'
+            ),
             "</body>",
             "</html>",
             "",
@@ -276,6 +295,7 @@ def _render_preview(preview_links: list[Any], detail: dict[str, Any]) -> str:
         [
             '            <figure id="model-preview" class="model-view" aria-label="Model preview">',
             '              <div class="bed"></div>',
+            '              <canvas id="model-canvas"></canvas>',
             visual,
             f'              <figcaption class="preview-title">{escape(title)}</figcaption>',
             f'              <figcaption class="risk-marker">opening risk: {escape(str(geometry.get("support_risk") or "review").title())}</figcaption>',

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "printpipe-slicer": {
+      "command": "/Users/zohartito/Desktop/printpipe/.venv/bin/python",
+      "args": ["-m", "printpipe.mcp_server"],
+      "env": {}
+    }
+  }
+}

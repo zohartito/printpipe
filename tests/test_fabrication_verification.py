@@ -3,6 +3,9 @@ from __future__ import annotations
 import math
 
 import pytest
+
+pytest.importorskip("trimesh")  # fabrication verification needs the optional trimesh dependency
+
 import trimesh
 
 from printpipe.fabrication.report import (

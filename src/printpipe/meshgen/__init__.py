@@ -30,10 +30,12 @@ from .providers import (
     sha256_file,
     write_provider_receipts,
 )
+from .parametric_cad import ParametricCadProvider
 
 __all__ = [
     "DeleteResult",
     "ExistingMeshProvider",
+    "ParametricCadProvider",
     "HUNYUAN3D_COMMAND_ENV",
     "Hunyuan3DProvider",
     "MEDIA_MESHGEN_COMMAND_ENV",

@@ -13,3 +13,9 @@ build/
 .env
 .env.*
 .printpipe/
+
+# Build outputs / session artifacts
+/design_iterations/
+/handycam_*.3mf
+/result.json
+.codex/

@@ -131,6 +131,7 @@ def test_registry_exposes_existing_hunyuan3d_and_placeholder_providers():
         "hunyuan3d",
         "media_command",
         "meshy",
+        "parametric_cad",
         "replicate",
         "rodin",
     )

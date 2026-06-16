@@ -914,8 +914,13 @@ def _is_builtin_heightfield_provider(provider: MeshGenProvider) -> bool:
 
 
 def default_registry() -> dict[str, MeshGenProvider]:
+    # Local import avoids a circular import: parametric_cad imports helpers from
+    # this module at import time.
+    from printpipe.meshgen.parametric_cad import ParametricCadProvider
+
     registry: dict[str, MeshGenProvider] = {}
     register_provider(ExistingMeshProvider(), registry)
+    register_provider(ParametricCadProvider(), registry)
     register_provider(Hunyuan3DProvider(), registry)
     register_provider(MediaCommandMeshProvider(), registry)
     register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
