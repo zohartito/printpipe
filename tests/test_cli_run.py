@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import zipfile
@@ -10,6 +11,19 @@ import pytest
 from printpipe.cli import main
 from printpipe.config import CONFIG_PATH_ENV
 from printpipe.runs.editing import EditRecipe, EditScale, create_edit_run
+
+
+# The mesh_repair stage only runs (and reports "succeeded") when the optional
+# printpipe[mesh-repair] extra is installed. CI installs only .[dev], so tests
+# that assert mesh_repair succeeded must skip when trimesh/networkx are absent.
+_MESH_REPAIR_AVAILABLE = (
+    importlib.util.find_spec("trimesh") is not None
+    and importlib.util.find_spec("networkx") is not None
+)
+requires_mesh_repair = pytest.mark.skipif(
+    not _MESH_REPAIR_AVAILABLE,
+    reason="requires the printpipe[mesh-repair] extra (trimesh + networkx)",
+)
 
 
 MEDIA_MESHGEN_SETUP_MESSAGE = (
@@ -62,6 +76,7 @@ def test_run_media_input_writes_failed_meshgen_report_and_returns_nonzero(
     assert report["warnings"] == [MEDIA_MESHGEN_SETUP_MESSAGE]
 
 
+@requires_mesh_repair
 def test_run_media_input_with_configured_hunyuan_command_writes_bundle(
     tmp_path: Path,
     capsys,
