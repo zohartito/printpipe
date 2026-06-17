@@ -130,6 +130,8 @@ def run_existing_mesh_pipeline(
     prompt_hint: str | None = None,
     prompt_image_provider: str | None = None,
     process_overrides: Mapping[str, Any] | None = None,
+    filament_overrides: Mapping[str, Any] | None = None,
+    printer_overrides: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     """Run the currently wired pipeline spine for mesh or media input."""
 
@@ -146,6 +148,8 @@ def run_existing_mesh_pipeline(
         prompt_hint=prompt_hint,
         prompt_image_provider=prompt_image_provider,
         process_overrides=process_overrides,
+        filament_overrides=filament_overrides,
+        printer_overrides=printer_overrides,
     )
 
 
@@ -191,6 +195,8 @@ def run_existing_mesh_pipeline_on_layout(
     prompt_hint: str | None = None,
     prompt_image_provider: str | None = None,
     process_overrides: Mapping[str, Any] | None = None,
+    filament_overrides: Mapping[str, Any] | None = None,
+    printer_overrides: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     """Run the mesh pipeline inside a pre-created run layout."""
 
@@ -434,18 +440,26 @@ def run_existing_mesh_pipeline_on_layout(
     object_name = _bundle_object_name(mesh_result.provider_id, imported_mesh)
     bundle_path = layout.bundle_dir / f"{object_name}.3mf"
     bundle_profile = _bundle_profile_config(material)
+    # agent-controlled slicer settings: process, filament, and printer all merge
+    # into the resolved profile and land in the single flat project_settings.config.
     bundle_process_settings = dict(bundle_profile.process_settings)
     if process_overrides:
-        bundle_process_settings.update(process_overrides)  # agent-controlled slicer settings
+        bundle_process_settings.update(process_overrides)
+    bundle_filament_settings = dict(bundle_profile.filament_settings)
+    if filament_overrides:
+        bundle_filament_settings.update(filament_overrides)
+    bundle_printer_settings = dict(bundle_profile.printer_settings)
+    if printer_overrides:
+        bundle_printer_settings.update(printer_overrides)
     write_bundle_from_ascii_stl(
         oriented_mesh,
         bundle_path,
         bundle_profile.profile_ids,
         object_name=object_name,
         transform=GuiSafeTransform.bed_center(DEFAULT_BED.width_mm, DEFAULT_BED.depth_mm),
-        filament_settings=bundle_profile.filament_settings,
+        filament_settings=bundle_filament_settings,
         process_settings=bundle_process_settings,
-        printer_settings=bundle_profile.printer_settings,
+        printer_settings=bundle_printer_settings,
     )
     stages.append(
         _bundle_stage_receipt(

@@ -26,7 +26,13 @@ def test_initialized_notification_returns_no_response():
 def test_tools_list_exposes_all_tools():
     response = mcp_server.handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = {tool["name"] for tool in response["result"]["tools"]}
-    assert names == {"get_slice_settings", "slice_with_settings", "get_fabrication_report"}
+    assert names == {
+        "get_slice_settings",
+        "list_slice_intents",
+        "resolve_slice_intents",
+        "slice_with_settings",
+        "get_fabrication_report",
+    }
 
 
 def test_normalize_overrides_wraps_scalars_and_preserves_lists():
@@ -114,6 +120,38 @@ def test_summarize_run_sliced_false_when_receipt_failed(tmp_path):
     result = _fake_result(tmp_path, slice_ok=False)
     summary = mcp_server._summarize_run(result, {}, run_slice=True)
     assert summary["sliced"] is False
+
+
+def test_slice_with_settings_routes_all_three_override_groups(monkeypatch, tmp_path):
+    stl = tmp_path / "x.stl"
+    stl.write_text("solid x\nendsolid x\n")
+    captured: dict = {}
+
+    def fake_pipeline(input_path, runs_dir, **kwargs):
+        captured.update(kwargs)
+        return _fake_result(tmp_path)
+
+    monkeypatch.setattr(mcp_server, "run_existing_mesh_pipeline", fake_pipeline)
+    mcp_server.handle_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {
+                "name": "slice_with_settings",
+                "arguments": {
+                    "stl_path": str(stl),
+                    "overrides": {"wall_loops": 4},
+                    "filament_overrides": {"nozzle_temperature": "230"},
+                    "printer_overrides": {"machine_max_acceleration_x": "10000"},
+                    "run_slice": False,
+                },
+            },
+        }
+    )
+    assert captured["process_overrides"] == {"wall_loops": ["4"]}
+    assert captured["filament_overrides"] == {"nozzle_temperature": ["230"]}
+    assert captured["printer_overrides"] == {"machine_max_acceleration_x": ["10000"]}
 
 
 def test_slice_with_settings_rejects_missing_stl():

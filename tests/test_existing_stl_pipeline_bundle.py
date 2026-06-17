@@ -92,6 +92,27 @@ def test_existing_ascii_stl_runs_pipeline_and_writes_bundle_in_run_dir(tmp_path:
     assert project_settings["printer_settings_id"] == metadata["profile_ids"]["printer_settings_id"]
 
 
+def test_agent_filament_and_printer_overrides_land_in_project_settings(tmp_path: Path):
+    """Agent overrides for the filament and printer groups survive the profile merge."""
+    result = run_existing_mesh_pipeline(
+        STL_FIXTURE,
+        tmp_path / "runs",
+        material="Generic PLA",
+        filament_overrides={"nozzle_temperature": ["250"]},
+        printer_overrides={"machine_max_acceleration_x": ["5000", "5000", "5000", "5000"]},
+    )
+    bundle_path = next(
+        artifact.path
+        for artifact in result.artifacts
+        if artifact.kind == ArtifactKind.THREEMF
+    )
+    with zipfile.ZipFile(bundle_path) as archive:
+        project_settings = json.loads(archive.read("Metadata/project_settings.config"))
+
+    assert project_settings["nozzle_temperature"] == ["250"]
+    assert project_settings["machine_max_acceleration_x"] == ["5000", "5000", "5000", "5000"]
+
+
 def test_tpu_bundle_embeds_resolved_bambu_profile_settings_for_cli(
     tmp_path: Path,
     monkeypatch,
