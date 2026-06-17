@@ -1,0 +1,4 @@
+# gitleaks baseline — fingerprints of findings to ignore.
+# Generated from `gitleaks detect`; no secrets were found, so this baseline is
+# intentionally empty (no real or false-positive findings to suppress).
+# To add a suppression, append a `<commit>:<file>:<rule>:<startline>` fingerprint.

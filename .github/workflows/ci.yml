@@ -37,6 +37,12 @@ jobs:
   secret-scan:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
+    # gitleaks-action posts a PR summary on pull_request events, which needs
+    # pull-requests: write. Without it the action throws a 403 ("Resource not
+    # accessible by integration") and fails the job even when no leaks are found.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
