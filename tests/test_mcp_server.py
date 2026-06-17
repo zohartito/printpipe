@@ -6,8 +6,31 @@ import json
 import types
 import zipfile
 
+import pytest
+
 from printpipe import mcp_server
 from printpipe.contracts import StageStatus
+from printpipe.pipeline import resolve_slice_settings
+
+
+def _rich_slicer_keyspace_available() -> bool:
+    """True when an installed Bambu/Orca profile tree resolves the full keyspace.
+
+    The full process keyspace (including ``enable_support``) comes from an
+    installed Bambu Studio / OrcaSlicer profile tree, which CI runners do not
+    have. There only a minimal fallback profile is available, so tests asserting
+    the rich keyspace must skip.
+    """
+    try:
+        return "enable_support" in resolve_slice_settings("Bambu PLA Basic")["process"]
+    except Exception:  # noqa: BLE001 - any resolution failure means no rich keyspace
+        return False
+
+
+requires_slicer_profiles = pytest.mark.skipif(
+    not _rich_slicer_keyspace_available(),
+    reason="requires an installed Bambu Studio / OrcaSlicer profile tree (not present in CI)",
+)
 
 
 def test_initialize_reports_protocol_and_server_info():
@@ -40,6 +63,7 @@ def test_normalize_overrides_wraps_scalars_and_preserves_lists():
     }
 
 
+@requires_slicer_profiles
 def test_get_slice_settings_tool_returns_keyspace():
     response = mcp_server.handle_request(
         {
