@@ -31,6 +31,7 @@ from printpipe.pipeline import (
     resolve_slice_settings,
     run_existing_mesh_pipeline,
 )
+from printpipe.slice_intents import list_intents, resolve_intents
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_INFO = {"name": "printpipe-slicer", "version": "0.1.0"}
@@ -63,14 +64,54 @@ TOOLS = [
         },
     },
     {
+        "name": "list_slice_intents",
+        "description": (
+            "List the named natural-language slicing intents (e.g. 'stronger', "
+            "'draft', 'needs_supports') and the exact Bambu process overrides each "
+            "one applies. Use this to map a user's plain-English request to one or "
+            "more intent names, then call resolve_slice_intents."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "resolve_slice_intents",
+        "description": (
+            "Translate one or more intent names into a merged, validated map of "
+            "Bambu process overrides for a material — with before->after changes, "
+            "conflicts (when two intents fight over the same key), and any unknown "
+            "intent names. Returns an 'overrides' dict ready to pass straight to "
+            "slice_with_settings. Does NOT slice."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "intents": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Intent names from list_slice_intents, applied in order "
+                        "(later intents win key conflicts)."
+                    ),
+                },
+                "material": {
+                    "type": "string",
+                    "description": "Filament/material label, e.g. 'Bambu PLA Basic'.",
+                    "default": "Generic PLA",
+                },
+            },
+            "required": ["intents"],
+        },
+    },
+    {
         "name": "slice_with_settings",
         "description": (
-            "Slice an STL into a Bambu-ready .3mf, overriding ANY process settings the "
-            "agent chooses (e.g. enable_support, support_type, wall_loops, layer_height, "
-            "sparse_infill_density, outer_wall_speed). Values may be a string or a list of "
-            "strings; scalars are wrapped to Bambu's list format automatically. Returns the "
-            "run folder, the bundle path, the gcode path, and the settings as actually "
-            "written into the bundle (read back for confirmation)."
+            "Slice an STL into a Bambu-ready .3mf, overriding ANY settings the agent "
+            "chooses across all three groups: process (overrides), filament "
+            "(filament_overrides — incl. nozzle/bed temps), and printer "
+            "(printer_overrides). Values may be a string or a list of strings; scalars "
+            "are wrapped to Bambu's list format automatically. Returns the run folder, "
+            "the bundle path, the gcode path, and the settings as actually written into "
+            "the bundle (read back for confirmation)."
         ),
         "inputSchema": {
             "type": "object",
@@ -87,8 +128,27 @@ TOOLS = [
                 "overrides": {
                     "type": "object",
                     "description": (
-                        "Map of setting key -> value (string or list of strings). "
+                        "Map of PROCESS setting key -> value (string or list of strings). "
                         "Each value overrides that key in project_settings.config."
+                    ),
+                    "additionalProperties": True,
+                    "default": {},
+                },
+                "filament_overrides": {
+                    "type": "object",
+                    "description": (
+                        "Map of FILAMENT setting key -> value (e.g. nozzle_temperature, "
+                        "hot_plate_temp and the other *_plate_temp bed temperatures, "
+                        "filament_flow_ratio). Overrides the resolved filament profile."
+                    ),
+                    "additionalProperties": True,
+                    "default": {},
+                },
+                "printer_overrides": {
+                    "type": "object",
+                    "description": (
+                        "Map of PRINTER setting key -> value (e.g. machine_max_acceleration_x, "
+                        "machine_max_speed_y). Overrides the resolved printer profile."
                     ),
                     "additionalProperties": True,
                     "default": {},
@@ -186,6 +246,15 @@ def _summarize_run(result: Any, overrides: dict[str, list[str]], run_slice: bool
             config = json.loads(archive.read("Metadata/project_settings.config"))
         applied = {key: config.get(key) for key in overrides}
     gcode = _slice_gcode_path(result) if run_slice else None
+    # Requested overrides whose written value differs from the request — e.g. the
+    # reserved profile-id keys (printable_height, nozzle_diameter, *_settings_id)
+    # that build_project_settings_config re-stamps from the profile after merging.
+    # Surfaced so the agent is never falsely told a dropped override was applied.
+    not_applied = {
+        key: {"requested": overrides[key], "in_bundle": applied.get(key)}
+        for key in overrides
+        if bundle is not None and applied.get(key) != overrides[key]
+    }
     return {
         "run_root": str(result.layout.root),
         "bundle": str(bundle) if bundle is not None else None,
@@ -193,6 +262,7 @@ def _summarize_run(result: Any, overrides: dict[str, list[str]], run_slice: bool
         "sliced": _slice_succeeded(result) if run_slice else False,
         "overrides_requested": overrides,
         "overrides_applied_in_bundle": applied,
+        "overrides_not_applied": not_applied,
     }
 
 
@@ -209,6 +279,18 @@ def _tool_get_slice_settings(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _tool_list_slice_intents(arguments: dict[str, Any]) -> dict[str, Any]:
+    return {"intents": list_intents()}
+
+
+def _tool_resolve_slice_intents(arguments: dict[str, Any]) -> dict[str, Any]:
+    intents = arguments.get("intents") or []
+    if not isinstance(intents, list):
+        raise ValueError("intents must be a list of intent names")
+    material = arguments.get("material", "Generic PLA")
+    return resolve_intents(intents, material=material)
+
+
 def _tool_get_fabrication_report(arguments: dict[str, Any]) -> dict[str, Any]:
     run_root = Path(arguments["run_root"]).expanduser()
     if not run_root.exists():
@@ -223,12 +305,19 @@ def _tool_slice_with_settings(arguments: dict[str, Any]) -> dict[str, Any]:
     material = arguments.get("material", "Generic PLA")
     runs_dir = Path(arguments.get("runs_dir", "runs")).expanduser()
     run_slice = bool(arguments.get("run_slice", True))
-    overrides = _normalize_overrides(arguments.get("overrides", {}) or {})
+    process_overrides = _normalize_overrides(arguments.get("overrides", {}) or {})
+    filament_overrides = _normalize_overrides(arguments.get("filament_overrides", {}) or {})
+    printer_overrides = _normalize_overrides(arguments.get("printer_overrides", {}) or {})
 
-    # Flag override keys that are not part of the resolved process keyspace (likely typos).
+    # Flag override keys not part of their resolved keyspace group (likely typos).
     # They are still applied (the keyspace is open by design), but surfaced so the agent knows.
-    process_keys = set(resolve_slice_settings(material)["process"])
-    unknown_keys = sorted(key for key in overrides if key not in process_keys)
+    keyspace = resolve_slice_settings(material)
+    unknown_keys = sorted(
+        [key for key in process_overrides if key not in keyspace["process"]]
+        + [key for key in filament_overrides if key not in keyspace["filament"]]
+        + [key for key in printer_overrides if key not in keyspace["printer"]]
+    )
+    applied_keys = {**process_overrides, **filament_overrides, **printer_overrides}
 
     try:
         result = run_existing_mesh_pipeline(
@@ -236,23 +325,27 @@ def _tool_slice_with_settings(arguments: dict[str, Any]) -> dict[str, Any]:
             runs_dir,
             material=material,
             run_slice=run_slice,
-            process_overrides=overrides or None,
+            process_overrides=process_overrides or None,
+            filament_overrides=filament_overrides or None,
+            printer_overrides=printer_overrides or None,
         )
     except PipelineError as exc:
         # The bundle was written before the slice gate failed - still surface it.
-        summary = _summarize_run(exc.result, overrides, run_slice)
+        summary = _summarize_run(exc.result, applied_keys, run_slice)
         summary["sliced"] = False
         summary["error"] = str(exc)
         summary["unknown_override_keys"] = unknown_keys
         return summary
 
-    summary = _summarize_run(result, overrides, run_slice)
+    summary = _summarize_run(result, applied_keys, run_slice)
     summary["unknown_override_keys"] = unknown_keys
     return summary
 
 
 DISPATCH = {
     "get_slice_settings": _tool_get_slice_settings,
+    "list_slice_intents": _tool_list_slice_intents,
+    "resolve_slice_intents": _tool_resolve_slice_intents,
     "get_fabrication_report": _tool_get_fabrication_report,
     "slice_with_settings": _tool_slice_with_settings,
 }
