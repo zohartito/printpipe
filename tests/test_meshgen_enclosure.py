@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
+import importlib.util
+import os
 from pathlib import Path
 
 import pytest
 
 pytest.importorskip("trimesh")  # enclosure primitive needs the optional trimesh dependency
+
+# trimesh imports fine without a boolean backend, but enclosure booleans (union/difference)
+# silently fall back to Blender and produce non-watertight meshes when neither is present.
+# Skip rather than hard-fail, matching how doctor treats Blender (PRINTPIPE_BLENDER) as optional.
+if importlib.util.find_spec("manifold3d") is None and not os.environ.get("PRINTPIPE_BLENDER"):
+    pytest.skip(
+        "no trimesh boolean backend; install printpipe[mesh-repair] (manifold3d) "
+        "or set PRINTPIPE_BLENDER",
+        allow_module_level=True,
+    )
 
 from printpipe.contracts import ArtifactKind, InputKind, StageStatus
 from printpipe.geometry.artifacts import _read_ascii_stl_triangles
