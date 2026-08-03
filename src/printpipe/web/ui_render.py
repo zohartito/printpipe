@@ -12,7 +12,7 @@ from html import escape
 from json import dumps
 
 
-def render_settings_panel(run_id: str, material: str) -> str:
+def render_settings_panel(run_id: str, material: str, *, csrf_token: str = "") -> str:
     """Return the slicer-settings panel fragment for a single run.
 
     The fragment loads ``/static/settings.css`` and ``/static/settings.js``
@@ -29,7 +29,12 @@ def render_settings_panel(run_id: str, material: str) -> str:
     # out of the inline <script>; neutralise those sequences as \uXXXX.
     init_config = (
         dumps(
-            {"material": str(material), "runId": str(run_id), "mountId": mount_id},
+            {
+                "csrfToken": str(csrf_token),
+                "material": str(material),
+                "runId": str(run_id),
+                "mountId": mount_id,
+            },
             sort_keys=True,
         )
         .replace("<", "\\u003c")

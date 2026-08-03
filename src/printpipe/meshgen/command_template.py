@@ -83,6 +83,7 @@ PrintPipe calls this script through PRINTPIPE_MEDIA_MESHGEN_COMMAND.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import mimetypes
 import os
@@ -97,6 +98,7 @@ from typing import Any
 
 
 DEFAULT_COMFYUI_URL = "http://127.0.0.1:8188"
+COMFYUI_ALLOWED_HOSTS_ENV = "PRINTPIPE_COMFYUI_ALLOWED_HOSTS"
 # ComfyUI API surfaces used by this preset: "/prompt", "/history/", "/view?".
 
 
@@ -158,12 +160,46 @@ def _env_paths(name: str, *, params: dict[str, Any], key: str) -> tuple[str, ...
 
 
 def _comfy_url(params: dict[str, Any]) -> str:
-    return _env(
-        "PRINTPIPE_COMFYUI_URL",
-        DEFAULT_COMFYUI_URL,
-        params=params,
-        key="comfyui_url",
-    ).rstrip("/")
+    return _validate_comfyui_url(
+        _env(
+            "PRINTPIPE_COMFYUI_URL",
+            DEFAULT_COMFYUI_URL,
+            params=params,
+            key="comfyui_url",
+        )
+    )
+
+
+def _validate_comfyui_url(value: str) -> str:
+    normalized = str(value or "").strip().rstrip("/") or DEFAULT_COMFYUI_URL
+    parsed = urllib.parse.urlsplit(normalized)
+    if parsed.scheme not in {"http", "https"}:
+        raise RuntimeError("ComfyUI URL must use http or https.")
+    if parsed.username or parsed.password:
+        raise RuntimeError("ComfyUI URL must not include credentials.")
+    hostname = (parsed.hostname or "").strip().lower()
+    if not hostname:
+        raise RuntimeError("ComfyUI URL must include a host.")
+    if _is_loopback_host(hostname) or hostname in _allowed_comfyui_hosts():
+        return normalized
+    raise RuntimeError(
+        "ComfyUI URL host is not allowed. Use localhost/127.0.0.1 or set "
+        f"{COMFYUI_ALLOWED_HOSTS_ENV} to an explicit comma-separated host allowlist."
+    )
+
+
+def _is_loopback_host(hostname: str) -> bool:
+    if hostname in {"localhost", "ip6-localhost"}:
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def _allowed_comfyui_hosts() -> set[str]:
+    raw = os.environ.get(COMFYUI_ALLOWED_HOSTS_ENV, "")
+    return {host.strip().lower() for host in raw.split(",") if host.strip()}
 
 
 def _load_workflow(params: dict[str, Any]) -> dict[str, Any]:

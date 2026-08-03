@@ -9,7 +9,12 @@ from urllib.parse import quote
 from printpipe.web.ui_render import render_settings_panel
 
 
-def render_run_detail_page(*, detail: dict[str, Any], artifact_links: list[Any]) -> str:
+def render_run_detail_page(
+    *,
+    detail: dict[str, Any],
+    artifact_links: list[Any],
+    csrf_token: str = "",
+) -> str:
     run_id = str(detail.get("run_id", "unknown-run"))
     material = str(_mapping(detail.get("material")).get("label") or "Generic PLA")
     verdict = _mapping(detail.get("print_verdict"))
@@ -48,8 +53,8 @@ def render_run_detail_page(*, detail: dict[str, Any], artifact_links: list[Any])
             _render_material_preflight_strip(detail, artifact_links),
             _render_prompt_provider_panel(detail),
             _render_physical_evidence_panel(detail),
-            _render_model_workbench(detail, artifact_links),
-            render_settings_panel(run_id, material),
+            _render_model_workbench(detail, artifact_links, csrf_token=csrf_token),
+            render_settings_panel(run_id, material, csrf_token=csrf_token),
             '      <div id="live-slice-status" class="pp-status"></div>',
             "    </section>",
             "  </main>",
@@ -229,12 +234,17 @@ def _render_prompt_provider_panel(detail: dict[str, Any]) -> str:
     )
 
 
-def _render_model_workbench(detail: dict[str, Any], artifact_links: list[Any]) -> str:
+def _render_model_workbench(
+    detail: dict[str, Any],
+    artifact_links: list[Any],
+    *,
+    csrf_token: str,
+) -> str:
     return "\n".join(
         [
             '      <section class="workbench">',
             '        <div class="canvas-zone">',
-            _render_model_card(detail, artifact_links),
+            _render_model_card(detail, artifact_links, csrf_token=csrf_token),
             '          <div class="lower-grid">',
             _render_stage_panel(
                 "Pipeline Stages",
@@ -249,13 +259,23 @@ def _render_model_workbench(detail: dict[str, Any], artifact_links: list[Any]) -
             "          </div>",
             _render_warning_receipts(detail),
             "        </div>",
-            _render_edit_geometry_panel(str(detail.get("run_id", "unknown-run")), detail, artifact_links),
+            _render_edit_geometry_panel(
+                str(detail.get("run_id", "unknown-run")),
+                detail,
+                artifact_links,
+                csrf_token=csrf_token,
+            ),
             "      </section>",
         ]
     )
 
 
-def _render_model_card(detail: dict[str, Any], artifact_links: list[Any]) -> str:
+def _render_model_card(
+    detail: dict[str, Any],
+    artifact_links: list[Any],
+    *,
+    csrf_token: str,
+) -> str:
     preview_links = [link for link in artifact_links if str(getattr(link, "category", "")) == "preview"]
     validation = _validation_by_key(detail)
     geometry = _mapping(detail.get("geometry"))
@@ -272,7 +292,11 @@ def _render_model_card(detail: dict[str, Any], artifact_links: list[Any]) -> str
             _render_metric("Fit issue", _fit_issue_label(detail)),
             _render_metric("Slice gate", _state_label(str(validation.get("slice_success", {}).get("state", "review")))),
             "            </div>",
-            _render_workbench_artifacts(str(detail.get("run_id", "unknown-run")), artifact_links),
+            _render_workbench_artifacts(
+                str(detail.get("run_id", "unknown-run")),
+                artifact_links,
+                csrf_token=csrf_token,
+            ),
             "          </article>",
         ]
     )
@@ -307,19 +331,30 @@ def _render_preview(preview_links: list[Any], detail: dict[str, Any]) -> str:
     )
 
 
-def _render_workbench_artifacts(run_id: str, artifact_links: list[Any]) -> str:
+def _render_workbench_artifacts(
+    run_id: str,
+    artifact_links: list[Any],
+    *,
+    csrf_token: str,
+) -> str:
     return "\n".join(
         [
             '            <section class="workbench-artifacts" aria-label="Primary artifacts">',
             '              <div class="artifact-heading"><h3>Artifacts</h3><p>Open the files you need while editing this run.</p></div>',
             _render_artifact_tiles(artifact_links),
-            _render_open_folder_actions(run_id),
+            _render_open_folder_actions(run_id, csrf_token=csrf_token),
             "            </section>",
         ]
     )
 
 
-def _render_edit_geometry_panel(run_id: str, detail: dict[str, Any], artifact_links: list[Any]) -> str:
+def _render_edit_geometry_panel(
+    run_id: str,
+    detail: dict[str, Any],
+    artifact_links: list[Any],
+    *,
+    csrf_token: str,
+) -> str:
     recipe = _mapping(detail.get("edit_recipe"))
     scale = _mapping(recipe.get("scale"))
     targets = _mapping(recipe.get("targets_mm"))
@@ -328,6 +363,7 @@ def _render_edit_geometry_panel(run_id: str, detail: dict[str, Any], artifact_li
     return "\n".join(
         [
             f'        <form id="edit-geometry" class="controls" action="/runs/{quote(run_id, safe="")}/edits" method="post">',
+            f"          {_csrf_input(csrf_token)}",
             "          <h2>Edit Geometry</h2>",
             '          <div class="controls-body">',
             f'            <p class="issue-line">{escape(_fit_issue_label(detail))}</p>',
@@ -443,16 +479,20 @@ def _render_metric(label: str, value: str) -> str:
     return f'<div class="metric"><span>{escape(label)}</span><strong>{escape(value)}</strong></div>'
 
 
-def _render_open_folder_actions(run_id: str) -> str:
+def _render_open_folder_actions(run_id: str, *, csrf_token: str) -> str:
     safe_run_id = quote(run_id, safe="")
     return "\n".join(
         [
             '            <div class="open-folder-actions">',
-            f'              <form method="post" action="/runs/{safe_run_id}/open-folder/bundle"><button type="submit">Open bundle folder</button></form>',
-            f'              <form method="post" action="/runs/{safe_run_id}/open-folder/report"><button type="submit">Open report folder</button></form>',
+            f'              <form method="post" action="/runs/{safe_run_id}/open-folder/bundle">{_csrf_input(csrf_token)}<button type="submit">Open bundle folder</button></form>',
+            f'              <form method="post" action="/runs/{safe_run_id}/open-folder/report">{_csrf_input(csrf_token)}<button type="submit">Open report folder</button></form>',
             "            </div>",
         ]
     )
+
+
+def _csrf_input(csrf_token: str) -> str:
+    return f'<input type="hidden" name="csrf_token" value="{escape(csrf_token, quote=True)}">'
 
 
 def _number_field(label: str, name: str, value: str, *, suffix: str) -> str:

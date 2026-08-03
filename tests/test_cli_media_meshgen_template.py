@@ -141,6 +141,60 @@ def test_comfyui_api_template_fails_closed_without_workflow(tmp_path: Path, caps
     assert "PRINTPIPE_COMFYUI_WORKFLOW is required" in result.stderr
 
 
+def test_comfyui_api_template_rejects_non_allowlisted_comfyui_url(tmp_path: Path):
+    output_path = tmp_path / "adapters" / "media_meshgen_adapter.py"
+    workflow = tmp_path / "workflow.json"
+    workflow.write_text(
+        json.dumps(
+            {
+                "1": {"class_type": "LoadImage", "inputs": {"image": "reference.png"}},
+                "2": {"class_type": "SaveGLB", "inputs": {"mesh": ["1", 0]}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    reference = tmp_path / "reference.png"
+    reference.write_bytes(b"fake image")
+
+    exit_code = main(
+        [
+            "media-meshgen-template",
+            "--preset",
+            "comfyui-api",
+            "--output",
+            str(output_path),
+        ]
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(output_path),
+            "--input-kind",
+            "image",
+            "--source",
+            str(reference),
+            "--output",
+            str(tmp_path / "mesh.glb"),
+            "--output-format",
+            "glb",
+            "--params-json",
+            json.dumps(
+                {
+                    "comfyui_url": "http://169.254.169.254:8188",
+                    "comfyui_workflow": str(workflow),
+                }
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert exit_code == 0
+    assert result.returncode == 2
+    assert "ComfyUI URL host is not allowed." in result.stderr
+
+
 def test_comfyui_api_template_reads_inline_params_json(tmp_path: Path):
     output_path = tmp_path / "adapters" / "media_meshgen_adapter.py"
     missing_workflow = tmp_path / "missing_workflow.json"

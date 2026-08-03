@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import json
+import os
+from ipaddress import ip_address
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 from urllib.request import urlopen
 
 
 DEFAULT_COMFYUI_URL = "http://127.0.0.1:8188"
 DEFAULT_REQUIRED_NODES = ("SaveGLB",)
+COMFYUI_ALLOWED_HOSTS_ENV = "PRINTPIPE_COMFYUI_ALLOWED_HOSTS"
 
 
 def preflight_comfyui_runtime(
@@ -21,7 +24,7 @@ def preflight_comfyui_runtime(
 ) -> dict[str, Any]:
     """Check whether a ComfyUI API endpoint is reachable and has needed nodes."""
 
-    normalized_url = _normalize_base_url(comfyui_url)
+    normalized_url = validate_comfyui_url(comfyui_url)
     warnings: list[str] = []
     system_stats = _get_json(normalized_url, "/system_stats", timeout_seconds)
     object_info = _get_json(normalized_url, "/object_info", timeout_seconds)
@@ -100,6 +103,40 @@ def _get_json(base_url: str, path: str, timeout_seconds: float) -> dict[str, Any
 def _normalize_base_url(value: str) -> str:
     stripped = str(value or "").strip() or DEFAULT_COMFYUI_URL
     return stripped.rstrip("/")
+
+
+def validate_comfyui_url(value: str) -> str:
+    """Return a normalized ComfyUI URL after enforcing the local allowlist."""
+
+    normalized = _normalize_base_url(value)
+    parsed = urlsplit(normalized)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("ComfyUI URL must use http or https.")
+    if parsed.username or parsed.password:
+        raise ValueError("ComfyUI URL must not include credentials.")
+    hostname = (parsed.hostname or "").strip().lower()
+    if not hostname:
+        raise ValueError("ComfyUI URL must include a host.")
+    if _is_loopback_host(hostname) or hostname in _allowed_comfyui_hosts():
+        return normalized
+    raise ValueError(
+        "ComfyUI URL host is not allowed. Use localhost/127.0.0.1 or set "
+        f"{COMFYUI_ALLOWED_HOSTS_ENV} to an explicit comma-separated host allowlist."
+    )
+
+
+def _is_loopback_host(hostname: str) -> bool:
+    if hostname in {"localhost", "ip6-localhost"}:
+        return True
+    try:
+        return ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def _allowed_comfyui_hosts() -> set[str]:
+    raw = os.environ.get(COMFYUI_ALLOWED_HOSTS_ENV, "")
+    return {host.strip().lower() for host in raw.split(",") if host.strip()}
 
 
 def _dict(value: Any) -> dict[str, Any]:

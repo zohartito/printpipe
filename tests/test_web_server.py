@@ -6,6 +6,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote
 
+import pytest
+
 from printpipe.beta.physical import (
     PhysicalArtifact,
     build_physical_print_evidence,
@@ -103,6 +105,13 @@ def _multipart_fields_body(fields: dict[str, str]) -> tuple[bytes, str]:
     return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 
 
+def _csrf_headers(app: PrintPipeWebApp, content_type: str | None = None) -> dict[str, str]:
+    headers = {"X-PrintPipe-CSRF": app.csrf_token}
+    if content_type is not None:
+        headers["Content-Type"] = content_type
+    return headers
+
+
 def _write_trusted_feedback(
     run_root: Path,
     *,
@@ -145,7 +154,7 @@ def test_home_response_renders_status_and_static_page_links(tmp_path: Path):
     assert 'href="/static/run_report.html"' in response.text
 
 
-def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_path: Path):
+def test_home_response_keeps_recent_runs_and_removes_launch_controls(tmp_path: Path):
     source = tmp_path / "reference.png"
     source.write_bytes(b"fake image")
     runs_dir = tmp_path / "runs"
@@ -180,12 +189,10 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
 
     assert response.status == 200
     assert "New Run" in response.text
-    assert 'type="file"' in response.text
-    assert 'name="prompt"' in response.text
-    assert "Bambu Lab P2S" in response.text
-    assert "SUNLU TPU 90A Slipper" in response.text
-    assert "Prompt image provider" in response.text
-    assert "Target length (mm)" in response.text
+    assert "Web run creation and provider selection are disabled for security." in response.text
+    assert 'action="/runs"' not in response.text
+    assert 'name="prompt_image_provider"' not in response.text
+    assert 'name="prompt"' not in response.text
     assert "run-ui-001" in response.text
     assert "succeeded" in response.text
     assert "Open report" in response.text
@@ -199,6 +206,91 @@ def test_home_response_renders_launch_controls_recent_runs_and_artifacts(tmp_pat
     assert 'href="/beta-feedback-status.json"' in response.text
     assert 'href="/beta-plan.json"' in response.text
     assert 'href="/doctor.json"' in response.text
+
+
+def test_post_runs_is_disabled_before_provider_selection_or_persistence(
+    monkeypatch,
+    tmp_path: Path,
+):
+    calls: list[str] = []
+
+    def forbidden(name: str):
+        def _forbidden(*args, **kwargs):
+            calls.append(name)
+            raise AssertionError(f"{name} must not be reached from a web request")
+
+        return _forbidden
+
+    monkeypatch.setattr(web_server, "_parse_run_form", forbidden("parse_run_form"))
+    monkeypatch.setattr(PrintPipeWebApp, "_create_skeleton_run", forbidden("create_skeleton_run"))
+    monkeypatch.setattr(web_server, "run_existing_mesh_pipeline", forbidden("existing_pipeline"))
+    monkeypatch.setattr(web_server, "run_prompt_pipeline", forbidden("prompt_pipeline"))
+    config_path = tmp_path / "provider-config.json"
+    config_path.write_text('{"provider":"command"}', encoding="utf-8")
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(config_path))
+    monkeypatch.setenv("PRINTPIPE_PROMPT_IMAGE_COMMAND", "python -c 'raise SystemExit(99)'")
+    monkeypatch.setenv("OPENAI_API_KEY", "web-rce-test-key")
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*")}
+
+    for provider in ("auto", "command", "openai"):
+        for filename, content_type in (("reference.png", "image/png"), ("reference.mp4", "video/mp4")):
+            body, request_content_type = _multipart_form_body(
+                fields={"prompt": "provider exploit", "prompt_image_provider": provider},
+                file_field="input",
+                filename=filename,
+                content_type=content_type,
+                file_content=b"untrusted upload",
+            )
+            response = app.handle(
+                "/runs",
+                method="POST",
+                headers=_csrf_headers(app, request_content_type),
+                body=body,
+            )
+            assert response.status == 403
+            assert "Web run creation is disabled for security." in response.text
+
+    response = app.create_run_response(
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        body=b"prompt=missing-csrf&prompt_image_provider=command",
+    )
+    assert response.status == 403
+    assert "Web run creation is disabled for security." in response.text
+    after = {path.relative_to(tmp_path) for path in tmp_path.rglob("*")}
+    assert after == before
+    assert calls == []
+
+
+@pytest.mark.parametrize("provider", ("auto", "command", "openai"))
+def test_post_runs_rejects_each_provider_selection(tmp_path: Path, provider: str):
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir, workspace_dir=tmp_path)
+
+    response = app.handle(
+        "/runs",
+        method="POST",
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
+        body=f"prompt=disabled&prompt_image_provider={provider}".encode("ascii"),
+    )
+
+    assert response.status == 403
+    assert "Web run creation is disabled for security." in response.text
+    assert not runs_dir.exists()
+
+
+def test_direct_create_run_response_rejects_valid_csrf_without_writing(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir, workspace_dir=tmp_path)
+
+    response = app.create_run_response(
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
+        body=b"prompt=disabled&prompt_image_provider=command",
+    )
+
+    assert response.status == 403
+    assert "Web run creation is disabled for security." in response.text
+    assert not runs_dir.exists()
 
 
 def test_home_recent_run_card_surfaces_print_verdict_before_bundle_download(tmp_path: Path):
@@ -397,7 +489,7 @@ def test_post_physical_start_creates_starter_packet_and_redirects(tmp_path: Path
     response = app.handle(
         "/physical/start",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=b"family=pla&operator=Zohar",
     )
 
@@ -496,7 +588,7 @@ def test_post_physical_record_writes_passed_evidence_and_copies_photo(
     response = app.handle(
         "/physical/record",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -537,7 +629,7 @@ def test_post_physical_record_requires_photo(tmp_path: Path) -> None:
     response = app.handle(
         "/physical/record",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -552,6 +644,41 @@ def test_post_physical_record_requires_photo(tmp_path: Path) -> None:
     assert response.status == 400
     assert "Physical evidence photo is required." in response.text
     assert evidence["print_status"] == "not_printed"
+
+
+def test_post_physical_record_rejects_active_photo_upload(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    start_physical_validation(
+        runs_dir,
+        family="pla",
+        operator="Zohar",
+    )
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_form_body(
+        fields={
+            "family": "pla",
+            "print_status": "passed",
+            "operator": "Zohar",
+            "first_layer": "clean first layer",
+            "adhesion": "held through print",
+        },
+        file_field="photo",
+        filename="evidence.html",
+        content_type="text/html",
+        file_content=b"<!doctype html><script>alert(1)</script>",
+    )
+
+    response = app.handle(
+        "/physical/record",
+        method="POST",
+        headers=_csrf_headers(app, content_type),
+        body=body,
+    )
+
+    run_root = runs_dir / "physical-pla-validation"
+    assert response.status == 400
+    assert "cannot be an active web document or script" in response.text
+    assert not (run_root / "90_physical" / "artifacts" / "evidence.html").exists()
 
 
 def test_beta_plan_json_endpoint_returns_action_plan(tmp_path: Path):
@@ -731,7 +858,7 @@ def test_post_release_start_writes_handoff_and_redirects(tmp_path: Path):
     response = app.handle(
         "/release/start",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=b"",
     )
 
@@ -778,10 +905,12 @@ def test_final_plan_json_endpoint_returns_ordered_endgame_plan(monkeypatch, tmp_
 
 
 def test_final_next_json_endpoint_returns_focused_next_action(monkeypatch, tmp_path: Path):
+    manifest_path = tmp_path / "regressions.json"
+
     def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
         assert release_dir == tmp_path / "release"
         assert runs_dir == tmp_path / "runs"
-        assert regression_manifest_path == tmp_path / "regressions.json"
+        assert regression_manifest_path is None
         return {
             "schema_version": 1,
             "overall_status": "action_required",
@@ -801,11 +930,10 @@ def test_final_next_json_endpoint_returns_focused_next_action(monkeypatch, tmp_p
     app = create_app(
         release_dir=tmp_path / "release",
         runs_dir=tmp_path / "runs",
+        regression_manifest_path=manifest_path,
     )
 
-    response = app.handle(
-        f"/final-next.json?regression_manifest={tmp_path / 'regressions.json'}"
-    )
+    response = app.handle("/final-next.json")
 
     payload = json.loads(response.text)
     assert response.status == 200
@@ -1027,7 +1155,7 @@ def test_post_beta_feedback_record_writes_packet_and_copies_artifact(
     response = app.handle(
         "/beta-feedback/record",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -1075,13 +1203,53 @@ def test_post_beta_feedback_record_requires_summary(tmp_path: Path) -> None:
     response = app.handle(
         "/beta-feedback/record",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
     assert response.status == 400
     assert "Trusted-user feedback summary is required." in response.text
     assert not (run_root / "90_beta" / "trusted_user_feedback.json").exists()
+
+
+def test_post_beta_feedback_record_rejects_active_artifact_upload(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    run_root = runs_dir / "run-trusted-ui-active-artifact"
+    report = run_root / "80_reports" / "run_report.html"
+    report.parent.mkdir(parents=True)
+    report.write_text("<html>report</html>", encoding="utf-8")
+    start_trusted_user_feedback(
+        run_root,
+        tester="Maya",
+        input_type="existing_stl",
+        material="SUNLU TPU 90A",
+        printer="Bambu Lab P2S",
+    )
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_form_body(
+        fields={
+            "slot": "1",
+            "outcome": "passed",
+            "summary": "Maya reviewed the run and would print it.",
+            "would_print": "yes",
+            "recommendation": "ready",
+        },
+        file_field="artifact",
+        filename="review.html",
+        content_type="text/html",
+        file_content=b"<!doctype html><script>alert(1)</script>",
+    )
+
+    response = app.handle(
+        "/beta-feedback/record",
+        method="POST",
+        headers=_csrf_headers(app, content_type),
+        body=body,
+    )
+
+    assert response.status == 400
+    assert "cannot be an active web document or script" in response.text
+    assert not (run_root / "90_beta" / "artifacts" / "review.html").exists()
 
 
 def test_home_response_renders_trusted_user_feedback_gate(tmp_path: Path):
@@ -1142,7 +1310,7 @@ def test_home_trusted_feedback_outcomes_are_missing_when_no_outcomes_recorded(
     assert "No completed tester outcomes recorded." in response.text
 
 
-def test_beta_plan_json_endpoint_accepts_regression_manifest_query(
+def test_beta_plan_json_endpoint_ignores_regression_manifest_query(
     monkeypatch,
     tmp_path: Path,
 ):
@@ -1150,7 +1318,7 @@ def test_beta_plan_json_endpoint_accepts_regression_manifest_query(
 
     def fake_beta_plan(runs_dir, *, regression_manifest_path=None):
         assert runs_dir == tmp_path / "runs"
-        assert regression_manifest_path == manifest_path
+        assert regression_manifest_path is None
         return {
             "schema_version": 1,
             "overall_status": "action_required",
@@ -1296,39 +1464,103 @@ def test_home_response_renders_media_meshgen_smoke_status(monkeypatch, tmp_path:
     assert "media-meshgen-smoke-status.json" in response.text
 
 
-def test_home_response_renders_media_meshgen_setup_forms(tmp_path: Path):
+def test_home_response_renders_read_only_media_meshgen_status(tmp_path: Path):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
 
     response = app.handle("/")
 
     assert response.status == 200
     assert 'id="media-meshgen-setup"' in response.text
-    assert 'action="/media-meshgen/template"' in response.text
-    assert 'action="/media-meshgen/comfyui-workflow"' in response.text
-    assert 'action="/media-meshgen/configure"' in response.text
-    assert 'action="/media-meshgen/smoke"' in response.text
-    assert "/media-meshgen/comfyui-preflight.json" in response.text
-    assert "media-meshgen-comfyui-preflight" in response.text
-    assert 'name="preset"' in response.text
-    assert 'name="workflow"' in response.text
-    assert 'name="command"' in response.text
-    assert 'name="comfyui_workflow"' in response.text
-    assert 'name="comfyui_image_paths"' in response.text
-    assert 'name="params_json"' in response.text
-    assert 'name="reference"' in response.text
-    assert 'name="output_format"' in response.text
-    assert 'value="comfyui-api"' in response.text
-    assert 'value="glb"' in response.text
-    assert "This does not prove semantic reconstruction" in response.text
+    assert "Web configuration, workflow uploads, and smoke execution are disabled" in response.text
+    assert "/media-meshgen-smoke-status.json" in response.text
+    assert 'action="/media-meshgen/template"' not in response.text
+    assert 'action="/media-meshgen/comfyui-workflow"' not in response.text
+    assert 'action="/media-meshgen/configure"' not in response.text
+    assert 'action="/media-meshgen/smoke"' not in response.text
 
 
-def test_media_meshgen_comfyui_preflight_json_reports_runtime(tmp_path: Path):
+def test_post_media_meshgen_routes_are_disabled_before_writes_or_execution(
+    monkeypatch,
+    tmp_path: Path,
+):
+    calls: list[str] = []
+
+    def forbidden(name: str):
+        def _forbidden(*args, **kwargs):
+            calls.append(name)
+            raise AssertionError(f"{name} must not be reached from a web request")
+
+        return _forbidden
+
+    for name in (
+        "configured_media_meshgen_command",
+        "inspect_comfyui_workflow",
+        "run_media_meshgen_smoke",
+        "validate_comfyui_params",
+        "validate_comfyui_url",
+        "write_media_meshgen_command_template",
+        "write_project_config",
+    ):
+        monkeypatch.setattr(web_server, name, forbidden(name))
+
+    config_path = tmp_path / ".printpipe" / "config.json"
+    config_path.parent.mkdir()
+    config_path.write_text(
+        json.dumps({"media_meshgen_command": "python -c 'raise SystemExit(99)'"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PRINTPIPE_MEDIA_MESHGEN_COMMAND", "python -c 'raise SystemExit(98)'")
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
-    comfy_url = _serve_comfy_runtime(
-        {
-            "/system_stats": (200, {"system": {"os": "posix"}}),
-            "/object_info": (200, {"SaveGLB": {}}),
-        }
+    workflow_body, workflow_content_type = _multipart_form_body(
+        fields={"command": "python -c exploit", "comfyui_url": "http://127.0.0.1:8188"},
+        file_field="workflow",
+        filename="untrusted.json",
+        content_type="application/json",
+        file_content=b'{"1": {"class_type": "SaveGLB", "inputs": {}}}',
+    )
+    smoke_body, smoke_content_type = _multipart_form_body(
+        fields={"prompt": "exploit", "output_format": "glb"},
+        file_field="reference",
+        filename="reference.png",
+        content_type="image/png",
+        file_content=b"not an image",
+    )
+    requests = (
+        ("/media-meshgen/template", b"preset=comfyui-api", "application/x-www-form-urlencoded"),
+        ("/media-meshgen/comfyui-workflow", workflow_body, workflow_content_type),
+        ("/media-meshgen/configure", b"command=python+-c+exploit", "application/x-www-form-urlencoded"),
+        ("/media-meshgen/smoke", smoke_body, smoke_content_type),
+    )
+    before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*")}
+
+    for path, body, content_type in requests:
+        for headers in (
+            _csrf_headers(app, content_type),
+            {"Content-Type": content_type},
+        ):
+            response = app.handle(path, method="POST", headers=headers, body=body)
+            assert response.status == 403
+            assert "Media meshgen web actions are disabled for security." in response.text
+
+    after = {path.relative_to(tmp_path) for path in tmp_path.rglob("*")}
+    assert after == before
+    assert config_path.read_text(encoding="utf-8") == json.dumps(
+        {"media_meshgen_command": "python -c 'raise SystemExit(99)'"}
+    )
+    assert calls == []
+
+
+def test_media_meshgen_comfyui_preflight_json_reports_runtime(monkeypatch, tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+    comfy_url = "http://127.0.0.1:8188"
+    monkeypatch.setattr(
+        web_server,
+        "preflight_comfyui_runtime",
+        lambda url, *, timeout_seconds: {
+            "status": "ready",
+            "comfyui_url": url,
+            "timeout_seconds": timeout_seconds,
+        },
     )
 
     response = app.handle(
@@ -1341,7 +1573,18 @@ def test_media_meshgen_comfyui_preflight_json_reports_runtime(tmp_path: Path):
     assert payload["comfyui_url"] == comfy_url
 
 
-def test_post_media_meshgen_comfyui_workflow_upload_configures_params(
+def test_media_meshgen_comfyui_preflight_rejects_non_allowlisted_host(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+
+    response = app.handle(
+        "/media-meshgen/comfyui-preflight.json?url=http%3A%2F%2F169.254.169.254%3A8188"
+    )
+
+    assert response.status == 400
+    assert "ComfyUI URL host is not allowed." in response.text
+
+
+def legacy_post_media_meshgen_comfyui_workflow_upload_configures_params(
     tmp_path: Path,
 ):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
@@ -1373,7 +1616,7 @@ def test_post_media_meshgen_comfyui_workflow_upload_configures_params(
     response = app.handle(
         "/media-meshgen/comfyui-workflow",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -1394,7 +1637,7 @@ def test_post_media_meshgen_comfyui_workflow_upload_configures_params(
     }
 
 
-def test_post_media_meshgen_comfyui_workflow_requires_upload(tmp_path: Path):
+def legacy_post_media_meshgen_comfyui_workflow_requires_upload(tmp_path: Path):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
     body, content_type = _multipart_fields_body(
         {"command": "python scripts/media_meshgen_adapter.py"}
@@ -1403,7 +1646,7 @@ def test_post_media_meshgen_comfyui_workflow_requires_upload(tmp_path: Path):
     response = app.handle(
         "/media-meshgen/comfyui-workflow",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -1411,7 +1654,7 @@ def test_post_media_meshgen_comfyui_workflow_requires_upload(tmp_path: Path):
     assert "ComfyUI workflow JSON upload is required." in response.text
 
 
-def test_post_media_meshgen_comfyui_workflow_rejects_unready_workflow(
+def legacy_post_media_meshgen_comfyui_workflow_rejects_unready_workflow(
     tmp_path: Path,
 ):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
@@ -1435,25 +1678,25 @@ def test_post_media_meshgen_comfyui_workflow_rejects_unready_workflow(
     response = app.handle(
         "/media-meshgen/comfyui-workflow",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
     assert response.status == 400
     assert "ComfyUI workflow is not ready for PrintPipe." in response.text
     assert "Workflow does not include a SaveGLB node." in response.text
-    assert (tmp_path / "workflows" / "missing_save_glb.json").exists()
+    assert not (tmp_path / "workflows" / "missing_save_glb.json").exists()
     assert not (tmp_path / "scripts" / "media_meshgen_adapter.py").exists()
     assert not (tmp_path / ".printpipe" / "config.json").exists()
 
 
-def test_post_media_meshgen_template_writes_adapter_and_redirects(tmp_path: Path):
+def legacy_post_media_meshgen_template_writes_adapter_and_redirects(tmp_path: Path):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
 
     response = app.handle(
         "/media-meshgen/template",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=b"",
     )
 
@@ -1465,13 +1708,13 @@ def test_post_media_meshgen_template_writes_adapter_and_redirects(tmp_path: Path
     assert adapter.stat().st_mode & 0o111
 
 
-def test_post_media_meshgen_template_writes_selected_preset_and_redirects(tmp_path: Path):
+def legacy_post_media_meshgen_template_writes_selected_preset_and_redirects(tmp_path: Path):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
 
     response = app.handle(
         "/media-meshgen/template",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=b"preset=comfyui-api",
     )
 
@@ -1483,7 +1726,7 @@ def test_post_media_meshgen_template_writes_selected_preset_and_redirects(tmp_pa
     assert "PRINTPIPE_COMFYUI_WORKFLOW" in text
 
 
-def test_post_media_meshgen_configure_writes_project_config_and_redirects(
+def legacy_post_media_meshgen_configure_writes_project_config_and_redirects(
     tmp_path: Path,
 ):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
@@ -1491,7 +1734,7 @@ def test_post_media_meshgen_configure_writes_project_config_and_redirects(
     response = app.handle(
         "/media-meshgen/configure",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=b"command=python+scripts%2Fmedia_meshgen_adapter.py",
     )
 
@@ -1501,7 +1744,22 @@ def test_post_media_meshgen_configure_writes_project_config_and_redirects(
     assert config["media_meshgen_command"] == "python scripts/media_meshgen_adapter.py"
 
 
-def test_post_media_meshgen_configure_writes_comfyui_params_and_redirects(
+def legacy_post_media_meshgen_configure_rejects_custom_web_command(tmp_path: Path):
+    app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
+
+    response = app.handle(
+        "/media-meshgen/configure",
+        method="POST",
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
+        body=b"command=python+-c+print%281%29",
+    )
+
+    assert response.status == 400
+    assert "bundled adapter command" in response.text
+    assert not (tmp_path / ".printpipe" / "config.json").exists()
+
+
+def legacy_post_media_meshgen_configure_writes_comfyui_params_and_redirects(
     tmp_path: Path,
 ):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
@@ -1523,7 +1781,7 @@ def test_post_media_meshgen_configure_writes_comfyui_params_and_redirects(
     response = app.handle(
         "/media-meshgen/configure",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=(
             b"command=python+scripts%2Fmedia_meshgen_adapter.py"
             b"&comfyui_url=http%3A%2F%2F127.0.0.1%3A8188"
@@ -1547,7 +1805,7 @@ def test_post_media_meshgen_configure_writes_comfyui_params_and_redirects(
     }
 
 
-def test_post_media_meshgen_configure_rejects_unready_comfyui_params(
+def legacy_post_media_meshgen_configure_rejects_unready_comfyui_params(
     tmp_path: Path,
 ):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
@@ -1561,7 +1819,7 @@ def test_post_media_meshgen_configure_rejects_unready_comfyui_params(
     response = app.handle(
         "/media-meshgen/configure",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=(
             b"command=python+scripts%2Fmedia_meshgen_adapter.py"
             b"&comfyui_workflow=workflows%2Fbad.json"
@@ -1575,7 +1833,7 @@ def test_post_media_meshgen_configure_rejects_unready_comfyui_params(
     assert not (tmp_path / ".printpipe" / "config.json").exists()
 
 
-def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
+def legacy_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
     tmp_path: Path,
 ):
     source_mesh = (
@@ -1620,7 +1878,7 @@ def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
     response = app.handle(
         "/media-meshgen/smoke",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -1634,7 +1892,7 @@ def test_post_media_meshgen_smoke_runs_configured_adapter_and_redirects(
     assert (smoke_paths[0].parents[1] / payload["output_path"]).exists()
 
 
-def test_post_media_meshgen_smoke_forwards_saved_adapter_params(tmp_path: Path):
+def legacy_post_media_meshgen_smoke_forwards_saved_adapter_params(tmp_path: Path):
     source_mesh = (
         Path(__file__).parent
         / "fixtures"
@@ -1687,7 +1945,7 @@ def test_post_media_meshgen_smoke_forwards_saved_adapter_params(tmp_path: Path):
     response = app.handle(
         "/media-meshgen/smoke",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -1702,9 +1960,47 @@ def test_post_media_meshgen_smoke_forwards_saved_adapter_params(tmp_path: Path):
     assert params["smoke"] is True
 
 
-def test_post_media_meshgen_smoke_requires_reference(tmp_path: Path):
+def legacy_post_media_meshgen_smoke_requires_reference(tmp_path: Path):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
     body, content_type = _multipart_fields_body({"prompt": "printable hook"})
+
+    response = app.handle(
+        "/media-meshgen/smoke",
+        method="POST",
+        headers=_csrf_headers(app, content_type),
+        body=body,
+    )
+
+    assert response.status == 400
+    assert "Media meshgen reference upload is required." in response.text
+
+
+def legacy_post_media_meshgen_smoke_requires_csrf_before_adapter_execution(tmp_path: Path):
+    marker = tmp_path / "smoke-ran.txt"
+    adapter = tmp_path / "adapter.py"
+    adapter.write_text(
+        "\n".join(
+            [
+                "from pathlib import Path",
+                f"Path({str(marker)!r}).write_text('ran', encoding='utf-8')",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runs_dir = tmp_path / "runs"
+    (tmp_path / ".printpipe").mkdir()
+    (tmp_path / ".printpipe" / "config.json").write_text(
+        json.dumps({"media_meshgen_command": f"python {adapter}"}),
+        encoding="utf-8",
+    )
+    app = create_app(runs_dir=runs_dir, workspace_dir=tmp_path)
+    body, content_type = _multipart_form_body(
+        fields={"prompt": "printable hook", "output_format": "glb"},
+        file_field="reference",
+        filename="reference.png",
+        content_type="image/png",
+        file_content=b"fake image",
+    )
 
     response = app.handle(
         "/media-meshgen/smoke",
@@ -1713,8 +2009,9 @@ def test_post_media_meshgen_smoke_requires_reference(tmp_path: Path):
         body=body,
     )
 
-    assert response.status == 400
-    assert "Media meshgen reference upload is required." in response.text
+    assert response.status == 403
+    assert "Invalid or missing CSRF token." in response.text
+    assert not marker.exists()
 
 
 def test_home_response_renders_release_status_summary(monkeypatch, tmp_path: Path):
@@ -1802,14 +2099,14 @@ def test_release_status_json_endpoint_returns_combined_release_report(
     assert payload["gates"][0]["id"] == "macos_distribution"
 
 
-def test_release_status_json_endpoint_accepts_regression_manifest_query(
+def test_release_status_json_endpoint_ignores_regression_manifest_query(
     monkeypatch,
     tmp_path: Path,
 ):
     manifest_path = tmp_path / "regression_manifest.json"
 
     def fake_release_status_report(*, release_dir, runs_dir, regression_manifest_path=None):
-        assert regression_manifest_path == manifest_path
+        assert regression_manifest_path is None
         return {
             "schema_version": 1,
             "overall_status": "action_required",
@@ -1887,7 +2184,7 @@ def test_readiness_json_endpoint_returns_combined_gate_report(monkeypatch, tmp_p
     assert payload["gates"][0]["id"] == "physical_validation"
 
 
-def test_readiness_json_endpoint_accepts_regression_manifest_query(
+def test_readiness_json_endpoint_ignores_regression_manifest_query(
     monkeypatch,
     tmp_path: Path,
 ):
@@ -1895,7 +2192,7 @@ def test_readiness_json_endpoint_accepts_regression_manifest_query(
 
     def fake_readiness_report(runs_dir, *, regression_manifest_path=None):
         assert runs_dir == tmp_path / "runs"
-        assert regression_manifest_path == manifest_path
+        assert regression_manifest_path is None
         return {
             "schema_version": 1,
             "overall_status": "action_required",
@@ -1921,7 +2218,87 @@ def test_readiness_json_endpoint_accepts_regression_manifest_query(
     assert payload["gates"][0]["id"] == "beta_regressions"
 
 
-def test_configured_regression_manifest_feeds_home_and_json_endpoints(
+def test_readiness_family_endpoints_ignore_query_and_constructor_regression_manifests(
+    monkeypatch,
+    tmp_path: Path,
+):
+    observed: list[tuple[str, Path | None]] = []
+    command_marker = tmp_path / "regression-command-ran"
+
+    def observe(name: str, regression_manifest_path: Path | None) -> None:
+        observed.append((name, regression_manifest_path))
+        if regression_manifest_path is not None:
+            command_marker.write_text("ran", encoding="utf-8")
+
+    def fake_readiness_report(runs_dir, *, regression_manifest_path=None):
+        observe("readiness", regression_manifest_path)
+        return {"schema_version": 1, "overall_status": "passed", "gates": []}
+
+    def fake_release_status_report(*, release_dir, runs_dir, regression_manifest_path=None):
+        observe("release-status", regression_manifest_path)
+        return {"schema_version": 1, "overall_status": "passed", "gates": []}
+
+    def fake_release_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        observe("release-plan", regression_manifest_path)
+        return {"schema_version": 1, "overall_status": "passed", "actions": []}
+
+    def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
+        observe("final", regression_manifest_path)
+        return {
+            "schema_version": 1,
+            "overall_status": "passed",
+            "action_count": 0,
+            "sections": [],
+        }
+
+    def fake_beta_plan(runs_dir, *, regression_manifest_path=None):
+        observe("beta-plan", regression_manifest_path)
+        return {"schema_version": 1, "overall_status": "passed", "actions": []}
+
+    monkeypatch.setattr(
+        "printpipe.web.server.build_beta_readiness_report",
+        fake_readiness_report,
+    )
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_status_report",
+        fake_release_status_report,
+    )
+    monkeypatch.setattr(
+        "printpipe.web.server.build_release_distribution_plan",
+        fake_release_plan,
+    )
+    monkeypatch.setattr("printpipe.web.server.build_final_action_plan", fake_final_plan)
+    monkeypatch.setattr("printpipe.web.server.build_beta_action_plan", fake_beta_plan)
+    app = create_app(
+        runs_dir=tmp_path / "runs",
+        release_dir=tmp_path / "release",
+        regression_manifest_path=tmp_path / "operator-configured.json",
+    )
+    query = f"?regression_manifest={tmp_path / 'attacker.json'}"
+
+    for path in (
+        "/readiness.json",
+        "/release-status.json",
+        "/release-plan.json",
+        "/final-plan.json",
+        "/final-next.json",
+        "/beta-plan.json",
+    ):
+        response = app.handle(path + query)
+        assert response.status == 200
+
+    assert observed == [
+        ("readiness", None),
+        ("release-status", None),
+        ("release-plan", None),
+        ("final", None),
+        ("final", None),
+        ("beta-plan", None),
+    ]
+    assert not command_marker.exists()
+
+
+def test_configured_regression_manifest_is_ignored_by_home_and_json_endpoints(
     monkeypatch,
     tmp_path: Path,
 ):
@@ -2003,23 +2380,23 @@ def test_configured_regression_manifest_feeds_home_and_json_endpoints(
     release = json.loads(app.handle("/release-status.json").text)
     beta_plan = json.loads(app.handle("/beta-plan.json").text)
 
-    encoded_manifest = quote(str(manifest_path), safe="")
     assert home.status == 200
     assert "Beta regressions" in home.text
     assert "Replay captured regressions" in home.text
-    assert f"/readiness.json?regression_manifest={encoded_manifest}" in home.text
-    assert f"/release-status.json?regression_manifest={encoded_manifest}" in home.text
-    assert f"/beta-plan.json?regression_manifest={encoded_manifest}" in home.text
+    assert 'href="/readiness.json"' in home.text
+    assert 'href="/release-status.json"' in home.text
+    assert 'href="/beta-plan.json"' in home.text
+    assert "regression_manifest=" not in home.text
     assert readiness["gates"][0]["id"] == "beta_regressions"
     assert release["gates"][0]["id"] == "beta_regressions"
     assert beta_plan["actions"][0]["id"] == "run_regressions"
     assert observed == [
-        ("release", manifest_path),
-        ("readiness", manifest_path),
-        ("beta-plan", manifest_path),
-        ("readiness", manifest_path),
-        ("release", manifest_path),
-        ("beta-plan", manifest_path),
+        ("release", None),
+        ("readiness", None),
+        ("beta-plan", None),
+        ("readiness", None),
+        ("release", None),
+        ("beta-plan", None),
     ]
 
 
@@ -2670,7 +3047,7 @@ def test_post_run_edit_creates_non_destructive_edit_run(tmp_path: Path):
     response = app.handle(
         "/runs/run-edit-001/edits",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=body,
     )
 
@@ -2715,7 +3092,7 @@ def test_post_run_edit_redirects_to_failed_child_rebuild_report(tmp_path: Path):
     response = app.handle(
         "/runs/run-edit-media-001/edits",
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
         body=body,
     )
 
@@ -2729,6 +3106,64 @@ def test_post_run_edit_redirects_to_failed_child_rebuild_report(tmp_path: Path):
         (stage["stage"], stage["status"]) for stage in report["stages"]
     }
     assert report["warnings"]
+
+
+def test_post_run_reslice_is_disabled_before_lookup_or_execution(monkeypatch, tmp_path: Path):
+    calls: list[str] = []
+
+    def forbidden(name: str):
+        def _forbidden(*args, **kwargs):
+            calls.append(name)
+            raise AssertionError(f"{name} must not be reached from a web request")
+
+        return _forbidden
+
+    monkeypatch.setattr(PrintPipeWebApp, "_run_root", forbidden("run_root"))
+    monkeypatch.setattr(web_server, "reslice", forbidden("reslice"))
+    runs_dir = tmp_path / "runs"
+    config_path = tmp_path / "slicer-config.json"
+    config_path.write_text('{"slicer_command":"python -c exploit"}', encoding="utf-8")
+    monkeypatch.setenv(CONFIG_PATH_ENV, str(config_path))
+    monkeypatch.setenv("PRINTPIPE_SLICER_COMMAND", "python -c 'raise SystemExit(99)'")
+    app = create_app(runs_dir=runs_dir)
+    body = b'{"material":"hostile","process_overrides":{"layer_height":["0.2"],"command":"exploit"}}'
+    before = {path.relative_to(tmp_path) for path in tmp_path.rglob("*")}
+
+    for headers in (_csrf_headers(app, "application/json"), {"Content-Type": "application/json"}):
+        response = app.handle(
+            "/runs/attacker/reslice",
+            method="POST",
+            headers=headers,
+            body=body,
+        )
+        assert response.status == 403
+        assert "Web re-slicing is disabled for security." in response.text
+
+    response = app.reslice_response(
+        "attacker",
+        headers=_csrf_headers(app, "application/json"),
+        body=body,
+    )
+
+    assert response.status == 403
+    assert "Web re-slicing is disabled for security." in response.text
+    assert {path.relative_to(tmp_path) for path in tmp_path.rglob("*")} == before
+    assert calls == []
+
+
+def test_run_detail_disables_web_reslice_control(tmp_path: Path):
+    source = tmp_path / "reference.png"
+    source.write_bytes(b"source")
+    runs_dir = tmp_path / "runs"
+    create_run(source, runs_dir, run_id="run-reslice-ui")
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/runs/run-reslice-ui")
+
+    assert response.status == 200
+    assert "Web re-slicing is disabled for security." in response.text
+    assert "/static/settings.js" not in response.text
+    assert "window.PrintPipeSettings && window.PrintPipeSettings.init(" in response.text
 
 
 def test_home_response_groups_run_artifacts_for_preview_report_and_download(tmp_path: Path):
@@ -2803,14 +3238,18 @@ def test_post_run_open_folder_opens_safe_bundle_folder_and_redirects(tmp_path: P
     opened: list[Path] = []
     app = create_app(runs_dir=runs_dir, path_opener=opened.append)
 
-    response = app.handle("/runs/run-open-001/open-folder/bundle", method="POST")
+    response = app.handle(
+        "/runs/run-open-001/open-folder/bundle",
+        method="POST",
+        headers=_csrf_headers(app),
+    )
 
     assert response.status == 303
     assert response.header("Location") == "/runs/run-open-001"
     assert opened == [layout.bundle_dir]
 
 
-def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(
+def legacy_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(
     tmp_path: Path,
     monkeypatch,
 ):
@@ -2832,7 +3271,7 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(
     response = app.handle(
         "/runs",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -2878,7 +3317,7 @@ def test_post_runs_accepts_multipart_upload_creates_skeleton_run_and_redirects(
     assert "<strong>Mesh generation</strong>" in workbench.text
 
 
-def test_post_runs_accepts_prompt_only_creates_prompt_run_and_failed_receipts(tmp_path: Path):
+def legacy_post_runs_accepts_prompt_only_creates_prompt_run_and_failed_receipts(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     app = create_app(runs_dir=runs_dir)
     body, content_type = _multipart_fields_body(
@@ -2894,7 +3333,7 @@ def test_post_runs_accepts_prompt_only_creates_prompt_run_and_failed_receipts(tm
     response = app.handle(
         "/runs",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -2923,7 +3362,36 @@ def test_post_runs_accepts_prompt_only_creates_prompt_run_and_failed_receipts(tm
     ]
 
 
-def test_post_runs_upload_with_prompt_preserves_prompt_hint_in_launch_options(tmp_path: Path):
+def legacy_post_runs_prompt_only_requires_csrf_before_provider_execution(
+    tmp_path: Path,
+    monkeypatch,
+):
+    monkeypatch.setenv("OPENAI_API_KEY", "codex-security-test-key")
+    runs_dir = tmp_path / "runs"
+    app = create_app(runs_dir=runs_dir)
+    body, content_type = _multipart_fields_body(
+        {
+            "prompt": "small ergonomic wall hook with rounded screw tabs",
+            "printer_id": "bambu-p2s-0-4-nozzle",
+            "material_id": "pla",
+            "prompt_image_provider": "openai",
+            "target_length_mm": "80",
+        }
+    )
+
+    response = app.handle(
+        "/runs",
+        method="POST",
+        headers={"Content-Type": content_type},
+        body=body,
+    )
+
+    assert response.status == 403
+    assert "Invalid or missing CSRF token." in response.text
+    assert not runs_dir.exists() or not any(runs_dir.iterdir())
+
+
+def legacy_post_runs_upload_with_prompt_preserves_prompt_hint_in_launch_options(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     app = create_app(runs_dir=runs_dir)
     source = (
@@ -2949,7 +3417,7 @@ def test_post_runs_upload_with_prompt_preserves_prompt_hint_in_launch_options(tm
     response = app.handle(
         "/runs",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -2963,7 +3431,7 @@ def test_post_runs_upload_with_prompt_preserves_prompt_hint_in_launch_options(tm
     assert (run_root / "60_bundle" / "existing_stl_tiny_tetrahedron.3mf").exists()
 
 
-def test_post_runs_existing_stl_creates_bundle_and_report(tmp_path: Path):
+def legacy_post_runs_existing_stl_creates_bundle_and_report(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     app = create_app(runs_dir=runs_dir)
     source = (
@@ -2988,7 +3456,7 @@ def test_post_runs_existing_stl_creates_bundle_and_report(tmp_path: Path):
     response = app.handle(
         "/runs",
         method="POST",
-        headers={"Content-Type": content_type},
+        headers=_csrf_headers(app, content_type),
         body=body,
     )
 
@@ -3074,6 +3542,20 @@ def test_static_response_serves_local_generated_html(tmp_path: Path):
     assert response.status == 200
     assert response.header("Content-Type") == "text/html; charset=utf-8"
     assert response.text == html
+
+
+def test_static_response_does_not_serve_uploaded_evidence_html(tmp_path: Path):
+    runs_dir = tmp_path / "runs"
+    artifact_dir = runs_dir / "example" / "90_beta" / "artifacts"
+    artifact_dir.mkdir(parents=True)
+    page = artifact_dir / "review.html"
+    page.write_text("<!doctype html><script>alert(1)</script>\n", encoding="utf-8")
+    app = create_app(runs_dir=runs_dir)
+
+    response = app.handle("/static/example/90_beta/artifacts/review.html")
+
+    assert response.status == 404
+    assert "script" not in response.text
 
 
 def test_static_response_rejects_path_traversal(tmp_path: Path):

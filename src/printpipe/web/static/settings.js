@@ -210,7 +210,7 @@
     }
 
     sliceButton.addEventListener("click", function () {
-      submitReslice(state.runId, collectOverrides(), {
+      submitReslice(state.runId, collectOverrides(), state.csrfToken || "", {
         button: sliceButton,
         status: status,
         applied: applied,
@@ -256,14 +256,19 @@
     node.className = "ppset-status" + (tone ? " ppset-status-" + tone : "");
   }
 
-  function submitReslice(runId, overrides, ui) {
+  function submitReslice(runId, overrides, csrfToken, ui) {
     ui.button.disabled = true;
     setStatus(ui.status, "Slicing…", "busy");
     ui.applied.innerHTML = "";
 
+    const headers = { "Content-Type": "application/json" };
+    if (csrfToken) {
+      headers["X-PrintPipe-CSRF"] = csrfToken;
+    }
+
     fetch("/runs/" + encodeURIComponent(runId) + "/reslice", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: JSON.stringify({ process_overrides: overrides }),
     })
       .then(function (response) {
@@ -298,6 +303,7 @@
     const options = config || {};
     const material = options.material || "Generic PLA";
     const runId = options.runId;
+    const csrfToken = options.csrfToken || "";
     const mountId = options.mountId || "ppset-mount";
     const root = document.getElementById(mountId);
 
@@ -321,7 +327,7 @@
       })
       .then(function (payload) {
         const process = (payload && payload.process) || {};
-        renderPanel(root, process, { material: material, runId: runId });
+        renderPanel(root, process, { material: material, runId: runId, csrfToken: csrfToken });
       })
       .catch(function (err) {
         root.innerHTML =

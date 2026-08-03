@@ -1561,7 +1561,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.command == "media-meshgen-comfyui-preflight":
-        return _media_meshgen_comfyui_preflight(args)
+        return _media_meshgen_comfyui_preflight(args, parser=parser)
 
     if args.command == "media-meshgen-heightfield":
         return _media_meshgen_heightfield(args)
@@ -2508,17 +2508,24 @@ def _media_meshgen_comfyui_inspect(
     return 0
 
 
-def _media_meshgen_comfyui_preflight(args: argparse.Namespace) -> int:
+def _media_meshgen_comfyui_preflight(
+    args: argparse.Namespace,
+    *,
+    parser: argparse.ArgumentParser,
+) -> int:
     from printpipe.meshgen.comfyui_runtime import (
         preflight_comfyui_runtime,
         render_comfyui_runtime_preflight,
     )
 
-    report = preflight_comfyui_runtime(
-        str(args.url),
-        timeout_seconds=float(args.timeout),
-        required_nodes=tuple(args.required_node or ["SaveGLB"]),
-    )
+    try:
+        report = preflight_comfyui_runtime(
+            str(args.url),
+            timeout_seconds=float(args.timeout),
+            required_nodes=tuple(args.required_node or ["SaveGLB"]),
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:

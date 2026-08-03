@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import mimetypes
+import secrets
 import shlex
 import tempfile
 from collections.abc import Callable, Iterable
@@ -14,7 +15,7 @@ from email.policy import default as email_policy
 from html import escape
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
@@ -53,7 +54,7 @@ from printpipe.meshgen.command_template import (
 )
 from printpipe.meshgen.comfyui_workflow import inspect_comfyui_workflow
 from printpipe.meshgen.comfyui_workflow import validate_comfyui_params
-from printpipe.meshgen.comfyui_runtime import preflight_comfyui_runtime
+from printpipe.meshgen.comfyui_runtime import preflight_comfyui_runtime, validate_comfyui_url
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.meshgen.smoke import run_media_meshgen_smoke
 from printpipe.packaging.release_plan import (
@@ -88,6 +89,22 @@ _JSON_MEDIA_TYPE = "application/json; charset=utf-8"
 _TEXT_MEDIA_TYPE = "text/plain; charset=utf-8"
 _STATIC_PREFIX = "/static/"
 _RUNS_PREFIX = "/runs/"
+_CSRF_FIELD = "csrf_token"
+_CSRF_HEADER = "X-PrintPipe-CSRF"
+_TRUSTED_MEDIA_MESHGEN_COMMAND = "python scripts/media_meshgen_adapter.py"
+_MEDIA_MESHGEN_WEB_ACTIONS_DISABLED = (
+    "Media meshgen web actions are disabled for security. "
+    "Use the trusted local CLI to configure adapters and run smoke tests."
+)
+_WEB_RUN_CREATION_DISABLED = (
+    "Web run creation is disabled for security. "
+    "Use the trusted local CLI to create runs and select providers."
+)
+_WEB_RESLICE_DISABLED = (
+    "Web re-slicing is disabled for security. "
+    "Use the trusted local CLI to change slicer settings and re-slice runs."
+)
+_ACTIVE_UPLOAD_SUFFIXES = {".html", ".htm", ".shtml", ".svg", ".xml", ".xhtml", ".js", ".mjs"}
 _ASSET_MEDIA_TYPES = {
     ".js": "text/javascript",
     ".mjs": "text/javascript",
@@ -187,6 +204,7 @@ class _UploadedFile:
 
 @dataclass(frozen=True)
 class _ParsedRunForm:
+    fields: dict[str, str]
     upload: _UploadedFile | None
     prompt: str
     launch_options: dict[str, Any]
@@ -235,6 +253,7 @@ class PrintPipeWebApp:
         regression_manifest_path: str | Path | None = None,
         path_opener: Callable[[Path], object] | None = None,
         workspace_dir: str | Path | None = None,
+        csrf_token: str | None = None,
     ) -> None:
         self.static_roots = tuple(Path(root) for root in static_roots)
         self.runs_dir = Path(runs_dir) if runs_dir is not None else None
@@ -246,6 +265,7 @@ class PrintPipeWebApp:
             else None
         )
         self.path_opener = path_opener
+        self.csrf_token = csrf_token or secrets.token_urlsafe(32)
 
     def handle(
         self,
@@ -269,7 +289,7 @@ class PrintPipeWebApp:
             if path == "/physical/start":
                 return self.start_physical_response(headers=headers, body=body)
             if path == "/release/start":
-                return self.start_release_response()
+                return self.start_release_response(headers=headers, body=body)
             if path == "/media-meshgen/template":
                 return self.start_media_meshgen_template_response(headers=headers, body=body)
             if path == "/media-meshgen/comfyui-workflow":
@@ -288,7 +308,12 @@ class PrintPipeWebApp:
                 open_route = _open_folder_route(relative_run_path)
                 if open_route is not None:
                     run_id, target = open_route
-                    return self.open_folder_response(run_id, target)
+                    return self.open_folder_response(
+                        run_id,
+                        target,
+                        headers=headers,
+                        body=body,
+                    )
                 edit_run_id = _edit_route_id(relative_run_path)
                 if edit_run_id is not None:
                     return self.create_edit_response(edit_run_id, headers=headers, body=body)
@@ -309,33 +334,21 @@ class PrintPipeWebApp:
         if path == "/doctor.json":
             return self.doctor_response()
         if path == "/readiness.json":
-            return self.readiness_response(
-                regression_manifest_path=self._regression_manifest_for_query(query)
-            )
+            return self.readiness_response()
         if path == "/media-meshgen-smoke-status.json":
             return self.media_meshgen_smoke_status_response()
         if path == "/media-meshgen/comfyui-preflight.json":
             return self.media_meshgen_comfyui_preflight_response(query)
         if path == "/release-status.json":
-            return self.release_status_response(
-                regression_manifest_path=self._regression_manifest_for_query(query)
-            )
+            return self.release_status_response()
         if path == "/release-plan.json":
-            return self.release_plan_response(
-                regression_manifest_path=self._regression_manifest_for_query(query)
-            )
+            return self.release_plan_response()
         if path == "/final-plan.json":
-            return self.final_plan_response(
-                regression_manifest_path=self._regression_manifest_for_query(query)
-            )
+            return self.final_plan_response()
         if path == "/final-next.json":
-            return self.final_next_response(
-                regression_manifest_path=self._regression_manifest_for_query(query)
-            )
+            return self.final_next_response()
         if path == "/beta-plan.json":
-            return self.beta_plan_response(
-                regression_manifest_path=self._regression_manifest_for_query(query)
-            )
+            return self.beta_plan_response()
         if path == "/beta-feedback-status.json":
             return self.beta_feedback_status_response()
         if path == "/beta-feedback-plan.json":
@@ -365,6 +378,8 @@ class PrintPipeWebApp:
         return self.not_found_response()
 
     def create_run_response(self, *, headers: Any | None, body: bytes) -> WebResponse:
+        return self._web_run_creation_disabled_response()
+
         if self.runs_dir is None:
             return WebResponse.from_text(
                 "Runs directory is not configured.\n",
@@ -374,6 +389,7 @@ class PrintPipeWebApp:
 
         try:
             form = _parse_run_form(headers=headers, body=body)
+            self._require_csrf(headers=headers, fields=form.fields)
             layout = self._create_skeleton_run(form)
         except _FormError as exc:
             return WebResponse.from_text(
@@ -416,6 +432,7 @@ class PrintPipeWebApp:
 
         try:
             fields = _parse_edit_form(headers=headers, body=body)
+            self._require_csrf(headers=headers, fields=fields)
             recipe = _edit_recipe_from_fields(run_id, fields)
             edit_layout = create_edit_run(run_root, recipe)
             run_edit_recipe_pipeline(edit_layout.root)
@@ -438,17 +455,32 @@ class PrintPipeWebApp:
 
         return WebResponse.redirect(f"/runs/{quote(edit_layout.run_id, safe='')}")
 
-    def open_folder_response(self, run_id: str, target: str) -> WebResponse:
+    def open_folder_response(
+        self,
+        run_id: str,
+        target: str,
+        *,
+        headers: Any | None,
+        body: bytes,
+    ) -> WebResponse:
         run_root = self._run_root(run_id)
         if run_root is None:
             return self.not_found_response()
         try:
+            fields = _parse_edit_form(headers=headers, body=body) if body else {}
+            self._require_csrf(headers=headers, fields=fields)
             open_run_folder(run_root, target=target, path_opener=self.path_opener)
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
         except (FileNotFoundError, ValueError):
             return self.not_found_response()
         return WebResponse.redirect(f"/runs/{quote(run_id, safe='')}")
 
-    def start_release_response(self) -> WebResponse:
+    def start_release_response(self, *, headers: Any | None, body: bytes) -> WebResponse:
         if self.release_dir is None or self.runs_dir is None:
             return WebResponse.from_text(
                 "Release directory or runs directory is not configured.\n",
@@ -456,10 +488,17 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
+            fields = _parse_edit_form(headers=headers, body=body) if body else {}
+            self._require_csrf(headers=headers, fields=fields)
             start_release_distribution_handoff(
                 release_dir=self.release_dir,
                 runs_dir=self.runs_dir,
-                regression_manifest_path=self.regression_manifest_path,
+            )
+        except _FormError as exc:
+            return WebResponse.from_text(
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
             )
         except (OSError, ValueError) as exc:
             return WebResponse.from_text(
@@ -475,17 +514,25 @@ class PrintPipeWebApp:
         headers: Any | None,
         body: bytes,
     ) -> WebResponse:
+        return self._media_meshgen_web_actions_disabled_response()
+
         try:
             fields = _parse_edit_form(headers=headers, body=body) if body else {}
+            self._require_csrf(headers=headers, fields=fields)
             preset = fields.get("preset", "generic")
             write_media_meshgen_command_template(
                 self.workspace_dir / "scripts" / "media_meshgen_adapter.py",
                 preset=preset,
             )
-        except (OSError, ValueError, _FormError) as exc:
-            message = exc.message if isinstance(exc, _FormError) else str(exc)
+        except _FormError as exc:
             return WebResponse.from_text(
-                f"{message}\n",
+                f"{exc.message}\n",
+                status=exc.status,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
+        except (OSError, ValueError) as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
                 status=HTTPStatus.BAD_REQUEST,
                 content_type=_TEXT_MEDIA_TYPE,
             )
@@ -497,19 +544,28 @@ class PrintPipeWebApp:
         headers: Any | None,
         body: bytes,
     ) -> WebResponse:
+        return self._media_meshgen_web_actions_disabled_response()
+
         try:
             form = _parse_media_workflow_form(headers=headers, body=body)
+            self._require_csrf(headers=headers, fields=form.fields)
             if form.workflow is None or not form.workflow.content:
                 raise _FormError(
                     HTTPStatus.BAD_REQUEST,
                     "ComfyUI workflow JSON upload is required.",
                 )
-            workflow_path = self.workspace_dir / "workflows" / _safe_upload_filename(
-                form.workflow.filename
-            )
-            workflow_path.parent.mkdir(parents=True, exist_ok=True)
-            workflow_path.write_bytes(form.workflow.content)
-            report = inspect_comfyui_workflow(workflow_path)
+            workflow_name = _safe_upload_filename(form.workflow.filename)
+            if Path(workflow_name).suffix.lower() != ".json":
+                raise _FormError(
+                    HTTPStatus.BAD_REQUEST,
+                    "ComfyUI workflow upload must be a JSON file.",
+                )
+            incoming_dir = self.workspace_dir / ".printpipe" / "incoming-workflows"
+            incoming_dir.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix="workflow-", dir=incoming_dir) as temp_dir:
+                candidate_workflow = Path(temp_dir) / workflow_name
+                candidate_workflow.write_bytes(form.workflow.content)
+                report = inspect_comfyui_workflow(candidate_workflow)
             if report.get("status") != "ready":
                 warnings = [
                     str(warning)
@@ -521,21 +577,26 @@ class PrintPipeWebApp:
                     HTTPStatus.BAD_REQUEST,
                     f"ComfyUI workflow is not ready for PrintPipe.\n{detail}",
                 )
+            workflow_path = self.workspace_dir / "workflows" / workflow_name
+            workflow_path.parent.mkdir(parents=True, exist_ok=True)
+            workflow_path.write_bytes(form.workflow.content)
             write_media_meshgen_command_template(
                 self.workspace_dir / "scripts" / "media_meshgen_adapter.py",
                 preset="comfyui-api",
             )
             params = dict(report["suggested_params"])
+            params["comfyui_workflow"] = str(workflow_path)
             comfyui_url = form.fields.get("comfyui_url", "").strip()
             if comfyui_url:
-                params["comfyui_url"] = comfyui_url
+                params["comfyui_url"] = validate_comfyui_url(comfyui_url)
             command = (
                 form.fields.get("command", "").strip()
-                or "python scripts/media_meshgen_adapter.py"
+                or _TRUSTED_MEDIA_MESHGEN_COMMAND
             )
+            _validate_web_media_meshgen_command(command)
             write_project_config(
                 updates={
-                    "media_meshgen_command": command,
+                    "media_meshgen_command": _TRUSTED_MEDIA_MESHGEN_COMMAND,
                     "media_meshgen_params": params,
                 },
                 cwd=self.workspace_dir,
@@ -560,21 +621,25 @@ class PrintPipeWebApp:
         headers: Any | None,
         body: bytes,
     ) -> WebResponse:
+        return self._media_meshgen_web_actions_disabled_response()
+
         try:
             fields = _parse_edit_form(headers=headers, body=body)
+            self._require_csrf(headers=headers, fields=fields)
             command = str(fields.get("command") or "").strip()
             if not command:
                 raise _FormError(
                     HTTPStatus.BAD_REQUEST,
                     "Media meshgen command is required.",
                 )
+            _validate_web_media_meshgen_command(command)
             updates = _media_meshgen_config_updates_from_fields(fields)
             params = updates.get("media_meshgen_params")
             if isinstance(params, dict):
                 validate_comfyui_params(params, workspace_dir=self.workspace_dir)
             write_project_config(
                 updates={
-                    "media_meshgen_command": command,
+                    "media_meshgen_command": _TRUSTED_MEDIA_MESHGEN_COMMAND,
                     **updates,
                 },
                 cwd=self.workspace_dir,
@@ -599,6 +664,8 @@ class PrintPipeWebApp:
         headers: Any | None,
         body: bytes,
     ) -> WebResponse:
+        return self._media_meshgen_web_actions_disabled_response()
+
         if self.runs_dir is None:
             return WebResponse.from_text(
                 "Runs directory is not configured.\n",
@@ -607,6 +674,7 @@ class PrintPipeWebApp:
             )
         try:
             form = _parse_media_smoke_form(headers=headers, body=body)
+            self._require_csrf(headers=headers, fields=form.fields)
             if form.reference is None or not form.reference.content:
                 raise _FormError(
                     HTTPStatus.BAD_REQUEST,
@@ -655,6 +723,7 @@ class PrintPipeWebApp:
 
         try:
             fields = _parse_edit_form(headers=headers, body=body)
+            self._require_csrf(headers=headers, fields=fields)
             family = fields.get("family", "").strip().lower()
             if family not in {"pla", "petg", "tpu"}:
                 raise _FormError(
@@ -691,10 +760,12 @@ class PrintPipeWebApp:
 
         try:
             form = _parse_physical_record_form(headers=headers, body=body)
+            self._require_csrf(headers=headers, fields=form.fields)
             action = self._physical_record_action(form.fields.get("family", ""))
             run_root = self._physical_action_run_root(action)
             if form.photo is None or not form.photo.content:
                 raise _FormError(HTTPStatus.BAD_REQUEST, "Physical evidence photo is required.")
+            _reject_active_upload(form.photo, label="Physical evidence photo")
             print_status = form.fields.get("print_status", "").strip().lower()
             if print_status not in {"passed", "failed", "partial"}:
                 raise _FormError(
@@ -767,6 +838,7 @@ class PrintPipeWebApp:
 
         try:
             form = _parse_beta_feedback_record_form(headers=headers, body=body)
+            self._require_csrf(headers=headers, fields=form.fields)
             action = self._trusted_feedback_record_action(form.fields.get("slot", ""))
             run_root = self._trusted_feedback_action_run_root(action)
             summary = form.fields.get("summary", "").strip()
@@ -784,6 +856,7 @@ class PrintPipeWebApp:
             artifacts: tuple[FeedbackArtifact, ...] = ()
             with tempfile.TemporaryDirectory() as temp_dir:
                 if form.artifact is not None and form.artifact.content:
+                    _reject_active_upload(form.artifact, label="Trusted-user feedback artifact")
                     artifact_path = Path(temp_dir) / _safe_upload_filename(
                         form.artifact.filename
                     )
@@ -833,9 +906,6 @@ class PrintPipeWebApp:
     def home_response(self) -> WebResponse:
         return WebResponse.html(self.render_home())
 
-    def _regression_manifest_for_query(self, query: dict[str, list[str]]) -> Path | None:
-        return _query_path(query, "regression_manifest") or self.regression_manifest_path
-
     def health_response(self) -> WebResponse:
         return WebResponse.json({"service": "printpipe-web", "status": "ok"})
 
@@ -861,15 +931,7 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            manifest_path = regression_manifest_path or self.regression_manifest_path
-            if manifest_path is None:
-                return WebResponse.json(build_beta_readiness_report(self.runs_dir))
-            return WebResponse.json(
-                build_beta_readiness_report(
-                    self.runs_dir,
-                    regression_manifest_path=manifest_path,
-                )
-            )
+            return WebResponse.json(build_beta_readiness_report(self.runs_dir))
         except (OSError, ValueError) as exc:
             return WebResponse.from_text(
                 f"{exc}\n",
@@ -903,10 +965,17 @@ class PrintPipeWebApp:
             timeout_seconds = float(timeout_raw)
         except ValueError:
             timeout_seconds = 1.5
-        report = preflight_comfyui_runtime(
-            url,
-            timeout_seconds=timeout_seconds,
-        )
+        try:
+            report = preflight_comfyui_runtime(
+                url,
+                timeout_seconds=timeout_seconds,
+            )
+        except ValueError as exc:
+            return WebResponse.from_text(
+                f"{exc}\n",
+                status=HTTPStatus.BAD_REQUEST,
+                content_type=_TEXT_MEDIA_TYPE,
+            )
         return WebResponse.json(report)
 
     def release_status_response(
@@ -921,19 +990,10 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            manifest_path = regression_manifest_path or self.regression_manifest_path
-            if manifest_path is None:
-                return WebResponse.json(
-                    build_release_status_report(
-                        release_dir=self.release_dir,
-                        runs_dir=self.runs_dir,
-                    )
-                )
             return WebResponse.json(
                 build_release_status_report(
                     release_dir=self.release_dir,
                     runs_dir=self.runs_dir,
-                    regression_manifest_path=manifest_path,
                 )
             )
         except (OSError, ValueError) as exc:
@@ -955,16 +1015,10 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            manifest_path = (
-                regression_manifest_path
-                if regression_manifest_path is not None
-                else self.regression_manifest_path
-            )
             return WebResponse.json(
                 build_release_distribution_plan(
                     release_dir=self.release_dir,
                     runs_dir=self.runs_dir,
-                    regression_manifest_path=manifest_path,
                 )
             )
         except (OSError, ValueError) as exc:
@@ -986,16 +1040,10 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            manifest_path = (
-                regression_manifest_path
-                if regression_manifest_path is not None
-                else self.regression_manifest_path
-            )
             return WebResponse.json(
                 build_final_action_plan(
                     release_dir=self.release_dir,
                     runs_dir=self.runs_dir,
-                    regression_manifest_path=manifest_path,
                 )
             )
         except (OSError, ValueError) as exc:
@@ -1017,15 +1065,9 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            manifest_path = (
-                regression_manifest_path
-                if regression_manifest_path is not None
-                else self.regression_manifest_path
-            )
             plan = build_final_action_plan(
                 release_dir=self.release_dir,
                 runs_dir=self.runs_dir,
-                regression_manifest_path=manifest_path,
             )
             return WebResponse.json(build_final_next_action_payload(plan))
         except (OSError, ValueError) as exc:
@@ -1111,15 +1153,7 @@ class PrintPipeWebApp:
                 content_type=_TEXT_MEDIA_TYPE,
             )
         try:
-            manifest_path = regression_manifest_path or self.regression_manifest_path
-            if manifest_path is None:
-                return WebResponse.json(build_beta_action_plan(self.runs_dir))
-            return WebResponse.json(
-                build_beta_action_plan(
-                    self.runs_dir,
-                    regression_manifest_path=manifest_path,
-                )
-            )
+            return WebResponse.json(build_beta_action_plan(self.runs_dir))
         except (OSError, ValueError) as exc:
             return WebResponse.from_text(
                 f"{exc}\n",
@@ -1217,6 +1251,12 @@ class PrintPipeWebApp:
         return WebResponse.json(payload)
 
     def reslice_response(self, run_id: str, *, headers: Any | None, body: bytes) -> WebResponse:
+        return self._web_reslice_disabled_response()
+
+        try:
+            self._require_csrf(headers=headers)
+        except _FormError as exc:
+            return WebResponse.json({"error": exc.message}, status=int(exc.status))
         run_root = self._run_root(run_id)
         if run_root is None:
             return self.not_found_response()
@@ -1243,12 +1283,12 @@ class PrintPipeWebApp:
         except (OSError, json.JSONDecodeError, ValueError):
             return self.not_found_response()
 
-        return WebResponse.html(
-            render_run_detail_page(
-                detail=detail,
-                artifact_links=artifact_links,
-            )
+        page = render_run_detail_page(
+            detail=detail,
+            artifact_links=artifact_links,
+            csrf_token=self.csrf_token,
         )
+        return WebResponse.html(self._disable_web_reslice_controls(page))
 
     def not_found_response(self) -> WebResponse:
         return WebResponse.from_text(
@@ -1324,6 +1364,16 @@ class PrintPipeWebApp:
         )
 
     def _render_create_run_panel(self) -> str:
+        return "\n".join(
+            [
+                '    <section class="panel create-panel">',
+                "      <h2>New Run</h2>",
+                "      <p>Web run creation and provider selection are disabled for security.</p>",
+                "      <p class=\"muted\">Use trusted local CLI commands to create runs.</p>",
+                "    </section>",
+            ]
+        )
+
         catalog = selector_catalog()
         defaults = catalog["defaults"]
         printer_options = _render_select_options(
@@ -1359,6 +1409,7 @@ class PrintPipeWebApp:
                 '    <section class="panel create-panel">',
                 "      <h2>New Run</h2>",
                 '      <form class="run-form" method="post" action="/runs" enctype="multipart/form-data">',
+                f"        {self._csrf_input()}",
                 '        <label class="drop-zone">',
                 '          <span>Input reference</span>',
                 '          <input type="file" name="input" accept="image/*,video/*,.gif,.stl,.glb,.gltf,.obj,.3mf">',
@@ -1414,13 +1465,7 @@ class PrintPipeWebApp:
         if self.runs_dir is None:
             return ""
         try:
-            if self.regression_manifest_path is None:
-                report = build_beta_readiness_report(self.runs_dir)
-            else:
-                report = build_beta_readiness_report(
-                    self.runs_dir,
-                    regression_manifest_path=self.regression_manifest_path,
-                )
+            report = build_beta_readiness_report(self.runs_dir)
         except (OSError, ValueError):
             return ""
         overall = str(report.get("overall_status", "unknown"))
@@ -1482,6 +1527,19 @@ class PrintPipeWebApp:
         )
 
     def _render_media_meshgen_setup_panel(self) -> str:
+        return "\n".join(
+            [
+                '    <section id="media-meshgen-setup" class="panel media-meshgen-setup-panel">',
+                "      <div>",
+                "        <h2>Media meshgen setup</h2>",
+                "        <p>Web configuration, workflow uploads, and smoke execution are disabled for security.</p>",
+                "        <p class=\"muted\">Use trusted local CLI commands to configure adapters, validate workflows, and run smoke tests.</p>",
+                "      </div>",
+                '      <p class="muted"><a href="/media-meshgen-smoke-status.json">Media meshgen smoke status JSON</a></p>',
+                "    </section>",
+            ]
+        )
+
         current_command = configured_media_meshgen_command(cwd=self.workspace_dir)
         current_params = configured_media_meshgen_params(cwd=self.workspace_dir)
         current_comfyui_url = str(
@@ -1519,6 +1577,7 @@ class PrintPipeWebApp:
                 "          <span>Adapter template</span>",
                 f"          <p>Writes <code>{escape(str(template_path))}</code>.</p>",
                 '          <form method="post" action="/media-meshgen/template">',
+                f"            {self._csrf_input()}",
                 '            <label for="media-template-preset">Preset</label>',
                 (
                     '            <select id="media-template-preset" name="preset">'
@@ -1531,6 +1590,7 @@ class PrintPipeWebApp:
                 "          <span>ComfyUI workflow</span>",
                 "          <p>Upload an exported API workflow to inspect and save patch paths.</p>",
                 '          <form method="post" action="/media-meshgen/comfyui-workflow" enctype="multipart/form-data">',
+                f"            {self._csrf_input()}",
                 '            <label for="media-comfyui-workflow-upload">Workflow JSON</label>',
                 '            <input id="media-comfyui-workflow-upload" name="workflow" type="file" accept="application/json,.json">',
                 '            <label for="media-comfyui-upload-command">Command</label>',
@@ -1551,6 +1611,7 @@ class PrintPipeWebApp:
                 '        <article class="readiness-gate readiness-gate-action-required">',
                 "          <span>Project command</span>",
                 '          <form method="post" action="/media-meshgen/configure">',
+                f"            {self._csrf_input()}",
                 '            <label for="media-meshgen-command">Command</label>',
                 (
                     '            <input id="media-meshgen-command" name="command" '
@@ -1603,6 +1664,7 @@ class PrintPipeWebApp:
                 '        <article class="readiness-gate readiness-gate-action-required">',
                 "          <span>Smoke test</span>",
                 '          <form method="post" action="/media-meshgen/smoke" enctype="multipart/form-data">',
+                f"            {self._csrf_input()}",
                 '            <label for="media-smoke-reference">Reference image/GIF/video</label>',
                 '            <input id="media-smoke-reference" name="reference" type="file" accept="image/*,video/*,.gif">',
                 '            <label for="media-smoke-prompt">Prompt hint</label>',
@@ -1627,17 +1689,10 @@ class PrintPipeWebApp:
         if self.release_dir is None or self.runs_dir is None:
             return ""
         try:
-            if self.regression_manifest_path is None:
-                plan = build_final_action_plan(
-                    release_dir=self.release_dir,
-                    runs_dir=self.runs_dir,
-                )
-            else:
-                plan = build_final_action_plan(
-                    release_dir=self.release_dir,
-                    runs_dir=self.runs_dir,
-                    regression_manifest_path=self.regression_manifest_path,
-                )
+            plan = build_final_action_plan(
+                release_dir=self.release_dir,
+                runs_dir=self.runs_dir,
+            )
             physical_status = build_physical_validation_status(self.runs_dir)
             feedback_status = build_trusted_user_feedback_status(self.runs_dir)
         except (OSError, ValueError):
@@ -1672,17 +1727,10 @@ class PrintPipeWebApp:
         if self.runs_dir is None or self.release_dir is None:
             return ""
         try:
-            if self.regression_manifest_path is None:
-                report = build_release_status_report(
-                    release_dir=self.release_dir,
-                    runs_dir=self.runs_dir,
-                )
-            else:
-                report = build_release_status_report(
-                    release_dir=self.release_dir,
-                    runs_dir=self.runs_dir,
-                    regression_manifest_path=self.regression_manifest_path,
-                )
+            report = build_release_status_report(
+                release_dir=self.release_dir,
+                runs_dir=self.runs_dir,
+            )
         except (OSError, ValueError):
             return ""
         overall = str(report.get("overall_status", "unknown"))
@@ -1718,17 +1766,10 @@ class PrintPipeWebApp:
         if self.release_dir is None or self.runs_dir is None:
             return ""
         try:
-            if self.regression_manifest_path is None:
-                plan = build_release_distribution_plan(
-                    release_dir=self.release_dir,
-                    runs_dir=self.runs_dir,
-                )
-            else:
-                plan = build_release_distribution_plan(
-                    release_dir=self.release_dir,
-                    runs_dir=self.runs_dir,
-                    regression_manifest_path=self.regression_manifest_path,
-                )
+            plan = build_release_distribution_plan(
+                release_dir=self.release_dir,
+                runs_dir=self.runs_dir,
+            )
         except (OSError, ValueError):
             return ""
 
@@ -1743,9 +1784,6 @@ class PrintPipeWebApp:
         if not action_cards:
             action_cards = '<p class="muted">No release distribution actions required.</p>'
         command = "printpipe release-plan --release-dir dist/release --runs-dir runs"
-        if self.regression_manifest_path is not None:
-            manifest_arg = shlex.quote(str(self.regression_manifest_path))
-            command += f" --regression-manifest {manifest_arg}"
         return "\n".join(
             [
                 '    <section id="release-distribution-plan" class="panel release-plan-panel">',
@@ -1770,6 +1808,7 @@ class PrintPipeWebApp:
         return "\n".join(
             [
                 '        <form method="post" action="/release/start">',
+                f"          {self._csrf_input()}",
                 '          <button type="submit">Create release handoff</button>',
                 "        </form>",
             ]
@@ -1858,10 +1897,58 @@ class PrintPipeWebApp:
         )
 
     def _service_href(self, path: str) -> str:
-        if self.regression_manifest_path is None:
-            return path
-        encoded_manifest = quote(str(self.regression_manifest_path), safe="")
-        return f"{path}?regression_manifest={encoded_manifest}"
+        return path
+
+    def _media_meshgen_web_actions_disabled_response(self) -> WebResponse:
+        return WebResponse.from_text(
+            f"{_MEDIA_MESHGEN_WEB_ACTIONS_DISABLED}\n",
+            status=HTTPStatus.FORBIDDEN,
+            content_type=_TEXT_MEDIA_TYPE,
+        )
+
+    def _web_run_creation_disabled_response(self) -> WebResponse:
+        return WebResponse.from_text(
+            f"{_WEB_RUN_CREATION_DISABLED}\n",
+            status=HTTPStatus.FORBIDDEN,
+            content_type=_TEXT_MEDIA_TYPE,
+        )
+
+    def _web_reslice_disabled_response(self) -> WebResponse:
+        return WebResponse.from_text(
+            f"{_WEB_RESLICE_DISABLED}\n",
+            status=HTTPStatus.FORBIDDEN,
+            content_type=_TEXT_MEDIA_TYPE,
+        )
+
+    def _disable_web_reslice_controls(self, page: str) -> str:
+        return (
+            page.replace('        <script src="/static/settings.js"></script>\n', "")
+            .replace(
+                "window.PrintPipeSettings.init(",
+                "window.PrintPipeSettings && window.PrintPipeSettings.init(",
+            )
+            .replace(
+                'class="ppset-mount"></div>',
+                'class="ppset-mount">Web re-slicing is disabled for security. '
+                "Use the trusted local CLI to change slicer settings.</div>",
+            )
+        )
+
+    def _csrf_input(self) -> str:
+        token = escape(self.csrf_token, quote=True)
+        return f'<input type="hidden" name="{_CSRF_FIELD}" value="{token}">'
+
+    def _require_csrf(
+        self,
+        *,
+        headers: Any | None,
+        fields: dict[str, str] | None = None,
+    ) -> None:
+        supplied = _header_value(headers, _CSRF_HEADER) or ""
+        if not supplied and fields is not None:
+            supplied = fields.get(_CSRF_FIELD, "")
+        if not supplied or not secrets.compare_digest(supplied, self.csrf_token):
+            raise _FormError(HTTPStatus.FORBIDDEN, "Invalid or missing CSRF token.")
 
     def _render_physical_beta_gate_panel(self) -> str:
         if self.runs_dir is None:
@@ -2080,6 +2167,7 @@ class PrintPipeWebApp:
         return "\n".join(
             [
                 '          <form method="post" action="/physical/start">',
+                f"            {self._csrf_input()}",
                 f'            <input type="hidden" name="family" value="{escape(family, quote=True)}">',
                 '            <input type="hidden" name="operator" value="Zohar">',
                 "            <button type=\"submit\">Create starter packet</button>",
@@ -2102,6 +2190,7 @@ class PrintPipeWebApp:
         return "\n".join(
             [
                 '          <form class="physical-record-form" method="post" action="/physical/record" enctype="multipart/form-data">',
+                f"            {self._csrf_input()}",
                 f'            <input type="hidden" name="family" value="{escape(family, quote=True)}">',
                 '            <input type="hidden" name="operator" value="Zohar">',
                 '            <label><span>Print status</span><select name="print_status"><option value="passed">Passed</option><option value="partial">Partial</option><option value="failed">Failed</option></select></label>',
@@ -2374,6 +2463,7 @@ class PrintPipeWebApp:
         return "\n".join(
             [
                 '          <form class="trusted-feedback-record-form" method="post" action="/beta-feedback/record" enctype="multipart/form-data">',
+                f"            {self._csrf_input()}",
                 f'            <input type="hidden" name="slot" value="{escape(slot, quote=True)}">',
                 '            <label><span>Outcome</span><select name="outcome"><option value="passed">Passed</option><option value="partial">Partial</option><option value="failed">Failed</option><option value="not_run">Not run</option></select></label>',
                 '            <label><span>Summary</span><textarea name="summary"></textarea></label>',
@@ -2425,13 +2515,7 @@ class PrintPipeWebApp:
         if self.runs_dir is None:
             return ""
         try:
-            if self.regression_manifest_path is None:
-                plan = build_beta_action_plan(self.runs_dir)
-            else:
-                plan = build_beta_action_plan(
-                    self.runs_dir,
-                    regression_manifest_path=self.regression_manifest_path,
-                )
+            plan = build_beta_action_plan(self.runs_dir)
         except (OSError, ValueError):
             return ""
 
@@ -2446,9 +2530,6 @@ class PrintPipeWebApp:
         if not action_cards:
             action_cards = '<p class="muted">No beta actions required.</p>'
         command = "printpipe beta-plan --runs-dir runs"
-        if self.regression_manifest_path is not None:
-            manifest_arg = shlex.quote(str(self.regression_manifest_path))
-            command += f" --regression-manifest {manifest_arg}"
         return "\n".join(
             [
                 '    <section class="panel beta-plan-panel">',
@@ -2633,6 +2714,8 @@ class PrintPipeWebApp:
             return None
         if Path(relative_path).suffix.lower() not in _HTML_SUFFIXES:
             return None
+        if _is_uploaded_artifact_static_path(relative_path):
+            return None
 
         for root in self.static_roots:
             if not root.exists():
@@ -2726,6 +2809,7 @@ def create_app(
     regression_manifest_path: str | Path | None = None,
     path_opener: Callable[[Path], object] | None = None,
     workspace_dir: str | Path | None = None,
+    csrf_token: str | None = None,
 ) -> PrintPipeWebApp:
     """Create the local web app without binding a socket."""
 
@@ -2739,6 +2823,7 @@ def create_app(
         regression_manifest_path=regression_manifest_path,
         path_opener=path_opener,
         workspace_dir=workspace_dir,
+        csrf_token=csrf_token,
     )
 
 
@@ -2886,6 +2971,7 @@ def _parse_run_form(*, headers: Any | None, body: bytes) -> _ParsedRunForm:
         raise _FormError(HTTPStatus.BAD_REQUEST, "Uploaded input file is empty.")
 
     return _ParsedRunForm(
+        fields=fields,
         upload=upload,
         prompt=prompt,
         launch_options=_launch_options(
@@ -3365,7 +3451,7 @@ def _comfyui_params_from_fields(fields: dict[str, str]) -> dict[str, Any]:
     for key in ("comfyui_url", "comfyui_workflow"):
         value = fields.get(key, "").strip()
         if value:
-            params[key] = value
+            params[key] = validate_comfyui_url(value) if key == "comfyui_url" else value
     for key in (
         "comfyui_image_paths",
         "comfyui_prompt_paths",
@@ -3420,6 +3506,32 @@ def _safe_upload_filename(filename: str) -> str:
     suffix = Path(cleaned).suffix[:24]
     stem_limit = max(1, 120 - len(suffix))
     return f"{Path(cleaned).stem[:stem_limit]}{suffix}"
+
+
+def _validate_web_media_meshgen_command(command: str) -> None:
+    if command != _TRUSTED_MEDIA_MESHGEN_COMMAND:
+        raise _FormError(
+            HTTPStatus.BAD_REQUEST,
+            "Web media meshgen configuration may only save the bundled adapter command. "
+            "Set custom provider commands through trusted project config or environment.",
+        )
+
+
+def _reject_active_upload(upload: _UploadedFile, *, label: str) -> None:
+    suffix = Path(_safe_upload_filename(upload.filename)).suffix.lower()
+    if suffix in _ACTIVE_UPLOAD_SUFFIXES:
+        raise _FormError(
+            HTTPStatus.BAD_REQUEST,
+            f"{label} cannot be an active web document or script.",
+        )
+
+
+def _is_uploaded_artifact_static_path(relative_path: str) -> bool:
+    parts = PurePosixPath(relative_path).parts
+    for index, part in enumerate(parts[:-1]):
+        if part in {"90_beta", "90_physical"} and parts[index + 1] == "artifacts":
+            return True
+    return False
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:
@@ -3477,15 +3589,6 @@ def _open_folder_route(relative_url_path: str) -> tuple[str, str] | None:
     if target not in {"run", "report", "bundle"}:
         return None
     return run_id, target
-
-
-def _query_path(query: dict[str, list[str]], field_name: str) -> Path | None:
-    values = query.get(field_name) or []
-    raw_value = values[0].strip() if values else ""
-    if not raw_value:
-        return None
-    return Path(raw_value).expanduser()
-
 
 
 _ARTIFACT_GROUPS = (
