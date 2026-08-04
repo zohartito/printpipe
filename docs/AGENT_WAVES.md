@@ -4,6 +4,12 @@ This is how the 142 roadmap items get executed without creating 142 chaotic agen
 
 Rule: at most 6 active agents per wave. Each agent owns a coherent work package with disjoint files or a read-only research scope. The orchestrator integrates, tests, commits, and updates the roadmap between waves.
 
+> Current security supersession: later P1/P2 hardening retired the browser
+> run/provider/workflow/smoke/re-slice actions and ComfyUI preflight documented
+> in older waves below. The web UI is read-only and binds only to `127.0.0.1`;
+> use the local CLI for those actions. Treat the historical wave notes as
+> implementation history, not current deployment guidance.
+
 ## Wave 1 - Foundation Research and Extraction
 
 Status: complete. Outputs are in `docs/research/wave1_*.md`.

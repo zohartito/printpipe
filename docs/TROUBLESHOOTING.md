@@ -74,22 +74,12 @@ as needed. Environment variables like `PRINTPIPE_COMFYUI_WORKFLOW` still overrid
 saved params. Use `--preset generic` if you want the blank adapter protocol stub.
 `media-meshgen-comfyui-inspect` reads exported workflow JSON and suggests the
 `comfyui_image_paths`, `comfyui_prompt_paths`, and `comfyui_seed_paths` to store.
-The local browser home page has a matching `Media meshgen setup` form for
-uploading the workflow JSON; it writes the preset adapter, stores the workflow
-under `workflows/`, runs the same static inspector, and saves the suggested
-params into `.printpipe/config.json` only when the inspector reports the workflow
-is ready. Missing `SaveGLB` or missing patch targets return a browser error
-before adapter/config state is written. The manual browser command form and CLI
-`media-meshgen-configure --params-json ...` use the same check when
-`comfyui_workflow` is present. Doctor/readiness checks re-run that static
-workflow validation later, so deleting or editing the saved workflow can move the
-provider back to action-required before smoke/run time. These setup paths still
-do not contact ComfyUI or close readiness without a successful smoke receipt.
-When the local web app launches with a workspace, browser smoke uses that
-workspace's `.printpipe/config.json` for both command and params.
-If final-readiness says the media provider gate is open, use the browser link to
-`/#media-meshgen-setup` or run the printed terminal commands. The same panel
-contains both setup and smoke-test forms.
+The browser is read-only: workflow uploads, provider configuration, and smoke
+execution are disabled. Use `media-meshgen-configure --params-json ...` and the
+other CLI commands above. Doctor/readiness re-run static workflow validation, so
+deleting or editing the saved workflow can move the provider back to
+action-required before smoke/run time. These CLI setup paths do not contact
+ComfyUI or close readiness without a successful smoke receipt.
 When a one-off smoke succeeds, `media-meshgen-smoke-status` can preserve safe
 adapter params so the follow-up configure command does not drop ComfyUI workflow
 or patch paths.
@@ -192,8 +182,9 @@ same port is not already in use. Try another port:
 printpipe serve --host 127.0.0.1 --port 9876 --runs-dir runs
 ```
 
-Keep the default `127.0.0.1` host unless you intentionally want another device
-on the local network to reach the server.
+`127.0.0.1` is the only supported web bind address. PrintPipe rejects LAN,
+hostname, and IPv6 bind addresses because the browser UI has no user
+authentication or per-run authorization.
 
 ## Bambu Studio Paths
 

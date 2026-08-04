@@ -37,8 +37,8 @@ Local CLI / local app
 | --- | --- | --- |
 | Existing mesh | Production spine for v1 foundation. | Imports existing geometry, repairs it, writes oriented STL, preview artifacts, Bambu `.3mf`, validation report, and optional slice receipt. |
 | Image/GIF/video | Wired through a configured media meshgen command adapter. | Writes extracted/selected references and contact sheet artifacts, then either generates a mesh and continues through repair/orient/bundle/report, or fails `meshgen` with a provider-configuration receipt when neither `PRINTPIPE_MEDIA_MESHGEN_COMMAND` nor `PRINTPIPE_HUNYUAN3D_COMMAND` is set. |
-| Prompt + image | CLI and local web wired. | `printpipe run image.png --prompt "..."` and the local web file-plus-prompt form prepare the reference image normally and pass the prompt through as `MeshGenRequest.prompt_hint`. |
-| Prompt only | CLI and local web wired through selectable reference-image providers. | `printpipe run --prompt "..."` and prompt-only web runs write `00_input/prompt.txt`, then use `auto`, `command`, or `openai` prompt-image provider selection to create a reference image before continuing through the same media-meshgen/repair/orient/bundle spine. If no provider is configured, the run fails at `prompt_reference_generation` with receipts; the run-detail workbench and static run reports surface provider quote/budget/privacy receipts when present. |
+| Prompt + image | CLI only. | `printpipe run image.png --prompt "..."` prepares the reference image normally and passes the prompt through as `MeshGenRequest.prompt_hint`. |
+| Prompt only | CLI only. | `printpipe run --prompt "..."` writes `00_input/prompt.txt`, then uses `auto`, `command`, or `openai` prompt-image provider selection to create a reference image before continuing through the same media-meshgen/repair/orient/bundle spine. If no provider is configured, the run fails at `prompt_reference_generation` with receipts; the run-detail workbench and static run reports surface provider quote/budget/privacy receipts when present. |
 
 ## Hard Gates
 
@@ -78,19 +78,13 @@ printpipe run input.gif \
 printpipe run --prompt "small ergonomic desk hook" --prompt-image-provider openai
 ```
 
-The local web home page mirrors the ComfyUI setup path: an exported workflow JSON
-upload can write the preset adapter, run the static inspector, and persist
-workflow/patch-path params when the inspector reports the workflow is ready.
-Unready workflows fail before adapter/config state is written. Manual config
-writes through the browser command form or CLI apply the same static validation
+The browser is read-only. CLI configuration commands apply static validation
 when `comfyui_workflow` is present, and media-provider readiness re-runs that
-validation so stale config cannot keep counting as live. Those paths are
-configuration only. Media smoke execution resolves command and params from the
-same explicit project workspace when one is supplied. The architecture still
-treats the media provider as unproven until a smoke receipt shows a real adapter
-generated a mesh from a reference.
-Final-readiness surfaces both terminal commands and a browser setup link for the
-media gate; neither is evidence without a smoke receipt.
+validation so stale config cannot keep counting as live. CLI smoke execution
+resolves command and params from the same explicit project workspace when one is
+supplied. The architecture still treats the media provider as unproven until a
+smoke receipt shows a real adapter generated a mesh from a reference. Terminal
+commands and browser status views are not evidence without a smoke receipt.
 
 OpenAI prompt-image cost is treated as a user-configured estimate, not a hardcoded
 pricing promise. If `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` is set and the estimate

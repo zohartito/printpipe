@@ -61,12 +61,12 @@ Start the stdlib local server with:
 printpipe serve --host 127.0.0.1 --port 8765 --runs-dir runs
 ```
 
-For local-only use, keep the default `127.0.0.1` host. Use `0.0.0.0` only when
-intentionally exposing the server on the local network.
+`127.0.0.1` is the only supported web bind address. Do not expose the local UI
+through a LAN bind, tunnel, reverse proxy, or public endpoint.
 
-The current web UI is a foundation surface: it shows run status, report links,
-artifact links, selectors, and a new-run form. It does not yet submit a full live
-pipeline job.
+The current web UI is a read-only foundation surface: it shows run status,
+report links, and artifact links. Use the local CLI for run creation, provider
+configuration, workflow inspection, smoke execution, and re-slicing.
 
 ## macOS Package Plan
 

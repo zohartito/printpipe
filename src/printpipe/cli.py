@@ -1538,14 +1538,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "serve":
-        return _serve(
-            host=args.host,
-            port=args.port,
-            runs_dir=args.runs_dir,
-            regression_manifest_path=(
-                args.regression_manifest or _default_regression_manifest_path()
-            ),
-        )
+        try:
+            return _serve(
+                host=args.host,
+                port=args.port,
+                runs_dir=args.runs_dir,
+                regression_manifest_path=(
+                    args.regression_manifest or _default_regression_manifest_path()
+                ),
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
 
     if args.command == "doctor":
         return _doctor(json_output=args.json, platform_name=args.platform)
@@ -1836,6 +1839,7 @@ def _serve(
 ) -> int:
     from printpipe.web import server
 
+    server.validate_loopback_bind_host(host)
     server.serve(
         host=host,
         port=port,

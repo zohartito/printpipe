@@ -5,6 +5,8 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import build_parser, main
 
 
@@ -49,7 +51,11 @@ def test_serve_delegates_to_web_server_with_custom_options(monkeypatch, tmp_path
             }
         )
 
+    def validate_loopback_bind_host(host: str) -> None:
+        assert host == "127.0.0.1"
+
     server_module.serve = serve
+    server_module.validate_loopback_bind_host = validate_loopback_bind_host
     web_module.server = server_module
     monkeypatch.setitem(sys.modules, "printpipe.web", web_module)
     monkeypatch.setitem(sys.modules, "printpipe.web.server", server_module)
@@ -58,7 +64,7 @@ def test_serve_delegates_to_web_server_with_custom_options(monkeypatch, tmp_path
         [
             "serve",
             "--host",
-            "0.0.0.0",
+            "127.0.0.1",
             "--port",
             "9876",
             "--runs-dir",
@@ -71,7 +77,7 @@ def test_serve_delegates_to_web_server_with_custom_options(monkeypatch, tmp_path
     assert exit_code == 0
     assert calls == [
         {
-            "host": "0.0.0.0",
+            "host": "127.0.0.1",
             "port": 9876,
             "runs_dir": tmp_path,
             "regression_manifest_path": tmp_path / "regression_manifest.json",
@@ -104,7 +110,11 @@ def test_serve_uses_standard_regression_manifest_when_present(monkeypatch, tmp_p
             }
         )
 
+    def validate_loopback_bind_host(host: str) -> None:
+        assert host == "127.0.0.1"
+
     server_module.serve = serve
+    server_module.validate_loopback_bind_host = validate_loopback_bind_host
     web_module.server = server_module
     monkeypatch.setitem(sys.modules, "printpipe.web", web_module)
     monkeypatch.setitem(sys.modules, "printpipe.web.server", server_module)
@@ -120,3 +130,28 @@ def test_serve_uses_standard_regression_manifest_when_present(monkeypatch, tmp_p
             "regression_manifest_path": manifest_path,
         }
     ]
+
+
+def test_serve_rejects_non_loopback_host_before_server_start(monkeypatch, tmp_path: Path):
+    calls: list[str] = []
+    web_module = types.ModuleType("printpipe.web")
+    server_module = types.ModuleType("printpipe.web.server")
+
+    def validate_loopback_bind_host(host: str) -> None:
+        calls.append(f"validate:{host}")
+        raise ValueError("PrintPipe web serving is restricted to the literal IPv4 loopback address 127.0.0.1.")
+
+    def serve(**kwargs: object) -> None:
+        calls.append("serve")
+
+    server_module.validate_loopback_bind_host = validate_loopback_bind_host
+    server_module.serve = serve
+    web_module.server = server_module
+    monkeypatch.setitem(sys.modules, "printpipe.web", web_module)
+    monkeypatch.setitem(sys.modules, "printpipe.web.server", server_module)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["serve", "--host", "0.0.0.0", "--runs-dir", str(tmp_path)])
+
+    assert exc_info.value.code == 2
+    assert calls == ["validate:0.0.0.0"]

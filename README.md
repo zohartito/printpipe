@@ -39,8 +39,8 @@ Current input support is intentionally explicit:
 | --- | --- |
 | Existing STL/OBJ/3MF mesh | Runs end-to-end through import, repair, orientation, Bambu 3MF bundling, reports, and optional Bambu CLI slice gate. |
 | Image, GIF, video | Prepares references/contact sheets, then runs a configured media meshgen adapter through repair, orientation, Bambu 3MF bundling, and reports. `PRINTPIPE_MEDIA_MESHGEN_COMMAND` is the generic command hook; `PRINTPIPE_HUNYUAN3D_COMMAND` remains the Hunyuan-specific hook. If neither is set, the run fails honestly at `meshgen` with provider-configuration receipts. |
-| Prompt plus image | CLI supports `printpipe run image.png --prompt "..."`; the local web UI supports file plus prompt. The prompt is passed through to configured mesh providers as `prompt_hint`. |
-| Prompt only | CLI supports `printpipe run --prompt "..."`; the local web UI supports prompt-only new runs. It writes `00_input/prompt.txt`, then uses the selected prompt-image provider to produce a reference image before the normal meshgen path. If no provider is configured, the run fails honestly at `prompt_reference_generation` with receipts. |
+| Prompt plus image | CLI supports `printpipe run image.png --prompt "..."`; the prompt is passed through to configured mesh providers as `prompt_hint`. |
+| Prompt only | CLI supports `printpipe run --prompt "..."`. It writes `00_input/prompt.txt`, then uses the selected prompt-image provider to produce a reference image before the normal meshgen path. If no provider is configured, the run fails honestly at `prompt_reference_generation` with receipts. |
 
 `printpipe doctor` and `printpipe readiness` also surface media-meshgen readiness
 upfront, so image/GIF/video/prompt runs show an action-required setup gate when
@@ -88,16 +88,11 @@ printpipe media-meshgen-configure \
   --params-json '{"comfyui_workflow":"workflows/image_to_glb.json","comfyui_image_paths":["12.inputs.image"]}'
 ```
 
-The local web app also exposes the same proof surface on the home page and at
-`/media-meshgen-smoke-status.json`. From the home page, the ComfyUI workflow
-upload form can save an exported API workflow, write the ComfyUI adapter preset,
-inspect patch paths, and persist those params into `.printpipe/config.json`.
-Uploads that fail static inspection, such as workflows without `SaveGLB`, return
-a browser error before adapter/config state is written. The manual browser
-command form and `media-meshgen-configure --params-json ...` apply the same
-static workflow check when `comfyui_workflow` is provided.
-Doctor/readiness checks also re-inspect that saved workflow later, so deleted or
-edited workflow JSON does not keep counting as a live media provider.
+The local web app is read-only: it exposes status and local artifact links, but
+web run creation, provider configuration, workflow uploads, smoke execution,
+and re-slicing are disabled. Use the CLI commands above to configure a trusted
+local workflow. Doctor/readiness checks re-inspect that saved workflow later, so
+deleted or edited workflow JSON does not keep counting as a live media provider.
 Before running a full smoke, check whether the ComfyUI API is reachable and has
 the expected 3D node class:
 
@@ -105,17 +100,11 @@ the expected 3D node class:
 printpipe media-meshgen-comfyui-preflight --json --strict
 ```
 
-Browser and helper-driven smoke tests resolve the adapter command and adapter
-params from the same project workspace when a workspace is provided.
-The final-readiness panel links the open media gate back to the local browser
-setup panel at `/#media-meshgen-setup`, both before provider setup and before
-the first required smoke test.
+CLI smoke tests resolve the adapter command and adapter params from the same
+project workspace when a workspace is provided.
 Successful smoke receipts preserve safe adapter params, so a tested ComfyUI
 workflow can be promoted into project config without losing workflow or patch
-paths. When that tested-command promotion becomes the active final action, the
-local app points back to `/#media-meshgen-setup` with the exact terminal command
-still visible.
-The ComfyUI runtime preflight and browser setup steps still do not prove
+paths. The ComfyUI runtime preflight and CLI setup steps still do not prove
 semantic reconstruction; a real `media-meshgen-smoke` receipt is required before
 the media gate is ready.
 `printpipe final-plan` and `printpipe final-next` include this provider/smoke

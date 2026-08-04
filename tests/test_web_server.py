@@ -1477,6 +1477,7 @@ def test_home_response_renders_read_only_media_meshgen_status(tmp_path: Path):
     assert 'action="/media-meshgen/comfyui-workflow"' not in response.text
     assert 'action="/media-meshgen/configure"' not in response.text
     assert 'action="/media-meshgen/smoke"' not in response.text
+    assert "/media-meshgen/comfyui-preflight.json" not in response.text
 
 
 def test_post_media_meshgen_routes_are_disabled_before_writes_or_execution(
@@ -1550,38 +1551,49 @@ def test_post_media_meshgen_routes_are_disabled_before_writes_or_execution(
     assert calls == []
 
 
-def test_media_meshgen_comfyui_preflight_json_reports_runtime(monkeypatch, tmp_path: Path):
+def test_media_meshgen_comfyui_preflight_is_tombstoned_before_query_parsing(
+    monkeypatch,
+    tmp_path: Path,
+):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
-    comfy_url = "http://127.0.0.1:8188"
-    monkeypatch.setattr(
-        web_server,
-        "preflight_comfyui_runtime",
-        lambda url, *, timeout_seconds: {
-            "status": "ready",
-            "comfyui_url": url,
-            "timeout_seconds": timeout_seconds,
-        },
+    parse_calls: list[object] = []
+
+    def forbidden_parse_qs(*args: object, **kwargs: object) -> None:
+        parse_calls.append((args, kwargs))
+        raise AssertionError("preflight must not parse caller-controlled query data")
+
+    monkeypatch.setattr(web_server, "parse_qs", forbidden_parse_qs)
+
+    target = (
+        "/media-meshgen/comfyui-preflight.json?"
+        "url=https%3A%2F%2Fpublic.example%2Fredirect%3Fto%3D169.254.169.254"
+        "&timeout=999999&nested%5B%5D=%25"
     )
+    for method in ("GET", "HEAD", "POST"):
+        response = app.handle(target, method=method, headers=_csrf_headers(app))
+        assert response.status == 403
+        assert "ComfyUI web preflight is disabled for security." in response.text
 
-    response = app.handle(
-        f"/media-meshgen/comfyui-preflight.json?url={quote(comfy_url, safe='')}"
-    )
+    direct = app.media_meshgen_comfyui_preflight_response()
 
-    payload = json.loads(response.text)
-    assert response.status == 200
-    assert payload["status"] == "ready"
-    assert payload["comfyui_url"] == comfy_url
+    assert direct.status == 403
+    assert parse_calls == []
 
 
-def test_media_meshgen_comfyui_preflight_rejects_non_allowlisted_host(tmp_path: Path):
+def test_media_meshgen_comfyui_preflight_direct_method_and_post_route_are_disabled(
+    tmp_path: Path,
+):
     app = create_app(runs_dir=tmp_path / "runs", workspace_dir=tmp_path)
 
-    response = app.handle(
-        "/media-meshgen/comfyui-preflight.json?url=http%3A%2F%2F169.254.169.254%3A8188"
+    direct = app.media_meshgen_comfyui_preflight_response()
+    post = app.handle(
+        "/media-meshgen/comfyui-preflight.json",
+        method="POST",
+        headers=_csrf_headers(app),
     )
 
-    assert response.status == 400
-    assert "ComfyUI URL host is not allowed." in response.text
+    assert direct.status == 403
+    assert post.status == 403
 
 
 def legacy_post_media_meshgen_comfyui_workflow_upload_configures_params(
@@ -3581,6 +3593,29 @@ def test_static_response_only_serves_html_files(tmp_path: Path):
     assert response.status == 404
 
 
+def test_loopback_bind_validation_accepts_only_documented_ipv4_loopback() -> None:
+    for host in ("0.0.0.0", "127.0.0.2", "::1", "192.0.2.1", "localhost"):
+        with pytest.raises(ValueError, match="literal IPv4 loopback"):
+            web_server.validate_loopback_bind_host(host)
+
+    web_server.validate_loopback_bind_host("127.0.0.1")
+
+
+def test_create_server_rejects_non_loopback_before_creating_a_listener(monkeypatch) -> None:
+    calls: list[object] = []
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        calls.append((args, kwargs))
+        raise AssertionError("a non-loopback listener must never be created")
+
+    monkeypatch.setattr(web_server, "ThreadingHTTPServer", forbidden)
+
+    with pytest.raises(ValueError, match="literal IPv4 loopback"):
+        web_server.create_server(host="0.0.0.0")
+
+    assert calls == []
+
+
 def test_serve_builds_app_from_runs_dir_without_import_side_effects(monkeypatch, tmp_path: Path):
     calls: list[object] = []
     created_apps: list[PrintPipeWebApp] = []
@@ -3598,7 +3633,7 @@ def test_serve_builds_app_from_runs_dir_without_import_side_effects(monkeypatch,
         host: str = "127.0.0.1",
         port: int = 0,
     ) -> FakeServer:
-        assert host == "0.0.0.0"
+        assert host == "127.0.0.1"
         assert port == 9876
         assert app is not None
         created_apps.append(app)
@@ -3606,7 +3641,7 @@ def test_serve_builds_app_from_runs_dir_without_import_side_effects(monkeypatch,
 
     monkeypatch.setattr(web_server, "create_server", fake_create_server)
 
-    web_server.serve(host="0.0.0.0", port=9876, runs_dir=tmp_path)
+    web_server.serve(host="127.0.0.1", port=9876, runs_dir=tmp_path)
 
     assert calls == ["serve_forever", "server_close"]
     assert created_apps[0].static_roots == (tmp_path,)

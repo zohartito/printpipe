@@ -54,7 +54,7 @@ from printpipe.meshgen.command_template import (
 )
 from printpipe.meshgen.comfyui_workflow import inspect_comfyui_workflow
 from printpipe.meshgen.comfyui_workflow import validate_comfyui_params
-from printpipe.meshgen.comfyui_runtime import preflight_comfyui_runtime, validate_comfyui_url
+from printpipe.meshgen.comfyui_runtime import validate_comfyui_url
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.meshgen.smoke import run_media_meshgen_smoke
 from printpipe.packaging.release_plan import (
@@ -103,6 +103,10 @@ _WEB_RUN_CREATION_DISABLED = (
 _WEB_RESLICE_DISABLED = (
     "Web re-slicing is disabled for security. "
     "Use the trusted local CLI to change slicer settings and re-slice runs."
+)
+_WEB_COMFYUI_PREFLIGHT_DISABLED = (
+    "ComfyUI web preflight is disabled for security. "
+    "Use the trusted local CLI to preflight an operator-selected endpoint."
 )
 _ACTIVE_UPLOAD_SUFFIXES = {".html", ".htm", ".shtml", ".svg", ".xml", ".xhtml", ".js", ".mjs"}
 _ASSET_MEDIA_TYPES = {
@@ -280,6 +284,8 @@ class PrintPipeWebApp:
         request_method = method.upper()
         split_target = urlsplit(target)
         path = split_target.path or "/"
+        if path == "/media-meshgen/comfyui-preflight.json":
+            return self.media_meshgen_comfyui_preflight_response()
         query = parse_qs(split_target.query, keep_blank_values=True)
         if request_method == "POST":
             if path == "/beta-feedback/record":
@@ -337,8 +343,6 @@ class PrintPipeWebApp:
             return self.readiness_response()
         if path == "/media-meshgen-smoke-status.json":
             return self.media_meshgen_smoke_status_response()
-        if path == "/media-meshgen/comfyui-preflight.json":
-            return self.media_meshgen_comfyui_preflight_response(query)
         if path == "/release-status.json":
             return self.release_status_response()
         if path == "/release-plan.json":
@@ -957,26 +961,20 @@ class PrintPipeWebApp:
 
     def media_meshgen_comfyui_preflight_response(
         self,
-        query: dict[str, list[str]],
     ) -> WebResponse:
-        url = (query.get("url") or ["http://127.0.0.1:8188"])[0]
-        timeout_raw = (query.get("timeout") or ["1.5"])[0]
-        try:
-            timeout_seconds = float(timeout_raw)
-        except ValueError:
-            timeout_seconds = 1.5
-        try:
-            report = preflight_comfyui_runtime(
-                url,
-                timeout_seconds=timeout_seconds,
-            )
-        except ValueError as exc:
-            return WebResponse.from_text(
-                f"{exc}\n",
-                status=HTTPStatus.BAD_REQUEST,
-                content_type=_TEXT_MEDIA_TYPE,
-            )
-        return WebResponse.json(report)
+        """Reject browser-triggered probes before inspecting caller input.
+
+        The CLI remains the trusted local workflow for an operator-selected
+        ComfyUI endpoint. A web request has no authenticated operator
+        identity, so even an allowlisted initial URL cannot safely permit
+        redirect-following network probes.
+        """
+
+        return WebResponse.from_text(
+            f"{_WEB_COMFYUI_PREFLIGHT_DISABLED}\n",
+            status=HTTPStatus.FORBIDDEN,
+            content_type=_TEXT_MEDIA_TYPE,
+        )
 
     def release_status_response(
         self,
@@ -2833,8 +2831,9 @@ def create_server(
     host: str = "127.0.0.1",
     port: int = 0,
 ) -> ThreadingHTTPServer:
-    """Create, but do not start, a stdlib HTTP server for the app."""
+    """Create, but do not start, a literal-loopback-only HTTP server."""
 
+    validate_loopback_bind_host(host)
     web_app = app or create_app()
     handler = _handler_for(web_app)
     return ThreadingHTTPServer((host, port), handler)
@@ -2848,8 +2847,9 @@ def serve(
     runs_dir: str | Path | None = None,
     regression_manifest_path: str | Path | None = None,
 ) -> None:
-    """Run the local server until interrupted."""
+    """Run the local, literal-loopback-only server until interrupted."""
 
+    validate_loopback_bind_host(host)
     web_app = app or create_app(
         runs_dir=runs_dir,
         regression_manifest_path=regression_manifest_path,
@@ -2859,6 +2859,16 @@ def serve(
         server.serve_forever()
     finally:
         server.server_close()
+
+
+def validate_loopback_bind_host(host: str) -> None:
+    """Reject every bind host except PrintPipe's documented IPv4 loopback."""
+
+    if host != "127.0.0.1":
+        raise ValueError(
+            "PrintPipe web serving is restricted to the literal IPv4 loopback "
+            "address 127.0.0.1."
+        )
 
 
 def _handler_for(app: PrintPipeWebApp) -> type[BaseHTTPRequestHandler]:
