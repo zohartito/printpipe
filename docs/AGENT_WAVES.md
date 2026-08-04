@@ -1044,26 +1044,21 @@ Status: complete for final-release gate plumbing. Release status can now include
 5. Done: release-status next actions include the regression runner action when beta regression drift blocks the handoff.
 6. Boundary: this still does not create real trusted-user failures, physical print evidence, or signed distribution credentials; it only lets final release gating consume those regression manifests when they exist.
 
-## Wave 94 - Web Regression Gate Query
+## Wave 94 - Web Regression Gate Query (historical; superseded by PP-P3-05)
 
-Status: complete for local web/API parity. Browser and agent automation can now ask the local JSON endpoints to include beta regression manifest drift.
+Historical status: browser query parameters once selected executable regression manifests. Web readiness and planning surfaces are now manifest-free; query values are ignored before report builders run.
 
-1. Done: `/readiness.json?regression_manifest=<path>` passes the manifest path to `build_beta_readiness_report()`.
-2. Done: `/release-status.json?regression_manifest=<path>` passes the manifest path to `build_release_status_report()`.
-3. Done: blank or omitted query values keep the previous non-blocking default behavior.
-4. Done: endpoint tests prove the manifest path reaches the report builders and returns the `beta_regressions` gate.
-5. Boundary: the home page still shows the default no-manifest readiness/release panels unless a caller explicitly requests JSON with a manifest path.
+1. Historical behavior: `/readiness.json?regression_manifest=<path>` and `/release-status.json?regression_manifest=<path>` passed a path to report builders.
+2. Current behavior: those JSON routes ignore `regression_manifest` and use no manifest.
+3. Current boundary: a browser request cannot select executable argv.
 
-## Wave 95 - Web Regression Manifest Configuration
+## Wave 95 - Web Regression Manifest Configuration (historical; superseded by PP-P3-05)
 
-Status: complete for local web UI parity. The browser app can now be launched with a regression manifest so the home panels and service links stay regression-aware by default.
+Historical status: the web app once accepted a configured manifest for default readiness and planning panels. The compatibility parameters remain inert; the browser app is manifest-free.
 
-1. Done: added `printpipe serve --regression-manifest <manifest>`.
-2. Done: threaded the configured manifest through `PrintPipeWebApp`, `create_app()`, and `serve()`.
-3. Done: configured apps pass the manifest into home-page readiness and release-status panels.
-4. Done: configured apps add the manifest query to the `Readiness JSON` and `Release status JSON` service links.
-5. Done: explicit endpoint query parameters still override the configured manifest for one-off checks.
-6. Boundary: this still does not create beta failures, physical print evidence, signed packages, or certificates; it keeps local web visibility aligned with the CLI gates.
+1. Historical behavior: `printpipe serve --regression-manifest <manifest>` configured a web manifest.
+2. Current behavior: the legacy `serve --regression-manifest` option is accepted but ignored.
+3. Current boundary: configured apps, home panels, and service links never pass manifests to report builders.
 
 ## Wave 96 - Beta Action Plan
 
@@ -1078,13 +1073,13 @@ Status: complete for beta-side action planning. PrintPipe now turns the remainin
 
 ## Wave 97 - Beta Action Plan in Local Web UI
 
-Status: complete for local web parity. The browser home page and JSON API now expose the same beta action plan as the CLI.
+Status: complete for manifest-free local web visibility. The browser home page and JSON API expose the beta action plan without accepting a regression manifest.
 
 1. Done: added `GET /beta-plan.json`.
-2. Done: `/beta-plan.json?regression_manifest=<path>` passes the manifest path through to `build_beta_action_plan()`.
-3. Done: `printpipe serve --regression-manifest <manifest>` now configures the home beta-plan panel and JSON service link.
+2. Current behavior: `/beta-plan.json?regression_manifest=<path>` ignores the query value.
+3. Current behavior: `printpipe serve --regression-manifest <manifest>` is accepted for compatibility but does not configure the home panel or JSON service link.
 4. Done: the home page renders a `Beta action plan` panel with action cards, commands, and the proof boundary.
-5. Done: web tests prove the endpoint, home panel, service link, and configured manifest propagation.
+5. Done: web tests prove the endpoint and home panel never pass configured or query-selected manifests to report builders.
 6. Boundary: this is visibility only; it does not create beta failures, physical print evidence, signed packages, or trusted-user feedback.
 
 ## Wave 98 - Trusted-User Feedback Packets
@@ -1349,7 +1344,7 @@ Status: partial progress for endgame web/API coordination. This exposes the same
 
 1. Done: added shared `build_final_next_action_payload()` so CLI and web use the same narrow JSON contract.
 2. Done: updated `printpipe final-next` to use the shared payload builder.
-3. Done: added `/final-next.json` to the local web app with regression-manifest query support.
+3. Done: added manifest-free `/final-next.json` to the local web app; any regression-manifest query value is ignored.
 4. Done: linked `Final next JSON` from the final-readiness panel beside the full final plan and pillar plans.
 5. Done: regression coverage verifies the web endpoint omits full section data and returns `next_action` plus `next_command`.
 6. Boundary: `/final-next.json` is read-only coordination output. It does not close physical validation, trusted-user beta, or signed distribution gates.
@@ -1499,38 +1494,29 @@ Status: partial progress for web execution UX. This makes final-readiness file p
 4. Done: non-run local paths, including release handoff paths under `dist/`, remain plain text instead of becoming arbitrary file links.
 5. Boundary: clickable links are navigation only. They do not create physical evidence, trusted-user evidence, or signed distribution artifacts.
 
-## Wave 136 - Default Regression-Aware Readiness
+## Wave 136 - Default Regression-Aware Readiness (historical; superseded by PP-P3-05)
 
-Status: partial progress for endgame readiness UX. This removes a local CLI footgun without closing physical, trusted-user, or signed-release gates.
+Historical status: this behavior was removed by PP-P3-05 because a repository-local manifest contains executable argv. Readiness now consumes a manifest only through an explicit `--regression-manifest` operator argument.
 
-1. Done: `printpipe readiness` now auto-discovers `regressions/dogfood_failures.json` when that standard manifest exists in the current project.
-2. Done: explicit `--regression-manifest <path>` still overrides the discovered standard manifest.
-3. Done: repos without the standard manifest keep the previous optional behavior, so first-run readiness remains honest instead of hard-failing on a missing beta regression file.
-4. Done: targeted CLI regression coverage verifies both discovery and no-manifest behavior.
-5. Current local result: `printpipe readiness --runs-dir runs --strict` now reports 3 action-required gates: physical validation, trusted-user beta, and release signing. Failure regression coverage and beta regression replay are ready by default.
-6. Boundary: defaulting the manifest is reporting friction removal only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.
+1. Historical behavior: `printpipe readiness` auto-discovered `regressions/dogfood_failures.json`.
+2. Current behavior: readiness accepts a regression manifest only through explicit `--regression-manifest <path>` input.
+3. Current boundary: without that input, the regression gate remains not-applicable; no repository-local argv is executed.
 
-## Wave 137 - Default Regression-Aware Web Launch
+## Wave 137 - Default Regression-Aware Web Launch (historical; superseded by PP-P3-05)
 
-Status: partial progress for local web readiness UX. This makes the default local server launch match the default terminal readiness gate.
+Historical status: this behavior was removed by PP-P3-05 because a repository-local manifest contains executable argv. The browser app is now manifest-free.
 
-1. Done: `printpipe serve` now auto-discovers `regressions/dogfood_failures.json` when that standard manifest exists in the current project.
-2. Done: explicit `--regression-manifest <path>` still overrides the discovered standard manifest.
-3. Done: the parser remains lightweight and does not import the web server while building defaults.
-4. Done: CLI delegation coverage verifies the default server receives the discovered manifest path.
-5. Current local result: a plain `printpipe serve --runs-dir runs` launch can make `/readiness.json`, `/release-status.json`, `/beta-plan.json`, and the home-page final-readiness surfaces regression-aware without an extra flag.
-6. Boundary: this is local web launch parity only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.
+1. Historical behavior: `printpipe serve` auto-discovered `regressions/dogfood_failures.json`.
+2. Current behavior: `printpipe serve --regression-manifest <path>` is accepted only for compatibility and ignored.
+3. Current boundary: browser routes and configured web launches cannot select a manifest or execute repository-local argv.
 
-## Wave 138 - Default Regression-Aware Endgame Planning
+## Wave 138 - Default Regression-Aware Endgame Planning (historical; superseded by PP-P3-05)
 
-Status: partial progress for terminal planning truth. This aligns the remaining beta, release, and final planning commands with the default readiness/web manifest behavior.
+Historical status: this behavior was removed by PP-P3-05 because a repository-local manifest contains executable argv. Planning commands now consume a manifest only through an explicit `--regression-manifest` operator argument.
 
-1. Done: `beta-plan`, `release-status`, `release-plan`, `release-start`, `final-plan`, and `final-next` now auto-discover `regressions/dogfood_failures.json` when that standard manifest exists.
-2. Done: explicit `--regression-manifest <path>` still overrides the discovered standard manifest.
-3. Done: targeted CLI coverage verifies the discovered manifest is passed through each command branch.
-4. Done: current local `final-plan --release-dir dist/release --runs-dir runs --json` reports `regression_manifest_path` as the canonical dogfood manifest instead of an empty string.
-5. Done: current local `beta-plan --runs-dir runs --json` renders `printpipe run-regressions "/Users/zohartito/Desktop/printpipe/regressions/dogfood_failures.json" --strict` as ready by default.
-6. Boundary: this is planning/reporting truth only. It does not create physical print evidence, trusted-user feedback, Developer ID/notary credentials, or a signed Windows installer.
+1. Historical behavior: the listed planning commands auto-discovered `regressions/dogfood_failures.json`.
+2. Current behavior: each command uses a manifest only through explicit `--regression-manifest <path>` input.
+3. Current boundary: plain planning/status commands execute no repository-local manifest argv.
 
 ## Wave 139 - Concrete Trusted-User Handoff Commands
 

@@ -8,6 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+MAX_HEIGHTFIELD_SOURCE_BYTES = 8 * 1024 * 1024
+MAX_HEIGHTFIELD_PNG_DIMENSION = 2_048
+MAX_HEIGHTFIELD_PNG_PIXELS = 1_000_000
+MAX_HEIGHTFIELD_PNG_IDAT_BYTES = 4 * 1024 * 1024
+MAX_HEIGHTFIELD_PNG_DECOMPRESSED_BYTES = 8 * 1024 * 1024
+
+
 @dataclass(frozen=True)
 class HeightfieldOptions:
     size_mm: float = 40.0
@@ -41,7 +48,12 @@ def write_heightfield_stl(
 
 
 def _read_luminance(path: Path) -> list[list[int]]:
-    data = path.read_bytes()
+    if path.stat().st_size > MAX_HEIGHTFIELD_SOURCE_BYTES:
+        raise ValueError("heightfield image exceeds source byte limit")
+    with path.open("rb") as source:
+        data = source.read(MAX_HEIGHTFIELD_SOURCE_BYTES + 1)
+    if len(data) > MAX_HEIGHTFIELD_SOURCE_BYTES:
+        raise ValueError("heightfield image exceeds source byte limit")
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return _read_png_luminance(data)
     raise ValueError(
@@ -58,6 +70,7 @@ def _read_png_luminance(data: bytes) -> list[list[int]]:
     interlace = 0
     palette: list[tuple[int, int, int]] = []
     idat = bytearray()
+    seen_ihdr = False
     while offset < len(data):
         if offset + 8 > len(data):
             raise ValueError("truncated PNG chunk header")
@@ -69,22 +82,35 @@ def _read_png_luminance(data: bytes) -> list[list[int]]:
         if len(payload) != length:
             raise ValueError("truncated PNG chunk payload")
         if kind == b"IHDR":
+            if seen_ihdr or length != 13:
+                raise ValueError("invalid PNG IHDR chunk")
+            seen_ihdr = True
             width, height, bit_depth, color_type, _compression, _filter, interlace = (
                 struct.unpack(">IIBBBBB", payload)
             )
         elif kind == b"PLTE":
+            if not payload or len(payload) > 768 or len(payload) % 3:
+                raise ValueError("invalid PNG palette")
             palette = [
                 tuple(payload[index : index + 3])
                 for index in range(0, len(payload) - 2, 3)
             ]
         elif kind == b"IDAT":
+            if len(idat) + len(payload) > MAX_HEIGHTFIELD_PNG_IDAT_BYTES:
+                raise ValueError("heightfield PNG compressed data exceeds byte limit")
             idat.extend(payload)
         elif kind == b"IEND":
             break
         offset = payload_end + 4
 
-    if width < 2 or height < 2:
+    if not seen_ihdr or width < 2 or height < 2:
         raise ValueError("heightfield PNG must be at least 2x2 pixels")
+    if (
+        width > MAX_HEIGHTFIELD_PNG_DIMENSION
+        or height > MAX_HEIGHTFIELD_PNG_DIMENSION
+        or width * height > MAX_HEIGHTFIELD_PNG_PIXELS
+    ):
+        raise ValueError("heightfield PNG dimensions exceed resource limits")
     if bit_depth != 8:
         raise ValueError("heightfield PNG must use 8-bit channels")
     if interlace:
@@ -95,8 +121,20 @@ def _read_png_luminance(data: bytes) -> list[list[int]]:
     if channels is None:
         raise ValueError(f"unsupported PNG color type: {color_type}")
 
-    decompressed = zlib.decompress(bytes(idat))
     row_bytes = width * channels
+    expected_bytes = height * (row_bytes + 1)
+    if expected_bytes > MAX_HEIGHTFIELD_PNG_DECOMPRESSED_BYTES:
+        raise ValueError("heightfield PNG decompressed data exceeds byte limit")
+    decompressor = zlib.decompressobj()
+    decompressed = decompressor.decompress(
+        bytes(idat), MAX_HEIGHTFIELD_PNG_DECOMPRESSED_BYTES + 1
+    )
+    if (
+        len(decompressed) != expected_bytes
+        or decompressor.unconsumed_tail
+        or not decompressor.eof
+    ):
+        raise ValueError("invalid or oversized heightfield PNG image data")
     rows: list[bytes] = []
     previous = bytes(row_bytes)
     cursor = 0

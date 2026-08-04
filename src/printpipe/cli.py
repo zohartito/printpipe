@@ -24,9 +24,6 @@ from printpipe.pipeline import (
 from printpipe.runs import create_run, load_run
 
 
-DEFAULT_REGRESSION_MANIFEST = Path("regressions/dogfood_failures.json")
-
-
 def _parse_overrides(pairs: list[str]) -> dict[str, list[str]]:
     """Parse repeated ``KEY=VALUE`` strings into the Bambu list-valued override map.
 
@@ -235,7 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--regression-manifest",
         type=Path,
         default=None,
-        help="Optional beta regression manifest to include in local readiness/release gates.",
+        help="Deprecated and ignored; web readiness surfaces never execute manifests.",
     )
 
     doctor = subparsers.add_parser(
@@ -1543,9 +1540,7 @@ def main(argv: list[str] | None = None) -> int:
                 host=args.host,
                 port=args.port,
                 runs_dir=args.runs_dir,
-                regression_manifest_path=(
-                    args.regression_manifest or _default_regression_manifest_path()
-                ),
+                regression_manifest_path=args.regression_manifest,
             )
         except ValueError as exc:
             parser.error(str(exc))
@@ -1839,12 +1834,14 @@ def _serve(
 ) -> int:
     from printpipe.web import server
 
+    # Keep the legacy parser/function argument inert rather than giving a web
+    # launch authority to execute repository-local manifest argv.
+    del regression_manifest_path
     server.validate_loopback_bind_host(host)
     server.serve(
         host=host,
         port=port,
         runs_dir=runs_dir,
-        regression_manifest_path=regression_manifest_path,
     )
     return 0
 
@@ -2309,9 +2306,6 @@ def _readiness(
         render_beta_readiness_report,
     )
 
-    if regression_manifest_path is None:
-        regression_manifest_path = _default_regression_manifest_path()
-
     report = build_beta_readiness_report(
         runs_dir,
         regression_manifest_path=regression_manifest_path,
@@ -2325,17 +2319,10 @@ def _readiness(
     return 0
 
 
-def _default_regression_manifest_path() -> Path | None:
-    candidate = DEFAULT_REGRESSION_MANIFEST
-    if not candidate.is_file():
-        return None
-    return candidate.resolve()
-
-
 def _regression_manifest_or_default(path: Path | None) -> Path | None:
-    if path is not None:
-        return path
-    return _default_regression_manifest_path()
+    """Keep status and planning commands non-executing unless a path is explicit."""
+
+    return path
 
 
 def _release_status(

@@ -6,7 +6,10 @@ import sys
 import zlib
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import build_parser, main
+from printpipe.meshgen.heightfield import _read_png_luminance
 
 
 def test_media_meshgen_heightfield_parser_accepts_adapter_protocol(tmp_path: Path):
@@ -144,3 +147,12 @@ def _png_chunk(kind: bytes, payload: bytes) -> bytes:
         + payload
         + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
     )
+
+
+def test_heightfield_png_rejects_excessive_dimensions_before_decompression() -> None:
+    payload = b"\x89PNG\r\n\x1a\n" + _png_chunk(
+        b"IHDR", struct.pack(">IIBBBBB", 2048, 2048, 8, 0, 0, 0, 0)
+    )
+
+    with pytest.raises(ValueError, match="dimensions exceed resource limits"):
+        _read_png_luminance(payload)

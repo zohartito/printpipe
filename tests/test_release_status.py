@@ -637,7 +637,7 @@ def test_cli_release_status_json_returns_two_when_strict_and_action_required(
     assert payload["next_actions"] == ["Build and verify a release bundle."]
 
 
-def test_cli_release_status_uses_standard_regression_manifest_when_present(
+def test_cli_release_status_does_not_auto_execute_standard_regression_manifest(
     monkeypatch,
     tmp_path: Path,
     capsys,
@@ -648,7 +648,7 @@ def test_cli_release_status_uses_standard_regression_manifest_when_present(
     monkeypatch.chdir(tmp_path)
 
     def fake_release_status_report(*, release_dir, runs_dir, regression_manifest_path=None):
-        assert regression_manifest_path == manifest_path
+        assert regression_manifest_path is None
         return {
             "schema_version": 1,
             "overall_status": "ready",
@@ -669,7 +669,7 @@ def test_cli_release_status_uses_standard_regression_manifest_when_present(
     assert payload["overall_status"] == "ready"
 
 
-def test_cli_release_plan_uses_standard_regression_manifest_when_present(
+def test_cli_release_plan_does_not_auto_execute_standard_regression_manifest(
     monkeypatch,
     tmp_path: Path,
     capsys,
@@ -680,7 +680,7 @@ def test_cli_release_plan_uses_standard_regression_manifest_when_present(
     monkeypatch.chdir(tmp_path)
 
     def fake_release_plan(*, release_dir, runs_dir, regression_manifest_path=None):
-        assert regression_manifest_path == manifest_path
+        assert regression_manifest_path is None
         return {
             "schema_version": 1,
             "overall_status": "action_required",
@@ -699,7 +699,7 @@ def test_cli_release_plan_uses_standard_regression_manifest_when_present(
     assert payload["overall_status"] == "action_required"
 
 
-def test_cli_release_start_uses_standard_regression_manifest_when_present(
+def test_cli_release_start_does_not_auto_execute_standard_regression_manifest(
     monkeypatch,
     tmp_path: Path,
     capsys,
@@ -710,7 +710,7 @@ def test_cli_release_start_uses_standard_regression_manifest_when_present(
     monkeypatch.chdir(tmp_path)
 
     def fake_release_start(*, release_dir, runs_dir, regression_manifest_path=None):
-        assert regression_manifest_path == manifest_path
+        assert regression_manifest_path is None
         return {
             "status": "started",
             "release_dir": str(release_dir),

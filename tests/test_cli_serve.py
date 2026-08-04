@@ -80,12 +80,12 @@ def test_serve_delegates_to_web_server_with_custom_options(monkeypatch, tmp_path
             "host": "127.0.0.1",
             "port": 9876,
             "runs_dir": tmp_path,
-            "regression_manifest_path": tmp_path / "regression_manifest.json",
+            "regression_manifest_path": None,
         }
     ]
 
 
-def test_serve_uses_standard_regression_manifest_when_present(monkeypatch, tmp_path: Path):
+def test_serve_does_not_auto_execute_standard_regression_manifest(monkeypatch, tmp_path: Path):
     manifest_path = tmp_path / "regressions" / "dogfood_failures.json"
     manifest_path.parent.mkdir()
     manifest_path.write_text('{"schema_version": 1, "cases": []}\n', encoding="utf-8")
@@ -127,7 +127,7 @@ def test_serve_uses_standard_regression_manifest_when_present(monkeypatch, tmp_p
             "host": "127.0.0.1",
             "port": 8765,
             "runs_dir": Path("runs"),
-            "regression_manifest_path": manifest_path,
+            "regression_manifest_path": None,
         }
     ]
 

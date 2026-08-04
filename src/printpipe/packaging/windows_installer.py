@@ -6,10 +6,14 @@ import shlex
 import subprocess
 import tempfile
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 CommandRunner = Callable[[list[str]], subprocess.CompletedProcess[str]]
+MAX_STANDALONE_ZIP_MEMBERS = 1_024
+MAX_STANDALONE_ZIP_MEMBER_BYTES = 128 * 1024 * 1024
+MAX_STANDALONE_ZIP_EXPANDED_BYTES = 512 * 1024 * 1024
+MAX_STANDALONE_ZIP_COMPRESSION_RATIO = 100
 
 
 def build_windows_installer_package(
@@ -45,7 +49,7 @@ def build_windows_installer_package(
         staging = temp_root / "staging"
         staging.mkdir()
         with zipfile.ZipFile(source_zip) as archive:
-            archive.extractall(staging)
+            _extract_standalone_zip(archive, staging)
         bundle_root = staging / "PrintPipe"
         if not (bundle_root / "PrintPipe.exe").exists():
             raise ValueError("Windows standalone ZIP must contain PrintPipe/PrintPipe.exe")
@@ -118,6 +122,83 @@ Name: "{{autoprograms}}\\PrintPipe"; Filename: "{{app}}\\PrintPipe.exe"
 [Run]
 Filename: "{{app}}\\PrintPipe.exe"; Parameters: "--version"; Flags: nowait postinstall skipifsilent
 """
+
+
+def _extract_standalone_zip(archive: zipfile.ZipFile, staging: Path) -> None:
+    """Preflight and extract a trusted standalone archive under fixed budgets."""
+
+    infos = archive.infolist()
+    if len(infos) > MAX_STANDALONE_ZIP_MEMBERS:
+        raise ValueError("Windows standalone ZIP has too many members")
+    total_declared = 0
+    destinations: set[Path] = set()
+    for info in infos:
+        _validate_zip_member(info)
+        if not info.is_dir():
+            total_declared += info.file_size
+            if total_declared > MAX_STANDALONE_ZIP_EXPANDED_BYTES:
+                raise ValueError("Windows standalone ZIP exceeds expanded byte limit")
+        destination = _zip_destination(staging, info.filename)
+        if destination in destinations:
+            raise ValueError("Windows standalone ZIP contains duplicate paths")
+        destinations.add(destination)
+
+    total_written = 0
+    for info in infos:
+        destination = _zip_destination(staging, info.filename)
+        if info.is_dir():
+            destination.mkdir(parents=True, exist_ok=True)
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        member_written = 0
+        with archive.open(info) as source, destination.open("xb") as target:
+            while chunk := source.read(65_536):
+                member_written += len(chunk)
+                total_written += len(chunk)
+                if (
+                    member_written > info.file_size
+                    or member_written > MAX_STANDALONE_ZIP_MEMBER_BYTES
+                    or total_written > MAX_STANDALONE_ZIP_EXPANDED_BYTES
+                ):
+                    raise ValueError("Windows standalone ZIP exceeds extraction limits")
+                target.write(chunk)
+        if member_written != info.file_size:
+            raise ValueError("Windows standalone ZIP member size changed during extraction")
+
+
+def _validate_zip_member(info: zipfile.ZipInfo) -> None:
+    if info.file_size < 0 or info.file_size > MAX_STANDALONE_ZIP_MEMBER_BYTES:
+        raise ValueError("Windows standalone ZIP member exceeds byte limit")
+    if not info.is_dir() and info.file_size > 0:
+        if (
+            info.compress_size <= 0
+            or info.file_size
+            > info.compress_size * MAX_STANDALONE_ZIP_COMPRESSION_RATIO
+        ):
+            raise ValueError("Windows standalone ZIP member compression ratio is too high")
+    mode = info.external_attr >> 16
+    if mode and (mode & 0o170000) == 0o120000:
+        raise ValueError("Windows standalone ZIP must not contain symbolic links")
+    _zip_destination(Path("."), info.filename)
+
+
+def _zip_destination(staging: Path, member_name: str) -> Path:
+    normalized = member_name.replace("\\", "/")
+    path = PurePosixPath(normalized)
+    if (
+        not normalized
+        or path.is_absolute()
+        or any(part in {"", ".", ".."} for part in path.parts)
+    ):
+        raise ValueError("Windows standalone ZIP contains an unsafe member path")
+    if any(":" in part for part in path.parts):
+        raise ValueError("Windows standalone ZIP contains an unsafe member path")
+    destination = staging.joinpath(*path.parts)
+    try:
+        destination.resolve().relative_to(staging.resolve())
+    except ValueError as exc:
+        raise ValueError("Windows standalone ZIP member escapes staging") from exc
+    return destination
 
 
 def _command_parts(command: str | list[str]) -> list[str]:

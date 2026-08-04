@@ -236,6 +236,11 @@ def test_configured_media_meshgen_command_reads_default_project_config(
 
     command = configured_media_meshgen_command()
 
+    assert command == ""
+
+    monkeypatch.setenv("PRINTPIPE_TRUST_PROJECT_MEDIA_COMMAND", "1")
+    command = configured_media_meshgen_command()
+
     assert command == "configured-command"
 
 
@@ -268,7 +273,7 @@ def test_environment_report_counts_project_config_media_command_provider(
     assert "project config" in providers["media_command"]["message"]
 
 
-def test_environment_report_reads_default_project_config_for_real_environment(
+def test_environment_report_does_not_trust_default_project_config_without_opt_in(
     monkeypatch,
     tmp_path: Path,
 ):
@@ -294,10 +299,9 @@ def test_environment_report_reads_default_project_config_for_real_environment(
     }
     assert report["meshgen"]["overall_status"] == "action_required"
     assert report["meshgen"]["live_media_provider_count"] == 0
-    assert report["meshgen"]["plumbing_only_media_provider_count"] == 1
-    assert providers["media_command"]["status"] == "succeeded"
-    assert providers["media_command"]["plumbing_only"] is True
-    assert "project config" in providers["media_command"]["message"]
+    assert report["meshgen"]["plumbing_only_media_provider_count"] == 0
+    assert providers["media_command"]["status"] == "skipped"
+    assert providers["media_command"]["plumbing_only"] is False
 
 
 def test_load_project_config_returns_empty_for_missing_config(tmp_path: Path):

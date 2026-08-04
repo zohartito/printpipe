@@ -843,7 +843,7 @@ def test_cli_final_plan_prints_json(monkeypatch, tmp_path: Path, capsys) -> None
     assert payload["sections"][0]["id"] == "physical_validation"
 
 
-def test_cli_final_plan_uses_standard_regression_manifest_when_present(
+def test_cli_final_plan_does_not_auto_execute_standard_regression_manifest(
     monkeypatch,
     tmp_path: Path,
     capsys,
@@ -854,7 +854,7 @@ def test_cli_final_plan_uses_standard_regression_manifest_when_present(
     monkeypatch.chdir(tmp_path)
 
     def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
-        assert regression_manifest_path == manifest_path
+        assert regression_manifest_path is None
         return {
             "schema_version": 1,
             "overall_status": "action_required",
@@ -924,7 +924,7 @@ def test_cli_final_next_prints_next_action_json(monkeypatch, tmp_path: Path, cap
     assert payload["next_action"]["coupon_stl_path"].endswith("coupon.stl")
 
 
-def test_cli_final_next_uses_standard_regression_manifest_when_present(
+def test_cli_final_next_does_not_auto_execute_standard_regression_manifest(
     monkeypatch,
     tmp_path: Path,
     capsys,
@@ -935,7 +935,7 @@ def test_cli_final_next_uses_standard_regression_manifest_when_present(
     monkeypatch.chdir(tmp_path)
 
     def fake_final_plan(*, release_dir, runs_dir, regression_manifest_path=None):
-        assert regression_manifest_path == manifest_path
+        assert regression_manifest_path is None
         return {
             "schema_version": 1,
             "overall_status": "action_required",

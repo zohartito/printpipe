@@ -263,11 +263,9 @@ class PrintPipeWebApp:
         self.runs_dir = Path(runs_dir) if runs_dir is not None else None
         self.release_dir = Path(release_dir) if release_dir is not None else None
         self.workspace_dir = Path(workspace_dir) if workspace_dir is not None else Path.cwd()
-        self.regression_manifest_path = (
-            Path(regression_manifest_path).expanduser()
-            if regression_manifest_path is not None
-            else None
-        )
+        # Compatibility argument only: browser surfaces remain manifest-free.
+        del regression_manifest_path
+        self.regression_manifest_path = None
         self.path_opener = path_opener
         self.csrf_token = csrf_token or secrets.token_urlsafe(32)
 
@@ -2850,10 +2848,10 @@ def serve(
     """Run the local, literal-loopback-only server until interrupted."""
 
     validate_loopback_bind_host(host)
-    web_app = app or create_app(
-        runs_dir=runs_dir,
-        regression_manifest_path=regression_manifest_path,
-    )
+    # Keep the public compatibility argument inert: no browser path may select
+    # an executable regression manifest.
+    del regression_manifest_path
+    web_app = app or create_app(runs_dir=runs_dir)
     server = create_server(web_app, host=host, port=port)
     try:
         server.serve_forever()

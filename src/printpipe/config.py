@@ -11,6 +11,7 @@ from typing import Any
 
 CONFIG_PATH_ENV = "PRINTPIPE_CONFIG_PATH"
 MEDIA_MESHGEN_COMMAND_ENV = "PRINTPIPE_MEDIA_MESHGEN_COMMAND"
+TRUST_PROJECT_MEDIA_COMMAND_ENV = "PRINTPIPE_TRUST_PROJECT_MEDIA_COMMAND"
 DEFAULT_CONFIG_PATH = Path(".printpipe") / "config.json"
 MEDIA_MESHGEN_PARAMS_KEY = "media_meshgen_params"
 
@@ -86,9 +87,30 @@ def configured_media_meshgen_command(
     env_command = environment.get(MEDIA_MESHGEN_COMMAND_ENV, "").strip()
     if env_command:
         return env_command
+    if not _project_media_command_is_trusted(
+        env=environment,
+        config_path=config_path,
+    ):
+        return ""
     config = load_project_config(env=env, cwd=cwd, config_path=config_path)
     command = config.get("media_meshgen_command")
     return command.strip() if isinstance(command, str) else ""
+
+
+def _project_media_command_is_trusted(
+    *,
+    env: Mapping[str, str],
+    config_path: Path | None,
+) -> bool:
+    """Only consume a project command hook after explicit operator trust."""
+
+    if config_path is not None or env.get(CONFIG_PATH_ENV, "").strip():
+        return True
+    return env.get(TRUST_PROJECT_MEDIA_COMMAND_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 
 def configured_media_meshgen_params(

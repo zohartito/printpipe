@@ -5,6 +5,8 @@ import subprocess
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import build_parser, main
 
 
@@ -134,3 +136,40 @@ def test_cli_build_windows_installer_json_reports_artifact(
     assert payload["status"] == "ok"
     assert payload["installer_path"] == str(output_path)
     assert payload["signed"] is True
+
+
+def test_windows_installer_rejects_zip_bomb_before_invoking_inno(tmp_path: Path) -> None:
+    from printpipe.packaging.windows_installer import build_windows_installer_package
+
+    standalone_zip = tmp_path / "bomb.zip"
+    with zipfile.ZipFile(standalone_zip, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("PrintPipe/PrintPipe.exe", b"x" * (2 * 1024 * 1024))
+    invoked = False
+
+    def fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+        nonlocal invoked
+        invoked = True
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    with pytest.raises(ValueError, match="compression ratio"):
+        build_windows_installer_package(
+            standalone_zip=standalone_zip,
+            output_path=tmp_path / "PrintPipeSetup.exe",
+            runner=fake_runner,
+        )
+    assert invoked is False
+
+
+def test_windows_installer_rejects_zip_path_traversal(tmp_path: Path) -> None:
+    from printpipe.packaging.windows_installer import build_windows_installer_package
+
+    standalone_zip = tmp_path / "traversal.zip"
+    with zipfile.ZipFile(standalone_zip, "w") as archive:
+        archive.writestr("../PrintPipe/PrintPipe.exe", "exe")
+
+    with pytest.raises(ValueError, match="unsafe member path"):
+        build_windows_installer_package(
+            standalone_zip=standalone_zip,
+            output_path=tmp_path / "PrintPipeSetup.exe",
+            runner=lambda command: subprocess.CompletedProcess(command, 0),
+        )
