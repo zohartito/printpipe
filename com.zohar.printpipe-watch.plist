@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.zohar.printpipe-watch</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/zohartito/projects/printpipe/.venv/bin/python</string>
+        <string>/Users/zohartito/projects/printpipe/tools/watch_3mf_queue.py</string>
+        <string>--inbox</string>
+        <string>/Users/zohartito/projects/printpipe/runs/inbox</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Set to the Bambu Studio CLI to open the slice gate; unset = validate + honest skip. -->
+        <key>PRINTPIPE_BAMBU_STUDIO_CLI</key>
+        <string>FILL_ME_IN</string>
+    </dict>
+    <!-- EVENT: fire whenever a file is dropped into the inbox. -->
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/zohartito/projects/printpipe/runs/inbox</string>
+    </array>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/zohartito/projects/printpipe/runs/inbox/watch.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/zohartito/projects/printpipe/runs/inbox/watch.log</string>
+</dict>
+</plist>

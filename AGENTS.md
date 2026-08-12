@@ -22,6 +22,21 @@
 - OpenAI prompt-image runs enforce a pre-call cost cap (`PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD`) and fail before the API call if the estimate is missing or over cap.
 - The web app is read-only by design (no web run-creation, provider config, uploads, or re-slice). Keep configuration on the CLI. License is Proprietary. Python ≥3.11.
 
+## Loops (loop map #29)
+- **EVENT watch-folder:** `tools/watch_3mf_queue.py` — a new `.3mf` in the inbox
+  is validated (`validate_bundle`), then sliced via `run_bambu_cli_slice_stage`
+  (behind the same Bambu CLI gate the pipeline uses — env
+  `PRINTPIPE_BAMBU_STUDIO_CLI`/fallbacks or a discovered install; no CLI =
+  `skipped_gate_closed`, never a fake receipt), then appended to a queue report
+  (schema `printpipe.watch_queue.v1`). Idempotent via a content-hash state file;
+  `--max-files` caps a run. Reuses the library only — no pipeline code changed.
+  - Dry-run: `python3 tools/watch_3mf_queue.py --dry-run`
+  - Trigger: `com.zohar.printpipe-watch.plist` (launchd `WatchPaths` on the
+    inbox). Load with
+    `launchctl bootstrap gui/$(id -u) ~/projects/printpipe/com.zohar.printpipe-watch.plist`
+    (not loaded by this repo). Inbox/state/report live under `runs/` (gitignored).
+  - Learnings append to `.claude/LEARNINGS.md`.
+
 ## Agent rules (all harnesses)
 - Determinism boundary: anything that must be EXACT (money, geometry, safety limits, scoring, pricing) lives in code; the model only orchestrates and judges.
 - Keep this file current: when you change how this repo is run, tested, or structured, update AGENTS.md in the same commit. Keep it under ~150 lines.
