@@ -19,8 +19,10 @@ dev = [
   "pytest>=8.0",
 ]
 mesh-repair = [
+  "manifold3d>=2.3",
   "networkx>=3.0",
   "trimesh>=4.0",
+  "manifold3d>=2.0",
 ]
 
 [project.scripts]

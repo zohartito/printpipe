@@ -6,8 +6,31 @@ import json
 import types
 import zipfile
 
+import pytest
+
 from printpipe import mcp_server
 from printpipe.contracts import StageStatus
+from printpipe.pipeline import resolve_slice_settings
+
+
+def _rich_slicer_keyspace_available() -> bool:
+    """True when an installed Bambu/Orca profile tree resolves the full keyspace.
+
+    The full process keyspace (including ``enable_support``) comes from an
+    installed Bambu Studio / OrcaSlicer profile tree, which CI runners do not
+    have. There only a minimal fallback profile is available, so tests asserting
+    the rich keyspace must skip.
+    """
+    try:
+        return "enable_support" in resolve_slice_settings("Bambu PLA Basic")["process"]
+    except Exception:  # noqa: BLE001 - any resolution failure means no rich keyspace
+        return False
+
+
+requires_slicer_profiles = pytest.mark.skipif(
+    not _rich_slicer_keyspace_available(),
+    reason="requires an installed Bambu Studio / OrcaSlicer profile tree (not present in CI)",
+)
 
 
 def test_initialize_reports_protocol_and_server_info():
@@ -26,7 +49,13 @@ def test_initialized_notification_returns_no_response():
 def test_tools_list_exposes_all_tools():
     response = mcp_server.handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     names = {tool["name"] for tool in response["result"]["tools"]}
-    assert names == {"get_slice_settings", "slice_with_settings", "get_fabrication_report"}
+    assert names == {
+        "get_slice_settings",
+        "list_slice_intents",
+        "resolve_slice_intents",
+        "slice_with_settings",
+        "get_fabrication_report",
+    }
 
 
 def test_normalize_overrides_wraps_scalars_and_preserves_lists():
@@ -40,6 +69,7 @@ def test_normalize_overrides_wraps_scalars_and_preserves_lists():
     }
 
 
+@requires_slicer_profiles
 def test_get_slice_settings_tool_returns_keyspace():
     response = mcp_server.handle_request(
         {
@@ -114,6 +144,38 @@ def test_summarize_run_sliced_false_when_receipt_failed(tmp_path):
     result = _fake_result(tmp_path, slice_ok=False)
     summary = mcp_server._summarize_run(result, {}, run_slice=True)
     assert summary["sliced"] is False
+
+
+def test_slice_with_settings_routes_all_three_override_groups(monkeypatch, tmp_path):
+    stl = tmp_path / "x.stl"
+    stl.write_text("solid x\nendsolid x\n")
+    captured: dict = {}
+
+    def fake_pipeline(input_path, runs_dir, **kwargs):
+        captured.update(kwargs)
+        return _fake_result(tmp_path)
+
+    monkeypatch.setattr(mcp_server, "run_existing_mesh_pipeline", fake_pipeline)
+    mcp_server.handle_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {
+                "name": "slice_with_settings",
+                "arguments": {
+                    "stl_path": str(stl),
+                    "overrides": {"wall_loops": 4},
+                    "filament_overrides": {"nozzle_temperature": "230"},
+                    "printer_overrides": {"machine_max_acceleration_x": "10000"},
+                    "run_slice": False,
+                },
+            },
+        }
+    )
+    assert captured["process_overrides"] == {"wall_loops": ["4"]}
+    assert captured["filament_overrides"] == {"nozzle_temperature": ["230"]}
+    assert captured["printer_overrides"] == {"machine_max_acceleration_x": ["10000"]}
 
 
 def test_slice_with_settings_rejects_missing_stl():
