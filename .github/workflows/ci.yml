@@ -6,18 +6,20 @@ on:
 
 permissions:
   contents: read
-
   pull-requests: read
+
 jobs:
   test:
     name: Test (Python 3.12)
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v7
+      # Pinned to v7 per tests/test_security_hardening.py.
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
     - name: Set up Python 3.12
-      uses: actions/setup-python@v7
+      # Pinned to v7 per tests/test_security_hardening.py.
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
       with:
         python-version: "3.12"
 
@@ -27,6 +29,14 @@ jobs:
         pip install -e '.[dev]'
 
     - name: Run test suite (pytest)
+      env:
+        # Bare runners have no Bambu Studio installation, so the profile
+        # resolver reads the vendored Generic PLA chain instead. Workstations
+        # keep using their real installed profiles. This is the LAST var in
+        # PROFILE_ROOT_ENV_VARS on purpose: tests that monkeypatch
+        # PRINTPIPE_BAMBU_PROFILE_ROOTS put their synthetic roots first, and
+        # first root wins per profile name.
+        PRINTPIPE_PROFILE_ROOTS: ${{ github.workspace }}/tests/fixtures/bambu/profiles/ci-root
       run: pytest -q
 
     - name: Lint with ruff (non-blocking)
@@ -46,11 +56,13 @@ jobs:
       pull-requests: write
     steps:
     - name: Checkout
-      uses: actions/checkout@v7
+      # Pinned to v7 per tests/test_security_hardening.py.
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       with:
         fetch-depth: 0
 
     - name: Run gitleaks
-      uses: gitleaks/gitleaks-action@v3
+      # Pinned to v3.0.0 per tests/test_security_hardening.py.
+      uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
