@@ -13,8 +13,10 @@ also safe to run on a timer — it is idempotent (a `.3mf` already processed at
 its current content hash is skipped) and capped (`--max-files`).
 
 Emits one JSON object (schema `printpipe.watch_queue.v1`) to stdout and to the
-queue-report file under the inbox. Dry-run validates only — no slice, no state
-or report write.
+queue-report file. State and report live in `<inbox>-watch/` beside the inbox,
+never inside it: `WatchPaths` fires on any write in the inbox, so writing them
+there re-ran this every ~10 s forever. Dry-run validates only — no slice, no
+state or report write.
 
 Usage (via the repo venv or any python with deps):
     python3 tools/watch_3mf_queue.py --dry-run
@@ -115,8 +117,9 @@ def main() -> int:
 
     inbox = Path(args.inbox).expanduser()
     inbox.mkdir(parents=True, exist_ok=True)
-    state_path = inbox / ".watch-state.json"
-    report_path = inbox / "queue-report.latest.json"
+    watch_dir = inbox.parent / f"{inbox.name}-watch"
+    state_path = watch_dir / ".watch-state.json"
+    report_path = watch_dir / "queue-report.latest.json"
     max_files = max(0, args.max_files)
 
     gate_open, executable = slice_gate(args.bambu_cli)
@@ -193,6 +196,7 @@ def main() -> int:
 
     if not args.dry_run:
         try:
+            watch_dir.mkdir(parents=True, exist_ok=True)
             state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
             report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         except OSError as err:
