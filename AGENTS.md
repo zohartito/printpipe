@@ -33,8 +33,10 @@
   - Dry-run: `python3 tools/watch_3mf_queue.py --dry-run`
   - Trigger: `com.zohar.printpipe-watch.plist` (launchd `WatchPaths` on the
     inbox). Load with
-    `launchctl bootstrap gui/$(id -u) ~/projects/printpipe/com.zohar.printpipe-watch.plist`
+    `mkdir -p runs/inbox-watch && launchctl bootstrap gui/$(id -u) ~/projects/printpipe/com.zohar.printpipe-watch.plist`
     (not loaded by this repo). Inbox/state/report live under `runs/` (gitignored).
+    State, report and log go in `runs/inbox-watch/`, never the inbox: any write
+    there re-fires `WatchPaths` (until 2026-10-22 it re-ran itself every ~10 s).
   - Learnings append to `.claude/LEARNINGS.md`.
 
 ## Agent rules (all harnesses)
