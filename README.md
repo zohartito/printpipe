@@ -2,6 +2,19 @@
 
 Local-first reference-to-print pipeline.
 
+Today it takes an existing mesh (STL/OBJ/3MF) to a repaired, oriented, Bambu-ready `.3mf` with a slice report; image, GIF, video and prompt inputs are in progress and need a configured mesh-generation provider.
+
+Install and run (Python 3.11+):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[mesh-repair]"
+printpipe run path/to/model.stl --runs-dir runs
+```
+
+Slicing (`--slice`) also needs a local Bambu Studio install, found automatically or set with `PRINTPIPE_BAMBU_STUDIO_CLI`; without it the slice step is skipped and reported as such.
+
 PrintPipe is being built to turn an image, GIF, video, or existing mesh plus printer/filament intent into a verified Bambu-ready print package:
 
 ```text
@@ -217,3 +230,7 @@ python -m pip install -e ".[dev,mesh-repair]"
 pytest
 printpipe --version
 ```
+
+## License
+
+AGPL-3.0-or-later. See [LICENSE](LICENSE).

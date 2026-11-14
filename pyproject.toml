@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Local-first reference-to-print pipeline for Bambu-ready 3MF bundles."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Proprietary" }
+license = { text = "AGPL-3.0-or-later" }
 authors = [
   { name = "Zohar Tito" }
 ]
