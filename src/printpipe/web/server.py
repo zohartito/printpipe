@@ -1185,7 +1185,10 @@ class PrintPipeWebApp:
         parts = relative_url_path.split("/")
         if any(part in {"", ".", ".."} or "\\" in part or ":" in part for part in parts):
             return self.not_found_response()
-        candidate = files("printpipe.web").joinpath("static", *parts)
+        asset_root = files("printpipe.web").joinpath("static")
+        candidate = asset_root.joinpath(*parts)
+        if isinstance(candidate, Path) and not candidate.resolve().is_relative_to(asset_root.resolve()):
+            return self.not_found_response()
         if not candidate.is_file():
             return self.static_response(relative_url_path)
         body = candidate.read_bytes()

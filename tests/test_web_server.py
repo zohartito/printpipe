@@ -3649,3 +3649,15 @@ def test_prp07_served_run_detail_disables_edit_form(tmp_path):
     assert response.status == 200
     assert '<fieldset disabled>' in response.text
     assert 'Read-only: use the local CLI for changes.' in response.text
+
+
+def test_prp08_source_static_resources_retain_path_containment(tmp_path, monkeypatch):
+    package = tmp_path / 'package'
+    static = package / 'static'
+    static.mkdir(parents=True)
+    outside = tmp_path / 'outside.js'
+    outside.write_text('synthetic external content')
+    (static / 'escape.js').symlink_to(outside)
+    monkeypatch.setattr(web_server, 'files', lambda _: package)
+    app = PrintPipeWebApp(runs_dir=tmp_path / 'runs')
+    assert app.handle('/static/escape.js').status == 404
