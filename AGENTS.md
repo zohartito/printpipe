@@ -5,6 +5,7 @@
 - The mesh-repair extra includes the 3MF XML loader; missing loaders produce repair receipts and a failed non-STL run report.
 - Automatic run IDs retry collisions with an atomic numeric suffix; explicit IDs still reject existing folders.
 - CLI entry point: `printpipe --version` (`printpipe.cli:main`).
+- Intent tests select committed profile fixtures; CI installs dev and mesh-repair extras.
 - Tests: `pytest` (testpaths = `tests`, ~105 test files). No lint config committed.
 - End-to-end run: `printpipe run input.stl --runs-dir runs --material "PLA" --slice` (also `--prompt`, `--printer`, `--use-case`).
 - `physical-slice` returns exit 2 and top-level failed status if its slice receipt fails.
