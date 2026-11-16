@@ -119,19 +119,16 @@ printpipe readiness \
   --strict
 ```
 
-The local JSON endpoint accepts the same manifest path:
-
-```text
-/readiness.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
-```
-
-Or launch the local app with the manifest preconfigured:
+Web readiness is manifest-free: `/readiness.json` ignores the
+`regression_manifest` query parameter. `printpipe serve --regression-manifest`
+is deprecated and ignored. Use the explicit CLI readiness command above, or
+run the reviewed manifest directly:
 
 ```bash
-printpipe serve \
-  --runs-dir runs \
-  --regression-manifest tests/fixtures/regression/failure_manifest.json
+printpipe run-regressions tests/fixtures/regression/failure_manifest.json --strict
 ```
+
+Review manifest argv first: the CLI executes those commands with your authority.
 
 Gate release status with the same manifest:
 
