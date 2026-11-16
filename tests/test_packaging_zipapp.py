@@ -72,3 +72,30 @@ def test_cli_build_zipapp_json_reports_artifact(tmp_path: Path, capsys) -> None:
     assert payload["status"] == "ok"
     assert payload["artifact_path"] == str(output_path)
     assert output_path.exists()
+
+
+def test_prp08_zipapp_serves_static_assets_over_http(tmp_path):
+    archive = tmp_path / 'printpipe.pyz'
+    build_zipapp_package(project_root=REPO_ROOT, output_path=archive)
+    script = '''
+import sys, threading, urllib.request, json
+sys.path.insert(0, sys.argv[1])
+from printpipe.web import create_app, create_server
+server = create_server(create_app(runs_dir=sys.argv[2]), port=0)
+thread = threading.Thread(target=server.serve_forever, daemon=True)
+thread.start()
+try:
+    results = []
+    for name in ('viewer.js', 'status.js', 'settings.css'):
+        with urllib.request.urlopen(f'http://127.0.0.1:{server.server_port}/static/{name}') as response:
+            results.append([response.status, len(response.read())])
+    print(json.dumps(results))
+finally:
+    server.shutdown()
+    server.server_close()
+    thread.join()
+'''
+    proc = subprocess.run([sys.executable, '-S', '-c', script, str(archive), str(tmp_path / 'runs')],
+                          text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    assert all(status == 200 and length > 0 for status, length in json.loads(proc.stdout))

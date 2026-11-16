@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 import math
 import mimetypes
 import secrets
@@ -1181,12 +1182,14 @@ class PrintPipeWebApp:
 
     def static_asset_response(self, relative_url_path: str) -> WebResponse:
         """Serve packaged JS/CSS/GLB assets from web/static/ (static_response is HTML-only)."""
-        asset_root = (Path(__file__).resolve().parent / "static").resolve()
-        candidate = (asset_root / relative_url_path).resolve()
-        if not candidate.is_file() or not candidate.is_relative_to(asset_root):
+        parts = relative_url_path.split("/")
+        if any(part in {"", ".", ".."} or "\\" in part or ":" in part for part in parts):
+            return self.not_found_response()
+        candidate = files("printpipe.web").joinpath("static", *parts)
+        if not candidate.is_file():
             return self.static_response(relative_url_path)
         body = candidate.read_bytes()
-        media_type = _ASSET_MEDIA_TYPES.get(candidate.suffix.lower(), "application/octet-stream")
+        media_type = _ASSET_MEDIA_TYPES.get(Path(relative_url_path).suffix.lower(), "application/octet-stream")
         return WebResponse(
             HTTPStatus.OK,
             body,
