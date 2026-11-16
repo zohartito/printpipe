@@ -51,3 +51,17 @@ def test_prp02_oversized_mesh_stops_before_bundle(tmp_path, extents):
     assert fit['fit']['fits'] is False
     report = json.loads((result.layout.reports_dir / 'run_report.json').read_text())
     assert report['warnings']
+
+
+def test_prp03_non_manifold_mesh_stops_before_bundle(tmp_path):
+    import trimesh
+
+    first = trimesh.creation.box(extents=(10, 10, 10))
+    second = first.copy()
+    second.apply_translation((10, 10, 0))
+    source = tmp_path / 'shared_edge.stl'
+    trimesh.util.concatenate([first, second]).export(source)
+    with pytest.raises(PipelineError, match='non-manifold') as error:
+        run_existing_mesh_pipeline(source, tmp_path / 'runs')
+    assert not list(error.value.result.layout.bundle_dir.glob('*.3mf'))
+    assert (error.value.result.layout.reports_dir / 'run_report.json').is_file()

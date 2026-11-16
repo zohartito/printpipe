@@ -98,7 +98,7 @@ def repair_mesh_file(
             message=f"Repaired mesh written to {output_path}.",
         )
 
-    if allow_non_watertight:
+    if allow_non_watertight and after.non_manifold_edges == 0:
         return MeshRepairResult(
             before=before,
             after=after,
