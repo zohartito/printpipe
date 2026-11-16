@@ -27,7 +27,7 @@ Local CLI / local app
 - `mesh`: repair, topology validation, and export.
 - `geometry`: orientation, scale, bed fit, and support-risk scoring.
 - `calibration`: physical validation artifacts such as flexible-material coupons.
-- `bambu`: printer profiles, filament profiles, process profiles, enum validation, 3MF bundling, and slice parsing.
+- `bambu`: printer profiles, filament profiles, process profiles, source-profile resolution, 3MF bundling, and slice parsing.
 - `reports`: HTML/Markdown/JSON receipts.
 - `cli`: user-facing command line.
 
@@ -44,7 +44,10 @@ Local CLI / local app
 
 1. Mesh topology must be validated after generation and after repair.
 2. Bed fit must be validated before bundling.
-3. Bambu profile enum values must be schema/source checked before bundling.
+3. Bundle validation checks archive structure and required metadata. The final merged
+   settings are not enum/schema validated: overrides such as `support_style=banana`
+   can be bundled and pass validation. Review overrides against the selected Bambu
+   profile schema and inspect actual slicer results; bundle validity is not settings validity.
 4. 3MF must be Bambu-native enough to open without rejection.
 5. Bambu CLI slice must pass before the app calls a run successful.
 

@@ -191,6 +191,10 @@ printpipe run input.stl --runs-dir runs --material "PETG" --slice
 printpipe run --prompt "small ergonomic desk hook" --runs-dir runs
 ```
 
+Process overrides (`--set`, with `--slice`) are applied without final enum/schema
+validation. Unknown keys may be warned about but are still applied; bundle
+validation does not certify setting values. Review overrides and slicer results.
+
 PETG bundles select Textured PEI in project settings so Bambu Studio does not treat them as Cool Plate jobs.
 Current software material coverage includes PLA/PLA+, PETG, TPU, ABS, ASA, PC, PA, and PA-CF bundle settings with Bambu CLI slice receipts.
 
