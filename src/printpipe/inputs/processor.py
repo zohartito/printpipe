@@ -660,13 +660,15 @@ def _run_openai_prompt_image_provider(
         with urllib.request.urlopen(request, timeout=180) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace").strip()
-        message = f"OpenAI prompt image request failed with HTTP {exc.code}"
-        if detail:
-            message = f"{message}: {detail}"
-        raise FrameExtractionError(message) from exc
+        # Provider/proxy bodies may echo authentication headers. Keep only the
+        # numeric status in shareable receipts, never the body or request URL.
+        raise FrameExtractionError(
+            f"OpenAI prompt image request failed with HTTP {exc.code}"
+        ) from None
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise FrameExtractionError(f"OpenAI prompt image request failed: {exc}") from exc
+        raise FrameExtractionError(
+            f"OpenAI prompt image request failed ({type(exc).__name__})"
+        ) from None
 
     image_b64 = _openai_image_b64(response_payload)
     try:
