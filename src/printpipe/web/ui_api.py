@@ -62,7 +62,9 @@ def export_run_glb(run_root: str | Path) -> Path:
     ``trimesh.load`` handles that transparently.
     """
 
-    layout = _load_layout(run_root)
+    root = Path(run_root).expanduser().resolve()
+    _contained_viewer_path(root / "manifest.json", root)
+    layout = _load_layout(root)
     for directory in (layout.geometry_dir, layout.repair_dir, layout.meshgen_dir):
         _contained_viewer_path(directory, layout.root)
     source_mesh = _primary_mesh_path(layout)

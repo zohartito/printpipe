@@ -3638,3 +3638,14 @@ def test_prp07_forms_are_disabled():
     assert '<fieldset disabled>' in html
     assert 'use the local CLI' in html
     assert '</form></fieldset>' in html
+
+
+def test_prp07_served_run_detail_disables_edit_form(tmp_path):
+    source = tmp_path / 'input.stl'
+    source.write_text('solid input\nendsolid input\n')
+    layout = create_run(source, tmp_path / 'runs', run_id='readonly-form')
+    app = PrintPipeWebApp(runs_dir=tmp_path / 'runs')
+    response = app.handle('/runs/' + layout.run_id)
+    assert response.status == 200
+    assert '<fieldset disabled>' in response.text
+    assert 'Read-only: use the local CLI for changes.' in response.text

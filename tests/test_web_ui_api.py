@@ -196,3 +196,14 @@ def test_prp04_viewer_rejects_paths_outside_run(tmp_path, escape):
         export_run_glb(run_root)
     assert victim.read_bytes() == b'unchanged'
     assert not (outside / 'box_oriented.glb').exists()
+
+
+def test_prp04_viewer_rejects_symlinked_manifest(tmp_path):
+    run_root = _make_box_run(tmp_path)
+    manifest = run_root / 'manifest.json'
+    external = tmp_path / 'external-manifest.json'
+    external.write_bytes(manifest.read_bytes())
+    manifest.unlink()
+    manifest.symlink_to(external)
+    with pytest.raises(ValueError, match='inside|symlink'):
+        export_run_glb(run_root)

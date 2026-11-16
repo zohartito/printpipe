@@ -34,9 +34,9 @@
 - Prompt-image HTTP failure receipts keep only numeric status/error type, excluding provider bodies that may echo credentials.
 - OpenAI prompt-image runs enforce a pre-call cost cap (`PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD`) and fail before the API call if the estimate is missing or over cap.
 - Packaged web assets use archive-aware resources; package smoke checks JS/CSS routes.
-- Viewer conversion rejects paths outside the run and symlinks, and publishes its GLB cache atomically.
+- Viewer conversion rejects manifest/mesh/cache paths outside the run and symlinks, and publishes its GLB cache atomically.
 - Loopback HTTP requires the bound port with Host 127.0.0.1/localhost and rejects foreign/null Origin headers.
-- The web app is read-only by design (all POST routes reject before body processing, including edits, evidence, handoffs and folder opening). Keep configuration on the CLI. License is AGPL-3.0-or-later. Python ≥3.11.
+- The web app is read-only by design (served forms are disabled and all POST routes reject before body processing, including edits, evidence, handoffs and folder opening). Keep configuration on the CLI. License is AGPL-3.0-or-later. Python ≥3.11.
 
 - Windows association helpers save prior default values/types; uninstall only restores/removes the default and PrintPipe ProgID, preserving extension subkeys.
 

@@ -1262,7 +1262,7 @@ class PrintPipeWebApp:
             artifact_links=artifact_links,
             csrf_token=self.csrf_token,
         )
-        return WebResponse.html(self._disable_web_reslice_controls(page))
+        return WebResponse.html(_read_only_forms(self._disable_web_reslice_controls(page)))
 
     def not_found_response(self) -> WebResponse:
         return WebResponse.from_text(
