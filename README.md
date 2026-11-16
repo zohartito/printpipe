@@ -96,6 +96,15 @@ export PRINTPIPE_TRELLIS2_COMMAND="python -m printpipe.meshgen.trellis2 \
 printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
 ```
 
+`--target-size-mm` defaults to `80` and accepts a positive, finite size. Before
+export, the worker scales the mesh uniformly about the origin so its longest
+bounding-box dimension equals that size in millimetres, preserving proportions
+for STL, OBJ and GLB output. For example, add `--target-size-mm 120` to the runner
+command for a 120 mm longest dimension. The worker's `result.json` records the
+applied `scale_factor` and final `bbox_size_mm` as `[x, y, z]`; the runner includes
+both in `worker_result`. Empty, zero-size or non-finite meshes fail with exit
+code 5 before mesh export.
+
 Remote defaults: conda env `trellis2` via `~/miniconda3/etc/profile.d/conda.sh`,
 TRELLIS.2 checkout at `~/printpipe-trellis2/TRELLIS.2`, job folders kept under
 `~/printpipe-trellis2/jobs`, GPU `0`. `--quality draft|standard|high` maps to

@@ -5,7 +5,7 @@ standalone script (no printpipe imports) because the runner copies it to the
 GPU host for remote jobs. It writes the mesh only after TRELLIS.2 returns one,
 and always writes a JSON result with timings, peak GPU memory or the error.
 
-Exit codes: 0 ok, 3 model unavailable, 4 inference failed, 5 no output.
+Exit codes: 0 ok, 3 model unavailable, 4 inference failed, 5 no usable mesh.
 """
 
 from __future__ import annotations
@@ -35,6 +35,35 @@ class WorkerError(Exception):
         self.message = message
 
 
+def _positive_finite_float(value: str) -> float:
+    try:
+        number = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive finite number") from exc
+    if not 0 < number < float("inf"):
+        raise argparse.ArgumentTypeError("must be a positive finite number")
+    return number
+
+
+def _scale_vertices(vertices, target_size_mm: float) -> tuple:
+    """Return scaled vertices, factor and bbox size without mutating the input array."""
+    if len(vertices) == 0:
+        raise WorkerError(EXIT_OUTPUT_MISSING, "no usable mesh: vertices are empty")
+    bbox_size = [float(size) for size in vertices.max(axis=0) - vertices.min(axis=0)]
+    longest = max(bbox_size)
+    if any(not 0 <= size < float("inf") for size in bbox_size) or longest == 0:
+        raise WorkerError(
+            EXIT_OUTPUT_MISSING, "no usable mesh: bounding box is zero or non-finite"
+        )
+    scale_factor = target_size_mm / longest
+    if not 0 < scale_factor < float("inf"):
+        raise WorkerError(EXIT_OUTPUT_MISSING, "no usable mesh: scale factor is not representable")
+    scaled_vertices = vertices * scale_factor
+    if not (abs(scaled_vertices) < float("inf")).all():
+        raise WorkerError(EXIT_OUTPUT_MISSING, "no usable mesh: scaled vertices are non-finite")
+    return scaled_vertices, scale_factor, [size * scale_factor for size in bbox_size]
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TRELLIS.2 image-to-3D worker for printpipe.")
     parser.add_argument("--input", required=True, type=Path)
@@ -46,6 +75,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--texture-size", type=int, default=1024)
     parser.add_argument("--decimation-target", type=int, default=500000)
+    parser.add_argument(
+        "--target-size-mm", type=_positive_finite_float, default=80.0,
+        help="Scale uniformly about the origin to this longest bbox dimension in mm (default: 80).",
+    )
     parser.add_argument("--rembg-model")
     return parser
 
@@ -149,6 +182,10 @@ def _generate(args: argparse.Namespace, result: dict) -> None:
         result["peak_gpu_memory_allocated_mb"] = round(torch.cuda.max_memory_allocated() / 2**20, 1)
         result["peak_gpu_memory_reserved_mb"] = round(torch.cuda.max_memory_reserved() / 2**20, 1)
 
+    vertices, scale_factor, bbox_size_mm = _scale_vertices(textured.vertices, args.target_size_mm)
+    textured.vertices = vertices
+    result["scale_factor"] = scale_factor
+    result["bbox_size_mm"] = bbox_size_mm
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.output_format == "glb":
         textured.export(args.output)

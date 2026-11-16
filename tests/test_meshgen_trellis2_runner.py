@@ -279,3 +279,66 @@ def test_quality_maps_to_pipeline_type():
     assert trellis2.pipeline_type_for_quality("standard") == "1024_cascade"
     assert trellis2.pipeline_type_for_quality("high") == "1536_cascade"
     assert trellis2.pipeline_type_for_quality("unknown") == "1024_cascade"
+
+
+@pytest.mark.parametrize("mode", ["local", pytest.param("remote", marks=needs_posix_shell)])
+@pytest.mark.parametrize("target_size_mm", [None, 123.5])
+def test_runner_passes_target_size_and_preserves_scale_metadata(
+    tmp_path: Path, capsys, mode, target_size_mm,
+):
+    fake_python = _write_script(
+        tmp_path / "fake_trellis_python.py",
+        "import argparse, json, shutil\n"
+        "from pathlib import Path\n"
+        "parser = argparse.ArgumentParser()\n"
+        "parser.add_argument('worker')\n"
+        "parser.add_argument('--output', required=True)\n"
+        "parser.add_argument('--result', required=True)\n"
+        "parser.add_argument('--target-size-mm', type=float, required=True)\n"
+        "args, _ = parser.parse_known_args()\n"
+        f"shutil.copyfile({str(FIXTURE_STL)!r}, args.output)\n"
+        "size = args.target_size_mm\n"
+        "Path(args.result).write_text(json.dumps({'status': 'succeeded', "
+        "'scale_factor': size, 'bbox_size_mm': [size, size / 2, size / 4]}))\n",
+    )
+    output = tmp_path / "trellis2.stl"
+    if mode == "remote":
+        argv = _remote_args(tmp_path, fake_python, output=output)
+    else:
+        source = tmp_path / "reference.png"
+        source.write_bytes(b"fake image")
+        argv = [
+            "--python", str(fake_python), "--trellis-root", str(tmp_path),
+            "--source", str(source), "--output", str(output),
+        ]
+    if target_size_mm is not None:
+        argv += ["--target-size-mm", str(target_size_mm)]
+
+    code = trellis2.main(argv)
+
+    captured = capsys.readouterr()
+    assert code == 0, captured.err
+    assert output.read_bytes() == FIXTURE_STL.read_bytes()
+    payload = json.loads(captured.out)
+    expected_size = 80.0 if target_size_mm is None else target_size_mm
+    assert payload["worker_result"]["scale_factor"] == expected_size
+    assert payload["worker_result"]["bbox_size_mm"] == [
+        expected_size, expected_size / 2, expected_size / 4,
+    ]
+
+
+@pytest.mark.parametrize("entrypoint", ["runner", "worker"])
+@pytest.mark.parametrize("invalid_size", ["0", "-1", "nan", "inf", "-inf", "bad"])
+def test_target_size_must_be_positive_and_finite(tmp_path: Path, capsys, entrypoint, invalid_size):
+    from printpipe.meshgen import trellis2_worker
+
+    parser = trellis2.build_parser() if entrypoint == "runner" else trellis2_worker.build_parser()
+    argv = ["--output", str(tmp_path / "mesh.stl"), f"--target-size-mm={invalid_size}"]
+    if entrypoint == "worker":
+        argv += ["--input", str(tmp_path / "reference.png"), "--result", str(tmp_path / "result.json")]
+
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(argv)
+
+    assert exc.value.code == trellis2.EXIT_USAGE
+    assert "must be a positive finite number" in capsys.readouterr().err

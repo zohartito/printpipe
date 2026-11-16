@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -295,3 +296,124 @@ def _write_png(path: Path) -> None:
     # The smoke path copies the reference without decoding it (same as the
     # existing smoke tests), so placeholder bytes are enough here.
     path.write_bytes(b"fake image")
+
+
+@pytest.fixture
+def fake_trellis_worker(monkeypatch):
+    """Stub GPU inference while exercising the real worker and mesh exporters."""
+    from printpipe.meshgen import trellis2_worker
+
+    cuda = SimpleNamespace(
+        is_available=lambda: True,
+        get_device_name=lambda _: "fake CUDA device",
+        reset_peak_memory_stats=lambda: None,
+        max_memory_allocated=lambda: 0,
+        max_memory_reserved=lambda: 0,
+        OutOfMemoryError=type("OutOfMemoryError", (RuntimeError,), {}),
+    )
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(cuda=cuda))
+    monkeypatch.setitem(
+        sys.modules, "PIL",
+        SimpleNamespace(Image=SimpleNamespace(open=lambda _: SimpleNamespace(load=lambda: None))),
+    )
+
+    def install(textured):
+        mesh = SimpleNamespace(
+            vertices=None, faces=None, attrs=None, coords=None, layout=None,
+            voxel_size=1, simplify=lambda _: None,
+        )
+        pipeline = SimpleNamespace(cuda=lambda: None, run=lambda *a, **kw: [mesh])
+        pipelines = SimpleNamespace(
+            Trellis2ImageTo3DPipeline=SimpleNamespace(from_pretrained=lambda _: pipeline)
+        )
+        monkeypatch.setitem(sys.modules, "trellis2", SimpleNamespace(pipelines=pipelines))
+        monkeypatch.setitem(sys.modules, "trellis2.pipelines", pipelines)
+        monkeypatch.setitem(
+            sys.modules, "o_voxel",
+            SimpleNamespace(postprocess=SimpleNamespace(to_glb=lambda **kw: textured)),
+        )
+        return trellis2_worker
+
+    return install
+
+
+@pytest.mark.parametrize("target_size_mm", [80.0, 123.5])
+@pytest.mark.parametrize("source_size", [0.5, 1.0])
+def test_scale_vertices_preserves_proportions_and_origin_without_mutation(target_size_mm, source_size):
+    np = pytest.importorskip("numpy")
+    from printpipe.meshgen import trellis2_worker
+
+    vertices = np.array([[-0.5, -0.125, 0.125], [0.5, 0.375, 0.375]]) * source_size
+    original = vertices.copy()
+
+    scaled, factor, bbox_size_mm = trellis2_worker._scale_vertices(vertices, target_size_mm)
+
+    np.testing.assert_array_equal(vertices, original)
+    np.testing.assert_allclose(scaled, original * (target_size_mm / source_size))
+    assert factor == pytest.approx(target_size_mm / source_size)
+    assert bbox_size_mm == pytest.approx([target_size_mm, target_size_mm / 2, target_size_mm / 4])
+
+
+@pytest.mark.parametrize("output_format", ["stl", "obj", "glb"])
+@pytest.mark.parametrize("target_size_mm", [None, 123.5])
+def test_worker_exports_mesh_at_target_size(
+    tmp_path: Path, fake_trellis_worker, output_format, target_size_mm,
+):
+    trimesh = pytest.importorskip("trimesh")
+    textured = trimesh.creation.box(extents=(1, 0.5, 0.25))
+    textured.apply_translation((0, 0.125, 0.25))
+    original_bounds = textured.bounds.copy()
+    worker = fake_trellis_worker(textured)
+    output = tmp_path / "mesh" / f"model.{output_format}"
+    result_path = tmp_path / "result.json"
+    argv = [
+        "--input", str(tmp_path / "reference.png"), "--output", str(output),
+        "--output-format", output_format, "--result", str(result_path),
+    ]
+    if target_size_mm is not None:
+        argv += ["--target-size-mm", str(target_size_mm)]
+
+    assert worker.main(argv) == 0
+
+    expected_size = 80.0 if target_size_mm is None else target_size_mm
+    exported = trimesh.load(output, force="mesh", process=False)
+    assert exported.extents == pytest.approx([expected_size, expected_size / 2, expected_size / 4])
+    assert exported.bounds == pytest.approx(original_bounds * expected_size)
+    result = json.loads(result_path.read_text())
+    assert result["status"] == "succeeded"
+    assert result["scale_factor"] == pytest.approx(expected_size)
+    assert result["bbox_size_mm"] == pytest.approx(exported.extents.tolist())
+    assert result["vertex_count"] == len(textured.vertices)
+    assert result["face_count"] == len(textured.faces)
+    assert result["watertight"] is True
+
+
+@pytest.mark.parametrize("output_format", ["stl", "obj", "glb"])
+@pytest.mark.parametrize("invalid_mesh", ["zero", "nan", "inf", "empty"])
+def test_worker_rejects_unusable_mesh_before_export(
+    tmp_path: Path, fake_trellis_worker, output_format, invalid_mesh,
+):
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("trimesh")
+    vertices = np.zeros((0 if invalid_mesh == "empty" else 3, 3))
+    if invalid_mesh in ("nan", "inf"):
+        vertices[0, 1] = float(invalid_mesh)
+    textured = SimpleNamespace(
+        vertices=vertices, faces=np.array([[0, 1, 2]]),
+        export=lambda *a, **kw: pytest.fail("unusable mesh must not be exported"),
+    )
+    worker = fake_trellis_worker(textured)
+    output = tmp_path / "mesh" / f"model.{output_format}"
+    result_path = tmp_path / "result.json"
+
+    code = worker.main([
+        "--input", str(tmp_path / "reference.png"), "--output", str(output),
+        "--output-format", output_format, "--result", str(result_path),
+    ])
+
+    assert code == worker.EXIT_OUTPUT_MISSING == 5
+    assert not output.parent.exists()
+    result = json.loads(result_path.read_text())
+    assert result["status"] == "failed"
+    assert "no usable mesh" in result["error"]
+    assert "scale_factor" not in result

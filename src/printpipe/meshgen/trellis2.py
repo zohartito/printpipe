@@ -55,6 +55,16 @@ def pipeline_type_for_quality(quality: str) -> str:
     return QUALITY_PIPELINE_TYPES.get(quality, QUALITY_PIPELINE_TYPES["standard"])
 
 
+def _positive_finite_float(value: str) -> float:
+    try:
+        number = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive finite number") from exc
+    if not 0 < number < float("inf"):
+        raise argparse.ArgumentTypeError("must be a positive finite number")
+    return number
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m printpipe.meshgen.trellis2",
@@ -77,6 +87,10 @@ def build_parser() -> argparse.ArgumentParser:
     model.add_argument("--pipeline-type", choices=("512", "1024", "1024_cascade", "1536_cascade"))
     model.add_argument("--texture-size", type=int, default=1024)
     model.add_argument("--decimation-target", type=int, default=500000)
+    model.add_argument(
+        "--target-size-mm", type=_positive_finite_float, default=80.0,
+        help="Scale uniformly about the origin to this longest bbox dimension in mm (default: 80).",
+    )
     model.add_argument(
         "--rembg-model",
         help="Override the background-removal model (for example ZhengPeng7/BiRefNet).",
@@ -186,6 +200,8 @@ def _worker_args(
         str(args.texture_size),
         "--decimation-target",
         str(args.decimation_target),
+        "--target-size-mm",
+        str(args.target_size_mm),
     ]
     if args.rembg_model:
         worker_args.extend(("--rembg-model", args.rembg_model))
