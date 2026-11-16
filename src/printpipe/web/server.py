@@ -282,50 +282,11 @@ class PrintPipeWebApp:
         request_method = method.upper()
         split_target = urlsplit(target)
         path = split_target.path or "/"
+        if request_method == "POST":
+            return self.read_only_response(path)
         if path == "/media-meshgen/comfyui-preflight.json":
             return self.media_meshgen_comfyui_preflight_response()
         query = parse_qs(split_target.query, keep_blank_values=True)
-        if request_method == "POST":
-            if path == "/beta-feedback/record":
-                return self.record_beta_feedback_response(headers=headers, body=body)
-            if path == "/physical/record":
-                return self.record_physical_response(headers=headers, body=body)
-            if path == "/physical/start":
-                return self.start_physical_response(headers=headers, body=body)
-            if path == "/release/start":
-                return self.start_release_response(headers=headers, body=body)
-            if path == "/media-meshgen/template":
-                return self.start_media_meshgen_template_response(headers=headers, body=body)
-            if path == "/media-meshgen/comfyui-workflow":
-                return self.configure_media_meshgen_comfyui_workflow_response(
-                    headers=headers,
-                    body=body,
-                )
-            if path == "/media-meshgen/configure":
-                return self.configure_media_meshgen_response(headers=headers, body=body)
-            if path == "/media-meshgen/smoke":
-                return self.run_media_meshgen_smoke_response(headers=headers, body=body)
-            if path == "/runs":
-                return self.create_run_response(headers=headers, body=body)
-            if path.startswith(_RUNS_PREFIX):
-                relative_run_path = path.removeprefix(_RUNS_PREFIX)
-                open_route = _open_folder_route(relative_run_path)
-                if open_route is not None:
-                    run_id, target = open_route
-                    return self.open_folder_response(
-                        run_id,
-                        target,
-                        headers=headers,
-                        body=body,
-                    )
-                edit_run_id = _edit_route_id(relative_run_path)
-                if edit_run_id is not None:
-                    return self.create_edit_response(edit_run_id, headers=headers, body=body)
-                if relative_run_path.endswith("/reslice"):
-                    return self.reslice_response(
-                        relative_run_path.removesuffix("/reslice"), headers=headers, body=body
-                    )
-            return self._method_not_allowed()
         if request_method not in {"GET", "HEAD"}:
             return self._method_not_allowed()
 
@@ -378,6 +339,20 @@ class PrintPipeWebApp:
             return self.run_artifact_response(relative_run_path)
 
         return self.not_found_response()
+
+    def read_only_response(self, path: str = "") -> WebResponse:
+        if path == "/media-meshgen/comfyui-preflight.json":
+            return self.media_meshgen_comfyui_preflight_response()
+        if path.startswith("/media-meshgen/"):
+            return self._media_meshgen_web_actions_disabled_response()
+        if path.endswith("/reslice"):
+            return self._web_reslice_disabled_response()
+        if path == "/runs":
+            return self._web_run_creation_disabled_response()
+        return WebResponse.from_text(
+            "The web application is read-only. Use the local CLI for changes.\n",
+            status=HTTPStatus.FORBIDDEN, content_type=_TEXT_MEDIA_TYPE,
+        )
 
     def create_run_response(self, *, headers: Any | None, body: bytes) -> WebResponse:
         return self._web_run_creation_disabled_response()
@@ -906,7 +881,7 @@ class PrintPipeWebApp:
         return WebResponse.redirect("/#trusted-user-action-plan")
 
     def home_response(self) -> WebResponse:
-        return WebResponse.html(self.render_home())
+        return WebResponse.html(_read_only_forms(self.render_home()))
 
     def health_response(self) -> WebResponse:
         return WebResponse.json({"service": "printpipe-web", "status": "ok"})
@@ -2869,6 +2844,12 @@ def validate_loopback_bind_host(host: str) -> None:
         )
 
 
+def _read_only_forms(html: str) -> str:
+    return html.replace(
+        "<form", '<fieldset disabled><legend>Read-only: use the local CLI for changes.</legend><form'
+    ).replace("</form>", "</form></fieldset>")
+
+
 def _handler_for(app: PrintPipeWebApp) -> type[BaseHTTPRequestHandler]:
     class PrintPipeRequestHandler(BaseHTTPRequestHandler):
         server_version = "PrintPipeWeb/0.1"
@@ -2880,18 +2861,8 @@ def _handler_for(app: PrintPipeWebApp) -> type[BaseHTTPRequestHandler]:
             self._send(app.handle(self.path, method="HEAD"), include_body=False)
 
         def do_POST(self) -> None:
-            try:
-                body = self._read_request_body()
-            except _FormError as exc:
-                self._send(
-                    WebResponse.from_text(
-                        f"{exc.message}\n",
-                        status=exc.status,
-                        content_type=_TEXT_MEDIA_TYPE,
-                    )
-                )
-                return
-            self._send(app.handle(self.path, method="POST", headers=self.headers, body=body))
+            # Reject before reading or parsing any request body.
+            self._send(app.read_only_response(urlsplit(self.path).path))
 
         def log_message(self, format: str, *args: Any) -> None:
             return
