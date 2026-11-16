@@ -90,6 +90,15 @@ printpipe media-meshgen-configure --command "printpipe media-meshgen-heightfield
 ```
 
 That writes `.printpipe/config.json`, which is intentionally ignored by git.
+The saved command is inactive until you review it and explicitly trust it:
+
+```bash
+export PRINTPIPE_CONFIG_PATH="$(pwd)/.printpipe/config.json"
+printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
+```
+
+Alternatively, set `PRINTPIPE_TRUST_PROJECT_MEDIA_COMMAND=1` in the reviewed
+workspace. Configuration alone does not enable provider execution.
 For a ComfyUI API workflow, persist the workflow and patch paths beside the
 command:
 

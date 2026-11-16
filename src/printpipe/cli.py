@@ -2574,6 +2574,9 @@ def _media_meshgen_configure(
     print(f"media meshgen command: {command}")
     if params_json:
         print("media meshgen params: configured")
+    print("Review the saved command and params before enabling execution.")
+    print(f"Then set PRINTPIPE_CONFIG_PATH to {written.resolve()} for subsequent commands,")
+    print("or set PRINTPIPE_TRUST_PROJECT_MEDIA_COMMAND=1 in this reviewed workspace.")
     print("follow-up: printpipe doctor")
     return 0
 
