@@ -3625,6 +3625,7 @@ def test_prp07_http_post_does_not_read_body(tmp_path):
     handler_type = web_server._handler_for(app)
     handler = object.__new__(handler_type)
     handler.path = '/release/start'
+    handler._valid_request_origin = lambda: True
     handler._read_request_body = lambda: pytest.fail('POST body was read')
     responses = []
     handler._send = responses.append

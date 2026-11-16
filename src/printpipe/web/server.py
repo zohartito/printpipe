@@ -2857,15 +2857,34 @@ def _handler_for(app: PrintPipeWebApp) -> type[BaseHTTPRequestHandler]:
     class PrintPipeRequestHandler(BaseHTTPRequestHandler):
         server_version = "PrintPipeWeb/0.1"
 
+        def _valid_request_origin(self) -> bool:
+            port = self.server.server_address[1]
+            allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+            if port == 80:
+                allowed_hosts.update({"127.0.0.1", "localhost"})
+            hosts = self.headers.get_all("Host", [])
+            origins = self.headers.get_all("Origin", [])
+            valid = len(hosts) == 1 and hosts[0].lower() in allowed_hosts
+            if origins:
+                valid = valid and len(origins) == 1 and origins[0].lower() in {
+                    f"http://{host}" for host in allowed_hosts
+                }
+            if not valid:
+                self._send(WebResponse.from_text("Untrusted Host or Origin.\n", status=HTTPStatus.FORBIDDEN))
+            return valid
+
         def do_GET(self) -> None:
-            self._send(app.handle(self.path, method="GET"))
+            if self._valid_request_origin():
+                self._send(app.handle(self.path, method="GET"))
 
         def do_HEAD(self) -> None:
-            self._send(app.handle(self.path, method="HEAD"), include_body=False)
+            if self._valid_request_origin():
+                self._send(app.handle(self.path, method="HEAD"), include_body=False)
 
         def do_POST(self) -> None:
             # Reject before reading or parsing any request body.
-            self._send(app.read_only_response(urlsplit(self.path).path))
+            if self._valid_request_origin():
+                self._send(app.read_only_response(urlsplit(self.path).path))
 
         def log_message(self, format: str, *args: Any) -> None:
             return
