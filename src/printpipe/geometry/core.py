@@ -71,12 +71,15 @@ class BedSize:
     width_mm: float
     depth_mm: float
     margin_mm: float = 0.0
+    height_mm: float | None = None
 
     def __post_init__(self) -> None:
         if self.width_mm <= 0:
             raise ValueError("width_mm must be positive")
         if self.depth_mm <= 0:
             raise ValueError("depth_mm must be positive")
+        if self.height_mm is not None and self.height_mm <= 0:
+            raise ValueError("height_mm must be positive")
         if self.margin_mm < 0:
             raise ValueError("margin_mm must be non-negative")
 
@@ -244,7 +247,8 @@ def fits_bed(
     min_margin = min(margin_x, margin_y)
     overflow_x = max(0.0, -margin_x)
     overflow_y = max(0.0, -margin_y)
-    fits = margin_x >= 0.0 and margin_y >= 0.0
+    fits = (margin_x >= 0.0 and margin_y >= 0.0
+            and (bed.height_mm is None or bounds.height_z <= bed.height_mm))
     score = score_bed_fit_margin(bounds, bed)
 
     return BedFitResult(
@@ -844,6 +848,7 @@ def _bed_to_dict(bed: BedSize) -> dict[str, float]:
         "width_mm": bed.width_mm,
         "depth_mm": bed.depth_mm,
         "margin_mm": bed.margin_mm,
+        "height_mm": bed.height_mm,
         "usable_width_mm": bed.usable_width_mm,
         "usable_depth_mm": bed.usable_depth_mm,
     }
@@ -857,6 +862,8 @@ def _bed_fit_to_dict(bed_fit: BedFitResult) -> dict[str, Any]:
         "min_margin_mm": bed_fit.min_margin_mm,
         "overflow_x_mm": bed_fit.overflow_x_mm,
         "overflow_y_mm": bed_fit.overflow_y_mm,
+        "overflow_z_mm": max(0.0, bed_fit.bounds.height_z - bed_fit.bed.height_mm)
+        if bed_fit.bed.height_mm is not None else 0.0,
         "score": bed_fit.score,
     }
 

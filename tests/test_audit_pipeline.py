@@ -34,3 +34,20 @@ def test_prp01_missing_loader_writes_failed_run_report(tmp_path, monkeypatch):
     assert receipt.status == StageStatus.FAILED
     assert 'lxml' in receipt.message
     assert (result.layout.reports_dir / 'run_report.json').is_file()
+
+
+@pytest.mark.parametrize('extents', [(400, 400, 10), (20, 20, 500)])
+def test_prp02_oversized_mesh_stops_before_bundle(tmp_path, extents):
+    import trimesh
+
+    source = tmp_path / 'oversized.stl'
+    trimesh.creation.box(extents=extents).export(source)
+    with pytest.raises(PipelineError, match='envelope') as error:
+        run_existing_mesh_pipeline(source, tmp_path / 'runs')
+    result = error.value.result
+    assert not list(result.layout.bundle_dir.glob('*.3mf'))
+    import json
+    fit = json.loads((result.layout.reports_dir / 'bed_fit.json').read_text())
+    assert fit['fit']['fits'] is False
+    report = json.loads((result.layout.reports_dir / 'run_report.json').read_text())
+    assert report['warnings']

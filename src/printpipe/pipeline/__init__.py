@@ -63,7 +63,7 @@ from printpipe.runs import (
 
 
 NON_MESH_MESHGEN_MESSAGE = MEDIA_MESHGEN_SETUP_MESSAGE
-DEFAULT_BED = BedSize(width_mm=256.0, depth_mm=256.0)
+DEFAULT_BED = BedSize(width_mm=256.0, depth_mm=256.0, height_mm=256.0)
 DEFAULT_PROFILE_IDS = BambuProfileIds(
     filament_settings_id="Generic PLA",
     print_settings_id="0.20mm Standard",
@@ -429,6 +429,15 @@ def run_existing_mesh_pipeline_on_layout(
         stem="bed_fit",
     )
     stages.append(bed_preview_receipt)
+    if not bed_preview_receipt.metrics["fits"]:
+        message = "Mesh exceeds the P2S XYZ envelope (256 x 256 x 256 mm); explicitly resize the source or edit scale before bundling."
+        stages.append(StageReceipt(stage="bed_fit_gate", status=StageStatus.FAILED, message=message))
+        result = _write_pipeline_reports(
+            layout, stages=tuple(stages), warnings=(*warnings, message),
+            material=material, printer=printer, use_case=use_case,
+            settings_changes=settings_changes,
+        )
+        raise PipelineError(message, result)
     model_preview_receipt = write_run_detail_model_preview_artifacts(
         preview_candidate,
         DEFAULT_BED,

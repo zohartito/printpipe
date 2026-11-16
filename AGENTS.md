@@ -17,6 +17,7 @@
 - `docs/APP_ROADMAP.md` + `docs/AGENT_WAVES.md` — 142-item execution map; `runs/` — per-run receipts (artifacts, logs, settings delta, slice outcome).
 
 ## Conventions & danger zones
+- The P2S XYZ envelope is enforced before bundling; oversized geometry requires an explicit source/edit scale change.
 - The Bambu CLI slice gate (`bambu/slicer.py`, `--slice`) requires an external Bambu Studio executable via `PRINTPIPE_BAMBU_STUDIO_CLI` (or `BAMBU_STUDIO_CLI`/`_EXECUTABLE`); without it, slicing skips/fails honestly rather than faking a receipt. Never fabricate slice or meshgen receipts.
 - Runs fail *honestly* at `meshgen` / `prompt_reference_generation` when no provider is configured. A media provider only satisfies the readiness gate after a real `media-meshgen-smoke` receipt exists.
 - `.printpipe/config.json` (provider command + workflow params) is deliberately git-ignored — do not commit it or any provider secrets (`OPENAI_API_KEY`, `HF_TOKEN`, etc. stay in env).
