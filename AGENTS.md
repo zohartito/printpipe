@@ -11,6 +11,7 @@
 - Health gates: `printpipe doctor`, `printpipe readiness`, `printpipe final-plan`, `printpipe final-next`.
 - After configuring, review the command and set `PRINTPIPE_CONFIG_PATH` (or opt into project trust) before smoke/run.
 - Media meshgen smoke: `printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke`.
+- MCP path roots come from startup `PRINTPIPE_MCP_INPUT_ROOT`/`PRINTPIPE_MCP_OUTPUT_ROOT`; the supplied registration confines inputs/outputs and rejects symlinks below these roots.
 - MCP slicer server (stdio): `.venv/bin/python -m printpipe.mcp_server`.
 
 ## Structure

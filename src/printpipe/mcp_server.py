@@ -17,6 +17,7 @@ Register with Claude:   claude mcp add printpipe-slicer -- /abs/path/.venv/bin/p
 from __future__ import annotations
 
 import json
+import os
 import sys
 import traceback
 import zipfile
@@ -35,6 +36,26 @@ from printpipe.slice_intents import list_intents, resolve_intents
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_INFO = {"name": "printpipe-slicer", "version": "0.1.0"}
+
+# Snapshot operator policy at server startup; tool arguments cannot widen it.
+INPUT_ROOT = Path(os.environ["PRINTPIPE_MCP_INPUT_ROOT"]).expanduser().resolve() if os.environ.get("PRINTPIPE_MCP_INPUT_ROOT") else None
+OUTPUT_ROOT = Path(os.environ["PRINTPIPE_MCP_OUTPUT_ROOT"]).expanduser().resolve() if os.environ.get("PRINTPIPE_MCP_OUTPUT_ROOT") else None
+
+
+def _bounded_path(path: Path, root: Path | None, label: str) -> Path:
+    if root is None:
+        return path
+    root = root.resolve()
+    absolute = path.absolute()
+    if not absolute.is_relative_to(root) or not path.resolve().is_relative_to(root):
+        raise ValueError(f"{label} must stay inside its operator-configured root")
+    for component in (absolute, *absolute.parents):
+        if component == root:
+            break
+        if component.is_symlink():
+            raise ValueError(f"{label} must not contain symlinks below its configured root")
+    return path.resolve()
+
 
 TOOLS = [
     {
@@ -292,18 +313,18 @@ def _tool_resolve_slice_intents(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 def _tool_get_fabrication_report(arguments: dict[str, Any]) -> dict[str, Any]:
-    run_root = Path(arguments["run_root"]).expanduser()
+    run_root = _bounded_path(Path(arguments["run_root"]).expanduser(), OUTPUT_ROOT, "run_root")
     if not run_root.exists():
         raise ValueError(f"run_root does not exist: {run_root}")
     return fabrication_report_to_dict(build_fabrication_report(run_root))
 
 
 def _tool_slice_with_settings(arguments: dict[str, Any]) -> dict[str, Any]:
-    stl_path = Path(arguments["stl_path"]).expanduser()
+    stl_path = _bounded_path(Path(arguments["stl_path"]).expanduser(), INPUT_ROOT, "stl_path")
     if not stl_path.exists():
         raise ValueError(f"stl_path does not exist: {stl_path}")
     material = arguments.get("material", "Generic PLA")
-    runs_dir = Path(arguments.get("runs_dir", "runs")).expanduser()
+    runs_dir = _bounded_path(Path(arguments.get("runs_dir", "runs")).expanduser(), OUTPUT_ROOT, "runs_dir")
     run_slice = bool(arguments.get("run_slice", True))
     process_overrides = _normalize_overrides(arguments.get("overrides", {}) or {})
     filament_overrides = _normalize_overrides(arguments.get("filament_overrides", {}) or {})
