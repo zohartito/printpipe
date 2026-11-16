@@ -64,7 +64,14 @@ def repair_mesh_file(
     input_path = Path(input_path)
     output_path = Path(output_path)
 
-    mesh = _load_mesh(trimesh, input_path)
+    try:
+        mesh = _load_mesh(trimesh, input_path)
+    except ImportError as exc:
+        dependency = getattr(exc, "name", None) or "mesh loader"
+        raise MeshRepairUnavailableError(
+            f"Mesh loading requires '{dependency}'. Install printpipe[mesh-repair].",
+            dependency=dependency,
+        ) from exc
     before = _mesh_stats(mesh)
     try:
         repaired = _repair_mesh(trimesh, mesh)
