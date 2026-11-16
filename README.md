@@ -59,7 +59,11 @@ Current input support is intentionally explicit:
 upfront, so image/GIF/video/prompt runs show an action-required setup gate when
 no live provider is configured. A configured provider only satisfies the
 release/beta readiness gate after a successful `media-meshgen-smoke` receipt is
-present under the runs directory.
+present under the runs directory. This is an output-file/receipt existence check:
+it does not validate mesh geometry, hash the output, or bind old receipts to the
+current command and parameters. Even an empty output can pass. After changing a
+provider or its parameters, rerun the smoke and inspect the resulting mesh;
+`--strict` and readiness alone do not prove the current provider works.
 
 Generate a starter script for the generic media meshgen hook:
 
@@ -80,7 +84,7 @@ printpipe media-meshgen-smoke reference.png \
   --runs-dir runs/media-meshgen-smoke
 ```
 
-Successful one-off smoke receipts record the command that produced the mesh.
+One-off smoke receipts record the command invoked and its reported output path.
 If that command is not yet configured in the environment, `printpipe final-next`
 will surface the exact local config handoff instead of sending you back to the
 blank adapter template:

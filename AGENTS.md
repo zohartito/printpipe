@@ -21,7 +21,7 @@
 - Open shells may retain boundary edges, but unresolved non-manifold edges fail repair.
 - The P2S XYZ envelope is enforced before bundling; oversized geometry requires an explicit source/edit scale change.
 - The Bambu CLI slice gate (`bambu/slicer.py`, `--slice`) requires an external Bambu Studio executable via `PRINTPIPE_BAMBU_STUDIO_CLI` (or `BAMBU_STUDIO_CLI`/`_EXECUTABLE`); without it, slicing skips/fails honestly rather than faking a receipt. Never fabricate slice or meshgen receipts.
-- Runs fail *honestly* at `meshgen` / `prompt_reference_generation` when no provider is configured. A media provider only satisfies the readiness gate after a real `media-meshgen-smoke` receipt exists.
+- Runs fail *honestly* at `meshgen` / `prompt_reference_generation` when no provider is configured. The media readiness gate checks successful smoke receipts and output existence only; it does not validate geometry or current-provider provenance.
 - `.printpipe/config.json` (provider command + workflow params) is deliberately git-ignored — do not commit it or any provider secrets (`OPENAI_API_KEY`, `HF_TOKEN`, etc. stay in env).
 - OpenAI prompt-image runs enforce a pre-call cost cap (`PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD`) and fail before the API call if the estimate is missing or over cap.
 - Packaged web assets use archive-aware resources; package smoke checks JS/CSS routes.

@@ -83,8 +83,11 @@ when `comfyui_workflow` is present, and media-provider readiness re-runs that
 validation so stale config cannot keep counting as live. CLI smoke execution
 resolves command and params from the same explicit project workspace when one is
 supplied. The architecture still treats the media provider as unproven until a
-smoke receipt shows a real adapter generated a mesh from a reference. Terminal
-commands and browser status views are not evidence without a smoke receipt.
+smoke receipt records adapter completion and an output path. The current gate
+checks that the output exists; it does not validate geometry, output integrity,
+or correspondence to the current command/parameters. Empty files and stale
+receipts can pass. Inspect the mesh and rerun after provider changes before
+relying on it; readiness and strict status are not provider verification.
 
 OpenAI prompt-image cost is treated as a user-configured estimate, not a hardcoded
 pricing promise. If `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` is set and the estimate
