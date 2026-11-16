@@ -7,6 +7,8 @@ __pycache__/
 .mypy_cache/
 dist/
 build/
+# PRP-35: vendored three.js ships its module from a folder named build/
+!/src/printpipe/web/static/vendor/three/build/
 *.egg-info/
 /runs/
 /artifacts/

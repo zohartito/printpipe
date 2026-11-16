@@ -2,6 +2,7 @@
 
 ## Run & test
 - Dev setup: `python -m venv .venv && source .venv/bin/activate && python -m pip install -e ".[dev,mesh-repair]"`.
+- Locked setup (CI): hashed `uv.lock` exported with `uv export --locked`, installed with `--require-hashes`, then `pip install --no-deps --no-build-isolation -e .` (README, PRP-35). Viewer three.js is vendored under `web/static/vendor/three/` with SHA256SUMS; no CDN.
 - The mesh-repair extra includes the 3MF XML loader; missing loaders produce repair receipts and a failed non-STL run report.
 - Automatic run IDs retry collisions with an atomic numeric suffix; explicit IDs still reject existing folders.
 - CLI entry point: `printpipe --version` (`printpipe.cli:main`).

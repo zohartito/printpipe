@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.33.0", "editables==0.5"]
 build-backend = "hatchling.build"
 
 [project]
@@ -23,8 +23,10 @@ mesh-repair = [
   "manifold3d>=2.3",
   "networkx>=3.0",
   "trimesh>=4.0",
-  "manifold3d>=2.0",
 ]
+
+[dependency-groups]
+build = ["hatchling==1.33.0", "editables==0.5"]
 
 [project.scripts]
 printpipe = "printpipe.cli:main"

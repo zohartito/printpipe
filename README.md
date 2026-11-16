@@ -260,6 +260,19 @@ pytest
 printpipe --version
 ```
 
+For the exact dependency set CI uses, install from the hashed `uv.lock` instead
+(`uv` 0.13.8; refresh the lock with `uv lock` when `pyproject.toml` changes):
+
+```bash
+uv export --locked --no-emit-project --extra dev --extra mesh-repair --group build -o requirements.lock
+python -m pip install --require-hashes -r requirements.lock
+python -m pip install --no-deps --no-build-isolation -e .
+```
+
+The 3D viewer loads three.js 0.160.0 from `src/printpipe/web/static/vendor/three/`,
+so it works offline. `SHA256SUMS.json` there lists each vendored file;
+`browser-deps/package-lock.json` records the npm tarball they were copied from.
+
 ## License
 
 AGPL-3.0-or-later. See [LICENSE](LICENSE).
