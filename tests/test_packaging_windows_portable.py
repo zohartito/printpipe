@@ -96,3 +96,17 @@ def test_cli_build_windows_portable_json_reports_artifact(
     assert payload["contains_start_menu_installer"] is True
     assert payload["contains_file_association_installer"] is True
     assert output_path.exists()
+
+
+def test_prp18_association_scripts_preserve_extension_keys_and_prior_defaults():
+    from printpipe.packaging.windows_portable import _file_association_installer, _file_association_uninstaller
+    import re
+
+    install = _file_association_installer()
+    uninstall = _file_association_uninstaller()
+    destructive_extension_delete = bool(re.search(r'Remove-Item[^\n]+\$ExtensionKey', uninstall))
+    assert destructive_extension_delete is False
+    assert 'PrintPipePreviousDefault' in install
+    assert 'PrintPipePreviousDefault' in uninstall
+    assert 'GetValueKind' in install
+    assert '.DeleteValue("", $false)' in uninstall

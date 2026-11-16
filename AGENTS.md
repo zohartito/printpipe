@@ -35,6 +35,8 @@
 - Loopback HTTP requires the bound port with Host 127.0.0.1/localhost and rejects foreign/null Origin headers.
 - The web app is read-only by design (all POST routes reject before body processing, including edits, evidence, handoffs and folder opening). Keep configuration on the CLI. License is AGPL-3.0-or-later. Python ≥3.11.
 
+- Windows association helpers save prior default values/types; uninstall only restores/removes the default and PrintPipe ProgID, preserving extension subkeys.
+
 ## Loops (loop map #29)
 - **EVENT watch-folder:** `tools/watch_3mf_queue.py` — a new `.3mf` in the inbox
   is validated (`validate_bundle`), then sliced via `run_bambu_cli_slice_stage`
