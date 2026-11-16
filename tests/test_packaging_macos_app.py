@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import main
 from printpipe.packaging.macos_app import build_macos_app_bundle
 
@@ -147,7 +149,7 @@ def test_cli_build_macos_app_json_reports_bundle(tmp_path: Path, capsys) -> None
 
 def test_build_macos_app_bundle_can_apply_ad_hoc_signature(tmp_path: Path) -> None:
     if shutil.which("codesign") is None:
-        return
+        pytest.skip("native macOS codesign is unavailable")
 
     app_path = tmp_path / "PrintPipe.app"
 
