@@ -23,7 +23,7 @@ input reference
 -> generated or imported mesh
 -> repaired mesh
 -> oriented/scaled bed-fit mesh
--> Bambu printer + filament profiles
+-> P2S printer profile + material-specific filament settings
 -> Bambu-native .3mf
 -> slice report
 -> run receipt
@@ -32,7 +32,8 @@ input reference
 ## V1 Scope
 
 - Local-first Mac/Windows program.
-- Bambu printers only at launch.
+- Current bundles target Bambu Lab P2S with a 0.4 mm nozzle and a 256 x 256 x 256 mm envelope.
+- `--printer` is a report/checklist label; it does not select a machine profile or bed size. Other printer labels still export P2S settings.
 - Single-material prints only.
 - Mesh generation is provider-based: hosted GPU, local model, API provider, or imported mesh.
 - Every run produces receipts: artifacts, logs, settings delta, and slicer outcome.

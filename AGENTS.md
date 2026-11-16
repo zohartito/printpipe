@@ -19,6 +19,7 @@
 
 ## Conventions & danger zones
 - Open shells may retain boundary edges, but unresolved non-manifold edges fail repair.
+- `--printer` labels reports/checklists only; bundles use P2S 0.4 mm profiles regardless of the label.
 - The P2S XYZ envelope is enforced before bundling; oversized geometry requires an explicit source/edit scale change.
 - The Bambu CLI slice gate (`bambu/slicer.py`, `--slice`) requires an external Bambu Studio executable via `PRINTPIPE_BAMBU_STUDIO_CLI` (or `BAMBU_STUDIO_CLI`/`_EXECUTABLE`); without it, slicing skips/fails honestly rather than faking a receipt. Never fabricate slice or meshgen receipts.
 - Runs fail *honestly* at `meshgen` / `prompt_reference_generation` when no provider is configured. The media readiness gate checks successful smoke receipts and output existence only; it does not validate geometry or current-provider provenance.
