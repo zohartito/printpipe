@@ -469,3 +469,44 @@ def test_prepare_existing_mesh_routes_without_media_processing(tmp_path: Path):
     statuses = {(receipt.stage, receipt.status) for receipt in result.receipts}
     assert ("route_existing_mesh", StageStatus.SUCCEEDED) in statuses
     assert ("extract_references", StageStatus.SKIPPED) in statuses
+
+
+def test_prp19_provider_errors_do_not_leak_credentials(tmp_path, monkeypatch):
+    import io
+    import urllib.error
+    from printpipe.inputs import processor
+
+    marker = 'synthetic-audit-credential'
+    monkeypatch.setenv('OPENAI_API_KEY', marker)
+    def rejected(*args, **kwargs):
+        body = ('{"Authorization":"Bearer ' + marker + '","api_key":"synthetic-other"}' + 'x' * 10000).encode()
+        raise urllib.error.HTTPError('https://provider.invalid', 401, 'Unauthorized', {}, io.BytesIO(body))
+    monkeypatch.setattr(processor.urllib.request, 'urlopen', rejected)
+    try:
+        processor._run_openai_prompt_image_provider(prompt='cube', output_path=tmp_path / 'image.png')
+    except processor.FrameExtractionError as exc:
+        leaked = marker in str(exc) or 'synthetic-other' in str(exc)
+        assert leaked is False
+        assert '401' in str(exc)
+        assert len(str(exc)) < 256
+    else:
+        pytest.fail('expected failed provider request')
+
+
+def test_prp19_safe_diagnostic_reaches_failure_receipt(tmp_path, monkeypatch):
+    import io
+    import urllib.error
+    from printpipe.inputs import processor
+
+    monkeypatch.setenv('OPENAI_API_KEY', 'synthetic-receipt-key')
+    monkeypatch.setenv('PRINTPIPE_PROMPT_IMAGE_PROVIDER', 'openai')
+    def rejected(*args, **kwargs):
+        raise urllib.error.HTTPError('https://provider.invalid', 401, 'Unauthorized', {},
+                                    io.BytesIO(b'Authorization: Bearer synthetic-receipt-key'))
+    monkeypatch.setattr(processor.urllib.request, 'urlopen', rejected)
+    prompt = tmp_path / 'prompt.txt'
+    prompt.write_text('cube')
+    result = prepare_input(prompt, tmp_path / 'work')
+    receipt = next(r for r in result.receipts if r.stage == 'prompt_reference_generation')
+    assert receipt.status == StageStatus.FAILED
+    assert receipt.message == 'OpenAI prompt image request failed with HTTP 401'

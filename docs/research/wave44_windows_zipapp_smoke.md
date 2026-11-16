@@ -9,7 +9,7 @@ or macOS-local package smoke.
 
 ## Host
 
-- SSH target: `desktop-zt`
+- SSH target: `windows-pc`
 - Python: `3.13.7`
 - PowerShell: `5.1.26100.8521`
 
@@ -19,7 +19,7 @@ Local build/copy:
 
 ```bash
 .venv/bin/printpipe build-zipapp --output "$LOCAL_DIR/printpipe.pyz" --json
-scp "$LOCAL_DIR/printpipe.pyz" desktop-zt:AppData/Local/Temp/printpipe-zipapp/printpipe.pyz
+scp "$LOCAL_DIR/printpipe.pyz" windows-pc:AppData/Local/Temp/printpipe-zipapp/printpipe.pyz
 ```
 
 Remote Windows checks:
@@ -35,9 +35,9 @@ python %TEMP%\printpipe-zipapp\printpipe.pyz package-smoke --platform windows --
 - Package smoke: `status=ok`
 - Windows runtime: `win32`
 - Generated fixture:
-  `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-zipapp\package_smoke_tiny_tetrahedron.stl`
+  `C:\Users\sample_user\AppData\Local\Temp\printpipe-zipapp\package_smoke_tiny_tetrahedron.stl`
 - Run root:
-  `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-zipapp\runs\20260528-063417-package-smoke-tiny-tetrahedron`
+  `C:\Users\sample_user\AppData\Local\Temp\printpipe-zipapp\runs\20260528-063417-package-smoke-tiny-tetrahedron`
 - Reports:
   `80_reports\run_report.json`, `.md`, `.html`
 - Bundle:

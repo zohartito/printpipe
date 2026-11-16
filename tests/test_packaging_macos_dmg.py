@@ -5,6 +5,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import main
 
 
@@ -13,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def test_build_macos_dmg_package_wraps_app_in_drag_install_image(tmp_path: Path) -> None:
     if shutil.which("hdiutil") is None:
-        return
+        pytest.skip("native macOS hdiutil is unavailable")
 
     from printpipe.packaging.macos_dmg import build_macos_dmg_package
 
@@ -51,7 +53,7 @@ def test_cli_build_macos_dmg_json_reports_distribution_artifact(
     capsys,
 ) -> None:
     if shutil.which("hdiutil") is None:
-        return
+        pytest.skip("native macOS hdiutil is unavailable")
 
     output_path = tmp_path / "dist" / "PrintPipe.dmg"
 

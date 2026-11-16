@@ -32,7 +32,7 @@ Get-ChildItem -Path $env:ProgramFiles,$env:LOCALAPPDATA -Filter BambuStudio.exe 
 
 ## Result
 
-No Bambu Studio executable was found on `desktop-zt`.
+No Bambu Studio executable was found on `windows-pc`.
 
 ## Boundary
 

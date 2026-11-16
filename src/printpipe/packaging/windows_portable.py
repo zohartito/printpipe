@@ -158,11 +158,22 @@ foreach ($Extension in $Extensions) {
     $ProgId = "$ProgIdPrefix$Extension"
     $ExtensionKey = Join-Path $ClassesRoot $Extension
     $ProgIdKey = Join-Path $ClassesRoot $ProgId
-    New-Item -Force -Path $ExtensionKey | Out-Null
+    if (-not (Test-Path $ExtensionKey)) { New-Item -Path $ExtensionKey | Out-Null }
     $Current = (Get-Item -Path $ExtensionKey).GetValue("")
     if ($Current -and $Current -ne $ProgId -and -not $Force) {
         Write-Output "Skip existing association for $Extension -> $Current"
         continue
+    }
+    if (-not (Test-Path $ProgIdKey)) { New-Item -Path $ProgIdKey | Out-Null }
+    if ($Current -ne $ProgId) {
+        $RegistryKey = Get-Item -Path $ExtensionKey
+        $HadDefault = $RegistryKey.GetValueNames() -contains ""
+        New-ItemProperty -Path $ProgIdKey -Name "PrintPipeHadDefault" -Value ([int]$HadDefault) -PropertyType DWord -Force | Out-Null
+        if ($HadDefault) {
+            $Previous = $RegistryKey.GetValue("", $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+            New-ItemProperty -Path $ProgIdKey -Name "PrintPipePreviousDefault" -Value $Previous -PropertyType String -Force | Out-Null
+            New-ItemProperty -Path $ProgIdKey -Name "PrintPipePreviousKind" -Value ($RegistryKey.GetValueKind("").ToString()) -PropertyType String -Force | Out-Null
+        }
     }
     Set-Item -Path $ExtensionKey -Value $ProgId
     New-Item -Force -Path "$ProgIdKey\\shell\\open\\command" | Out-Null
@@ -191,7 +202,15 @@ foreach ($Extension in $Extensions) {
     $ProgIdKey = Join-Path $ClassesRoot $ProgId
     $Current = if (Test-Path $ExtensionKey) { (Get-Item -Path $ExtensionKey).GetValue("") } else { $null }
     if ($Current -eq $ProgId) {
-        Remove-Item -Recurse -Force -Path $ExtensionKey -ErrorAction SilentlyContinue
+        $RegistryKey = Get-Item -Path $ExtensionKey
+        $Saved = if (Test-Path $ProgIdKey) { Get-Item -Path $ProgIdKey } else { $null }
+        if ($Saved -and $Saved.GetValue("PrintPipeHadDefault", 0) -eq 1) {
+            $Previous = $Saved.GetValue("PrintPipePreviousDefault")
+            $Kind = [Microsoft.Win32.RegistryValueKind]$Saved.GetValue("PrintPipePreviousKind", "String")
+            $RegistryKey.SetValue("", $Previous, $Kind)
+        } else {
+            $RegistryKey.DeleteValue("", $false)
+        }
     }
     Remove-Item -Recurse -Force -Path $ProgIdKey -ErrorAction SilentlyContinue
     Write-Output "Removed file association for $Extension -> $ProgId"

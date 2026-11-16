@@ -15,4 +15,4 @@ Move original item 122 closer to completion by adding real Windows native instal
 
 ## Boundary
 
-This wave does not install Inno Setup, WiX, NSIS, Windows SDK `signtool`, or a code-signing certificate. On `desktop-zt`, Windows installer readiness remains action-required until those tools and identities are present and a real signed installer is built.
+This wave does not install Inno Setup, WiX, NSIS, Windows SDK `signtool`, or a code-signing certificate. On `windows-pc`, Windows installer readiness remains action-required until those tools and identities are present and a real signed installer is built.

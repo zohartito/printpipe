@@ -52,7 +52,8 @@ def test_windows_package_smoke_plan_is_powershell_friendly(tmp_path: Path) -> No
     ]
     assert "printpipe --version" in payload["steps"][0]["command"]
     assert "printpipe doctor --platform windows --json" in payload["steps"][1]["command"]
-    assert "/users/" not in payload["steps"][2]["command"].lower()
+    fixture = tmp_path / "package_smoke_tiny_tetrahedron.stl"
+    assert payload["steps"][2]["command"] == f"printpipe run {fixture} --runs-dir {tmp_path / 'runs'}"
     assert "printpipe package-smoke --platform windows" in payload["recommended_command"]
     json.dumps(payload)
 

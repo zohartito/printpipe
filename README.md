@@ -23,7 +23,7 @@ input reference
 -> generated or imported mesh
 -> repaired mesh
 -> oriented/scaled bed-fit mesh
--> Bambu printer + filament profiles
+-> P2S printer profile + material-specific filament settings
 -> Bambu-native .3mf
 -> slice report
 -> run receipt
@@ -32,7 +32,8 @@ input reference
 ## V1 Scope
 
 - Local-first Mac/Windows program.
-- Bambu printers only at launch.
+- Current bundles target Bambu Lab P2S with a 0.4 mm nozzle and a 256 x 256 x 256 mm envelope.
+- `--printer` is a report/checklist label; it does not select a machine profile or bed size. Other printer labels still export P2S settings.
 - Single-material prints only.
 - Mesh generation is provider-based: hosted GPU, local model, API provider, or imported mesh.
 - Every run produces receipts: artifacts, logs, settings delta, and slicer outcome.
@@ -59,7 +60,11 @@ Current input support is intentionally explicit:
 upfront, so image/GIF/video/prompt runs show an action-required setup gate when
 no live provider is configured. A configured provider only satisfies the
 release/beta readiness gate after a successful `media-meshgen-smoke` receipt is
-present under the runs directory.
+present under the runs directory. This is an output-file/receipt existence check:
+it does not validate mesh geometry, hash the output, or bind old receipts to the
+current command and parameters. Even an empty output can pass. After changing a
+provider or its parameters, rerun the smoke and inspect the resulting mesh;
+`--strict` and readiness alone do not prove the current provider works.
 
 Generate a starter script for the generic media meshgen hook:
 
@@ -119,7 +124,7 @@ approval) and `briaai/RMBG-2.0` (non-commercial licence). Accept both and run
 `--rembg-model ZhengPeng7/BiRefNet` swaps in an MIT background remover. Like
 every provider, it satisfies readiness only after a successful smoke.
 
-Successful one-off smoke receipts record the command that produced the mesh.
+One-off smoke receipts record the command invoked and its reported output path.
 If that command is not yet configured in the environment, `printpipe final-next`
 will surface the exact local config handoff instead of sending you back to the
 blank adapter template:
@@ -129,6 +134,15 @@ printpipe media-meshgen-configure --command "printpipe media-meshgen-heightfield
 ```
 
 That writes `.printpipe/config.json`, which is intentionally ignored by git.
+The saved command is inactive until you review it and explicitly trust it:
+
+```bash
+export PRINTPIPE_CONFIG_PATH="$(pwd)/.printpipe/config.json"
+printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
+```
+
+Alternatively, set `PRINTPIPE_TRUST_PROJECT_MEDIA_COMMAND=1` in the reviewed
+workspace. Configuration alone does not enable provider execution.
 For a ComfyUI API workflow, persist the workflow and patch paths beside the
 command:
 
@@ -216,6 +230,10 @@ printpipe run input.stl --runs-dir runs --material "PETG" --slice
 printpipe run --prompt "small ergonomic desk hook" --runs-dir runs
 ```
 
+Process overrides (`--set`, with `--slice`) are applied without final enum/schema
+validation. Unknown keys may be warned about but are still applied; bundle
+validation does not certify setting values. Review overrides and slicer results.
+
 PETG bundles select Textured PEI in project settings so Bambu Studio does not treat them as Cool Plate jobs.
 Current software material coverage includes PLA/PLA+, PETG, TPU, ABS, ASA, PC, PA, and PA-CF bundle settings with Bambu CLI slice receipts.
 
@@ -260,6 +278,17 @@ but it does not by itself prove Authenticode signing. `verify-release` requires
 real signature verification before a Windows installer can close the signed
 distribution gate.
 
+The supplied `.mcp.json` launches `python3 tools/mcp_launcher.py` from the checkout.
+It uses the checkout's `.venv` when present, otherwise the active Python. On
+Windows, use `python` if your Python installation does not provide `python3`.
+
+For a restricted MCP server, set `PRINTPIPE_MCP_INPUT_ROOT` and
+`PRINTPIPE_MCP_OUTPUT_ROOT` before startup. The supplied registration confines
+inputs to the working checkout and outputs to its `runs/` folder. Paths are
+resolved and symlinks below those roots are rejected; tool arguments cannot
+change the policy. Manual module startup without these variables retains
+unrestricted local path access.
+
 ## Development
 
 ```bash
@@ -269,6 +298,19 @@ python -m pip install -e ".[dev,mesh-repair]"
 pytest
 printpipe --version
 ```
+
+For the exact dependency set CI uses, install from the hashed `uv.lock` instead
+(`uv` 0.13.8; refresh the lock with `uv lock` when `pyproject.toml` changes):
+
+```bash
+uv export --locked --no-emit-project --extra dev --extra mesh-repair --group build -o requirements.lock
+python -m pip install --require-hashes -r requirements.lock
+python -m pip install --no-deps --no-build-isolation -e .
+```
+
+The 3D viewer loads three.js 0.160.0 from `src/printpipe/web/static/vendor/three/`,
+so it works offline. `SHA256SUMS.json` there lists each vendored file;
+`browser-deps/package-lock.json` records the npm tarball they were copied from.
 
 ## License
 

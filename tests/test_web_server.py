@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote
@@ -28,6 +29,9 @@ from printpipe.runs.paths import create_run
 from printpipe.web import PrintPipeWebApp, create_app
 from printpipe.web import run_detail
 from printpipe.web import server as web_server
+
+# PRP-07: legacy mutation checks call helpers directly; HTTP routes are forbidden
+# by test_prp07_all_mutating_routes_reject_before_processing below.
 
 
 class _ComfyRuntimeHandler(BaseHTTPRequestHandler):
@@ -486,12 +490,7 @@ def test_post_physical_start_creates_starter_packet_and_redirects(tmp_path: Path
     runs_dir = tmp_path / "runs"
     app = create_app(runs_dir=runs_dir)
 
-    response = app.handle(
-        "/physical/start",
-        method="POST",
-        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
-        body=b"family=pla&operator=Zohar",
-    )
+    response = app.start_physical_response(headers=_csrf_headers(app, "application/x-www-form-urlencoded"), body=b"family=pla&operator=Zohar")
 
     run_root = runs_dir / "physical-pla-validation"
     evidence_path = run_root / "90_physical" / "physical_evidence.json"
@@ -585,12 +584,7 @@ def test_post_physical_record_writes_passed_evidence_and_copies_photo(
         file_content=b"jpeg-ish",
     )
 
-    response = app.handle(
-        "/physical/record",
-        method="POST",
-        headers=_csrf_headers(app, content_type),
-        body=body,
-    )
+    response = app.record_physical_response(headers=_csrf_headers(app, content_type), body=body)
 
     run_root = runs_dir / "physical-pla-validation"
     evidence_path = run_root / "90_physical" / "physical_evidence.json"
@@ -626,12 +620,7 @@ def test_post_physical_record_requires_photo(tmp_path: Path) -> None:
         }
     )
 
-    response = app.handle(
-        "/physical/record",
-        method="POST",
-        headers=_csrf_headers(app, content_type),
-        body=body,
-    )
+    response = app.record_physical_response(headers=_csrf_headers(app, content_type), body=body)
 
     evidence = json.loads(
         (
@@ -668,12 +657,7 @@ def test_post_physical_record_rejects_active_photo_upload(tmp_path: Path) -> Non
         file_content=b"<!doctype html><script>alert(1)</script>",
     )
 
-    response = app.handle(
-        "/physical/record",
-        method="POST",
-        headers=_csrf_headers(app, content_type),
-        body=body,
-    )
+    response = app.record_physical_response(headers=_csrf_headers(app, content_type), body=body)
 
     run_root = runs_dir / "physical-pla-validation"
     assert response.status == 400
@@ -855,12 +839,7 @@ def test_post_release_start_writes_handoff_and_redirects(tmp_path: Path):
     runs_dir = tmp_path / "runs"
     app = create_app(release_dir=release_dir, runs_dir=runs_dir)
 
-    response = app.handle(
-        "/release/start",
-        method="POST",
-        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
-        body=b"",
-    )
+    response = app.start_release_response(headers=_csrf_headers(app, "application/x-www-form-urlencoded"), body=b"")
 
     handoff = release_dir.parent / "release_handoffs" / "release_distribution_handoff.md"
     text = handoff.read_text(encoding="utf-8")
@@ -1152,12 +1131,7 @@ def test_post_beta_feedback_record_writes_packet_and_copies_artifact(
         file_content=b"png-ish",
     )
 
-    response = app.handle(
-        "/beta-feedback/record",
-        method="POST",
-        headers=_csrf_headers(app, content_type),
-        body=body,
-    )
+    response = app.record_beta_feedback_response(headers=_csrf_headers(app, content_type), body=body)
 
     feedback_path = run_root / "90_beta" / "trusted_user_feedback.json"
     feedback = json.loads(feedback_path.read_text(encoding="utf-8"))
@@ -1200,12 +1174,7 @@ def test_post_beta_feedback_record_requires_summary(tmp_path: Path) -> None:
         }
     )
 
-    response = app.handle(
-        "/beta-feedback/record",
-        method="POST",
-        headers=_csrf_headers(app, content_type),
-        body=body,
-    )
+    response = app.record_beta_feedback_response(headers=_csrf_headers(app, content_type), body=body)
 
     assert response.status == 400
     assert "Trusted-user feedback summary is required." in response.text
@@ -1240,12 +1209,7 @@ def test_post_beta_feedback_record_rejects_active_artifact_upload(tmp_path: Path
         file_content=b"<!doctype html><script>alert(1)</script>",
     )
 
-    response = app.handle(
-        "/beta-feedback/record",
-        method="POST",
-        headers=_csrf_headers(app, content_type),
-        body=body,
-    )
+    response = app.record_beta_feedback_response(headers=_csrf_headers(app, content_type), body=body)
 
     assert response.status == 400
     assert "cannot be an active web document or script" in response.text
@@ -3056,12 +3020,7 @@ def test_post_run_edit_creates_non_destructive_edit_run(tmp_path: Path):
         "&edit_instruction=Widen+the+upper+without+changing+sole+length"
     ).encode("utf-8")
 
-    response = app.handle(
-        "/runs/run-edit-001/edits",
-        method="POST",
-        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
-        body=body,
-    )
+    response = app.create_edit_response('run-edit-001', headers=_csrf_headers(app, "application/x-www-form-urlencoded"), body=body)
 
     edit_root = runs_dir / "run-edit-001_edit_001"
     recipe = load_edit_recipe(edit_root)
@@ -3101,12 +3060,7 @@ def test_post_run_edit_redirects_to_failed_child_rebuild_report(tmp_path: Path):
     app = create_app(runs_dir=runs_dir)
     body = b"overall_scale=1.0&support_strategy=auto"
 
-    response = app.handle(
-        "/runs/run-edit-media-001/edits",
-        method="POST",
-        headers=_csrf_headers(app, "application/x-www-form-urlencoded"),
-        body=body,
-    )
+    response = app.create_edit_response('run-edit-media-001', headers=_csrf_headers(app, "application/x-www-form-urlencoded"), body=body)
 
     edit_root = runs_dir / "run-edit-media-001_edit_001"
     report_path = edit_root / "80_reports" / "run_report.json"
@@ -3250,11 +3204,7 @@ def test_post_run_open_folder_opens_safe_bundle_folder_and_redirects(tmp_path: P
     opened: list[Path] = []
     app = create_app(runs_dir=runs_dir, path_opener=opened.append)
 
-    response = app.handle(
-        "/runs/run-open-001/open-folder/bundle",
-        method="POST",
-        headers=_csrf_headers(app),
-    )
+    response = app.open_folder_response('run-open-001', 'bundle', headers=_csrf_headers(app), body=b'')
 
     assert response.status == 303
     assert response.header("Location") == "/runs/run-open-001"
@@ -3646,3 +3596,68 @@ def test_serve_builds_app_from_runs_dir_without_import_side_effects(monkeypatch,
     assert calls == ["serve_forever", "server_close"]
     assert created_apps[0].static_roots == (tmp_path,)
     assert created_apps[0].runs_dir == tmp_path
+
+
+@pytest.mark.parametrize('route', [
+    '/runs', '/runs/example/edits', '/runs/example/reslice',
+    '/runs/example/open-folder/bundle', '/release/start', '/physical/start',
+    '/physical/record', '/beta-feedback/record', '/media-meshgen/template',
+    '/media-meshgen/configure', '/media-meshgen/comfyui-workflow',
+    '/media-meshgen/smoke', '/media-meshgen/comfyui-preflight.json',
+])
+def test_prp07_all_mutating_routes_reject_before_processing(tmp_path, monkeypatch, route):
+    app = PrintPipeWebApp(runs_dir=tmp_path / 'runs')
+    def forbidden(*args, **kwargs):
+        pytest.fail('read-only request reached a mutating handler')
+    for name in ('create_run_response', 'create_edit_response',
+                 'open_folder_response', 'start_release_response',
+                 'start_physical_response', 'record_physical_response',
+                 'record_beta_feedback_response'):
+        monkeypatch.setattr(app, name, forbidden, raising=False)
+    response = app.handle(route, method='POST',
+                          headers={'X-PrintPipe-CSRF': app.csrf_token}, body=b'malformed')
+    assert response.status == HTTPStatus.FORBIDDEN
+    assert not (tmp_path / 'runs').exists()
+
+
+def test_prp07_http_post_does_not_read_body(tmp_path):
+    app = PrintPipeWebApp(runs_dir=tmp_path / 'runs')
+    handler_type = web_server._handler_for(app)
+    handler = object.__new__(handler_type)
+    handler.path = '/release/start'
+    handler._valid_request_origin = lambda: True
+    handler._read_request_body = lambda: pytest.fail('POST body was read')
+    responses = []
+    handler._send = responses.append
+    handler.do_POST()
+    assert responses[0].status == 403
+
+
+def test_prp07_forms_are_disabled():
+    html = web_server._read_only_forms('<form><button>Save</button></form>')
+    assert '<fieldset disabled>' in html
+    assert 'use the local CLI' in html
+    assert '</form></fieldset>' in html
+
+
+def test_prp07_served_run_detail_disables_edit_form(tmp_path):
+    source = tmp_path / 'input.stl'
+    source.write_text('solid input\nendsolid input\n')
+    layout = create_run(source, tmp_path / 'runs', run_id='readonly-form')
+    app = PrintPipeWebApp(runs_dir=tmp_path / 'runs')
+    response = app.handle('/runs/' + layout.run_id)
+    assert response.status == 200
+    assert '<fieldset disabled>' in response.text
+    assert 'Read-only: use the local CLI for changes.' in response.text
+
+
+def test_prp08_source_static_resources_retain_path_containment(tmp_path, monkeypatch):
+    package = tmp_path / 'package'
+    static = package / 'static'
+    static.mkdir(parents=True)
+    outside = tmp_path / 'outside.js'
+    outside.write_text('synthetic external content')
+    (static / 'escape.js').symlink_to(outside)
+    monkeypatch.setattr(web_server, 'files', lambda _: package)
+    app = PrintPipeWebApp(runs_dir=tmp_path / 'runs')
+    assert app.handle('/static/escape.js').status == 404

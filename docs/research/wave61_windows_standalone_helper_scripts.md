@@ -32,7 +32,7 @@ ZIP's `printpipe.cmd run "%1"` path.
 
 ## Live Windows Evidence
 
-Ran on `desktop-zt` from a rebuilt standalone ZIP:
+Ran on `windows-pc` from a rebuilt standalone ZIP:
 
 - `build-windows-standalone` returned `contains_start_menu_installer=true`,
   `contains_start_menu_uninstaller=true`,
@@ -45,7 +45,7 @@ Ran on `desktop-zt` from a rebuilt standalone ZIP:
 - `install-file-associations.ps1 -Extensions .printpipestandtest -ProgIdPrefix PrintPipeStandaloneSmoke -Force`
   created a throwaway HKCU association
 - The throwaway association command was:
-  `"C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-standalone-live\extract\PrintPipe\PrintPipe.exe" "%1"`
+  `"C:\Users\sample_user\AppData\Local\Temp\printpipe-windows-standalone-live\extract\PrintPipe\PrintPipe.exe" "%1"`
 - `uninstall-file-associations.ps1 -Extensions .printpipestandtest -ProgIdPrefix PrintPipeStandaloneSmoke`
   removed the throwaway association
 - `PrintPipe.exe package-smoke --platform windows ... --json` returned

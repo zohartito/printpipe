@@ -365,7 +365,7 @@ Status: superseded by Wave 36. This wave classified and documented the Bambu CLI
 
 Status: complete for F11. The Windows package smoke path has real Windows execution evidence, but original item 122 remains partial until there is a signed installer/package flow.
 
-1. Done: verified `desktop-zt` is reachable over SSH.
+1. Done: verified `windows-pc` is reachable over SSH.
 2. Done: exported the current committed source with `git archive` because Windows GitHub auth was not configured.
 3. Done: ran `printpipe package-smoke --platform windows --runs-dir runs/package-smoke/windows --json` on Windows through the temporary source export.
 4. Done: Windows returned `status=ok`, with generated input fixture, reports, run root, and `.3mf` bundle.
@@ -485,7 +485,7 @@ Status: partial progress for original items 121 and 122. PrintPipe now has a rea
 
 Status: partial progress for original item 122. The portable zipapp artifact runs on Windows, but this is still not a signed installer.
 
-1. Done: verified `desktop-zt` was reachable over SSH with Python `3.13.7` and PowerShell `5.1.26100.8521`.
+1. Done: verified `windows-pc` was reachable over SSH with Python `3.13.7` and PowerShell `5.1.26100.8521`.
 2. Done: copied the generated `printpipe.pyz` artifact to `%TEMP%\printpipe-zipapp\printpipe.pyz`.
 3. Done: ran `python %TEMP%\printpipe-zipapp\printpipe.pyz --version` on Windows and got `printpipe 0.1.0`.
 4. Done: ran `python %TEMP%\printpipe-zipapp\printpipe.pyz package-smoke --platform windows --runs-dir %TEMP%\printpipe-zipapp\runs --json`.
@@ -498,7 +498,7 @@ Status: boundary recorded for Windows live slicing. Packaging artifact smoke pas
 
 1. Done: checked common Windows install candidates under Program Files and LocalAppData for Bambu Studio.
 2. Done: ran a broader PowerShell search for `BambuStudio.exe`.
-3. Result: no Bambu Studio executable was found on `desktop-zt`.
+3. Result: no Bambu Studio executable was found on `windows-pc`.
 4. Boundary: Windows live Bambu CLI slicing cannot be verified on that host until Bambu Studio is installed or an explicit path is provided.
 5. Current evidence still stands: the same `printpipe.pyz` artifact runs on Windows and creates reports plus a `.3mf`.
 6. Remaining: signed installer and Windows+Bambu slice evidence stay open packaging gates.
@@ -566,7 +566,7 @@ Status: partial progress for original item 122. PrintPipe now has a Windows-frie
 2. Done: added `printpipe build-windows-portable --output dist/PrintPipe-Windows-portable.zip`.
 3. Done: the ZIP contains `PrintPipe/printpipe.pyz`.
 4. Done: the ZIP contains `PrintPipe/printpipe.cmd` and `PrintPipe/printpipe.ps1` launchers.
-5. Done: verified the portable ZIP on `desktop-zt`: `.cmd` and `.ps1` returned `printpipe 0.1.0`, and `.cmd package-smoke --platform windows` returned `status=ok` with reports plus a `.3mf`.
+5. Done: verified the portable ZIP on `windows-pc`: `.cmd` and `.ps1` returned `printpipe 0.1.0`, and `.cmd package-smoke --platform windows` returned `status=ok` with reports plus a `.3mf`.
 6. Remaining: signed Windows installer, bundled Python runtime, Start Menu shortcuts, file association registration, and live Windows+Bambu slice evidence stay open.
 
 ## Wave 52 - Windows Start Menu Shortcut Scripts
@@ -577,7 +577,7 @@ Status: partial progress for original item 122. The portable ZIP now includes re
 2. Done: added `PrintPipe/uninstall-start-menu.ps1` to the portable ZIP.
 3. Done: the installer creates `%APPDATA%\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`.
 4. Done: the shortcut opens `printpipe.cmd` in a persistent Command Prompt.
-5. Done: verified on `desktop-zt` that install created `PrintPipe CLI.lnk` and uninstall removed it.
+5. Done: verified on `windows-pc` that install created `PrintPipe CLI.lnk` and uninstall removed it.
 6. Remaining: signed Windows installer, bundled Python runtime, file association registration, and live Windows+Bambu slice evidence stay open.
 
 ## Wave 53 - Windows File Association Scripts
@@ -588,7 +588,7 @@ Status: partial progress for original item 122. The portable ZIP now includes re
 2. Done: added `PrintPipe/uninstall-file-associations.ps1` to the portable ZIP.
 3. Done: default extensions are `.stl`, `.obj`, `.3mf`, `.glb`, and `.gltf`.
 4. Done: installer skips existing handlers unless `-Force` is passed.
-5. Done: verified on `desktop-zt` with a throwaway `.printpipetest` extension; install created an HKCU association and uninstall removed it.
+5. Done: verified on `windows-pc` with a throwaway `.printpipetest` extension; install created an HKCU association and uninstall removed it.
 6. Remaining: signed Windows installer, bundled Python runtime, and live Windows+Bambu slice evidence stay open.
 
 ## Wave 54 - Release Bundle Manifest
@@ -658,7 +658,7 @@ Status: partial progress for original item 122. PrintPipe can now build and run 
 2. Done: added `printpipe build-windows-standalone --output dist/PrintPipe-Windows-standalone.zip`.
 3. Done: the ZIP contains `PrintPipe/PrintPipe.exe`, PyInstaller `_internal` runtime files, and `PrintPipe/README.txt`.
 4. Done: standalone entrypoint preserves CLI passthrough and a no-arg local web UI launch path.
-5. Done: live-built on `desktop-zt`; metadata reported `bundles_python_runtime=true`, `bundles_bambu_studio=false`, and `signed=false`.
+5. Done: live-built on `windows-pc`; metadata reported `bundles_python_runtime=true`, `bundles_bambu_studio=false`, and `signed=false`.
 6. Done: extracted `PrintPipe.exe --version` returned `printpipe 0.1.0`; dry-run launch printed the `http://127.0.0.1:8765/` local web UI command.
 7. Done: extracted `PrintPipe.exe package-smoke --platform windows ... --json` returned `status=ok` with reports and a Bambu `.3mf`.
 8. Remaining: signed Windows installer, Start Menu/file-association integration for the standalone executable, live Windows+Bambu slice evidence, Developer ID notarization, and physical print validation stay open.
@@ -683,21 +683,21 @@ Status: partial progress for original item 122. The Windows standalone runtime Z
 2. Done: added `install-file-associations.ps1` and `uninstall-file-associations.ps1` to `PrintPipe-Windows-standalone.zip`.
 3. Done: the Start Menu script creates `PrintPipe.lnk` pointing directly at `PrintPipe.exe`.
 4. Done: file associations run `"PrintPipe.exe" "%1"` so the standalone one-file document launcher processes the input and opens the local UI.
-5. Done: live-verified on `desktop-zt` that the shortcut installs and uninstalls cleanly.
+5. Done: live-verified on `windows-pc` that the shortcut installs and uninstalls cleanly.
 6. Done: live-verified a throwaway `.printpipestandtest` HKCU association installs with the expected command and uninstalls cleanly.
 7. Done: rebuilt standalone `PrintPipe.exe package-smoke --platform windows ... --json` returned `status=ok` with reports and a Bambu `.3mf`.
 8. Remaining: signed Windows installer, live Windows+Bambu slice evidence, Developer ID notarization, and physical print validation stay open.
 
 ## Wave 62 - Windows Installer Signing Readiness Doctor
 
-Status: partial progress for original item 122. PrintPipe now reports whether a Windows host is ready to build/sign a native installer, but the required signing tools and certificate are not present on `desktop-zt`.
+Status: partial progress for original item 122. PrintPipe now reports whether a Windows host is ready to build/sign a native installer, but the required signing tools and certificate are not present on `windows-pc`.
 
 1. Done: added `printpipe.env.windows.windows_installer_signing_readiness()`.
 2. Done: readiness checks for `signtool`, `powershell`, and at least one installer tool from `wix/iscc/makensis`.
 3. Done: readiness queries `Cert:\CurrentUser\My -CodeSigningCert` for code-signing certificate subjects.
 4. Done: `printpipe doctor --json` includes the packet under `system.signing` on Windows.
 5. Done: human doctor output labels the section `Windows installer signing` instead of macOS signing on Windows reports.
-6. Boundary on `desktop-zt`: PowerShell is present, but `signtool`, `wix/iscc/makensis`, and a `Code Signing Certificate` are missing; status is `missing_tools`.
+6. Boundary on `windows-pc`: PowerShell is present, but `signtool`, `wix/iscc/makensis`, and a `Code Signing Certificate` are missing; status is `missing_tools`.
 7. Remaining: install Windows signing/installer tools and certificate, build a signed native installer, install Bambu Studio on Windows for live slice evidence, complete physical print validation.
 
 ## Wave 63 - Prompt-Only CLI Input Path
@@ -886,7 +886,7 @@ Status: partial progress for original item 122. PrintPipe now has native Windows
 3. Done: optional Authenticode signing uses `signtool sign /n ... /fd SHA256 /tr ... /td SHA256`.
 4. Done: added `printpipe build-windows-installer --standalone-zip ... --output ...`.
 5. Done: `build-release --windows-installer-exe ...` can copy a prebuilt installer into the checksummed release manifest; Wave 152 corrected the manifest so copied installers stay unsigned unless signing is actually verified.
-6. Boundary: no Windows signing certificate, `signtool`, or Inno/WiX/NSIS installer tool was installed by this wave; the Windows readiness gate remains action-required on `desktop-zt`.
+6. Boundary: no Windows signing certificate, `signtool`, or Inno/WiX/NSIS installer tool was installed by this wave; the Windows readiness gate remains action-required on `windows-pc`.
 
 ## Wave 80 - Release Verifier Metadata Hardening
 

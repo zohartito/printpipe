@@ -32,7 +32,7 @@ Metadata reports:
 
 ## Live Windows Evidence
 
-Ran on `desktop-zt` from a fresh source export and Windows venv with PyInstaller:
+Ran on `windows-pc` from a fresh source export and Windows venv with PyInstaller:
 
 ```powershell
 printpipe build-windows-standalone `
@@ -63,5 +63,5 @@ After extracting the ZIP:
 
 This is not a signed Windows installer. It does not create Start Menu shortcuts,
 register file associations, or bundle Bambu Studio. The package-smoke slice gate
-remains `manual_required` on `desktop-zt` because Bambu Studio is not installed
+remains `manual_required` on `windows-pc` because Bambu Studio is not installed
 or discoverable on that Windows host.

@@ -27,7 +27,7 @@ Local CLI / local app
 - `mesh`: repair, topology validation, and export.
 - `geometry`: orientation, scale, bed fit, and support-risk scoring.
 - `calibration`: physical validation artifacts such as flexible-material coupons.
-- `bambu`: printer profiles, filament profiles, process profiles, enum validation, 3MF bundling, and slice parsing.
+- `bambu`: printer profiles, filament profiles, process profiles, source-profile resolution, 3MF bundling, and slice parsing.
 - `reports`: HTML/Markdown/JSON receipts.
 - `cli`: user-facing command line.
 
@@ -44,7 +44,10 @@ Local CLI / local app
 
 1. Mesh topology must be validated after generation and after repair.
 2. Bed fit must be validated before bundling.
-3. Bambu profile enum values must be schema/source checked before bundling.
+3. Bundle validation checks archive structure and required metadata. The final merged
+   settings are not enum/schema validated: overrides such as `support_style=banana`
+   can be bundled and pass validation. Review overrides against the selected Bambu
+   profile schema and inspect actual slicer results; bundle validity is not settings validity.
 4. 3MF must be Bambu-native enough to open without rejection.
 5. Bambu CLI slice must pass before the app calls a run successful.
 
@@ -82,9 +85,11 @@ The browser is read-only. CLI configuration commands apply static validation
 when `comfyui_workflow` is present, and media-provider readiness re-runs that
 validation so stale config cannot keep counting as live. CLI smoke execution
 resolves command and params from the same explicit project workspace when one is
-supplied. The architecture still treats the media provider as unproven until a
-smoke receipt shows a real adapter generated a mesh from a reference. Terminal
-commands and browser status views are not evidence without a smoke receipt.
+supplied. A smoke receipt records adapter completion and an output path. The current gate
+checks that the output exists; it does not validate geometry, output integrity,
+or correspondence to the current command/parameters. Empty files and stale
+receipts can pass. Inspect the mesh and rerun after provider changes before
+relying on it; readiness and strict status are not provider verification.
 
 OpenAI prompt-image cost is treated as a user-configured estimate, not a hardcoded
 pricing promise. If `PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD` is set and the estimate

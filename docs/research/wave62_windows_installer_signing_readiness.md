@@ -22,7 +22,7 @@ signing`.
 
 ## Live Windows Evidence
 
-Ran on `desktop-zt` from a fresh source export:
+Ran on `windows-pc` from a fresh source export:
 
 ```powershell
 printpipe doctor --json

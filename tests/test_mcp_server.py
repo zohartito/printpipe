@@ -251,3 +251,36 @@ def test_get_fabrication_report_rejects_missing_run_root():
         }
     )
     assert response["result"]["isError"] is True
+
+
+@pytest.mark.parametrize('escape', ['input', 'symlink', 'output'])
+def test_prp05_operator_roots_reject_before_pipeline(tmp_path, monkeypatch, escape):
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    outside = tmp_path / 'outside.stl'
+    outside.write_text('solid outside\nendsolid outside\n')
+    source = workspace / 'input.stl'
+    source.write_bytes(outside.read_bytes())
+    output = workspace / 'runs'
+    monkeypatch.setattr(mcp_server, 'INPUT_ROOT', workspace, raising=False)
+    monkeypatch.setattr(mcp_server, 'OUTPUT_ROOT', output, raising=False)
+    if escape == 'input':
+        source = outside
+    elif escape == 'symlink':
+        source.unlink()
+        source.symlink_to(outside)
+    else:
+        output = tmp_path / 'outside-runs'
+    calls = []
+    def fake_pipeline(*args, **kwargs):
+        calls.append(args)
+        raise RuntimeError('reached pipeline')
+    monkeypatch.setattr(mcp_server, 'run_existing_mesh_pipeline', fake_pipeline)
+    response = mcp_server.handle_request({'id': 1, 'method': 'tools/call', 'params': {
+        'name': 'slice_with_settings', 'arguments': {
+            'stl_path': str(source), 'runs_dir': str(output), 'run_slice': False,
+            'input_root': str(tmp_path), 'output_root': str(tmp_path),
+        }}})
+    assert response['result']['isError']
+    assert calls == []
+    assert not output.exists()
