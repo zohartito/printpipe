@@ -140,11 +140,9 @@ printpipe release-status \
   --strict
 ```
 
-The local release JSON endpoint accepts the same manifest path:
-
-```text
-/release-status.json?regression_manifest=tests/fixtures/regression/failure_manifest.json
-```
+Web release status is also manifest-free: `/release-status.json` ignores the
+`regression_manifest` query parameter. Use the explicit CLI release-status
+command above to include the regression gate; add `--json` for JSON output.
 
 Meaning:
 
@@ -157,10 +155,10 @@ Meaning:
   local run is not blocked before beta failures exist.
 - Drifted manifests are `action_required` in readiness and should be fixed or
   intentionally reclassified before release claims.
-- Release status consumes the same regression gate when `--regression-manifest`
+- CLI release status consumes the same regression gate when `--regression-manifest`
   is provided, so final handoff checks can fail on beta drift too.
-- `printpipe serve --regression-manifest ...` applies the same manifest to the
-  home-page readiness/release panels and JSON service links.
+- Home-page readiness/release panels and JSON service links remain manifest-free;
+  `printpipe serve --regression-manifest ...` is deprecated and ignored.
 
 ## Current Limits
 
