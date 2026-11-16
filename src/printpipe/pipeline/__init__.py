@@ -1207,6 +1207,10 @@ def resolve_slice_settings(material: str) -> dict[str, Any]:
     """
 
     cfg = _bundle_profile_config(material)
+    process_profile_available = bool(_resolved_bambu_profile_settings(
+        DEFAULT_BBL_P2S_PROCESS_PROFILE, DEFAULT_PROFILE_IDS.print_settings_id,
+        profiles=_available_bambu_profiles(),
+    ))
     return {
         "material": material,
         "profile_ids": {
@@ -1214,6 +1218,7 @@ def resolve_slice_settings(material: str) -> dict[str, Any]:
             "print_settings_id": cfg.profile_ids.print_settings_id,
             "printer_settings_id": cfg.profile_ids.printer_settings_id,
         },
+        "process_profile_available": process_profile_available,
         "process": dict(cfg.process_settings),
         "filament": dict(cfg.filament_settings),
         "printer": dict(cfg.printer_settings),

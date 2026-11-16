@@ -24,6 +24,7 @@
 
 ## Conventions & danger zones
 - Open shells may retain boundary edges, but unresolved non-manifold edges fail repair.
+- Without a resolved process profile, CLI overrides are explicitly unvalidated rather than mislabeled as unknown keys.
 - Run reports record the serialized Generic PLA baseline-to-final settings delta, with material/user override reasons.
 - `--printer` labels reports/checklists only; bundles use P2S 0.4 mm profiles regardless of the label.
 - The P2S XYZ envelope is enforced before bundling; oversized geometry requires an explicit source/edit scale change.

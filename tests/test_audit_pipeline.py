@@ -82,3 +82,19 @@ def test_prp13_settings_delta_matches_final_bundle(tmp_path):
         assert by_key[key]['from'] != by_key[key]['to']
     assert by_key['wall_loops']['reason'] == 'user process override'
     assert 'material' in by_key['nozzle_temperature']['reason']
+
+
+def test_prpn3_missing_profiles_do_not_mislabel_valid_override(tmp_path, monkeypatch, capsys):
+    from printpipe.cli import main
+
+    empty = tmp_path / 'profiles'
+    empty.mkdir()
+    monkeypatch.setenv('PRINTPIPE_BAMBU_PROFILE_ROOTS', str(empty))
+    monkeypatch.setenv('PRINTPIPE_PROFILE_ROOTS', str(empty))
+    monkeypatch.setenv('PRINTPIPE_APPLICATIONS_DIR', str(empty))
+    code = main(['run', str(FIXTURE), '--runs-dir', str(tmp_path / 'runs'), '--material', 'PETG',
+                 '--slice', '--bambu-cli', str(tmp_path / 'missing-slicer'), '--set', 'wall_loops=7'])
+    output = capsys.readouterr()
+    assert code == 2  # the explicit synthetic slicer is absent
+    assert 'unknown process setting' not in output.err
+    assert 'cannot validate' in output.err

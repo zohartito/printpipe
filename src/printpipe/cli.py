@@ -1411,9 +1411,12 @@ def main(argv: list[str] | None = None) -> int:
             if process_overrides and not args.slice:
                 parser.error("--set requires --slice (overrides only apply to the slice stage)")
             if process_overrides:
-                known_keys = set(resolve_slice_settings(args.material)["process"])
+                resolved = resolve_slice_settings(args.material)
+                known_keys = set(resolved["process"])
                 unknown_keys = sorted(k for k in process_overrides if k not in known_keys)
-                if unknown_keys:
+                if not resolved.get("process_profile_available", bool(known_keys)):
+                    print("warning: cannot validate process overrides without a resolved Bambu process profile; applied anyway.", file=sys.stderr)
+                elif unknown_keys:
                     print(
                         f"warning: unknown process setting key(s) applied anyway: {', '.join(unknown_keys)}",
                         file=sys.stderr,
