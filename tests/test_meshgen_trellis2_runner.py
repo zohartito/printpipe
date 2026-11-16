@@ -58,7 +58,7 @@ def _remote_args(tmp_path: Path, remote_python: Path, *, output: Path) -> list[s
     source.write_bytes(b"\x89PNG fake reference")
     return [
         "--remote",
-        "desktop-zt",
+        "gpu-host",
         "--ssh",
         str(_fake_ssh(tmp_path)),
         "--remote-shell",
@@ -110,7 +110,7 @@ def test_remote_mode_uploads_image_runs_worker_and_returns_mesh(tmp_path: Path, 
     captured = capsys.readouterr()
     assert exit_code == 0, captured.err
     assert output.read_bytes() == FIXTURE_STL.read_bytes()
-    assert (tmp_path / "ssh_host.txt").read_text() == "desktop-zt"
+    assert (tmp_path / "ssh_host.txt").read_text() == "gpu-host"
     payload = json.loads(captured.out.strip().splitlines()[-1])
     assert payload["output_path"] == str(output)
     assert payload["mode"] == "remote"
@@ -172,7 +172,7 @@ def test_remote_transport_failure_is_reported(tmp_path: Path, capsys):
         tmp_path / "broken_ssh.py",
         "import sys\n"
         "sys.stdin.buffer.read()\n"
-        "sys.stderr.write('ssh: connect to host desktop-zt port 22: Connection refused\\n')\n"
+        "sys.stderr.write('ssh: connect to host gpu-host port 22: Connection refused\\n')\n"
         "sys.exit(255)\n",
     )
     source = tmp_path / "reference.png"
@@ -182,7 +182,7 @@ def test_remote_transport_failure_is_reported(tmp_path: Path, capsys):
     exit_code = trellis2.main(
         [
             "--remote",
-            "desktop-zt",
+            "gpu-host",
             "--ssh",
             str(broken_ssh),
             "--output",

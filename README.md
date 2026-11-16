@@ -91,7 +91,7 @@ back. For a Windows host with TRELLIS.2 inside WSL2:
 
 ```bash
 export PRINTPIPE_TRELLIS2_COMMAND="python -m printpipe.meshgen.trellis2 \
-  --remote desktop-zt --remote-shell 'wsl -d Ubuntu -- bash -s' \
+  --remote gpu-host --remote-shell 'wsl -d Ubuntu -- bash -s' \
   --model '~/models/TRELLIS.2-4B'"
 printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
 ```

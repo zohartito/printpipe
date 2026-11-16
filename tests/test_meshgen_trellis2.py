@@ -112,7 +112,7 @@ def test_trellis2_provider_builds_runner_command(tmp_path: Path):
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="trellis progress")
 
     provider = Trellis2Provider(
-        command="python -m printpipe.meshgen.trellis2 --remote desktop-zt",
+        command="python -m printpipe.meshgen.trellis2 --remote gpu-host",
         runner=fake_runner,
     )
     request = _image_request(layout)
@@ -124,7 +124,7 @@ def test_trellis2_provider_builds_runner_command(tmp_path: Path):
         "-m",
         "printpipe.meshgen.trellis2",
         "--remote",
-        "desktop-zt",
+        "gpu-host",
     )
     assert argv[argv.index("--input-kind") + 1] == "image"
     assert argv[argv.index("--output") + 1] == str(layout.meshgen_dir / "trellis2.stl")

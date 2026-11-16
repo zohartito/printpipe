@@ -3,7 +3,7 @@
 Configure it as the TRELLIS.2 provider command, for example::
 
     export PRINTPIPE_TRELLIS2_COMMAND="python -m printpipe.meshgen.trellis2 \\
-        --remote desktop-zt --remote-shell 'wsl -d Ubuntu -- bash -s'"
+        --remote gpu-host --remote-shell 'wsl -d Ubuntu -- bash -s'"
 
 printpipe appends ``--input-kind``, ``--output``, ``--output-format``,
 ``--source`` and the other provider arguments.
