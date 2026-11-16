@@ -44,7 +44,7 @@ def slice_physical_validation_coupon(
         slice_payload=payload,
     )
     return {
-        "status": "sliced",
+        "status": "sliced" if payload["slice_status"] == "succeeded" else "failed",
         "family": normalized_family,
         "runs_dir": str(Path(runs_dir).expanduser().resolve()),
         "run_root": str(run_root),

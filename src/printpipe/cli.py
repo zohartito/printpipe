@@ -2291,7 +2291,7 @@ def _physical_slice(
             print(f"slice result: {payload['slice_result_path']}")
         if payload.get("handoff_markdown_path"):
             print(f"print handoff: {payload['handoff_markdown_path']}")
-    return 0
+    return 0 if payload["slice_status"] == "succeeded" else 2
 
 
 def _readiness(

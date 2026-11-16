@@ -6,6 +6,7 @@
 - CLI entry point: `printpipe --version` (`printpipe.cli:main`).
 - Tests: `pytest` (testpaths = `tests`, ~105 test files). No lint config committed.
 - End-to-end run: `printpipe run input.stl --runs-dir runs --material "PLA" --slice` (also `--prompt`, `--printer`, `--use-case`).
+- `physical-slice` returns exit 2 and top-level failed status if its slice receipt fails.
 - Health gates: `printpipe doctor`, `printpipe readiness`, `printpipe final-plan`, `printpipe final-next`.
 - After configuring, review the command and set `PRINTPIPE_CONFIG_PATH` (or opt into project trust) before smoke/run.
 - Media meshgen smoke: `printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke`.

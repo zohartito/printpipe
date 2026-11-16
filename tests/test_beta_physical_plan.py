@@ -536,3 +536,14 @@ def _write_evidence(
         evidence=evidence,
         copy_artifacts=True,
     )
+
+
+def test_prp15_missing_slicer_returns_failure(tmp_path, capsys):
+    runs = tmp_path / 'runs'
+    start_physical_validation(runs, family='pla')
+    code = main(['physical-slice', '--family', 'pla', '--runs-dir', str(runs),
+                 '--bambu-cli', str(tmp_path / 'missing-slicer'), '--json'])
+    payload = json.loads(capsys.readouterr().out)
+    assert payload['slice_status'] == 'failed'
+    assert payload['status'] == 'failed'
+    assert code == 2
