@@ -63,15 +63,31 @@ def make_run_id(input_path: Path, now: datetime | None = None) -> str:
     return f"{timestamp}-{stem or 'input'}"
 
 
+def _allocate_run_root(input_path: Path, runs_dir: Path, run_id: str | None) -> tuple[str, Path]:
+    base_id = run_id or make_run_id(input_path)
+    parent = runs_dir.expanduser().resolve()
+    parent.mkdir(parents=True, exist_ok=True)
+    suffix = 0
+    while True:
+        candidate_id = base_id if suffix == 0 else f"{base_id}-{suffix}"
+        root = parent / candidate_id
+        try:
+            root.mkdir(exist_ok=False)
+        except FileExistsError:
+            if run_id is not None:
+                raise
+            suffix += 1
+        else:
+            return candidate_id, root
+
+
 def create_run(input_path: Path, runs_dir: Path = Path("runs"), run_id: str | None = None) -> RunLayout:
     input_path = input_path.expanduser().resolve()
     if not input_path.exists():
         raise FileNotFoundError(input_path)
 
     input_kind = infer_input_kind(input_path)
-    actual_run_id = run_id or make_run_id(input_path)
-    root = runs_dir.expanduser().resolve() / actual_run_id
-    root.mkdir(parents=True, exist_ok=False)
+    actual_run_id, root = _allocate_run_root(input_path, runs_dir, run_id)
 
     dirs: dict[str, Path] = {}
     for key, dirname in STAGE_DIRS:
@@ -122,9 +138,7 @@ def create_prompt_run(
     if not clean_prompt:
         raise ValueError("prompt must not be blank")
 
-    actual_run_id = run_id or make_run_id(Path("prompt.txt"))
-    root = runs_dir.expanduser().resolve() / actual_run_id
-    root.mkdir(parents=True, exist_ok=False)
+    actual_run_id, root = _allocate_run_root(Path("prompt.txt"), runs_dir, run_id)
 
     dirs: dict[str, Path] = {}
     for key, dirname in STAGE_DIRS:

@@ -3,6 +3,7 @@
 ## Run & test
 - Dev setup: `python -m venv .venv && source .venv/bin/activate && python -m pip install -e ".[dev,mesh-repair]"`.
 - The mesh-repair extra includes the 3MF XML loader; missing loaders produce repair receipts and a failed non-STL run report.
+- Automatic run IDs retry collisions with an atomic numeric suffix; explicit IDs still reject existing folders.
 - CLI entry point: `printpipe --version` (`printpipe.cli:main`).
 - Tests: `pytest` (testpaths = `tests`, ~105 test files). No lint config committed.
 - End-to-end run: `printpipe run input.stl --runs-dir runs --material "PLA" --slice` (also `--prompt`, `--printer`, `--use-case`).
