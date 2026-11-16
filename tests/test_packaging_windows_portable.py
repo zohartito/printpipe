@@ -110,3 +110,11 @@ def test_prp18_association_scripts_preserve_extension_keys_and_prior_defaults():
     assert 'PrintPipePreviousDefault' in uninstall
     assert 'GetValueKind' in install
     assert '.DeleteValue("", $false)' in uninstall
+
+
+def test_prp18_installer_does_not_force_recreate_existing_registry_keys():
+    from printpipe.packaging.windows_portable import _file_association_installer
+
+    script = _file_association_installer()
+    assert 'New-Item -Force -Path $ExtensionKey' not in script
+    assert 'New-Item -Force -Path $ProgIdKey' not in script

@@ -158,13 +158,13 @@ foreach ($Extension in $Extensions) {
     $ProgId = "$ProgIdPrefix$Extension"
     $ExtensionKey = Join-Path $ClassesRoot $Extension
     $ProgIdKey = Join-Path $ClassesRoot $ProgId
-    New-Item -Force -Path $ExtensionKey | Out-Null
+    if (-not (Test-Path $ExtensionKey)) { New-Item -Path $ExtensionKey | Out-Null }
     $Current = (Get-Item -Path $ExtensionKey).GetValue("")
     if ($Current -and $Current -ne $ProgId -and -not $Force) {
         Write-Output "Skip existing association for $Extension -> $Current"
         continue
     }
-    New-Item -Force -Path $ProgIdKey | Out-Null
+    if (-not (Test-Path $ProgIdKey)) { New-Item -Path $ProgIdKey | Out-Null }
     if ($Current -ne $ProgId) {
         $RegistryKey = Get-Item -Path $ExtensionKey
         $HadDefault = $RegistryKey.GetValueNames() -contains ""
