@@ -26,7 +26,7 @@ ownership when the extension currently points at the matching PrintPipe ProgID.
 
 ## Live Smoke
 
-The scripts were run on `desktop-zt` with a throwaway `.printpipetest`
+The scripts were run on `windows-pc` with a throwaway `.printpipetest`
 extension and `PrintPipeSmoke` ProgID prefix. Install created the HKCU
 association:
 

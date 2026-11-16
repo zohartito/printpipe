@@ -26,7 +26,7 @@ Start Menu shortcuts, register file associations, or bundle Bambu Studio.
 
 ## Live Windows Smoke
 
-The generated ZIP was copied to `desktop-zt`, expanded under the user's temp
+The generated ZIP was copied to `windows-pc`, expanded under the user's temp
 folder, and run through both launchers:
 
 - `printpipe.cmd --version` returned `printpipe 0.1.0`
@@ -35,7 +35,7 @@ folder, and run through both launchers:
 
 The smoke run produced reports and a Bambu `.3mf` under:
 
-`C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-portable\runs\20260528-071414-package-smoke-tiny-tetrahedron`
+`C:\Users\sample_user\AppData\Local\Temp\printpipe-windows-portable\runs\20260528-071414-package-smoke-tiny-tetrahedron`
 
 The slice gate remains `manual_required` because Bambu Studio is not installed
 on that Windows host.
