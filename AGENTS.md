@@ -18,6 +18,7 @@
 ## Conventions & danger zones
 - The Bambu CLI slice gate (`bambu/slicer.py`, `--slice`) requires an external Bambu Studio executable via `PRINTPIPE_BAMBU_STUDIO_CLI` (or `BAMBU_STUDIO_CLI`/`_EXECUTABLE`); without it, slicing skips/fails honestly rather than faking a receipt. Never fabricate slice or meshgen receipts.
 - Runs fail *honestly* at `meshgen` / `prompt_reference_generation` when no provider is configured. A media provider only satisfies the readiness gate after a real `media-meshgen-smoke` receipt exists.
+- Media meshgen hooks, in precedence order: `PRINTPIPE_MEDIA_MESHGEN_COMMAND` (or trusted project config), `PRINTPIPE_HUNYUAN3D_COMMAND`, `PRINTPIPE_TRELLIS2_COMMAND`. The TRELLIS.2 runner is `python -m printpipe.meshgen.trellis2` (local CUDA, or `--remote HOST` over ssh); `meshgen/trellis2_worker.py` must stay standalone (no printpipe imports) because it is copied to the GPU host. Its tests use fake ssh/python and need no GPU. Live runs need Hugging Face access to the gated DINOv3 and RMBG-2.0 models.
 - `.printpipe/config.json` (provider command + workflow params) is deliberately git-ignored — do not commit it or any provider secrets (`OPENAI_API_KEY`, `HF_TOKEN`, etc. stay in env).
 - OpenAI prompt-image runs enforce a pre-call cost cap (`PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD`) and fail before the API call if the estimate is missing or over cap.
 - The web app is read-only by design (no web run-creation, provider config, uploads, or re-slice). Keep configuration on the CLI. License is AGPL-3.0-or-later. Python ≥3.11.

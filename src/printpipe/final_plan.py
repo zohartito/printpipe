@@ -10,7 +10,11 @@ from typing import Any
 
 from printpipe.beta.feedback import build_trusted_user_feedback_plan
 from printpipe.beta.physical_plan import build_physical_validation_plan
-from printpipe.meshgen.providers import HUNYUAN3D_COMMAND_ENV, MEDIA_MESHGEN_COMMAND_ENV
+from printpipe.meshgen.providers import (
+    HUNYUAN3D_COMMAND_ENV,
+    MEDIA_MESHGEN_COMMAND_ENV,
+    TRELLIS2_COMMAND_ENV,
+)
 from printpipe.env.doctor import build_environment_report
 from printpipe.meshgen.smoke import build_media_meshgen_smoke_status
 from printpipe.packaging.release_plan import build_release_distribution_plan
@@ -244,11 +248,10 @@ def _tested_media_command_action(
         return None
     provider_id = str(latest.get("provider_id") or "")
     adapter_params = _safe_adapter_params(_dict(latest.get("adapter_params")))
-    env_name = (
-        HUNYUAN3D_COMMAND_ENV
-        if provider_id == "hunyuan3d"
-        else MEDIA_MESHGEN_COMMAND_ENV
-    )
+    env_name = {
+        "hunyuan3d": HUNYUAN3D_COMMAND_ENV,
+        "trellis2": TRELLIS2_COMMAND_ENV,
+    }.get(provider_id, MEDIA_MESHGEN_COMMAND_ENV)
     run_id = str(latest.get("run_id") or "latest successful smoke")
     return {
         "id": "configure_tested_media_meshgen_provider",
