@@ -1,10 +1,9 @@
 {
   "mcpServers": {
     "printpipe-slicer": {
-      "command": "/Users/zohartito/Desktop/printpipe/.venv/bin/python",
+      "command": "python3",
       "args": [
-        "-m",
-        "printpipe.mcp_server"
+        "tools/mcp_launcher.py"
       ],
       "env": {
         "PRINTPIPE_MCP_INPUT_ROOT": ".",

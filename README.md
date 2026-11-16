@@ -239,6 +239,10 @@ but it does not by itself prove Authenticode signing. `verify-release` requires
 real signature verification before a Windows installer can close the signed
 distribution gate.
 
+The supplied `.mcp.json` launches `python3 tools/mcp_launcher.py` from the checkout.
+It uses the checkout's `.venv` when present, otherwise the active Python. On
+Windows, use `python` if your Python installation does not provide `python3`.
+
 For a restricted MCP server, set `PRINTPIPE_MCP_INPUT_ROOT` and
 `PRINTPIPE_MCP_OUTPUT_ROOT` before startup. The supplied registration confines
 inputs to the working checkout and outputs to its `runs/` folder. Paths are

@@ -18,7 +18,7 @@
 ## Structure
 - `src/printpipe/` — package; `cli.py`, `pipeline/`, `contracts.py` (stage status), `config.py`, subpackages `bambu/` (`slicer.py` CLI slice gate, `profiles/`, `threemf/`), `mesh/`, `meshgen/`, `geometry/`, `materials/`, `inputs/`, `fabrication/`, `reports/`, `runs/`, `beta/`, `calibration/`, `packaging/`, `web/` (read-only status app).
 - `mcp_server.py` — dependency-free stdio JSON-RPC MCP server (`get_slice_settings`, `slice_with_settings`) exposing the Bambu slicer keyspace.
-- `.mcp.json` — registers that server as `printpipe-slicer` so the harness drives slicing as MCP tools (runs the repo's own `.venv` Python).
+- `.mcp.json` — registers that server as `printpipe-slicer` so the harness drives slicing as MCP tools (portable `python3 tools/mcp_launcher.py`, preferring this checkout's `.venv`, otherwise the active interpreter).
 - `docs/APP_ROADMAP.md` + `docs/AGENT_WAVES.md` — 142-item execution map; `runs/` — per-run receipts (artifacts, logs, settings delta, slice outcome).
 
 ## Conventions & danger zones
