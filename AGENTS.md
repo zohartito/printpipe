@@ -47,10 +47,11 @@
   (schema `printpipe.watch_queue.v1`). Idempotent via a content-hash state file;
   `--max-files` caps a run. Reuses the library only — no pipeline code changed.
   - Dry-run: `python3 tools/watch_3mf_queue.py --dry-run`
-  - Trigger: `com.zohar.printpipe-watch.plist` (launchd `WatchPaths` on the
-    inbox). Load with
-    `mkdir -p runs/inbox-watch && launchctl bootstrap gui/$(id -u) ~/projects/printpipe/com.zohar.printpipe-watch.plist`
-    (not loaded by this repo). Inbox/state/report live under `runs/` (gitignored).
+  - Generate the launchd plist from this checkout and an explicitly configured slicer:
+    `python tools/generate_watch_plist.py --bambu-cli /absolute/path/to/BambuStudio`
+    Then, when ready to enable watching, load the generated file:
+    `launchctl bootstrap gui/$(id -u) "$(pwd)/runs/inbox-watch/com.printpipe.watch.plist"`.
+    Generation does not load launchd or invoke the slicer. Inbox/state/report live under `runs/` (gitignored).
     State, report and log go in `runs/inbox-watch/`, never the inbox: any write
     there re-fires `WatchPaths` (until 2026-10-22 it re-ran itself every ~10 s).
   - Learnings append to `.claude/LEARNINGS.md`.
