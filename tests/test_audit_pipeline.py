@@ -65,3 +65,20 @@ def test_prp03_non_manifold_mesh_stops_before_bundle(tmp_path):
         run_existing_mesh_pipeline(source, tmp_path / 'runs')
     assert not list(error.value.result.layout.bundle_dir.glob('*.3mf'))
     assert (error.value.result.layout.reports_dir / 'run_report.json').is_file()
+
+
+def test_prp13_settings_delta_matches_final_bundle(tmp_path):
+    import json
+    import zipfile
+
+    result = run_existing_mesh_pipeline(FIXTURE, tmp_path / 'runs', material='PETG',
+                                        process_overrides={'wall_loops': ['7']})
+    changes = json.loads((result.layout.reports_dir / 'run_report.json').read_text())['settings_changes']
+    by_key = {change['key']: change for change in changes}
+    with zipfile.ZipFile(next(result.layout.bundle_dir.glob('*.3mf'))) as archive:
+        settings = json.loads(archive.read('Metadata/project_settings.config'))
+    for key in ('wall_loops', 'filament_settings_id', 'nozzle_temperature'):
+        assert by_key[key]['to'] == settings[key]
+        assert by_key[key]['from'] != by_key[key]['to']
+    assert by_key['wall_loops']['reason'] == 'user process override'
+    assert 'material' in by_key['nozzle_temperature']['reason']

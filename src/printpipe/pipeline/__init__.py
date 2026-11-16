@@ -12,7 +12,7 @@ from typing import Any
 from printpipe.bambu.profiles import load_profile, resolve_inherits
 from printpipe.bambu.profiles.sources import default_bambu_orca_profile_roots
 from printpipe.bambu.slicer import run_bambu_cli_slice_stage
-from printpipe.bambu.threemf import BambuProfileIds, GuiSafeTransform, validate_bundle
+from printpipe.bambu.threemf import BambuProfileIds, GuiSafeTransform, validate_bundle, build_project_settings_config
 from printpipe.bambu.threemf.mesh_adapter import write_bundle_from_ascii_stl
 from printpipe.calibration import write_flex_coupon_artifacts
 from printpipe.contracts import Artifact, ArtifactKind, InputKind, StageReceipt, StageStatus
@@ -460,6 +460,27 @@ def run_existing_mesh_pipeline_on_layout(
     bundle_printer_settings = dict(bundle_profile.printer_settings)
     if printer_overrides:
         bundle_printer_settings.update(printer_overrides)
+    baseline = _bundle_profile_config("Generic PLA")
+    baseline_settings = json.loads(build_project_settings_config(
+        baseline.profile_ids, filament_settings=baseline.filament_settings,
+        process_settings=baseline.process_settings, printer_settings=baseline.printer_settings,
+    ))
+    final_settings = json.loads(build_project_settings_config(
+        bundle_profile.profile_ids, filament_settings=bundle_filament_settings,
+        process_settings=bundle_process_settings, printer_settings=bundle_printer_settings,
+    ))
+    changes = []
+    for key in sorted(baseline_settings.keys() | final_settings.keys()):
+        if baseline_settings.get(key) == final_settings.get(key):
+            continue
+        reason = f"material selection: {material} (baseline Generic PLA)"
+        for group, overrides in (("printer", printer_overrides), ("process", process_overrides),
+                                 ("filament", filament_overrides)):
+            if overrides and key in overrides:
+                reason = f"user {group} override"
+        changes.append({"key": key, "from": baseline_settings.get(key),
+                        "to": final_settings.get(key), "reason": reason})
+    settings_changes = (*settings_changes, *changes)
     write_bundle_from_ascii_stl(
         oriented_mesh,
         bundle_path,
