@@ -169,3 +169,30 @@ def test_gcode_stats_tolerates_missing_file(tmp_path: Path):
         "filament_mm": None,
         "layers": None,
     }
+
+
+@pytest.mark.parametrize('escape', ['manifest', 'mesh_symlink', 'output_symlink'])
+def test_prp04_viewer_rejects_paths_outside_run(tmp_path, escape):
+    run_root = _make_box_run(tmp_path)
+    layout = load_run(run_root)
+    outside = tmp_path / 'outside'
+    outside.mkdir()
+    victim = outside / 'victim.glb'
+    victim.write_bytes(b'unchanged')
+    mesh = layout.geometry_dir / 'box_oriented.stl'
+    if escape == 'manifest':
+        (outside / mesh.name).write_bytes(mesh.read_bytes())
+        manifest = json.loads(layout.manifest_path.read_text())
+        manifest['stages']['geometry'] = str(outside)
+        layout.manifest_path.write_text(json.dumps(manifest))
+    elif escape == 'mesh_symlink':
+        external_mesh = outside / 'external.stl'
+        external_mesh.write_bytes(mesh.read_bytes())
+        mesh.unlink()
+        mesh.symlink_to(external_mesh)
+    else:
+        mesh.with_suffix('.glb').symlink_to(victim)
+    with pytest.raises((ValueError, OSError)):
+        export_run_glb(run_root)
+    assert victim.read_bytes() == b'unchanged'
+    assert not (outside / 'box_oriented.glb').exists()

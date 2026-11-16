@@ -23,6 +23,7 @@
 - Runs fail *honestly* at `meshgen` / `prompt_reference_generation` when no provider is configured. A media provider only satisfies the readiness gate after a real `media-meshgen-smoke` receipt exists.
 - `.printpipe/config.json` (provider command + workflow params) is deliberately git-ignored — do not commit it or any provider secrets (`OPENAI_API_KEY`, `HF_TOKEN`, etc. stay in env).
 - OpenAI prompt-image runs enforce a pre-call cost cap (`PRINTPIPE_PROMPT_IMAGE_MAX_COST_USD`) and fail before the API call if the estimate is missing or over cap.
+- Viewer conversion rejects paths outside the run and symlinks, and publishes its GLB cache atomically.
 - The web app is read-only by design (no web run-creation, provider config, uploads, or re-slice). Keep configuration on the CLI. License is AGPL-3.0-or-later. Python ≥3.11.
 
 ## Loops (loop map #29)

@@ -16,7 +16,10 @@ The slicer-result and gcode-header formats mirror what
 
 from __future__ import annotations
 
+import io
 import json
+import os
+import tempfile
 import re
 import zipfile
 from pathlib import Path
@@ -60,19 +63,45 @@ def export_run_glb(run_root: str | Path) -> Path:
     """
 
     layout = _load_layout(run_root)
+    for directory in (layout.geometry_dir, layout.repair_dir, layout.meshgen_dir):
+        _contained_viewer_path(directory, layout.root)
     source_mesh = _primary_mesh_path(layout)
     if source_mesh is None:
         raise FileNotFoundError(f"no mesh artifact found for run {layout.run_id}")
 
+    _contained_viewer_path(source_mesh, layout.root)
     glb_path = source_mesh.with_suffix(".glb")
+    _contained_viewer_path(glb_path, layout.root)
     if glb_path.exists() and glb_path.stat().st_mtime >= source_mesh.stat().st_mtime:
         return glb_path
 
     import trimesh  # imported lazily so the module loads without the slicer present
 
-    mesh = trimesh.load(source_mesh, force="mesh")
-    mesh.export(glb_path, file_type="glb")
+    descriptor = os.open(source_mesh, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(descriptor, "rb") as source:
+        mesh = trimesh.load(io.BytesIO(source.read()), file_type=source_mesh.suffix[1:], force="mesh")
+    data = mesh.export(file_type="glb")
+    descriptor, temporary = tempfile.mkstemp(prefix=".viewer-", dir=glb_path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(data)
+        _contained_viewer_path(glb_path, layout.root)
+        os.replace(temporary, glb_path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
     return glb_path
+
+
+def _contained_viewer_path(path: Path, root: Path) -> None:
+    root = root.resolve()
+    if not path.resolve().is_relative_to(root):
+        raise ValueError("Viewer artifact must stay inside its run directory")
+    for part in (path, *path.parents):
+        if part == root:
+            break
+        if part.is_symlink():
+            raise ValueError("Viewer artifact paths must not contain symlinks")
 
 
 def list_settings(material: str) -> dict[str, Any]:
