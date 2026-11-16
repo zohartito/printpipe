@@ -38,6 +38,7 @@ from .contracts import (
 
 MESH_SUFFIXES = {".stl", ".glb", ".gltf", ".obj", ".3mf"}
 HUNYUAN3D_COMMAND_ENV = "PRINTPIPE_HUNYUAN3D_COMMAND"
+TRELLIS2_COMMAND_ENV = "PRINTPIPE_TRELLIS2_COMMAND"
 MEDIA_MESHGEN_COMMAND_ENV = "PRINTPIPE_MEDIA_MESHGEN_COMMAND"
 MEDIA_MESHGEN_INPUT_KINDS = (InputKind.IMAGE, InputKind.GIF, InputKind.VIDEO)
 MEDIA_MESHGEN_UNAVAILABLE_MESSAGE = (
@@ -536,7 +537,7 @@ class Hunyuan3DProvider:
         if request.input_kind not in self.capabilities.input_kinds:
             return f"{self.provider_id} provider only accepts image, gif, or video input"
         if not request.source_paths:
-            return "hunyuan3d provider requires at least one source reference path"
+            return f"{self.provider_id} provider requires at least one source reference path"
         missing = [
             path
             for path in request.source_paths + request.reference_images
@@ -678,6 +679,19 @@ class Hunyuan3DProvider:
             f"{self.display_name} is not configured. Set "
             f"{self.command_env} to enable this provider."
         )
+
+
+class Trellis2Provider(Hunyuan3DProvider):
+    """Microsoft TRELLIS.2 image-to-3D through the printpipe TRELLIS.2 runner.
+
+    The command is normally ``python -m printpipe.meshgen.trellis2`` (local CUDA)
+    or the same with ``--remote HOST`` (inference on a GPU machine over ssh).
+    """
+
+    provider_id = "trellis2"
+    display_name = "TRELLIS.2 image-to-3D command"
+    model_id = "microsoft/TRELLIS.2-4B"
+    command_env = TRELLIS2_COMMAND_ENV
 
 
 class MediaCommandMeshProvider(Hunyuan3DProvider):
@@ -922,6 +936,7 @@ def default_registry() -> dict[str, MeshGenProvider]:
     register_provider(ExistingMeshProvider(), registry)
     register_provider(ParametricCadProvider(), registry)
     register_provider(Hunyuan3DProvider(), registry)
+    register_provider(Trellis2Provider(), registry)
     register_provider(MediaCommandMeshProvider(), registry)
     register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
     register_provider(PlaceholderMeshProvider("meshy", "Meshy"), registry)
@@ -934,13 +949,16 @@ def _default_readiness_registry(
     env: Mapping[str, str] | None,
 ) -> dict[str, MeshGenProvider]:
     hunyuan_command = None
+    trellis2_command = None
     media_command = None
     if env is not None:
         hunyuan_command = env.get(HUNYUAN3D_COMMAND_ENV, "")
+        trellis2_command = env.get(TRELLIS2_COMMAND_ENV, "")
         media_command = configured_media_meshgen_command(env=env)
     registry: dict[str, MeshGenProvider] = {}
     register_provider(ExistingMeshProvider(), registry)
     register_provider(Hunyuan3DProvider(command=hunyuan_command), registry)
+    register_provider(Trellis2Provider(command=trellis2_command), registry)
     register_provider(MediaCommandMeshProvider(command=media_command, config_env=env), registry)
     register_provider(PlaceholderMeshProvider("replicate", "Replicate"), registry)
     register_provider(PlaceholderMeshProvider("meshy", "Meshy"), registry)

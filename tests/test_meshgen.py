@@ -134,6 +134,7 @@ def test_registry_exposes_existing_hunyuan3d_and_placeholder_providers():
         "parametric_cad",
         "replicate",
         "rodin",
+        "trellis2",
     )
     assert get_provider("existing_mesh", registry).display_name == "Existing mesh import"
     hunyuan = get_provider("hunyuan3d", registry)

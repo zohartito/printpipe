@@ -51,7 +51,7 @@ Current input support is intentionally explicit:
 | Input mode | Current behavior |
 | --- | --- |
 | Existing STL/OBJ/3MF mesh | Runs end-to-end through import, repair, orientation, Bambu 3MF bundling, reports, and optional Bambu CLI slice gate. |
-| Image, GIF, video | Prepares references/contact sheets, then runs a configured media meshgen adapter through repair, orientation, Bambu 3MF bundling, and reports. `PRINTPIPE_MEDIA_MESHGEN_COMMAND` is the generic command hook; `PRINTPIPE_HUNYUAN3D_COMMAND` remains the Hunyuan-specific hook. If neither is set, the run fails honestly at `meshgen` with provider-configuration receipts. |
+| Image, GIF, video | Prepares references/contact sheets, then runs a configured media meshgen adapter through repair, orientation, Bambu 3MF bundling, and reports. `PRINTPIPE_MEDIA_MESHGEN_COMMAND` is the generic command hook; `PRINTPIPE_HUNYUAN3D_COMMAND` remains the Hunyuan-specific hook and `PRINTPIPE_TRELLIS2_COMMAND` selects the TRELLIS.2 runner (in that order of precedence). If none is set, the run fails honestly at `meshgen` with provider-configuration receipts. |
 | Prompt plus image | CLI supports `printpipe run image.png --prompt "..."`; the prompt is passed through to configured mesh providers as `prompt_hint`. |
 | Prompt only | CLI supports `printpipe run --prompt "..."`. It writes `00_input/prompt.txt`, then uses the selected prompt-image provider to produce a reference image before the normal meshgen path. If no provider is configured, the run fails honestly at `prompt_reference_generation` with receipts. |
 
@@ -79,6 +79,45 @@ printpipe media-meshgen-smoke reference.png \
   --command "printpipe media-meshgen-heightfield" \
   --runs-dir runs/media-meshgen-smoke
 ```
+
+### TRELLIS.2 (image-to-3D on a CUDA GPU)
+
+`python -m printpipe.meshgen.trellis2` runs Microsoft TRELLIS.2 (MIT code,
+`microsoft/TRELLIS.2-4B` weights). Without `--remote` it runs on this machine
+and needs CUDA plus a TRELLIS.2 environment (`--python`, `--trellis-root`).
+With `--remote HOST` it streams the reference image and a worker script over
+ssh, runs inference in the host's TRELLIS.2 conda env, and streams the mesh
+back. For a Windows host with TRELLIS.2 inside WSL2:
+
+```bash
+export PRINTPIPE_TRELLIS2_COMMAND="python -m printpipe.meshgen.trellis2 \
+  --remote gpu-host --remote-shell 'wsl -d Ubuntu -- bash -s' \
+  --model '~/models/TRELLIS.2-4B'"
+printpipe media-meshgen-smoke reference.png --runs-dir runs/media-meshgen-smoke
+```
+
+`--target-size-mm` defaults to `80` and accepts a positive, finite size. Before
+export, the worker scales the mesh uniformly about the origin so its longest
+bounding-box dimension equals that size in millimetres, preserving proportions
+for STL, OBJ and GLB output. For example, add `--target-size-mm 120` to the runner
+command for a 120 mm longest dimension. The worker's `result.json` records the
+applied `scale_factor` and final `bbox_size_mm` as `[x, y, z]`; the runner includes
+both in `worker_result`. Empty, zero-size or non-finite meshes fail with exit
+code 5 before mesh export.
+
+Remote defaults: conda env `trellis2` via `~/miniconda3/etc/profile.d/conda.sh`,
+TRELLIS.2 checkout at `~/printpipe-trellis2/TRELLIS.2`, job folders kept under
+`~/printpipe-trellis2/jobs`, GPU `0`. `--quality draft|standard|high` maps to
+the 512 / 1024_cascade / 1536_cascade pipelines. TRELLIS.2 is image-only, so a
+prompt hint is ignored and only the first reference image is used. The runner
+exits non-zero (3 model unavailable, 4 inference failed, 5 no usable mesh,
+6 ssh or remote job failed) and never writes `--output` unless the mesh passes
+a format check. On first load TRELLIS.2 downloads two gated Hugging Face
+models: `facebook/dinov3-vitl16-pretrain-lvd1689m` (DINOv3 licence, manual
+approval) and `briaai/RMBG-2.0` (non-commercial licence). Accept both and run
+`hf auth login` inside the TRELLIS.2 environment first;
+`--rembg-model ZhengPeng7/BiRefNet` swaps in an MIT background remover. Like
+every provider, it satisfies readiness only after a successful smoke.
 
 Successful one-off smoke receipts record the command that produced the mesh.
 If that command is not yet configured in the environment, `printpipe final-next`

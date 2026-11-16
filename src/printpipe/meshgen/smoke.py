@@ -14,8 +14,10 @@ from printpipe.meshgen.contracts import MeshGenRequest, MeshGenResult, MeshGenPr
 from printpipe.meshgen.providers import (
     HUNYUAN3D_COMMAND_ENV,
     MEDIA_MESHGEN_COMMAND_ENV,
+    TRELLIS2_COMMAND_ENV,
     Hunyuan3DProvider,
     MediaCommandMeshProvider,
+    Trellis2Provider,
     generate_with_retries,
 )
 from printpipe.runs import RunLayout, create_run
@@ -95,6 +97,8 @@ def _smoke_provider(
         return MediaCommandMeshProvider(command=media_command)
     if os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip():
         return Hunyuan3DProvider()
+    if os.environ.get(TRELLIS2_COMMAND_ENV, "").strip():
+        return Trellis2Provider()
     return MediaCommandMeshProvider()
 
 
@@ -111,7 +115,7 @@ def _configured_smoke_command(
     hunyuan_command = os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip()
     if hunyuan_command:
         return hunyuan_command
-    return ""
+    return os.environ.get(TRELLIS2_COMMAND_ENV, "").strip()
 
 
 def _configured_project_media_command(*, config_cwd: Path | None) -> str:
