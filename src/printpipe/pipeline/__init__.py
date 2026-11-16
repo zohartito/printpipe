@@ -47,6 +47,8 @@ from printpipe.meshgen import (
     MeshGenProvider,
     MeshGenRequest,
     MeshGenResult,
+    TRELLIS2_COMMAND_ENV,
+    Trellis2Provider,
     generate_with_retries,
 )
 from printpipe.preflight import build_pre_print_checklist
@@ -1457,6 +1459,8 @@ def _default_media_meshgen_provider() -> MeshGenProvider:
         return MediaCommandMeshProvider()
     if os.environ.get(HUNYUAN3D_COMMAND_ENV, "").strip():
         return Hunyuan3DProvider()
+    if os.environ.get(TRELLIS2_COMMAND_ENV, "").strip():
+        return Trellis2Provider()
     return MediaCommandMeshProvider()
 
 
