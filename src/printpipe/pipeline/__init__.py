@@ -12,7 +12,7 @@ from typing import Any
 from printpipe.bambu.profiles import load_profile, resolve_inherits
 from printpipe.bambu.profiles.sources import default_bambu_orca_profile_roots
 from printpipe.bambu.slicer import run_bambu_cli_slice_stage
-from printpipe.bambu.threemf import BambuProfileIds, GuiSafeTransform, validate_bundle
+from printpipe.bambu.threemf import BambuProfileIds, GuiSafeTransform, validate_bundle, build_project_settings_config
 from printpipe.bambu.threemf.mesh_adapter import write_bundle_from_ascii_stl
 from printpipe.calibration import write_flex_coupon_artifacts
 from printpipe.contracts import Artifact, ArtifactKind, InputKind, StageReceipt, StageStatus
@@ -65,7 +65,7 @@ from printpipe.runs import (
 
 
 NON_MESH_MESHGEN_MESSAGE = MEDIA_MESHGEN_SETUP_MESSAGE
-DEFAULT_BED = BedSize(width_mm=256.0, depth_mm=256.0)
+DEFAULT_BED = BedSize(width_mm=256.0, depth_mm=256.0, height_mm=256.0)
 DEFAULT_PROFILE_IDS = BambuProfileIds(
     filament_settings_id="Generic PLA",
     print_settings_id="0.20mm Standard",
@@ -431,6 +431,15 @@ def run_existing_mesh_pipeline_on_layout(
         stem="bed_fit",
     )
     stages.append(bed_preview_receipt)
+    if not bed_preview_receipt.metrics["fits"]:
+        message = "Mesh exceeds the P2S XYZ envelope (256 x 256 x 256 mm); explicitly resize the source or edit scale before bundling."
+        stages.append(StageReceipt(stage="bed_fit_gate", status=StageStatus.FAILED, message=message))
+        result = _write_pipeline_reports(
+            layout, stages=tuple(stages), warnings=(*warnings, message),
+            material=material, printer=printer, use_case=use_case,
+            settings_changes=settings_changes,
+        )
+        raise PipelineError(message, result)
     model_preview_receipt = write_run_detail_model_preview_artifacts(
         preview_candidate,
         DEFAULT_BED,
@@ -453,6 +462,27 @@ def run_existing_mesh_pipeline_on_layout(
     bundle_printer_settings = dict(bundle_profile.printer_settings)
     if printer_overrides:
         bundle_printer_settings.update(printer_overrides)
+    baseline = _bundle_profile_config("Generic PLA")
+    baseline_settings = json.loads(build_project_settings_config(
+        baseline.profile_ids, filament_settings=baseline.filament_settings,
+        process_settings=baseline.process_settings, printer_settings=baseline.printer_settings,
+    ))
+    final_settings = json.loads(build_project_settings_config(
+        bundle_profile.profile_ids, filament_settings=bundle_filament_settings,
+        process_settings=bundle_process_settings, printer_settings=bundle_printer_settings,
+    ))
+    changes = []
+    for key in sorted(baseline_settings.keys() | final_settings.keys()):
+        if baseline_settings.get(key) == final_settings.get(key):
+            continue
+        reason = f"material selection: {material} (baseline Generic PLA)"
+        for group, overrides in (("printer", printer_overrides), ("process", process_overrides),
+                                 ("filament", filament_overrides)):
+            if overrides and key in overrides:
+                reason = f"user {group} override"
+        changes.append({"key": key, "from": baseline_settings.get(key),
+                        "to": final_settings.get(key), "reason": reason})
+    settings_changes = (*settings_changes, *changes)
     write_bundle_from_ascii_stl(
         oriented_mesh,
         bundle_path,
@@ -1179,6 +1209,10 @@ def resolve_slice_settings(material: str) -> dict[str, Any]:
     """
 
     cfg = _bundle_profile_config(material)
+    process_profile_available = bool(_resolved_bambu_profile_settings(
+        DEFAULT_BBL_P2S_PROCESS_PROFILE, DEFAULT_PROFILE_IDS.print_settings_id,
+        profiles=_available_bambu_profiles(),
+    ))
     return {
         "material": material,
         "profile_ids": {
@@ -1186,6 +1220,7 @@ def resolve_slice_settings(material: str) -> dict[str, Any]:
             "print_settings_id": cfg.profile_ids.print_settings_id,
             "printer_settings_id": cfg.profile_ids.printer_settings_id,
         },
+        "process_profile_available": process_profile_available,
         "process": dict(cfg.process_settings),
         "filament": dict(cfg.filament_settings),
         "printer": dict(cfg.printer_settings),

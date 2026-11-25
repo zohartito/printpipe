@@ -1,5 +1,5 @@
 // PrintPipe in-browser 3D model viewer.
-// Vanilla ES module, no build step. Three.js + loaders come from a CDN
+// Vanilla ES module, no build step. Three.js + loaders come from the vendored local
 // importmap that the host page (run_detail.py) must declare. This file only
 // imports the bare specifiers "three" and "three/addons/...".
 //
@@ -19,7 +19,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-// 3MFLoader pulls in fflate; load it lazily so a missing CDN entry never
+// 3MFLoader pulls in vendored fflate; load it lazily so loading it never
 // breaks the common STL/GLB paths.
 let ThreeMFLoaderPromise = null;
 function loadThreeMFLoader() {

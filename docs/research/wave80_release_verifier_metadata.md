@@ -43,4 +43,4 @@ Wave 80 adds type-specific metadata checks inside `verify-release`:
 
 This is verifier hardening only. It does not produce real signing credentials,
 notarize a macOS package, install Windows signing tools, build a signed Windows
-installer on `desktop-zt`, or record physical print evidence.
+installer on `windows-pc`, or record physical print evidence.

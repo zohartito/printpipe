@@ -1,0 +1,8 @@
+{
+  "name": "printpipe-viewer-vendor",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "three": "0.160.0"
+  }
+}

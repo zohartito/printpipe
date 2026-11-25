@@ -28,8 +28,10 @@ compatibility and ignored.
 PrintPipe does not automatically load `media_meshgen_command` from the current
 project's `.printpipe/config.json`. An operator may opt in for a known project
 only by setting `PRINTPIPE_TRUST_PROJECT_MEDIA_COMMAND=1` (or by explicitly
-selecting a config path). Prefer a per-invocation `--media-command` while
-testing a new checkout.
+selecting a config path). For one smoke invocation use
+`printpipe media-meshgen-smoke reference.png --command "reviewed-adapter"`.
+For a run, set `PRINTPIPE_MEDIA_MESHGEN_COMMAND` explicitly in that invocation;
+`printpipe run` has no `--media-command` option.
 
 ## Bounded local integrations
 
@@ -40,7 +42,8 @@ conservative byte, dimension, member, or compression-ratio limits.
 
 ## CI actions
 
-There are no GitHub Actions workflows in this source revision. If workflows
-are added, every `uses:` reference must use a reviewed full commit SHA; mutable
-tags such as `@v4` are prohibited. Keep permissions minimal and do not expose
+This revision tracks `ci.yml` (tests and secret scanning), `secret-scan.yml`
+(secret scanning), and `claude-pr-review.yml` (conditional PR review). Every
+`uses:` reference must use a reviewed full commit SHA; mutable tags such as
+`@v4` are prohibited. Keep permissions minimal and do not expose
 secrets to untrusted pull-request code.

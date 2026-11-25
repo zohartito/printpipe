@@ -1411,9 +1411,12 @@ def main(argv: list[str] | None = None) -> int:
             if process_overrides and not args.slice:
                 parser.error("--set requires --slice (overrides only apply to the slice stage)")
             if process_overrides:
-                known_keys = set(resolve_slice_settings(args.material)["process"])
+                resolved = resolve_slice_settings(args.material)
+                known_keys = set(resolved["process"])
                 unknown_keys = sorted(k for k in process_overrides if k not in known_keys)
-                if unknown_keys:
+                if not resolved.get("process_profile_available", bool(known_keys)):
+                    print("warning: cannot validate process overrides without a resolved Bambu process profile; applied anyway.", file=sys.stderr)
+                elif unknown_keys:
                     print(
                         f"warning: unknown process setting key(s) applied anyway: {', '.join(unknown_keys)}",
                         file=sys.stderr,
@@ -2291,7 +2294,7 @@ def _physical_slice(
             print(f"slice result: {payload['slice_result_path']}")
         if payload.get("handoff_markdown_path"):
             print(f"print handoff: {payload['handoff_markdown_path']}")
-    return 0
+    return 0 if payload["slice_status"] == "succeeded" else 2
 
 
 def _readiness(
@@ -2574,6 +2577,9 @@ def _media_meshgen_configure(
     print(f"media meshgen command: {command}")
     if params_json:
         print("media meshgen params: configured")
+    print("Review the saved command and params before enabling execution.")
+    print(f"Then set PRINTPIPE_CONFIG_PATH to {written.resolve()} for subsequent commands,")
+    print("or set PRINTPIPE_TRUST_PROJECT_MEDIA_COMMAND=1 in this reviewed workspace.")
     print("follow-up: printpipe doctor")
     return 0
 

@@ -272,9 +272,9 @@ Observed:
 - `status=ok`
 - Windows runtime check: `win32`
 - generated fixture:
-  `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-zipapp\package_smoke_tiny_tetrahedron.stl`
+  `C:\Users\sample_user\AppData\Local\Temp\printpipe-zipapp\package_smoke_tiny_tetrahedron.stl`
 - run root:
-  `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-zipapp\runs\20260528-063417-package-smoke-tiny-tetrahedron`
+  `C:\Users\sample_user\AppData\Local\Temp\printpipe-zipapp\runs\20260528-063417-package-smoke-tiny-tetrahedron`
 - bundle:
   `60_bundle\existing_stl_package_smoke_tiny_tetrahedron.3mf`
 
@@ -348,14 +348,14 @@ ProgIDs, and opens files by running `printpipe.cmd run "%1"` into
 passed. The uninstaller only removes associations currently owned by the
 matching PrintPipe ProgID.
 
-Observed on `desktop-zt`:
+Observed on `windows-pc`:
 
 - `printpipe.cmd --version` returned `printpipe 0.1.0`
 - `printpipe.ps1 --version` returned `printpipe 0.1.0`
 - `printpipe.cmd package-smoke --platform windows ... --json` returned
   `status=ok`
 - `install-start-menu.ps1` created
-  `C:\Users\zohar_4ta16fp\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`
+  `C:\Users\sample_user\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`
 - `uninstall-start-menu.ps1` removed the shortcut; verification reported
   `SHORTCUT_EXISTS_AFTER_UNINSTALL=false`
 - `install-file-associations.ps1 -Extensions .printpipetest -ProgIdPrefix PrintPipeSmoke`
@@ -363,7 +363,7 @@ Observed on `desktop-zt`:
 - `uninstall-file-associations.ps1 -Extensions .printpipetest -ProgIdPrefix PrintPipeSmoke`
   removed the throwaway association
 - run root:
-  `C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-portable\runs\20260528-071414-package-smoke-tiny-tetrahedron`
+  `C:\Users\sample_user\AppData\Local\Temp\printpipe-windows-portable\runs\20260528-071414-package-smoke-tiny-tetrahedron`
 - slice gate remains `manual_required` until Bambu Studio exists on the Windows
   target
 
@@ -398,7 +398,7 @@ What this proves:
 - The standalone executable can run the package-smoke pipeline and produce
   reports plus a Bambu `.3mf`.
 
-Observed live on `desktop-zt`:
+Observed live on `windows-pc`:
 
 - `bundles_python_runtime=true`
 - `bundles_bambu_studio=false`
@@ -407,11 +407,11 @@ Observed live on `desktop-zt`:
 - `PRINTPIPE_APP_DRY_RUN=1 PrintPipe.exe` printed the local web UI command for
   `http://127.0.0.1:8765/`
 - `install-start-menu.ps1` created
-  `C:\Users\zohar_4ta16fp\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe.lnk`
+  `C:\Users\sample_user\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe.lnk`
 - `uninstall-start-menu.ps1` removed that shortcut
 - `install-file-associations.ps1 -Extensions .printpipestandtest -ProgIdPrefix PrintPipeStandaloneSmoke -Force`
   created a throwaway HKCU association whose command was
-  `"C:\Users\zohar_4ta16fp\AppData\Local\Temp\printpipe-windows-standalone-live\extract\PrintPipe\PrintPipe.exe" "%1"`
+  `"C:\Users\sample_user\AppData\Local\Temp\printpipe-windows-standalone-live\extract\PrintPipe\PrintPipe.exe" "%1"`
 - `uninstall-file-associations.ps1 -Extensions .printpipestandtest -ProgIdPrefix PrintPipeStandaloneSmoke`
   removed the throwaway association
 - `PrintPipe.exe package-smoke --platform windows ... --json` returned
@@ -457,14 +457,14 @@ printpipe build-release \
 ```
 
 This is command plumbing, not proof that the Windows installer has been built or
-signed on `desktop-zt`. Copying `PrintPipeSetup.exe` into a release folder keeps
+signed on `windows-pc`. Copying `PrintPipeSetup.exe` into a release folder keeps
 the manifest unsigned by default; the Windows readiness gate still requires an
 installed installer compiler, `signtool`, a code-signing certificate, and
 successful Authenticode verification.
 
 ## Windows Bambu CLI Boundary
 
-Wave 45 checked `desktop-zt` for a callable Bambu Studio executable after the
+Wave 45 checked `windows-pc` for a callable Bambu Studio executable after the
 zipapp smoke passed. No executable was found in the common Program Files or
 LocalAppData locations, and a broader search for `BambuStudio.exe` returned no
 matches.

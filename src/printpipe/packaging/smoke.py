@@ -262,6 +262,7 @@ def run_macos_package_smoke(
             ),
             _reports_check(result.layout.reports_dir),
             _bundle_check(result.layout.bundle_dir),
+            _web_assets_check(),
             SmokeCheck(
                 id="slice_gate",
                 label="Slice gate",
@@ -371,6 +372,7 @@ def run_windows_package_smoke(
             ),
             _reports_check(result.layout.reports_dir),
             _bundle_check(result.layout.bundle_dir),
+            _web_assets_check(),
             SmokeCheck(
                 id="slice_gate",
                 label="Slice gate",
@@ -487,3 +489,14 @@ __all__ = [
     "run_macos_package_smoke",
     "run_windows_package_smoke",
 ]
+
+
+def _web_assets_check() -> SmokeCheck:
+    from printpipe.web import PrintPipeWebApp
+
+    app = PrintPipeWebApp()
+    statuses = {name: app.handle(f"/static/{name}").status
+                for name in ("viewer.js", "status.js", "settings.css")}
+    return SmokeCheck(id="web_assets", label="Packaged web assets",
+                      status="ok" if all(code == 200 for code in statuses.values()) else "failed",
+                      details=statuses)

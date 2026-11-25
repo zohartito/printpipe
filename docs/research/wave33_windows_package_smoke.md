@@ -5,7 +5,7 @@ signed Windows installer, so original roadmap item 122 remains partial.
 
 ## How It Was Run
 
-The Windows machine `desktop-zt` was reachable over SSH. GitHub authentication
+The Windows machine `windows-pc` was reachable over SSH. GitHub authentication
 was not configured there, so the current committed source was exported from the
 Mac checkout with `git archive`, copied to the Windows temp directory, and run
 with `PYTHONPATH=src` through the same `printpipe` CLI code path.
@@ -40,8 +40,8 @@ raise SystemExit(
 {
   "platform": "windows",
   "status": "ok",
-  "run_root": "C:\\Users\\zohar_4ta16fp\\AppData\\Local\\Temp\\printpipe-head\\runs\\package-smoke\\windows\\20260528-051032-package-smoke-tiny-tetrahedron",
-  "runs_dir": "C:\\Users\\zohar_4ta16fp\\AppData\\Local\\Temp\\printpipe-head\\runs\\package-smoke\\windows"
+  "run_root": "C:\\Users\\sample_user\\AppData\\Local\\Temp\\printpipe-head\\runs\\package-smoke\\windows\\20260528-051032-package-smoke-tiny-tetrahedron",
+  "runs_dir": "C:\\Users\\sample_user\\AppData\\Local\\Temp\\printpipe-head\\runs\\package-smoke\\windows"
 }
 ```
 

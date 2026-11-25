@@ -31,7 +31,7 @@ def render_run_detail_page(
             '  <link rel="stylesheet" href="/static/viewer.css">',
             '  <link rel="stylesheet" href="/static/status.css">',
             '  <script type="importmap">',
-            '  {"imports": {"three": "https://esm.sh/three@0.160.0", "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"}}',
+            '  {"imports": {"three": "/static/vendor/three/build/three.module.js", "three/addons/": "/static/vendor/three/examples/jsm/"}}',
             "  </script>",
             "</head>",
             "<body>",

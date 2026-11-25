@@ -27,10 +27,10 @@ the portable ZIP.
 
 ## Live Windows Smoke
 
-The scripts were run on `desktop-zt` from an expanded portable ZIP:
+The scripts were run on `windows-pc` from an expanded portable ZIP:
 
 - `install-start-menu.ps1` printed the created shortcut path:
-  `C:\Users\zohar_4ta16fp\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`
+  `C:\Users\sample_user\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\PrintPipe\PrintPipe CLI.lnk`
 - A Python path check confirmed the `.lnk` existed after install.
 - `uninstall-start-menu.ps1` removed the shortcut.
 - A second Python path check reported `SHORTCUT_EXISTS_AFTER_UNINSTALL=false`.

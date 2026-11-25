@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
+import pytest
 
 from printpipe import mcp_server
 from printpipe.pipeline import resolve_slice_settings
 from printpipe.slice_intents import INTENTS, _resolve_value, list_intents, resolve_intents
+
+
+@pytest.fixture(autouse=True)
+def committed_profile_keyspace(monkeypatch):
+    root = Path(__file__).parent / "fixtures/bambu/profiles/ci-root"
+    monkeypatch.setenv("PRINTPIPE_BAMBU_PROFILE_ROOTS", str(root.resolve()))
 
 
 def _first(value):

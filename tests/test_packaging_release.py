@@ -8,6 +8,8 @@ import sys
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from printpipe.cli import main
 
 
@@ -57,7 +59,7 @@ def _write_fake_release(tmp_path: Path) -> Path:
 
 def test_build_release_bundle_writes_manifest_with_checksums(tmp_path: Path) -> None:
     if shutil.which("hdiutil") is None:
-        return
+        pytest.skip("native macOS hdiutil is unavailable")
 
     from printpipe.packaging.release import build_release_bundle
 
@@ -100,7 +102,7 @@ def test_build_release_bundle_can_include_macos_standalone_runtime_zip(
     monkeypatch,
 ) -> None:
     if shutil.which("hdiutil") is None:
-        return
+        pytest.skip("native macOS hdiutil is unavailable")
 
     import printpipe.packaging.release as release
 
@@ -231,7 +233,7 @@ def test_build_release_bundle_can_include_prebuilt_windows_standalone_zip(
 
 def test_cli_build_release_json_reports_manifest(tmp_path: Path, capsys) -> None:
     if shutil.which("hdiutil") is None:
-        return
+        pytest.skip("native macOS hdiutil is unavailable")
 
     output_dir = tmp_path / "dist" / "release"
 
